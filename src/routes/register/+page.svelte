@@ -1,6 +1,6 @@
 <h1>Register your Domain</h1>
 
-<form>
+<form action="/register/verify">
   <label>Your Domain</label>
   <input type="url" name="domain">
 
