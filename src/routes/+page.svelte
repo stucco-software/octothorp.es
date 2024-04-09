@@ -6,7 +6,7 @@
 
 <ol>
   <li>
-    <a href="/register">Register your domain</a> with the Octorthorpes community.
+    <a href="/register">Register your domain</a> with the Octothorpes community.
   </li>
   <li>
     Add the `TXT` record to your DNS to verify that it's _your_ domain.
@@ -15,7 +15,7 @@
     <a href="/domains">Check back</a> to see when your domain is approved.
   </li>
   <li>
-    Add a link on your website to an <a href="/#octothorpe">#octothorpe</a>.
+    Add a link on your website to an <a href="/~/octothorpe">#octothorpe</a>.
   </li>
   <li>
     Follow that link to register it.
@@ -32,7 +32,7 @@
 <ul>
   <li>
     <b>
-      We will ban any domains with contnet that violates this policy.
+      We will ban any domains with content that violates this policy.
     </b>
   </li>
   <li>
@@ -46,7 +46,7 @@
     </b>
   </li>
   <li>
-    <b>We will automatically ban any domain that reuses a previously banend octorhorpe.</b>
+    <b>We will automatically ban any domain that reuses a previously banned octorhorpe.</b>
   </li>
 </ul>
 
