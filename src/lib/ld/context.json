@@ -1,0 +1,17 @@
+{
+  "@base": "https://vocab.octothorp.es",
+  "@vocab": "#",
+  "id": "@id",
+  "type": "@type",
+  "Origin": "Origin",
+  "Octothorpe": "Octothorpe",
+  "verified": "verified",
+  "challenge": "challenge",
+  "octothorpes": {
+    "@id": "octothorpes",
+    "@type": "@id"
+  },
+  "octothorpedBy": {
+    "@reverse": "octothorpes"
+  }
+}
