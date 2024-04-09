@@ -16,7 +16,7 @@
   </li>
   <li>
     Add a link on your website to an #octothorpe:
-    <code>&lt;a href="http://octothorp.es/~/someThorpe?/=page/path"&gt;#someThorpe&lt;/a&gt;</code>
+    <code>&lt;a href="https://octothorp.es/~/someThorpe?/=page/path"&gt;#someThorpe&lt;/a&gt;</code>
   </li>
   <li>
     Follow that link to register it.
