@@ -53,8 +53,10 @@ export async function load(req) {
         // does this thorpe exist at the origin?
         const r = await fetch(`${origin}${path}`)
         const subject = await r.text()
+        console.log(subject)
+        console.log(`${instance}~/${thorpe}`)
         const trustedThorpe = subject.includes(`${instance}~/${thorpe}`)
-
+        console.log(trustedThorpe)
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
           // add the new thorpe
