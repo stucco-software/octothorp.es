@@ -7,25 +7,28 @@ export async function load(req) {
   const origin = req.request.headers.get('referer')
   const thorpe = req.params.thorpe
 
-  // if the origin is registered…
-  const verifiedOrigin = await queryBoolean(`
-    ask {
-      <${origin}> octo:verified "true" .
-    }
-  `)
+  // There theres a path and origin from this request…
+  if (path && origin) {
+    // if the origin is registered…
+    const verifiedOrigin = await queryBoolean(`
+      ask {
+        <${origin}> octo:verified "true" .
+      }
+    `)
 
-  // does this thorpe exist at the origin?
-  const r = await fetch(`${origin}${path}`)
-  const subject = await r.text()
+    // does this thorpe exist at the origin?
+    const r = await fetch(`${origin}${path}`)
+    const subject = await r.text()
 
-  // if the origin is registered…
-  const thorpeExists = await queryBoolean(`
-    ask {
-      <${origin}${path}> octo:octothorpes <${instance}~/${thorpe}> .
-    }
-  `)
+    // if the origin is registered…
+    const thorpeExists = await queryBoolean(`
+      ask {
+        <${origin}${path}> octo:octothorpes <${instance}~/${thorpe}> .
+      }
+    `)
 
-  // add the new thorpe
+    // add the new thorpe
+  }
 
   // get all the relevant thorpes
   const sr = await queryArray(`
