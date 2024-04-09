@@ -61,19 +61,11 @@ export async function load(req) {
           console.log('this thorpe is on the page for real')
           // add the new thorpe
           const result = await insert(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
-
-          const oldThorpe = await queryBoolean(`
-            ask {
-              ?d octo:octothorpes <${instance}~/${thorpe}> .
-            }
-          `)
-          if (!oldThorpe) {
-            console.log('this is the first time this thorpe has been thorped')
-            alertAdmin({
-              source: `${origin}${path}`,
-              octothorpe: `${instance}~/${thorpe}`
-            })
-          }
+          let emailed =  await alertAdmin({
+            source: `${origin}${path}`,
+            octothorpe: `${instance}~/${thorpe}`
+          })
+          console.log(`did we email the admin?`, emailed)
         }
       }
     }
