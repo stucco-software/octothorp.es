@@ -1,5 +1,25 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
+import { send } from '$lib/mail/send.js'
+
+const alertAdmin = async ({source, octothorpe}) => {
+  let success
+  try {
+    let success = await send({
+      to: 'admin@octothorp.es',
+      subject: 'New Octothorpe',
+      html: `
+        <p>
+          <b>${source}</b> created a new octothorpe <b>${octothorpe}</b>.
+        </p>
+      `
+    })
+  } catch (e) {
+    console.log(e)
+    success = false
+  }
+  return success
+}
 
 export async function load(req) {
 
@@ -33,8 +53,19 @@ export async function load(req) {
 
         if (trustedThorpe) {
           // add the new thorpe
-          console.log('add this thorpe to the server plz')
           const result = await insert(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
+
+          const oldThorpe = await queryBoolean(`
+            ask {
+              ?d octo:octothorpes <${instance}~/${thorpe}> .
+            }
+          `)
+          if (!oldThorpe) {
+            alertAdmin({
+              source: `${origin}${path}`,
+              octothorpe: `${instance}~/${thorpe}`
+            })
+          }
         }
       }
     }
