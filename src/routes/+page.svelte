@@ -15,7 +15,8 @@
     <a href="/domains">Check back</a> to see when your domain is approved.
   </li>
   <li>
-    Add a link on your website to an <a href="/~/octothorpe">#octothorpe</a>.
+    Add a link on your website to an #octothorpe:
+    <code>&lt;a href="http://octothorp.es/~/someThorpe?/=page/path"&gt;#someThorpe&lt;/a&gt;</code>
   </li>
   <li>
     Follow that link to register it.
