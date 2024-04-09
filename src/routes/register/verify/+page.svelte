@@ -14,6 +14,6 @@
 
 <pre>
   <code>
-TXT _#-challenge {challenge}
+TXT {challenge}
   </code>
 </pre>

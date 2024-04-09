@@ -27,9 +27,11 @@ export async function load(req) {
   const origin = req.request.headers.get('referer')
   const thorpe = req.params.thorpe
 
+  console.log('thorpe page', path, origin)
   // There theres a path and origin from this request…
   if (path && origin) {
-
+    console.log('path and origin for:')
+    console.log(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
     // doese this exist on the server allready?
     const thorpeExists = await queryBoolean(`
       ask {
@@ -38,6 +40,7 @@ export async function load(req) {
     `)
 
     if (!thorpeExists) {
+      console.log('this is a new thorpe')
       // if the origin is registered…
       const verifiedOrigin = await queryBoolean(`
         ask {
@@ -46,12 +49,14 @@ export async function load(req) {
       `)
 
       if (verifiedOrigin) {
+        console.log('this is a verified origin')
         // does this thorpe exist at the origin?
         const r = await fetch(`${origin}${path}`)
         const subject = await r.text()
         const trustedThorpe = subject.includes(`${instance}~/${thorpe}`)
 
         if (trustedThorpe) {
+          console.log('this thorpe is on the page for real')
           // add the new thorpe
           const result = await insert(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
 
@@ -61,6 +66,7 @@ export async function load(req) {
             }
           `)
           if (!oldThorpe) {
+            console.log('this is the first time this thorpe has been thorped')
             alertAdmin({
               source: `${origin}${path}`,
               octothorpe: `${instance}~/${thorpe}`
