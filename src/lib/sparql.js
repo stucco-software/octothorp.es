@@ -23,9 +23,24 @@ export const queryArray = async query => {
 }
 
 export const queryBoolean = async query => {
-  console.log(`'??????`)
   let triples = await getTriples('application/sparql-results+json')(query)
   let json = await triples.json()
-  console.log(json)
   return json.boolean
 }
+
+export const insert = async nquads => await fetch(`${sparql_endpoint}/update`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + btoa(sparql_user + ":" + sparql_password),
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      'update': `${prefixes}
+        insert data {
+${nquads}
+      }`
+    })
+  }).catch((error) => {
+    console.error('Error:', error);
+  }
+)
