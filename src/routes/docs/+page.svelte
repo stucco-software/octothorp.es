@@ -17,7 +17,7 @@
   <section id="what" class="grid">
     <h2>What Is This?</h2>
 
-    <p>Octothorpes are hashtags for websites — creating simple, meaningful connections across cozyweb spaces. Octothorpes are way of extending an old-school webring into RSS feeds, and discovering stuff you can care about.</p>
+    <p>Octothorpes are hashtags for websites — creating simple, meaningful connections across cozyweb spaces. Octothorpes are way of extending an old-school webrings into RSS feeds, and discovering stuff you can care about.</p>
 
     <p>
       Each Octorhorpe surfaces it's own RSS feed and JSON API endpoint. Discover new things and watch ideas grow.

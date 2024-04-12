@@ -16,6 +16,10 @@
       </a>
     {/each}
   </main>
+
+  <section>
+    <p><a href="/docs">What is this?</a></p>
+  </section>
 </div>
 
 
@@ -49,5 +53,8 @@
     grid-auto-flow: column;
     font-size: var(--txt-1);
     margin-block-end: 12rem;
+  }
+  section p {
+    text-align: center;
   }
 </style>
