@@ -14,4 +14,30 @@
       </li>
     {/each}
   </ul>
+
+
+  <p>
+    Follow <code>#{data.thorpe}</code> on <a href="/~/{data.thorpe}/rss">RSS</a> or use the
+    <details>
+      <summary>
+        <code>JSON API</code>
+      </summary>
+      <pre><code>
+curl -X GET \
+  -H "Content-type: application/json" \
+  -H "Accept: application/json" \
+  "https://octothorp.es/~/{data.thorpe}"
+      </code></pre>
+  </details>
+  </p>
+
 </main>
+
+<style type="text/css">
+  ul {
+    margin-block: var(--lead-4);
+  }
+  details {
+    display: inline;
+  }
+</style>

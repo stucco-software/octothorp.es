@@ -47,6 +47,7 @@ h5 { font-size: var(--txt-0); }
 }
 
 
+a,
 a:visited {
   color: var(--yellow);
 }
