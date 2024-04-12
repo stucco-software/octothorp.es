@@ -1,0 +1,53 @@
+:root {
+  /* ------ */
+  /* Colors */
+
+  /* Grayscale */
+  --white: #fbfbfb;
+  --light-gray: #f0f0f0;
+  --gray: #dcdcdc;
+  --dark-gray: #b0b0b0;
+  --black: #2e2e2e;
+
+  /* Brand */
+  --pale-green: #EBF5EE;
+  --yellow: #FFE056;
+  --purple: #BB76CF;
+  --brown: #6D4E62;
+  --dark-blue: #011C27;
+
+  /* Assignment */
+  --bg-color: var(--dark-blue);
+  --txt-color: var(--purple);
+
+  /* Type */
+  /* Stack */
+  --serif-stack:  "Titan One", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
+  --sans-stack:  "Prompt", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
+  --mono-stack: 'Plex Mono', monspsace;
+
+  /* Scale */
+  --txt--2: clamp(0.6331rem, 0.6141rem + 0.0949vi, 0.6877rem);
+  --txt--1: clamp(0.844rem, 0.7993rem + 0.2234vi, 0.9724rem);
+  --txt-0: clamp(1.125rem, 1.038rem + 0.4348vi, 1.375rem);
+  --txt-1: clamp(1.4996rem, 1.345rem + 0.7733vi, 1.9443rem);
+  --txt-2: clamp(1.999rem, 1.7381rem + 1.3046vi, 2.7492rem);
+  --txt-3: clamp(2.6647rem, 2.2394rem + 2.1264vi, 3.8873rem);
+  --txt-4: clamp(3.552rem, 2.8756rem + 3.382vi, 5.4967rem);
+
+  /* Rhythym */
+  --lead-quarter: clamp(0.25rem, 0.2283rem + 0.1087vi, 0.3125rem);
+  --lead-half: clamp(0.5rem, 0.4565rem + 0.2174vi, 0.625rem);
+  --lead-three-fourth: clamp(0.75rem, 0.6848rem + 0.3261vi, 0.9375rem);
+  --lead-1: clamp(1rem, 0.913rem + 0.4348vi, 1.25rem);
+  --lead-1-half: clamp(1.5rem, 1.3696rem + 0.6522vi, 1.875rem);
+  --lead-2: clamp(2rem, 1.8261rem + 0.8696vi, 2.5rem);
+  --lead-3: clamp(3rem, 2.7391rem + 1.3043vi, 3.75rem);
+  --lead-4: clamp(4rem, 3.6522rem + 1.7391vi, 5rem);
+  --lead-6: clamp(6rem, 5.4783rem + 2.6087vi, 7.5rem);
+
+  /* Grid */
+  --grid-max-width: 64rem;
+  --grid-gutter: var(--space-s-l, clamp(1rem, 0.4783rem + 2.6087vw, 2.5rem));
+  --grid-columns: 12;
+}

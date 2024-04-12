@@ -60,7 +60,10 @@ export async function load(req) {
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
           // add the new thorpe
-          const result = await insert(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
+          const result = await insert(`
+            <${origin}${path}> octo:octothorpes <${instance}~/${thorpe}> .
+            <${origin}${path}> octo:createdThorpe "${new Date().getTime()}" .
+          `)
           let emailed =  await alertAdmin({
             source: `${origin}${path}`,
             octothorpe: `${instance}~/${thorpe}`
