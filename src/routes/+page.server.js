@@ -10,7 +10,7 @@ export async function load(req) {
   `)
   const thorpes = sr.results.bindings
     .map(b => b.t.value)
-    .filter(t => !t.includes(instance))
+    .filter(t => t.includes(instance))
   return {
     thorpes: thorpes
   }
