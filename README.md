@@ -30,3 +30,5 @@ select * {
 ```
 ❯ dig -t txt example.com +short
 ```
+
+
