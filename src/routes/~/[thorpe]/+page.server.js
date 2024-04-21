@@ -65,7 +65,7 @@ export async function load(req) {
           console.log(node.textContent)
           console.log(thorpe)
           console.log('?')
-          console.log(node.textContent === thorpe)
+          console.log(node.textContent == thorpe)
         })
         console.log(thorpeNodes.find(n => n.textContent === thorpe))
         const trustedThorpe = thorpeNodes.find(n => n.textContent === thorpe)
