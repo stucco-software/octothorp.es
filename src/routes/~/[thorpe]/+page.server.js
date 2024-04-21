@@ -55,6 +55,7 @@ export async function load(req) {
         const r = await fetch(`${origin}${path}`)
         const subject = await r.text()
         console.log(subject)
+        console.log(subject.length)
         console.log(`${instance}~/${thorpe}`)
         const trustedThorpe = subject.includes(`${instance}~/${thorpe}`)
         console.log(trustedThorpe)
