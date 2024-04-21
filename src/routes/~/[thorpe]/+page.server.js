@@ -55,19 +55,17 @@ export async function load(req) {
         // does this thorpe exist at the origin?
         const r = await fetch(`${origin}${path}`)
         const src = await r.text()
-        console.log(src)
         let html = parser
           .parseFromString(src, "text/html")
-
         let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
-        console.log(thorpeNodes)
         thorpeNodes.forEach(node => {
-          console.log(node.textContent)
-          console.log(thorpe)
+          let inner = node.textContent
+          console.log(typeof inner, inner, inner == thorpe)
+          console.log(typeof thorpe, thorpe, thorpe == inner)
+          console.log(typeof thorpe.toLowerCase(), thorpe.toLowerCase(), thorpe.toLowerCase() == inner.toLowerCase())
           console.log('?')
           console.log(node.textContent == thorpe)
         })
-        console.log(thorpeNodes.find(n => n.textContent === thorpe))
         const trustedThorpe = thorpeNodes.find(n => n.textContent === thorpe)
         console.log(trustedThorpe)
         if (trustedThorpe) {
