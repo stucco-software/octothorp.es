@@ -1,6 +1,10 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 import { send } from '$lib/mail/send.js'
+import { JSDOM } from 'jsdom'
+
+const DOMParser = new JSDOM().window.DOMParser
+const parser = new DOMParser()
 
 const alertAdmin = async ({source, octothorpe}) => {
   let success
@@ -27,8 +31,6 @@ export async function load(req) {
   const origin = req.request.headers.get('referer')
   const thorpe = req.params.thorpe
 
-  console.log(req.request.headers)
-  console.log('thorpe page', path, origin)
   // There theres a path and origin from this request…
   if (path && origin) {
     console.log('path and origin for:')
@@ -53,13 +55,14 @@ export async function load(req) {
         console.log('this is a verified origin')
         // does this thorpe exist at the origin?
         const r = await fetch(`${origin}${path}`)
-        const subject = await r.text()
-        const check = `${instance}~/${thorpe}`
-        console.log(subject.toLowerCase())
-        console.log(subject.length)
-        console.log(check.toLowerCase())
-        const trustedThorpe = subject.toLowerCase().includes(check.toLowerCase())
-        console.log(trustedThorpe)
+        const src = await r.text()
+        let html = parser
+          .parseFromString(src, "text/html")
+
+        let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
+
+        const trustedThorpe = thorpeNodes.find(n => n.innerText === thorpe)
+
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
           // add the new thorpe

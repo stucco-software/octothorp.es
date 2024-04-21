@@ -1,6 +1,5 @@
 <script type="text/javascript">
   export let data
-  console.log(data.thorpes)
 </script>
 
 <div class="container">
@@ -19,6 +18,11 @@
 
   <section>
     <p><a href="/docs">What is this?</a></p>
+    <p>
+      <octo-thorpe>
+        cozyWeb
+      </octo-thorpe>
+    </p>
   </section>
 </div>
 
