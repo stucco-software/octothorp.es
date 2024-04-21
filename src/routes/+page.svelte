@@ -18,6 +18,11 @@
 
   <section>
     <p><a href="/docs">What is this?</a></p>
+    <p>
+      <octo-thorpe>
+        cozyWeb
+      </octo-thorpe>
+    </p>
   </section>
 </div>
 

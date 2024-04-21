@@ -5,14 +5,15 @@ class OctoThorpe extends HTMLElement {
 
   async connectedCallback() {
     const parser = new DOMParser()
-
+    let s = window.location.pathname
+    let p = "https://octothorp.es/vocabulary#octothorpes"
     let o = this.innerText
     let href = "htts://octothorp.es"
     let template = `
 <a
-  rel="https://octothorp.es/vocabulary#octothorpes"
+  rel="${p}"
   referrerpolicy="origin"
-  href="${href}/~/${o}">
+  href="${href}/~/${o}?/=${s}">
   #${o}
 </a>
     `
