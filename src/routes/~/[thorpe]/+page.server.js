@@ -55,9 +55,9 @@ export async function load(req) {
         const r = await fetch(`${origin}${path}`)
         const subject = await r.text()
         const check = `${instance}~/${thorpe}`
-        console.log(subject)
+        console.log(subject.toLowerCase())
         console.log(subject.length)
-        console.log(`${instance}~/${thorpe}`)
+        console.log(check.toLowerCase())
         const trustedThorpe = subject.toLowerCase().includes(check.toLowerCase())
         console.log(trustedThorpe)
         if (trustedThorpe) {
