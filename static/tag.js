@@ -10,7 +10,7 @@ class OctoThorpe extends HTMLElement {
     let href = "htts://octothorp.es"
     let template = `
 <a
-  rel="htts://octothorp.es/vocabulary#octothorpes"
+  rel="https://octothorp.es/vocabulary#octothorpes"
   referrerpolicy="origin"
   href="${href}/~/${o}">
   #${o}
