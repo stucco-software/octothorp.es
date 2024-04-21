@@ -27,6 +27,7 @@ export async function load(req) {
   const origin = req.request.headers.get('referer')
   const thorpe = req.params.thorpe
 
+  console.log(req.request.headers)
   console.log('thorpe page', path, origin)
   // There theres a path and origin from this request…
   if (path && origin) {
