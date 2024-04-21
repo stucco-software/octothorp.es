@@ -60,8 +60,8 @@ export async function load(req) {
         let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
         thorpeNodes.forEach(node => {
           let inner = node.textContent
-          console.log(typeof inner, inner, inner == thorpe)
-          console.log(typeof thorpe, thorpe, thorpe == inner)
+          console.log(typeof inner, inner, thorpe, inner == thorpe)
+          console.log(typeof thorpe, thorpe, inner, thorpe == inner)
           console.log(typeof thorpe.toLowerCase(), thorpe.toLowerCase(), thorpe.toLowerCase() == inner.toLowerCase())
           console.log('?')
           console.log(node.textContent == thorpe)
