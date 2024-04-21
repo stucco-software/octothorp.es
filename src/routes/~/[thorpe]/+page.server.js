@@ -68,7 +68,7 @@ export async function load(req) {
         })
         console.log(thorpeNodes.find(n => n.textContent === thorpe))
         const trustedThorpe = thorpeNodes.find(n => n.textContent === thorpe)
-        const trustedThorpe
+        console.log(trustedThorpe)
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
           // add the new thorpe
