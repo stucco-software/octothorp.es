@@ -58,11 +58,7 @@ export async function load(req) {
         let html = parser
           .parseFromString(src, "text/html")
         let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
-        thorpeNodes.forEach(node => {
-          let inner = node.innerHTML
-          console.log(typeof inner, encodeURIComponent(inner), encodeURIComponent(thorpe), inner == thorpe)
-        })
-        const trustedThorpe = thorpeNodes.find(n => n.textContent === thorpe)
+        const trustedThorpe = thorpeNodes.find(n => n.textContent.trim() === thorpe.trim())
         console.log(trustedThorpe)
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
