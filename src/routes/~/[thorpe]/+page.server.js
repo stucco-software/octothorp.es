@@ -63,6 +63,7 @@ export async function load(req) {
         console.log(thorpeNodes)
         thorpeNodes.forEach(node => {
           console.log(node.textContent)
+          console.log(thorpe)
           console.log('?')
           console.log(node.textContent === thorpe)
         })
