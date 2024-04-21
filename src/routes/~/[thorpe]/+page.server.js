@@ -62,13 +62,13 @@ export async function load(req) {
         let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
         console.log(thorpeNodes)
         thorpeNodes.forEach(node => {
-          console.log(node)
-          console.log(node.innerText)
-          console.log(node.innerHTML)
           console.log(node.textContent)
+          console.log('?')
+          console.log(node.textContent === thorpe)
         })
+        console.log(thorpeNodes.find(n => n.textContent === thorpe))
         const trustedThorpe = thorpeNodes.find(n => n.textContent === thorpe)
-
+        const trustedThorpe
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
           // add the new thorpe

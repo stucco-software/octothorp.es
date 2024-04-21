@@ -11,7 +11,7 @@ class OctoThorpe extends HTMLElement {
       : path
     let p = "https://octothorp.es/vocabulary#octothorpes"
     let o = this.innerText
-    let href = "htts://octothorp.es"
+    let href = "https://octothorp.es"
     let template = `
 <a
   rel="${p}"
