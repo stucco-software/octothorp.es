@@ -5,7 +5,10 @@ class OctoThorpe extends HTMLElement {
 
   async connectedCallback() {
     const parser = new DOMParser()
-    let s = window.location.pathname
+    let path = window.location.pathname
+    let s = path.startsWith('/')
+      ? path.replace('/', '')
+      : path
     let p = "https://octothorp.es/vocabulary#octothorpes"
     let o = this.innerText
     let href = "htts://octothorp.es"
