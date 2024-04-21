@@ -54,10 +54,11 @@ export async function load(req) {
         // does this thorpe exist at the origin?
         const r = await fetch(`${origin}${path}`)
         const subject = await r.text()
+        const check = `${instance}~/${thorpe}`
         console.log(subject)
         console.log(subject.length)
         console.log(`${instance}~/${thorpe}`)
-        const trustedThorpe = subject.includes(`${instance}~/${thorpe}`)
+        const trustedThorpe = subject.toLowerCase().includes(check.toLowerCase())
         console.log(trustedThorpe)
         if (trustedThorpe) {
           console.log('this thorpe is on the page for real')
