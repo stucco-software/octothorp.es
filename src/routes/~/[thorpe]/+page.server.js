@@ -30,11 +30,10 @@ export async function load(req) {
   const path = req.url.searchParams.get('/')
   const origin = req.request.headers.get('referer')
   const thorpe = req.params.thorpe
-
+  console.log(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
   // There theres a path and origin from this request…
   if (path && origin) {
-    console.log('path and origin for:')
-    console.log(`<${origin}${path}> octo:octothorpes <${instance}~/${thorpe}>`)
+    console.log('path and origin')
     // doese this exist on the server allready?
     const thorpeExists = await queryBoolean(`
       ask {
