@@ -64,6 +64,8 @@ export async function load(req) {
         thorpeNodes.forEach(node => {
           console.log(node)
           console.log(node.innerText)
+          console.log(node.innerHTML)
+          console.log(node.textContent)
         })
         const trustedThorpe = thorpeNodes.find(n => n.innerText === thorpe)
 
