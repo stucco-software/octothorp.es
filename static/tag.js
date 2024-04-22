@@ -10,7 +10,7 @@ class OctoThorpe extends HTMLElement {
       ? path.replace('/', '')
       : path
     let p = "https://octothorp.es/vocabulary#octothorpes"
-    let o = this.innerText
+    let o = this.innerText.trim()
     let href = "https://octothorp.es"
     let template = `
 <a
