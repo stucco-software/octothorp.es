@@ -8,9 +8,9 @@ export async function load(req) {
      ?s octo:octothorpes ?t .
     }
   `)
-  const thorpes = sr.results.bindings
+  const thorpes = new Set(sr.results.bindings
     .map(b => b.t.value)
-    .filter(t => t.includes(instance))
+    .filter(t => t.includes(instance)))
   return {
     thorpes: thorpes
   }
