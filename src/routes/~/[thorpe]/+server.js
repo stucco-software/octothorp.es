@@ -17,8 +17,26 @@ export async function GET(req) {
   })
 }
 
-export async function POST(req) {
-  console.log('got a POST')
+const verifiedOrigin = async (s) => {} // Boolean
+const verifiedThorpe = async (o) => {} // Boolean
+const createOctothorpe = async ({s, p, o}) => {} // object or error
+
+const recordCreation = async () => {
+  // what … does this do really?
+  // "this object was created NOW"
+}
+const recordUsage = async () => {
+  // and this one?
+  // "this thorpe was added to NOW"
+}
+const emailAdministrator = async () => {} // object or error
+
+export async function POST({params, request}) {
+  const data = await request.formData()
+  let o = `/~/${params.thorpe}`
+  let p = data.get('p')
+  let s = data.get('s')
+  console.log(s, p, o)
   return json({
     okay: 200
   })
