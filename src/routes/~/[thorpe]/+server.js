@@ -16,3 +16,10 @@ export async function GET(req) {
     octothorpedBy: thorpes
   })
 }
+
+export async function POST(req) {
+  console.log('got a POST')
+  return json({
+    okay: 200
+  })
+}

@@ -11,12 +11,28 @@ class OctoThorpe extends HTMLElement {
       : path
     let p = "https://octothorp.es/vocabulary#octothorpes"
     let o = this.innerText.trim()
-    let href = "https://octothorp.es"
+    // let href = "https://octothorp.es"
+
+    let script = document.querySelector('script[data-register]')
+    let register = script
+      .dataset
+      .register
+      .replace(/\n/g, "")
+      .replace(/\t/g, "")
+      .replaceAll(" ", "")
+      .split(',')
+
+    let webhooks = register.map(href => `${href}/~/${o}?/=${s}`)
+    webhooks.map(webhook => fetch(webhook, {
+      method: "POST",
+      mode: "cors",
+      referrerPolicy: "origin"
+    }))
+
     let template = `
 <a
   rel="${p}"
-  referrerpolicy="origin"
-  href="${href}/~/${o}?/=${s}">
+  href="#">
   #${o}
 </a>
     `
