@@ -38,10 +38,7 @@
       </li>
       <li>
         Add a link on your website to an #octothorpe:
-        <code>&lt;a href="https://octothorp.es/~/someThorpe?/=page/path"&gt;#someThorpe&lt;/a&gt;</code>
-      </li>
-      <li>
-        Follow that link to register it.
+        <code>&lt;TKTK&gt;someThorpe&lt;TKTK&gt;</code>
       </li>
     </ol>
 
@@ -64,28 +61,9 @@
     <p>
       To contribute, all you have to do is add a link to the <a href="/~/octothorpes">#octothorpe</a> to your web page.
     </p>
-    <pre><code>&lt;a
-  href="https://www.octothorp.es/~/octothorpes?/=your-page"&gt;
-  #octothorpe
-&lt;/a&gt;</code></pre>
-    <p>
-      There are a couple important things happening with this link that make it work as an Octothorpe. Lets go over them quickly:
-    </p>
-    <p>
-      First thing is that the text of the link can be anything you want. In this exacle it's <code>#octothorpe</code>, but changing this doesn't change the function at all. You don't even nee the <code>#</code>, but it is fun.
-    </p>
-
-    <p>
-      The link to <code>https://www.octothorp.es/~</code> is how you register with <em>this</em> Octothoropes instance.
-    </p>
-
-    <p>
-      The <code>/octothorpes</code> part of the link is the octothorpe itself you want to create. You can create any octothorpe you want, but any new ones will be manually checked against our <a href="/terms">guidelines</a>.
-    </p>
-
-    <p>
-      To register the source of the Octothorpe, you need to add the <code>?/=your-page</code> bit, where <code>your-page</code> is the path to the specific page on your website. Our server can see the referring domain, but we can't see the exact originating URL. This lets is connect the two and create the URL to the page that created the link.
-    </p>
+    <pre><code>&lt;TKTK&gt;
+  octothorpe
+&lt;TKTK&gt;</code></pre>
 
     <aside>
       <p>
@@ -93,11 +71,6 @@
       </p>
     </aside>
   </section>
-
-  <h3>5. Follow The Link</h3>
-  <p>
-    Lastly, once the link is on your website click through to follow it. The first time someone clicks an Octothorpe link on your webpage it will be validated and created.
-  </p>
 
   <section class="grid" id="why">
     <h2>Why Tho</h2>
