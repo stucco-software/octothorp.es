@@ -8,7 +8,7 @@ class OctoThorpe extends HTMLElement {
 
     let s = window.location.href
     let p = "#:octothorpes"
-    let o = this.innerText.trim()
+    let o = this.getAttribute("href") || this.innerText.trim()
     // let href = "https://octothorp.es"
 
     let script = document.querySelector('script[data-register]')
