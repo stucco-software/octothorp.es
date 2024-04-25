@@ -24,7 +24,6 @@ class OctoThorpe extends HTMLElement {
       let formData = new FormData()
       formData.append('s', s)
       formData.append('p', p)
-      console.log(formData)
       fetch(`${webhook}/~/${o}`, {
         method: "POST",
         mode: "cors",
@@ -33,20 +32,36 @@ class OctoThorpe extends HTMLElement {
       })
     })
 
-    let links = []
-    webhooks.forEach(webhook => {
-      console.log('fetch', webhook)
-      fetch(`${webhook}/~/${o}`)
-        .then(r => r.json())
-        .then(data => {
-          console.log(data)
-        })
-    })
+    let responses = await Promise.allSettled(
+      webhooks.map(async webhook => await fetch(`${webhook}/~/${o}`))
+    )
+
+    let data = await Promise.allSettled(
+      responses
+        .filter(r => r.status === 'fulfilled')
+        .map(async r => r.value.json())
+    )
+
+    let links = data.map(d => d.value)
+    console.log(links)
+
+    const linkTemplate = (uri) => `<li>
+<a href="${uri}">
+  ${uri}
+</a>`
+
+    const serverTemplate = (data) => {
+      let url = new URL(data.uri)
+      let origin = url.origin
+      return `
+<p><b>${origin}</b></p>
+<ul>${data.octothorpedBy.map(linkTemplate)}</ul>`
+  }
 
     let template = `
 <details>
   <summary>#${o}</summary>
-  …
+  ${links.map(serverTemplate)}
 </details>
     `
     let html = parser
