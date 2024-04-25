@@ -20,7 +20,6 @@ class OctoThorpe extends HTMLElement {
       .replaceAll(" ", "")
       .split(',')
 
-
     webhooks.map(webhook => {
       let formData = new FormData()
       formData.append('s', s)
@@ -34,12 +33,21 @@ class OctoThorpe extends HTMLElement {
       })
     })
 
+    let links = []
+    webhooks.forEach(webhook => {
+      console.log('fetch', webhook)
+      fetch(webhook)
+        .then(r => r.json())
+        .then(data => {
+          console.log(data)
+        })
+    })
+
     let template = `
-<a
-  rel="${p}"
-  href="#">
-  #${o}
-</a>
+<details>
+  <summary>#${o}</summary>
+  …
+</details>
     `
     let html = parser
       .parseFromString(template, "text/html")
