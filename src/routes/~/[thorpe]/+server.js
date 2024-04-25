@@ -19,6 +19,12 @@ export async function GET(req) {
   return json({
     uri: `${instance}~/${thorpe}`,
     octothorpedBy: thorpes
+  },{
+    headers: {
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': '*',
+    }
   })
 }
 

@@ -36,7 +36,7 @@ class OctoThorpe extends HTMLElement {
     let links = []
     webhooks.forEach(webhook => {
       console.log('fetch', webhook)
-      fetch(webhook)
+      fetch(`${webhook}/~/${o}`)
         .then(r => r.json())
         .then(data => {
           console.log(data)
