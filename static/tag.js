@@ -61,8 +61,8 @@ class OctoThorpe extends HTMLElement {
   }
 
     let template = `
-<details>
-  <summary>#${label}</summary>
+<details class="octo-thorpe">
+  <summary>${label}</summary>
   ${links.map(serverTemplate)}
 </details>
     `
