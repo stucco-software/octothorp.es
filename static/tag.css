@@ -1,6 +1,9 @@
 .octo-thorpe {
   display: inline;
 }
+.octo-thorpe[open] {
+  display: block;
+}
 
 .octo-thorpe summary {
   list-style: none;
