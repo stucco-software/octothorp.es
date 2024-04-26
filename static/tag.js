@@ -44,6 +44,7 @@ class OctoThorpe extends HTMLElement {
     )
 
     let links = data.map(d => d.value)
+    console.log(links)
 
     const linkTemplate = (uri) => `<li>
 <a href="${uri}">
