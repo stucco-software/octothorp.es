@@ -26,8 +26,6 @@
   </section>
 </div>
 
-
-
 <style>
   header {
     margin-block: var(--lead-4);
@@ -54,9 +52,10 @@
     color: var(--brown);
   }
   main {
-    grid-auto-flow: column;
+    grid-auto-flow: row;
     font-size: var(--txt-1);
     margin-block-end: 12rem;
+    grid-template-columns: 1fr;
   }
   section p {
     text-align: center;
