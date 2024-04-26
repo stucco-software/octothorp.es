@@ -7,7 +7,7 @@ class OctoThorpe extends HTMLElement {
     const parser = new DOMParser()
 
     let s = window.location.href
-    let p = "#:octothorpes"
+    let p = "octo:octothorpes"
     let o = this.getAttribute("href") || this.innerText.trim()
     let label = this.innerText.trim()
     // let href = "https://octothorp.es"
