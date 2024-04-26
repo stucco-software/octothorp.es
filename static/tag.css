@@ -1,9 +1,6 @@
-/*.octo-thorpe::before {
-  content: "\0023";
-  font-weight: bold;
-  display: inline-block;
-  transform: rotate(30deg);
-}*/
+.octo-thorpe {
+  display: inline;
+}
 
 .octo-thorpe summary {
   list-style: none;
