@@ -41,13 +41,12 @@ const verifiedOrigin = async (s) => {
 const verifiedThorpe = async ({s, o}) => {
   const r = await fetch(s)
   const src = await r.text()
-
+  let target = decodeURIComponent(o.trim())
   let html = parser
     .parseFromString(src, "text/html")
 
   let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
-
-  const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === o.trim())
+  const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
   return foundThorpe
 } // Boolean
 
