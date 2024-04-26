@@ -17,7 +17,7 @@ export async function GET(req) {
   const thorpes = sr.results.bindings.map(b => b.s.value)
 
   return json({
-    uri: encodeURIComponent(`${instance}~/${thorpe}`),
+    uri: `${instance}~/${thorpe}`,
     octothorpedBy: thorpes
   },{
     headers: {
