@@ -8,9 +8,7 @@ class OctoThorpe extends HTMLElement {
 
     let s = window.location.href
     let p = "#:octothorpes"
-    console.log(this.getAttribute("href"), this.innerText.trim())
     let o = this.getAttribute("href") || this.innerText.trim()
-    console.log(o)
     let label = this.innerText.trim()
     // let href = "https://octothorp.es"
 
@@ -22,6 +20,7 @@ class OctoThorpe extends HTMLElement {
       .replace(/\t/g, "")
       .replaceAll(" ", "")
       .split(',')
+      .map(hook => hook.endsWith('/') ? hook.slice(0, -1) : hook)
 
     webhooks.map(webhook => {
       let formData = new FormData()
