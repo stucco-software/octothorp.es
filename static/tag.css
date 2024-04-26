@@ -20,3 +20,14 @@
 .octo-thorpe[open] summary::before {
   transform: rotate(0);
 }
+
+.octo-thorpe p {
+  padding: 0;
+  margin: 0;
+}
+
+.octo-thorpe ul {
+  padding: 0 0 1em 1em;
+  margin: 0;
+}
+
