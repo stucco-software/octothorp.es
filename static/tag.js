@@ -55,15 +55,15 @@ class OctoThorpe extends HTMLElement {
       let url = new URL(data.uri)
       let origin = url.origin
       let oTxt = decodeURIComponent(o)
-      return `
+      return `<section>
 <p><b>${origin}</b> ${label !== oTxt ? '#' + oTxt : ''}</p>
-<ul>${data.octothorpedBy.map(linkTemplate)}</ul>`
+<ul>${data.octothorpedBy.map(linkTemplate)}</ul></section>`
   }
 
     let template = `
 <details class="octo-thorpe">
   <summary>${label}</summary>
-  ${links.map(serverTemplate)}
+  <article>${links.map(serverTemplate)}</article>
 </details>
     `
     let html = parser
