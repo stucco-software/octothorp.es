@@ -8,9 +8,8 @@ class OctoThorpe extends HTMLElement {
 
     let s = window.location.href
     let p = "octo:octothorpes"
-    let o = this.getAttribute("href") || this.innerText.trim()
+    let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
     let label = this.innerText.trim()
-    // let href = "https://octothorp.es"
 
     let script = document.querySelector('script[data-register]')
     let webhooks = script
@@ -45,7 +44,6 @@ class OctoThorpe extends HTMLElement {
     )
 
     let links = data.map(d => d.value)
-    console.log(links)
 
     const linkTemplate = (uri) => `<li>
 <a href="${uri}">
@@ -55,8 +53,9 @@ class OctoThorpe extends HTMLElement {
     const serverTemplate = (data) => {
       let url = new URL(data.uri)
       let origin = url.origin
+      let oTxt = decodeURIComponent(o)
       return `
-<p><b>${origin}</b> ${label !== o ? '#' + o : ''}</p>
+<p><b>${origin}</b> ${label !== oTxt ? '#' + oTxt : ''}</p>
 <ul>${data.octothorpedBy.map(linkTemplate)}</ul>`
   }
 

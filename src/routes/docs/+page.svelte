@@ -11,6 +11,9 @@
       <li>
         <a href="#why">Why Tho</a>
       </li>
+      <li>
+        <a href="#prior-art">Prior Art</a>
+      </li>
     </ol>
   </section>
 
@@ -78,4 +81,12 @@
       Search is broken, social media sucks, and finding good stuff on the internet is hard now. Building new ways of connecting our websites to each other can start to work against the logic of the personal, social, always-on feed of constant updates. Octothorpes is a new way to tend the garden of the internet. It's a collective, meandering, slow river that you can watch roll by.
     </p>
   </section>
+
+  <section class="grid" id="prior-art">
+    <h2>Prior Art</h2>
+    <p>
+      Lots of things have informed the creation and application of Octothorpes, documented on <octo-thorpe href="https://www.mmmx.cloud/prior-art/">mmmx.cloud</octo-thorpe>.
+    </p>
+  </section>
+
 </main>
