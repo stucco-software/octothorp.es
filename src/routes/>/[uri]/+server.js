@@ -44,7 +44,8 @@ const verifiedThorpe = async ({s, o}) => {
   let html = parser
     .parseFromString(src, "text/html")
 
-  let thorpeNodes = [...html.querySelectorAll("[rel='octo:octothorpes']")]
+  let thorpeNodes = [...html.querySelectorAll("a[rel='octo:octothorpes']")]
+  console.log([...html.querySelectorAll('a')])
   console.log(thorpeNodes)
   const foundThorpe = thorpeNodes.find(n => n.getAttribute("href") === target)
   return foundThorpe
