@@ -71,18 +71,19 @@ const hydrate = async (o) => {
       .parseFromString(template, "text/html")
 
     let nodes = [...document.querySelectorAll(`[data-o="${o}"] article`)]
-    // nodes.forEach(node => node.replaceWith(html.body.firstChild))
+    nodes.forEach(node => node.replaceWith(html.body.firstChild))
     console.log(o, `stuff`, nodes)
 }
 
 class OctoThorpe extends HTMLElement {
   constructor() {
+    console.log('construct')
     super()
   }
 
   async connectedCallback() {
     let o = getO(this)
-    console.log('construct', o)
+    console.log('connected', o)
     if (!o) {
       console.log('nope!', o)
       return
@@ -101,6 +102,10 @@ class OctoThorpe extends HTMLElement {
     console.log('replaced')
     await hydrate(o)
     post(o)
+  }
+
+  async disconnectedCallback() {
+    console.log('disconnected')
   }
 }
 
