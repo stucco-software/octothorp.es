@@ -47,7 +47,7 @@ const verifiedThorpe = async ({s, o}) => {
   let thorpeNodes = [...html.querySelectorAll("a")]
   console.log(target)
   console.log(thorpeNodes.map(n => `${n.getAttribute("href")} rel: ${n.getAttribute('rel')}`))
-  const foundThorpe = thorpeNodes.find(n => n.getAttribute("href") === target && n.getAttribute('rel') === 'octo:octothorpes')
+  const foundThorpe = thorpeNodes.find(n => n.getAttribute("href").includes(target) && n.getAttribute('rel').includes('octo:octothorpes'))
   console.log(foundThorpe)
   return foundThorpe
 } // Boolean
