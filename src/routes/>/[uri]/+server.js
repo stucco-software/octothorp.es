@@ -8,16 +8,15 @@ const DOMParser = new JSDOM().window.DOMParser
 const parser = new DOMParser()
 
 export async function GET(req) {
-  const thorpe = req.params.thorpe
+  const uri = req.params.uri
   const sr = await queryArray(`
     SELECT ?s {
-     ?s octo:octothorpes <${instance}~/${thorpe}> .
+     ?s octo:octothorpes <${uri}> .
     }
   `)
   const thorpes = sr.results.bindings.map(b => b.s.value)
-
   return json({
-    uri: `${instance}~/${thorpe}`,
+    uri: `${uri}`,
     octothorpedBy: thorpes
   },{
     headers: {
@@ -45,15 +44,15 @@ const verifiedThorpe = async ({s, o}) => {
   let html = parser
     .parseFromString(src, "text/html")
 
-  let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
-  const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
+  let thorpeNodes = [...html.querySelectorAll("[rel='octo:octothorpes']")]
+  const foundThorpe = thorpeNodes.find(n => n.getAttribute("href") === target)
   return foundThorpe
 } // Boolean
 
 const extantTerm = async (o) => {
   return await queryBoolean(`
     ask {
-      ?s ?p <${instance}~/${o}> .
+      ?s ?p <${o}> .
     }
   `)
 }
@@ -61,35 +60,35 @@ const extantTerm = async (o) => {
 const extantThorpe = async ({s, p, o}) => {
   return await queryBoolean(`
     ask {
-      <${s}> ${p} <${instance}~/${o}> .
+      <${s}> ${p} <${o}> .
     }
   `)
 }
 
 const createOctothorpe = async ({s, p, o}) => {
   return await insert(`
-    <${s}> ${p} <${instance}~/${o}> .
+    <${s}> ${p} <${o}> .
   `)
 }
 
 const recordCreation = async (o) => {
   let now = Date.now()
   return await insert(`
-    <${instance}~/${o}> octo:created ${now} .
-    <${instance}~/${o}> rdf:type <octo:Term> .
+    <${o}> octo:created ${now} .
+    <${o}> rdf:type <octo:Page> .
   `)
 }
 
 const recordUsage = async ({s, o}) => {
   let now = Date.now()
   return await insert(`
-    <${instance}~/${o}> octo:used ${now} .
+    <${o}> octo:used ${now} .
   `)
 }
 
 export async function POST({params, request}) {
   const data = await request.formData()
-  let o = `${params.thorpe}`
+  let o = `${params.uri}`
   let p = data.get('p')
   let s = data.get('s')
 

@@ -85,7 +85,7 @@
   <section class="grid" id="prior-art">
     <h2>Prior Art</h2>
     <p>
-      Lots of things have informed the creation and application of Octothorpes, documented on <octo-thorpe href="https://www.mmmx.cloud/prior-art/">mmmx.cloud</octo-thorpe>.
+      Lots of things have informed the creation and application of Octothorpes, documented on <a rel="octo:octothorpes" href="https://www.mmmx.cloud/prior-art/">mmmx.cloud</a>.
     </p>
   </section>
 

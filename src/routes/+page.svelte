@@ -19,8 +19,8 @@
   <section>
     <p><a href="/docs">What is this?</a></p>
     <p>
-      <octo-thorpe href="cozyWeb">
-        Cozy Label
+      <octo-thorpe>
+        cozyWeb
       </octo-thorpe>
     </p>
   </section>
