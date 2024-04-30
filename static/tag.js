@@ -82,6 +82,10 @@ class OctoThorpe extends HTMLElement {
 
   async connectedCallback() {
     let o = getO(this)
+    if (!o) {
+      console.log('nope!', o)
+      return
+    }
     console.log('construct', o)
     let label = this.innerText.trim()
     console.log(label)
