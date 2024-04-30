@@ -45,9 +45,10 @@ const verifiedThorpe = async ({s, o}) => {
     .parseFromString(src, "text/html")
 
   let thorpeNodes = [...html.querySelectorAll("a")]
-  console.log(thorpeNodes)
   console.log(target)
+  console.log(thorpeNodes.map(n => `${n.getAttribute("href")} rel: ${n.getAttribute('rel')}`))
   const foundThorpe = thorpeNodes.find(n => n.getAttribute("href") === target && n.getAttribute('rel') === 'octo:octothorpes')
+  console.log(foundThorpe)
   return foundThorpe
 } // Boolean
 
