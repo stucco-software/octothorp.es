@@ -60,7 +60,7 @@ const hydrate = async (o) => {
       let oTxt = decodeURIComponent(o)
       return `<section>
 <p><b>${origin}</b> ${oTxt}</p>
-<ul>${data.octothorpedBy.map(linkTemplate)}</ul></section>`
+<ul>${data.octothorpedBy.map(linkTemplate).join(' ')}</ul></section>`
   }
 
     let template = `<article>
