@@ -1,3 +1,9 @@
+<script type="text/javascript">
+  import { page } from '$app/stores';
+</script>
+
+<pushbroom url={$page.url.pathname} />
+
 <div class="container">
   <nav class="head grid">
     <a href="/">#</a>
