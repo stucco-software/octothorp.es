@@ -5,7 +5,7 @@ export async function load(req) {
   const thorpe = req.params.thorpe
 
   const sr = await queryArray(`
-    SELECT ?s {
+    SELECT DISTINCT ?s {
      ?s octo:octothorpes <${instance}~/${thorpe}> .
     }
   `)
