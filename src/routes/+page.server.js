@@ -4,8 +4,9 @@ import { instance } from '$env/static/private'
 export async function load(req) {
   // get all the relevant thorpes
   const sr = await queryArray(`
-    SELECT ?t {
-     ?s octo:octothorpes ?t .
+    SELECT DISTINCT ?t {
+      ?s octo:octothorpes ?t .
+      ?t rdf:type <octo:Term> .
     }
   `)
   const thorpes = new Set(sr.results.bindings
