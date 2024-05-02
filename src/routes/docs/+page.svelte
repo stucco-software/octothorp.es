@@ -40,8 +40,11 @@
         <a href="/domains">Check back</a> to see when your domain is approved. We'll email you if you provided a contact address.
       </li>
       <li>
+        Include the Octothorpes tag script on your web page.
+      </li>
+      <li>
         Add a link on your website to an #octothorpe:
-        <code>&lt;TKTK&gt;someThorpe&lt;TKTK&gt;</code>
+        <code>&lt;octo-thorpe&gt;yourTerm&lt;octo-thorpe&gt;</code>
       </li>
     </ol>
 
@@ -60,17 +63,28 @@
       A human being looks at every website that wants to contribute Octothorpes. If the site goes against our community standards, we don't allow them to contribute. If your website is chill, we'll greenlight it and add it to our <a href="/domains">list of sites</a>.
     </p>
 
-    <h3>4. Octothorpe Links</h3>
+    <h3>4. Include The Tag</h3>
     <p>
-      To contribute, all you have to do is add a link to the <a href="/~/octothorpes">#octothorpe</a> to your web page.
+      The Octothorpes tag is an HTML Custom Element. Include the script on your page like so:
     </p>
-    <pre><code>&lt;TKTK&gt;
-  octothorpe
-&lt;TKTK&gt;</code></pre>
+    <pre><code>
+&lt;script
+      async=""
+      defer=""
+      type="module"
+      data-register="https://octothorp.es"
+      src="https://octothorp.es/tag.js"&gt;&lt;/script&gt;
+    </code></pre>
+
+    <h3>5. Octothorpe Links</h3>
+    <p>
+      To contribute, all you have to do is add the octothorpe to your page:
+    </p>
+    <pre><code>&lt;octo-thorpe&gt;yourTerm&lt;octo-thorpe&gt;</code></pre>
 
     <aside>
       <p>
-        <b>Note:</b> before creating a new Octothorpe on the server, the system checks to make sure that this link is <em>actually present</em> on the webpage. It does this by calling the URL you provided, and making sure the link is present in the response. This means that people visiting your website can't create their own Octothropes from your pages. This also means that any Octothorpe links created in the browser don't count.
+        <b>Note:</b> before creating a new Octothorpe on the server, the system checks to make sure that the tag is <em>actually present</em> on the webpage. It does this by calling the URL you provided, and making sure the tag is present in the response. This means that people visiting your website can't create their own Octothropes from your pages. This also means that any Octothorpe created in the browser don't count.
       </p>
     </aside>
   </section>

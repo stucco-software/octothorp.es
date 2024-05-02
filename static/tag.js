@@ -59,7 +59,7 @@ const hydrate = async (o) => {
       let origin = url.origin
       let oTxt = decodeURIComponent(o)
       return `<section>
-<p><b>${origin}</b> ${oTxt}</p>
+<p><b><a href="${origin}/~/${oTxt}">${oTxt}</a></b></p>
 <ul>${data.octothorpedBy.map(linkTemplate).join(' ')}</ul></section>`
   }
 
