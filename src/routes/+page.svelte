@@ -55,7 +55,7 @@
     grid-auto-flow: row;
     font-size: var(--txt-1);
     margin-block-end: 12rem;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
   section p {
     text-align: center;
