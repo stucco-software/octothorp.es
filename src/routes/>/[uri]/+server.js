@@ -11,7 +11,7 @@ export async function GET(req) {
   const uri = req.params.uri
   const sr = await queryArray(`
     SELECT ?s {
-     ?s octo:octothorpes <${uri}> .
+      ?s octo:octothorpes <${uri}> .
     }
   `)
   const thorpes = sr.results.bindings.map(b => b.s.value)
@@ -45,10 +45,7 @@ const verifiedThorpe = async ({s, o}) => {
     .parseFromString(src, "text/html")
 
   let thorpeNodes = [...html.querySelectorAll("a")]
-  console.log(target)
-  console.log(thorpeNodes.map(n => `${n.getAttribute("href")} rel: ${n.getAttribute('rel')}`))
   const foundThorpe = thorpeNodes.find(n => n.getAttribute("href").includes(target) && n.getAttribute('rel').includes('octo:octothorpes'))
-  console.log(foundThorpe)
   return foundThorpe
 } // Boolean
 

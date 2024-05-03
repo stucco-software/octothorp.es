@@ -13,7 +13,6 @@ const s = window.location.href
 const p = "octo:octothorpes"
 
 const post = (o, e = '~') => {
-  console.log('post to registered hooks')
   webhooks.map(webhook => {
     let formData = new FormData()
     formData.append('s', s)
@@ -28,7 +27,6 @@ const post = (o, e = '~') => {
 const getO = (node) => encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
 
 const registerBacklinks = () => {
-  console.log('register backlinks')
   let backlinks = [...document.querySelectorAll("[rel='octo:octothorpes']")]
   backlinks.forEach(a => {
     let o = getO(a)
@@ -37,7 +35,6 @@ const registerBacklinks = () => {
 }
 
 const hydrate = async (o) => {
-  console.log('hydrate', o)
   let responses = await Promise.allSettled(
     webhooks.map(async webhook => await fetch(`${webhook}/~/${o}`))
   )
@@ -58,9 +55,22 @@ const hydrate = async (o) => {
       let url = new URL(data.uri)
       let origin = url.origin
       let oTxt = decodeURIComponent(o)
-      return `<section>
-<p><b><a href="${origin}/~/${oTxt}">${origin}</a></b></p>
-<ul>${data.octothorpedBy.map(linkTemplate).join(' ')}</ul></section>`
+      return `
+        <section>
+          <p>
+            <b>
+              <a
+                rel="octo:octothorpes"
+                href="${origin}/~/${oTxt}">
+                ${origin}
+              </a>
+            </b>
+          </p>
+          <ul>
+            ${data.octothorpedBy.map(linkTemplate).join(' ')}
+          </ul>
+        </section>
+      `
   }
 
     let template = `<article>
@@ -72,24 +82,16 @@ const hydrate = async (o) => {
 
     let nodes = [...document.querySelectorAll(`[data-o="${o}"] article`)]
     nodes.forEach(node => node.replaceWith(html.body.firstChild))
-    console.log(o, `stuff`, nodes)
 }
 
 class OctoThorpe extends HTMLElement {
   constructor() {
-    console.log('construct')
     super()
   }
 
   async connectedCallback() {
     let o = getO(this)
-    console.log('connected', o)
-    if (!o) {
-      console.log('nope!', o)
-      return
-    }
     let label = this.innerText.trim()
-    console.log(label)
     let template = `
 <details class="octo-thorpe" data-o=${o}>
   <summary>${label}</summary>
@@ -99,7 +101,6 @@ class OctoThorpe extends HTMLElement {
     let html = parser
       .parseFromString(template, "text/html")
     this.replaceWith(html.body.firstChild)
-    console.log('replaced')
     await hydrate(o)
     post(o)
   }
