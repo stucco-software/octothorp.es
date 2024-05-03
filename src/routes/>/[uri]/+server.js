@@ -39,6 +39,9 @@ const filterAllowedOrigins = async ({s, backlinks}) => {
     }))
 
   const origins = new Set(await getAllowedOrigins(s))
+  if (origins.has('*')) {
+    return backlinks
+  }
   const allowedBackLinkOrigins = intersection(origins, backlinkOrigins)
   const allowedBacklinks = backlinks.filter(link => {
     let url = new URL(link)
