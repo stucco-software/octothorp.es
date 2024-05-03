@@ -7,6 +7,48 @@ import emailAdministrator from "$lib/emails/alertAdmin.js"
 const DOMParser = new JSDOM().window.DOMParser
 const parser = new DOMParser()
 
+const intersection = (a, b) => new Set(
+  Array.from(a).filter(x => b.has(x))
+)
+
+const getAllowedOrigins = async (s) => {
+  const r = await fetch(s, {
+    headers: {
+      'accept': 'text/html',
+    }
+  })
+  const src = await r.text()
+  let html = parser
+    .parseFromString(src, "text/html")
+  let links = [...html.querySelectorAll("link")]
+  const reverseLinks = links
+    .filter(l => l.getAttribute("rev") === "octo:octothorpes")
+    .map(l => l.getAttribute('href'))
+    .map(uri => {
+      let url = new URL(uri)
+      return url.origin
+    })
+  return reverseLinks
+}
+
+const filterAllowedOrigins = async ({s, backlinks}) => {
+  const backlinkOrigins = new Set(backlinks
+    .map(uri => {
+      let url = new URL(uri)
+      return url.origin
+    }))
+
+  const origins = new Set(await getAllowedOrigins(s))
+  const allowedBackLinkOrigins = intersection(origins, backlinkOrigins)
+  const allowedBacklinks = backlinks.filter(link => {
+    let url = new URL(link)
+    let origin = url.origin
+    return allowedBackLinkOrigins.has(origin)
+  })
+
+  return allowedBacklinks
+}
+
 export async function GET(req) {
   const uri = req.params.uri
   const sr = await queryArray(`
@@ -14,10 +56,14 @@ export async function GET(req) {
       ?s octo:octothorpes <${uri}> .
     }
   `)
-  const thorpes = sr.results.bindings.map(b => b.s.value)
+  const backlinks = sr.results.bindings
+    .map(b => b.s.value)
+
+  const allowedBacklinks = await filterAllowedOrigins({s: uri, backlinks})
+
   return json({
     uri: `${uri}`,
-    octothorpedBy: thorpes
+    octothorpedBy: allowedBacklinks
   },{
     headers: {
       'Access-Control-Allow-Methods': 'GET',
