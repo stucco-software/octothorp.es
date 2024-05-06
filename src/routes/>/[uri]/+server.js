@@ -125,8 +125,11 @@ const createOctothorpe = async ({s, p, o}) => {
 
 const recordCreation = async (o) => {
   let now = Date.now()
+  let url = new URL(o)
+  let origin = `${url.origin}/`
   return await insert(`
     <${o}> octo:created ${now} .
+    <${o}> octo:partOf <${origin}> .
     <${o}> rdf:type <octo:Page> .
   `)
 }
