@@ -25,6 +25,9 @@ const getAllowedOrigins = async (s) => {
     .filter(l => l.getAttribute("rev") === "octo:octothorpes")
     .map(l => l.getAttribute('href'))
     .map(uri => {
+      if (uri === '*') {
+        return uri
+      }
       let url = new URL(uri)
       return url.origin
     })
