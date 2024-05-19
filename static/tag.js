@@ -139,6 +139,6 @@ customElements.define('octo-thorpe', class extends HTMLElement {
       `;
   }
   disconnectedCallback () {
-    this.innerHTML = ''
+    this.innerHTML = this.label
   }
 });
