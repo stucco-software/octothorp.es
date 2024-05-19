@@ -119,8 +119,9 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     super()
     this.s = 'some-uri'
     this.p = 'some:predicate'
-    this.o = 'term'
+    this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
     this.label = this.innerText.trim()
+    console.log(`${this.s} ${this.p} ${this.o}, ${this.label}`)
   }
   connectedCallback () {
     this.innerHTML =
