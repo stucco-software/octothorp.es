@@ -117,26 +117,23 @@
 customElements.define('octo-thorpe', class extends HTMLElement {
   constructor () {
     super()
-    // this.s = 'some-uri'
-    // this.p = 'some:predicate'
+    this.s = window.location.href
+    this.p = "octo:octothorpes"
     this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
     this.label = this.innerText.trim()
-    // console.log(`${this.s} ${this.p} ${this.o}, ${this.label}`)
-  }
-  connectedCallback () {
-    this.s = 'some-uri'
-    this.p = 'some:predicate'
-    // this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-    // this.label = this.innerText.trim()
-    console.log(`${this.s} ${this.p} ${this.o}, ${this.label}`)
-    this.innerHTML =
-      `<details class="octo-thorpe" data-o=${this.o}>
+    const shadow = this.attachShadow({mode: 'closed'})
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML =
+      `<details class="octo-thorpe" data-o="${this.o}">
         <summary>${this.label}</summary>
         <article>
           <mark>${this.s} ${this.p} ${this.o}</mark>
         </article>
-      </details>
-      `;
+      </details>`
+    shadow.appendChild(wrapper)
+  }
+  connectedCallback () {
+
   }
   disconnectedCallback () {
     this.innerHTML = this.label
