@@ -114,6 +114,49 @@
 // needs to listen on mutations like pushbroom does
 // registerBacklinks()
 
+function tag(strings, s, p, o, label, hash) {
+  return `<style>
+    .octo-thorpe {
+      display: inline;
+    }
+    .octo-thorpe[open] {
+      display: block;
+    }
+
+    .octo-thorpe summary {
+      list-style: none;
+      cursor: zoom-in;
+    }
+
+    .octo-thorpe summary::before {
+      padding-inline-end: 0.1em;
+      content: "#";
+      font-weight: bold;
+      display: inline-block;
+      transform: rotate(30deg);
+    }
+    .octo-thorpe[open] summary::before {
+      transform: rotate(0);
+    }
+
+    .octo-thorpe p {
+      padding: 0;
+      margin: 0;
+    }
+
+    .octo-thorpe ul {
+      padding: 0 0 1em 1em;
+      margin: 0;
+    }
+  </style>
+  <details class="octo-thorpe" data-o="${o}">
+    <summary>${label}</summary>
+    <article>
+      <mark>${s} ${p} ${o}</mark>
+    </article>
+  </details>`
+}
+
 customElements.define('octo-thorpe', class extends HTMLElement {
   constructor () {
     super()
@@ -122,20 +165,8 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
     this.label = this.innerText.trim()
     const shadow = this.attachShadow({mode: 'closed'})
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML =
-      `<details class="octo-thorpe" data-o="${this.o}">
-        <summary>${this.label}</summary>
-        <article>
-          <mark>${this.s} ${this.p} ${this.o}</mark>
-        </article>
-      </details>`
+    const wrapper = document.createElement('span');
+    wrapper.innerHTML = tag`${this.s} ${this.p} ${this.o} ${this.label}`
     shadow.appendChild(wrapper)
   }
-  connectedCallback () {
-
-  }
-  disconnectedCallback () {
-    this.innerHTML = this.label
-  }
-});
+})
