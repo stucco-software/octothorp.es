@@ -131,12 +131,14 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     console.log('super duper')
   }
   connectedCallback () {
-    const domchange = (arr) => {
-      console.log(arr)
-      arr.forEach(e => instantiate(e.target))
-    }
-    let observer = new MutationObserver(domchange)
-    observer.observe(this, {subtree: true, childList: true})
+    // const domchange = (arr) => {
+    //   console.log(arr)
+    //   arr.forEach(e => instantiate(e.target))
+    // }
+    // let observer = new MutationObserver(domchange)
+    // observer.observe(this, {subtree: true, childList: true})
     console.log('connected')
+    let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
+    console.log(o)
   }
 })
