@@ -131,7 +131,7 @@ customElements.define('octo-thorpe', class extends HTMLElement {
   connectedCallback () {
     const shadow = this.attachShadow({mode: 'open'})
     const domchange = (arr) => {
-      arr.forEach(e => instantiate(shadow, e.target))
+      arr.forEach(e => instantiate(shadow, this))
     }
     let observer = new MutationObserver(domchange)
     observer.observe(this, {subtree: true, childList: true})
