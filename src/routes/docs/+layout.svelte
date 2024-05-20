@@ -4,13 +4,13 @@
       <summary>Getting Started</summary>
       <ul>
         <li>
-          <a href="#">Register a Domain</a>
+          <a href="/docs/register-a-domain">Register a Domain</a>
         </li>
         <li>
-          <a href="#">Verify a Domain</a>
+          <a href="/docs/verify-a-domain">Verify a Domain</a>
         </li>
         <li>
-          <a href="#">Domain Approval</a>
+          <a href="/docs/domain-approval">Domain Approval</a>
         </li>
       </ul>
     </details>
@@ -19,13 +19,13 @@
       <summary>Creating Octothorpes</summary>
       <ul>
         <li>
-          <a href="#">Web Component</a>
+          <a href="/docs/web-component">Web Component</a>
         </li>
         <li>
-          <a href="#">Link Tag</a>
+          <a href="/docs/link-tag">Link Tag</a>
         </li>
         <li>
-          <a href="#">JSON Index</a>
+          <a href="/docs/json-index">JSON Index</a>
         </li>
       </ul>
     </details>
@@ -34,13 +34,13 @@
       <summary>Backlinks</summary>
       <ul>
         <li>
-          <a href="#">Creating Backlinks</a>
+          <a href="/docs/creating-backlinks">Creating Backlinks</a>
         </li>
         <li>
-          <a href="#">Approving Backlinks</a>
+          <a href="/docs/approving-backlinks">Approving Backlinks</a>
         </li>
         <li>
-          <a href="#">Fetching Backlinks</a>
+          <a href="/docs/fetching-backlinks">Fetching Backlinks</a>
         </li>
       </ul>
     </details>
@@ -49,13 +49,13 @@
       <summary>The Community Server</summary>
       <ul>
         <li>
-          <a href="#">RSS Feeds</a>
+          <a href="/docs/rss-feeds">RSS Feeds</a>
         </li>
         <li>
-          <a href="#">REST API</a>
+          <a href="/docs/rest-api">REST API</a>
         </li>
         <li>
-          <a href="#">Hosting a Community</a>
+          <a href="/docs/hosting-a-community">Hosting a Community</a>
         </li>
       </ul>
     </details>

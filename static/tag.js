@@ -116,6 +116,8 @@ const hydrate = async (shadow, o) => {
 customElements.define('octo-thorpe', class extends HTMLElement {
   constructor () {
     super()
+  }
+  connectedCallback() {
     this.s = window.location.href
     this.p = "octo:octothorpes"
     this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
