@@ -122,6 +122,7 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     this.label = this.innerText.trim()
     const shadow = this.attachShadow({mode: 'open'})
     const wrapper = document.createElement('span');
+    console.log(`${this.s} ${this.p} ${this.o} ${this.label}`)
     wrapper.innerHTML = tag`${this.s} ${this.p} ${this.o} ${this.label}`
     shadow.appendChild(wrapper)
     hydrate(shadow, this.o)

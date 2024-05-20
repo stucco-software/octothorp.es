@@ -1,0 +1,29 @@
+# Spec
+
+- Web Client
+  - Create an Octothorpe w. HTML Custom Element
+    - Add the `https://octothorp.es/tag.js` script to your page with the following properties:
+      - async=""
+      - defer=""
+      - data-register="https://octothorp.es"
+        - Add any number of server to register with, comma sperated
+          - ie: data-register="https://octothorp.es, https://hastags.rdf.systems"
+      - type="module"
+      - src="<server>/tag.js"
+    - Add the Custom Element to your HTML
+      - <octo-thorpe>tag</octo-thorpe>
+    - Optionally use a `href` to customize the displayed text
+      - <octo-thorpe href="tag">Some Cool Tag</octo-thorpe>
+  - Create an Octothorpe w. `<link>` element
+    - Add a `<link>` tag to the meta with the following properties:
+      - `rel="preload, octothorpe"`
+      - `as="fetch"`
+      - `referrerpolicy="unsafe-url"`
+      - `href="https://octothorp.es/~/cozyWeb"`
+        - The `href` URL can be any tag on any Octothorpe server
+        - `<server>/~/<tag>`
+  - Create a Backlink
+    - Create an anchor link to a page with `rel="octothorpe"`
+  - Accept Backlinks
+  - Generate `octothorpes.json`
+- Octothorpe Server
