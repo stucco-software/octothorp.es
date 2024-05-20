@@ -120,17 +120,22 @@ customElements.define('octo-thorpe', class extends HTMLElement {
   connectedCallback () {
     this.s = window.location.href
     this.p = "octo:octothorpes"
-
-    if (this.childNodes.length > 1) {
-      this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-      this.label = this.innerText.trim()
-      const shadow = this.attachShadow({mode: 'open'})
-      const wrapper = document.createElement('span');
-      wrapper.innerHTML = tag`${this.s} ${this.p} ${this.o} ${this.label}`
-      shadow.appendChild(wrapper)
-      hydrate(shadow, this.o)
-    } else {
-      console.log('no child nodes yall')
+    const domchange = (arr) => {
+      console.log(Arr)
     }
+    let observer = new MutationObserver(domchange)
+    observer.observe(this, {subtree: true, childList: true})
+//
+//     if (this.childNodes.length > 1) {
+//       this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
+//       this.label = this.innerText.trim()
+//       const shadow = this.attachShadow({mode: 'open'})
+//       const wrapper = document.createElement('span');
+//       wrapper.innerHTML = tag`${this.s} ${this.p} ${this.o} ${this.label}`
+//       shadow.appendChild(wrapper)
+//       hydrate(shadow, this.o)
+//     } else {
+//       console.log('no child nodes yall')
+//     }
   }
 })
