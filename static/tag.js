@@ -121,7 +121,7 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     this.s = window.location.href
     this.p = "octo:octothorpes"
     const domchange = (arr) => {
-      console.log(Arr)
+      console.log(arr)
     }
     let observer = new MutationObserver(domchange)
     observer.observe(this, {subtree: true, childList: true})
