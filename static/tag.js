@@ -129,19 +129,16 @@ customElements.define('octo-thorpe', class extends HTMLElement {
   constructor () {
     super()
     document.addEventListener("DOMContentLoaded", (event) => {
-      console.log("DOM fully loaded and parsed");
       let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-      console.log('1', o)
+      if (o) {
+        instantiate(this)
+      }
     });
   }
   connectedCallback () {
-    // const domchange = (arr) => {
-    //   console.log(arr)
-    //   arr.forEach(e => instantiate(e.target))
-    // }
-    // let observer = new MutationObserver(domchange)
-    // observer.observe(this, {subtree: true, childList: true})
     let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-    console.log('2', o)
+    if (o.length > 0) {
+      instantiate(this)
+    }
   }
 })
