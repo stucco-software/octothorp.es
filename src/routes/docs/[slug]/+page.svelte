@@ -1,1 +1,5 @@
-<h1>Some URI</h1>
+<script type="text/javascript">
+  export let data
+</script>
+
+{@html data.body}
