@@ -116,17 +116,24 @@ const hydrate = async (shadow, o) => {
 customElements.define('octo-thorpe', class extends HTMLElement {
   constructor () {
     super()
-  }
-  connectedCallback() {
     this.s = window.location.href
+    console.log(this.s)
     this.p = "octo:octothorpes"
+    console.log(this.p)
     this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
+    console.log(this.o)
+    console.log(this.innerText)
+    console.log(this)
     this.label = this.innerText.trim()
+    console.log(label)
     const shadow = this.attachShadow({mode: 'open'})
     const wrapper = document.createElement('span');
     console.log(`${this.s} ${this.p} ${this.o} ${this.label}`)
     wrapper.innerHTML = tag`${this.s} ${this.p} ${this.o} ${this.label}`
     shadow.appendChild(wrapper)
     hydrate(shadow, this.o)
+  }
+  connectedCallback() {
+
   }
 })
