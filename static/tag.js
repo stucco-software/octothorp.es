@@ -122,7 +122,7 @@ const instantiate = (node) => {
   const wrapper = document.createElement('span');
   wrapper.innerHTML = tag`${s} ${p} ${o} ${label}`
   shadow.appendChild(wrapper)
-  hydrate(shadow, this.o)
+  hydrate(shadow, o)
 }
 
 customElements.define('octo-thorpe', class extends HTMLElement {
