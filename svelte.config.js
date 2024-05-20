@@ -1,4 +1,7 @@
 import adapter from '@sveltejs/adapter-auto';
+import mdsvexConfig from "./mdsvex.config.js";
+import { mdsvex } from "mdsvex";
+
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -9,6 +12,8 @@ const config = {
 		adapter: adapter(),
 		csrf: false
 	}
+  extensions: [".svelte", ".md"],
+  preprocess: [mdsvex(mdsvexConfig)]
 };
 
 export default config;

@@ -120,11 +120,11 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     console.log(this.s)
     this.p = "octo:octothorpes"
     console.log(this.p)
-    this.o = encodeURIComponent(this.getAttribute("href") || this.innerHTML.trim())
+    this.o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
     console.log(this.o)
-    console.log(this.innerHTML)
+    console.log(this.innerText)
     console.log(this)
-    this.label = this.innerHTML.trim()
+    this.label = this.innerText.trim()
     console.log(this.label)
     const shadow = this.attachShadow({mode: 'open'})
     const wrapper = document.createElement('span');
