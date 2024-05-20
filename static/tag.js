@@ -128,7 +128,11 @@ const instantiate = (node) => {
 customElements.define('octo-thorpe', class extends HTMLElement {
   constructor () {
     super()
-    console.log('super duper')
+    document.addEventListener("DOMContentLoaded", (event) => {
+      console.log("DOM fully loaded and parsed");
+      let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
+      console.log(o)
+    });
   }
   connectedCallback () {
     // const domchange = (arr) => {
@@ -137,12 +141,5 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     // }
     // let observer = new MutationObserver(domchange)
     // observer.observe(this, {subtree: true, childList: true})
-    console.log('connected')
-    let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-    document.addEventListener("DOMContentLoaded", (event) => {
-      console.log("DOM fully loaded and parsed");
-      let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-      console.log(o)
-    });
   }
 })
