@@ -125,7 +125,7 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     console.log(this.innerText)
     console.log(this)
     this.label = this.innerText.trim()
-    console.log(label)
+    console.log(this.label)
     const shadow = this.attachShadow({mode: 'open'})
     const wrapper = document.createElement('span');
     console.log(`${this.s} ${this.p} ${this.o} ${this.label}`)
