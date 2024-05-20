@@ -118,6 +118,9 @@ const instantiate = (shadow, node) => {
   let p = "octo:octothorpes"
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
   let label = node.innerText.trim()
+  const wrapper = document.createElement('span');
+  wrapper.innerHTML = tag`${s} ${p} ${o} ${label}`
+  shadow.appendChild(wrapper)
   hydrate(shadow, o)
 }
 
@@ -126,9 +129,7 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     super()
   }
   connectedCallback () {
-    const wrapper = document.createElement('span');
-    wrapper.innerHTML = tag`${s} ${p} ${o} ${label}`
-    shadow.appendChild(wrapper)
+    const shadow = this.attachShadow({mode: 'open'})
     const domchange = (arr) => {
       arr.forEach(e => instantiate(shadow, e.target))
     }
