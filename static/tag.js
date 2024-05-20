@@ -113,13 +113,14 @@ const hydrate = async (shadow, o) => {
   nodes.forEach(node => node.innerHTML = template)
 }
 
-const instantiate = (shadow, node) => {
+const instantiate = (node) => {
   let s = window.location.href
   let p = "octo:octothorpes"
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
   wrapper.innerHTML = tag`${s} ${p} ${o} ${label}`
+  const shadow = node.attachShadow({mode: 'open'})
   shadow.appendChild(wrapper)
   hydrate(shadow, o)
 }
@@ -129,9 +130,8 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     super()
   }
   connectedCallback () {
-    const shadow = this.attachShadow({mode: 'open'})
     const domchange = (arr) => {
-      arr.forEach(e => instantiate(shadow, this))
+      arr.forEach(e => instantiate(e.target))
     }
     let observer = new MutationObserver(domchange)
     observer.observe(this, {subtree: true, childList: true})
