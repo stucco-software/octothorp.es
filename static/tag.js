@@ -139,6 +139,11 @@ customElements.define('octo-thorpe', class extends HTMLElement {
     // observer.observe(this, {subtree: true, childList: true})
     console.log('connected')
     let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
+    if (o.length < 1) {
+      setTimeout(() => {
+        o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
+      }, "30");
+    }
     console.log(o)
   }
 })
