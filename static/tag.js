@@ -111,6 +111,7 @@ const hydrate = async (shadow, o) => {
 
   let nodes = [...shadow.querySelectorAll(`[data-o="${o}"] article`)]
   nodes.forEach(node => node.innerHTML = template)
+  post(o)
 }
 
 const instantiate = (node) => {
