@@ -83,7 +83,7 @@ const webhooks = script
       .split(',')
       .map(hook => hook.endsWith('/') ? hook.slice(0, -1) : hook)
 
-const post = (o) => {
+const post = ({s, p, o}) => {
   webhooks.map(webhook => {
     let formData = new FormData()
     formData.append('s', s)
@@ -111,7 +111,7 @@ const hydrate = async (shadow, o) => {
 
   let nodes = [...shadow.querySelectorAll(`[data-o="${o}"] article`)]
   nodes.forEach(node => node.innerHTML = template)
-  post(o)
+
 }
 
 const instantiate = (node) => {
@@ -124,6 +124,7 @@ const instantiate = (node) => {
   const shadow = node.attachShadow({mode: 'open'})
   shadow.appendChild(wrapper)
   hydrate(shadow, o)
+  post({s, p, o})
 }
 
 customElements.define('octo-thorpe', class extends HTMLElement {
