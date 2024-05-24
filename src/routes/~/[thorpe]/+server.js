@@ -72,8 +72,13 @@ const extantThorpe = async ({s, p, o}) => {
 }
 
 const createOctothorpe = async ({s, p, o}) => {
+  let now = Date.now()
+  let url = new URL(s)
+  let origin = `${url.origin}/`
   return await insert(`
     <${s}> ${p} <${instance}~/${o}> .
+    <${s}> <${instance}~/${o}> ${now} .
+    <${origin}> octo:hasPart <${s}> .
   `)
 }
 

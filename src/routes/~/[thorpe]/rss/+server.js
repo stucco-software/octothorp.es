@@ -9,7 +9,7 @@ export async function GET({ request, params }) {
   const sr = await queryArray(`
     SELECT * {
      ?s octo:octothorpes <${instance}~/${thorpe}> .
-     optional { ?s octo:created ?t . }
+     optional { ?s <${instance}~/${thorpe}> ?t . }
     }
   `)
   const items = sr.results.bindings.map(b => {
