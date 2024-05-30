@@ -46,13 +46,11 @@ const verifiedThorpe = async ({s, o}) => {
     .parseFromString(src, "text/html")
 
   let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
-  console.log(thorpeNodes)
-  thorpeNodes.forEach(n => {
-    console.log(n)
-    console.log(n.textContent.trim())
-  })
+  let linkNodes = [...html.querySelectorAll('link[property="octo:thorpe"]')]
+
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
-  return foundThorpe
+  const foundLink = linkNodes.find(n => n.getAttribute("href") === target)
+  return foundThorpe || foundLink
 } // Boolean
 
 const extantTerm = async (o) => {
