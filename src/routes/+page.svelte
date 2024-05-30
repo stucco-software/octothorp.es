@@ -17,7 +17,7 @@
   </main>
 
   <section>
-    <p><a href="/docs">What is this?</a></p>
+    <p><a href="/about">What is this?</a></p>
   </section>
 </div>
 
