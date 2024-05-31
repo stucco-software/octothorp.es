@@ -44,12 +44,13 @@ const verifiedThorpe = async ({s, o}) => {
   let target = decodeURIComponent(o.trim())
 
   try {
-    let json = JSON.parse(json)
+    let json = JSON.parse(src)
     if (json) {
       return json['https://octothorp.es/~/'].includes(target)
     }
-  }
+  } catch (e) {
 
+  }
 
   let html = parser
     .parseFromString(src, "text/html")
