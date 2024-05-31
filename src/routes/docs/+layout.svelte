@@ -1,4 +1,4 @@
-<div>
+<div class="container">
   <nav>
     <details>
       <summary>Getting Started</summary>
@@ -67,6 +67,9 @@
 </div>
 
 <style>
+  nav {
+    margin-block-start: 2rem;
+  }
   div {
     padding-inline: var(--grid-gutter);
     margin-inline: auto;
