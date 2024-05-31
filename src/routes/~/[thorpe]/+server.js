@@ -42,17 +42,24 @@ const verifiedThorpe = async ({s, o}) => {
   const r = await fetch(s)
   const src = await r.text()
   let target = decodeURIComponent(o.trim())
+
+  try {
+    let json = JSON.parse(json)
+    if (json) {
+      return json['https://octothorp.es/~/'].includes(target)
+    }
+  }
+
+
   let html = parser
     .parseFromString(src, "text/html")
 
   let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
   let linkNodes = [...html.querySelectorAll('link[property="octo:thorpe"]')]
 
-  console.log(linkNodes)
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
   const foundLink = linkNodes.find(n => n.getAttribute("href") === target)
-  console.log(target)
-  console.log(foundLink)
+
   return foundThorpe || foundLink
 } // Boolean
 
@@ -114,7 +121,6 @@ export async function POST({params, request}) {
   }
 
   let isVerifiedThorpe = await verifiedThorpe({s, o})
-  console.log(isVerifiedThorpe)
   if (!isVerifiedThorpe) {
     return error(401, 'Octothorpe not present in response from origin.')
   }
