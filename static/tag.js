@@ -52,11 +52,8 @@ const linkTemplate = (uri) => `<li>
 `
 
 const serverTemplate = (o) => (data) => {
-  console.log(data)
   let url = new URL(data.uri)
-  console.log(url)
   let origin = url.origin
-  console.log(origin)
   let oTxt = decodeURIComponent(o)
   return `
     <section>
@@ -101,6 +98,7 @@ const post = ({s, p, o}) => {
 }
 
 const hydrate = async (shadow, o) => {
+  console.log(webhooks)
   let responses = await Promise.allSettled(
     webhooks.map(async webhook => await fetch(`${webhook}/~/${o}`))
   )
@@ -110,8 +108,10 @@ const hydrate = async (shadow, o) => {
       .filter(r => r.status === 'fulfilled')
       .map(async r => r.value.json())
   )
+  console.log(data)
 
   let links = data.map(d => d.value)
+  console.log(links)
   let template = `${links.map(serverTemplate(o))}`
 
   let nodes = [...shadow.querySelectorAll(`[data-o="${o}"] article`)]
