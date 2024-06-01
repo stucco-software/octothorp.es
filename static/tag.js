@@ -52,8 +52,11 @@ const linkTemplate = (uri) => `<li>
 `
 
 const serverTemplate = (o) => (data) => {
+  console.log(data)
   let url = new URL(data.uri)
+  console.log(url)
   let origin = url.origin
+  console.log(origin)
   let oTxt = decodeURIComponent(o)
   return `
     <section>
@@ -85,9 +88,11 @@ const webhooks = script
 
 const post = ({s, p, o}) => {
   webhooks.map(webhook => {
+    console.log(webhook)
     let formData = new FormData()
     formData.append('s', s)
     formData.append('p', p)
+    console.log(`${webhook}/~/${o}`, p, s)
     fetch(`${webhook}/~/${o}`, {
       method: "POST",
       body: formData
