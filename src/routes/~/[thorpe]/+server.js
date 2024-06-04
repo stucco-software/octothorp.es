@@ -36,7 +36,7 @@ const verifiedThorpe = async ({s, o}) => {
     .parseFromString(src, "text/html")
 
   let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
-  let linkNodes = [...html.querySelectorAll('link[property="octo:thorpe"]')]
+  let linkNodes = [...html.querySelectorAll('link[property="octo:octothorpes"]')]
 
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
   const foundLink = linkNodes.find(n => n.getAttribute("href") === target)
