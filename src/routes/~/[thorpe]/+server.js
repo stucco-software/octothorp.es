@@ -7,26 +7,6 @@ import emailAdministrator from "$lib/emails/alertAdmin.js"
 const DOMParser = new JSDOM().window.DOMParser
 const parser = new DOMParser()
 
-export async function GET(req) {
-  const thorpe = req.params.thorpe
-  const sr = await queryArray(`
-    SELECT DISTINCT ?s {
-     ?s octo:octothorpes <${instance}~/${thorpe}> .
-    }
-  `)
-  const thorpes = sr.results.bindings.map(b => b.s.value)
-
-  return json({
-    uri: `${instance}~/${thorpe}`,
-    octothorpedBy: thorpes
-  },{
-    headers: {
-      'Access-Control-Allow-Methods': 'GET',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': '*',
-    }
-  })
-}
 
 const verifiedOrigin = async (s) => {
   let url = new URL(s)
@@ -140,4 +120,66 @@ export async function POST({params, request}) {
   }
 
   return new Response(200)
+}
+
+export async function GET(req) {
+  let url = new URL(req.request.url)
+  let o = `${req.params.thorpe}`
+  let p = url.searchParams.get('p')
+  let s = req.request.headers.get('referer')
+
+  if (p) {
+    console.log(s, p, o)
+    // DRY this out
+    if (!s || !p || !o) {
+      console.log('Invalid triple statement.')
+      return error(400, 'Invalid triple statement.')
+    }
+
+    let isVerifiedOrigin = await verifiedOrigin(s)
+    if (!isVerifiedOrigin) {
+      console.log('Origin is not registered with this server.')
+      return error(401, 'Origin is not registered with this server.')
+    }
+
+    let isVerifiedThorpe = await verifiedThorpe({s, o})
+    if (!isVerifiedThorpe) {
+      console.log('Octothorpe not present in response from origin.')
+      return error(401, 'Octothorpe not present in response from origin.')
+    }
+
+    let isExtantTerm = await extantTerm(o)
+
+    if (!isExtantTerm) {
+      await recordCreation(o)
+      await emailAdministrator({s, o})
+    }
+
+    let isExtantThorpe = await extantThorpe({s, p, o})
+    if (!isExtantThorpe) {
+      await createOctothorpe({s, p, o})
+      await recordUsage({s, o})
+    }
+    console.log('is good?')
+    return new Response(200)
+  }
+
+  const thorpe = req.params.thorpe
+  const sr = await queryArray(`
+    SELECT DISTINCT ?s {
+     ?s octo:octothorpes <${instance}~/${thorpe}> .
+    }
+  `)
+  const thorpes = sr.results.bindings.map(b => b.s.value)
+
+  return json({
+    uri: `${instance}~/${thorpe}`,
+    octothorpedBy: thorpes
+  },{
+    headers: {
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': '*',
+    }
+  })
 }
