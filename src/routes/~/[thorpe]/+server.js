@@ -131,10 +131,10 @@ export async function POST({params, request}) {
 export async function GET(req) {
   let url = new URL(req.request.url)
   let o = `${req.params.thorpe}`
-  let p = url.searchParams.get('p')
   let s = req.request.headers.get('referer')
 
-  if (p) {
+  if (url.searchParams.get('new') === 'true') {
+    let p = 'octo:octothorpes'
     console.log(s, p, o)
     // DRY this out
     if (!s || !p || !o) {
