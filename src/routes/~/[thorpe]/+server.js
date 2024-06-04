@@ -40,7 +40,11 @@ const verifiedThorpe = async ({s, o}) => {
   console.log(linkNodes)
 
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
-  const foundLink = linkNodes.find(n => n.getAttribute("href") === target)
+  const foundLink = linkNodes.find(n => {
+    console.log(n.getAttribute("href"))
+    return n.getAttribute("href").includes(target)
+  })
+
   console.log(foundLink)
 
   return foundThorpe || foundLink
