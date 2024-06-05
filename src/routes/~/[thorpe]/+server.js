@@ -134,6 +134,8 @@ export async function GET(req) {
   let o = `${req.params.thorpe}`
   let s = req.request.headers.get('referer')
 
+  console.log(req.request.headers)
+  console.log(s)
   if (url.searchParams.get('new') === 'true') {
     let p = 'octo:octothorpes'
     console.log(s, p, o)
@@ -150,6 +152,7 @@ export async function GET(req) {
     }
 
     let isVerifiedThorpe = await verifiedThorpe({s, o})
+    console.log(`is verified?`, isVerifiedThorpe)
     if (!isVerifiedThorpe) {
       console.log('Octothorpe not present in response from origin.')
       return error(401, 'Octothorpe not present in response from origin.')
