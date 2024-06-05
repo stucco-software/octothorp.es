@@ -37,7 +37,7 @@ const verifiedThorpe = async ({s, o}) => {
 
   let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
   let linkNodes = [...html.querySelectorAll('link[property="octo:octothorpes"]')]
-  console.log(linkNodes)
+  console.log(1, linkNodes)
 
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
   const foundLink = linkNodes.find(n => {
@@ -45,7 +45,7 @@ const verifiedThorpe = async ({s, o}) => {
     return n.getAttribute("href").includes(target)
   })
 
-  console.log(foundLink)
+  console.log(2, foundLink)
 
   return foundThorpe || foundLink
 } // Boolean
@@ -108,6 +108,7 @@ export async function POST({params, request}) {
   }
 
   let isVerifiedThorpe = await verifiedThorpe({s, o})
+  console.log(`is verified?`, isVerifiedThorpe)
   if (!isVerifiedThorpe) {
     return error(401, 'Octothorpe not present in response from origin.')
   }
