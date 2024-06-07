@@ -99,7 +99,7 @@ const recordUsage = async ({s, o}) => {
   `)
 }
 
-const statementHandler = ({s, p, o}) => {
+const statementHandler = async ({s, p, o}) => {
   if (!s || !p || !o) {
     return error(400, 'Invalid triple statement.')
   }
@@ -146,7 +146,7 @@ export async function POST({params, request}) {
   let p = data.get('p')
   let s = data.get('s')
 
-  let response = statementHandler({s, p, o})
+  let response = await statementHandler({s, p, o})
   return response
 }
 
@@ -158,7 +158,7 @@ export async function GET(req) {
   let o = `${req.params.thorpe}`
 
   if (new Boolean(s)) {
-    let response = statementHandler({s, p, o})
+    let response = await statementHandler({s, p, o})
     return response
   }
 
