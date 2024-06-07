@@ -10,7 +10,7 @@ const stashMeta = (s, html) => {
     let metas = [...html.querySelectorAll('meta')]
     let links = [...html.querySelectorAll('link')]
     if (title) {
-      console.log(title.innerText.trim())
+      console.log(title.innerText)
     }
     metas.forEach(m => {
       console.log(m.getAttribute('property'), m.getAttribute('content'))
