@@ -4,10 +4,6 @@ import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
-const DOMParser = new JSDOM().window.DOMParser
-const parser = new DOMParser()
-
-
 const verifiedOrigin = async (s) => {
   let url = new URL(s)
   let origin = `${url.origin}/`
@@ -18,37 +14,48 @@ const verifiedOrigin = async (s) => {
   `)
 }
 
-const verifiedThorpe = async ({s, o}) => {
+const getSubject = async (s) => {
+  const DOMParser = new JSDOM().window.DOMParser
+  const parser = new DOMParser()
   const r = await fetch(s)
+}
+
+const getSubjectHTML = async (src) => {
   const src = await r.text()
-  let target = decodeURIComponent(o.trim())
+  let html = parser.parseFromString(src, "text/html")
+  return html
+}
 
-  try {
-    let json = JSON.parse(src)
-    if (json) {
-      return json['https://octothorp.es/~/'].includes(target)
-    }
-  } catch (e) {
+// const getSubjectJSON = async (src) => {
+//   try {
+//     return JSON.parse(src)
+//   } catch () {
+//     return null
+//   }
+// }
+//
+// const verifyJSON = (json, target) => {
+//   return json['https://octothorp.es/~/'].includes(target)
+// }
 
-  }
-
-  let html = parser
-    .parseFromString(src, "text/html")
-
+const verifyHTML = (html, target) => {
   let thorpeNodes = [...html.querySelectorAll('octo-thorpe')]
   let linkNodes = [...html.querySelectorAll('link[property="octo:octothorpes"]')]
-  console.log(1, linkNodes)
 
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
-  const foundLink = linkNodes.find(n => {
-    console.log(n.getAttribute("href"))
-    return n.getAttribute("href").includes(target)
-  })
+  const foundLink = linkNodes.find(n => n.getAttribute("href").includes(target))
 
-  console.log(2, foundLink)
+  return new Boolean(foundThorpe || foundLink)
+}
 
-  return foundThorpe || foundLink
-} // Boolean
+const verifiedThorpe = async ({html, o}) => {
+  let target = decodeURIComponent(o.trim())
+
+  // let jsonFound = verifyJSON(json, target)
+  let htmlFound = verifyHTML(html, target)
+
+  return new Boolean(htmlFound)
+}
 
 const extantTerm = async (o) => {
   return await queryBoolean(`
@@ -92,12 +99,7 @@ const recordUsage = async ({s, o}) => {
   `)
 }
 
-export async function POST({params, request}) {
-  const data = await request.formData()
-  let o = `${params.thorpe}`
-  let p = data.get('p')
-  let s = data.get('s')
-
+const statementHandler = ({s, p, o}) => {
   if (!s || !p || !o) {
     return error(400, 'Invalid triple statement.')
   }
@@ -107,14 +109,15 @@ export async function POST({params, request}) {
     return error(401, 'Origin is not registered with this server.')
   }
 
-  let isVerifiedThorpe = await verifiedThorpe({s, o})
-  console.log(`is verified?`, isVerifiedThorpe)
+  let src = await getSubject(s)
+  let html = await getSubjectHTML(src)
+
+  let isVerifiedThorpe = await verifiedThorpe({html, o})
   if (!isVerifiedThorpe) {
     return error(401, 'Octothorpe not present in response from origin.')
   }
 
   let isExtantTerm = await extantTerm(o)
-
   if (!isExtantTerm) {
     await recordCreation(o)
     await emailAdministrator({s, o})
@@ -126,52 +129,37 @@ export async function POST({params, request}) {
     await recordUsage({s, o})
   }
 
+  let pageTitle = html.querySelector('title').innerText.trim()
+  let pageMeta = html.querySelector("meta[name='description']").getAttribute('content').trim()
+  let pageIcon = html.querySelector("link[rel='icon']").getAttribute('href')
+
+  console.log(pageTitle)
+  console.log(pageMeta)
+  console.log(pageIcon)
+
   return new Response(200)
+}
+
+export async function POST({params, request}) {
+  const data = await request.formData()
+  let o = `${params.thorpe}`
+  let p = data.get('p')
+  let s = data.get('s')
+
+  let response = statementHandler({s, p, o})
+  return response
 }
 
 export async function GET(req) {
   let url = new URL(req.request.url)
+
+  let s = url.searchParams.get('path')
+  let p = 'octo:octothorpes'
   let o = `${req.params.thorpe}`
-  let s = req.request.headers.get('referer')
 
-  console.log(req.request.headers)
-  console.log(s)
-  if (url.searchParams.get('new') === 'true') {
-    let p = 'octo:octothorpes'
-    console.log(s, p, o)
-    // DRY this out
-    if (!s || !p || !o) {
-      console.log('Invalid triple statement.')
-      return error(400, 'Invalid triple statement.')
-    }
-
-    let isVerifiedOrigin = await verifiedOrigin(s)
-    if (!isVerifiedOrigin) {
-      console.log('Origin is not registered with this server.')
-      return error(401, 'Origin is not registered with this server.')
-    }
-
-    let isVerifiedThorpe = await verifiedThorpe({s, o})
-    console.log(`is verified?`, isVerifiedThorpe)
-    if (!isVerifiedThorpe) {
-      console.log('Octothorpe not present in response from origin.')
-      return error(401, 'Octothorpe not present in response from origin.')
-    }
-
-    let isExtantTerm = await extantTerm(o)
-
-    if (!isExtantTerm) {
-      await recordCreation(o)
-      await emailAdministrator({s, o})
-    }
-
-    let isExtantThorpe = await extantThorpe({s, p, o})
-    if (!isExtantThorpe) {
-      await createOctothorpe({s, p, o})
-      await recordUsage({s, o})
-    }
-    console.log('is good?')
-    return new Response(200)
+  if (new Boolean(s)) {
+    let response = statementHandler({s, p, o})
+    return response
   }
 
   const thorpe = req.params.thorpe
