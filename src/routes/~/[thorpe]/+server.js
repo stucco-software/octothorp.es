@@ -130,13 +130,15 @@ const statementHandler = async ({s, p, o}) => {
     await recordUsage({s, o})
   }
 
-  let pageTitle = html.querySelector('title').innerText.trim()
-  // let pageMeta = html.querySelector("meta[name='description']").getAttribute('content').trim()
-  let pageIcon = html.querySelector("link[rel='icon']").getAttribute('href')
+//   let pageTitle = html.querySelector('title').innerText.trim()
+//   // let pageMeta = html.querySelector("meta[name='description']").getAttribute('content').trim()
+//   let pageIcon = html.querySelector("link[rel='icon']").getAttribute('href')
+//
+//   console.log(pageTitle)
+//   // console.log(pageMeta)
+//   console.log(pageIcon)
 
-  console.log(pageTitle)
-  // console.log(pageMeta)
-  console.log(pageIcon)
+  console.log(html)
 
   return new Response(200)
 }
