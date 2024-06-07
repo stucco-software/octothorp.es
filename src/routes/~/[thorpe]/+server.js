@@ -50,7 +50,7 @@ const verifyHTML = (html, target) => {
   const foundThorpe = thorpeNodes.find(n => n.textContent.trim() === target || n.getAttribute("href") === target)
   const foundLink = linkNodes.find(n => n.getAttribute("href").includes(target))
 
-  return new Boolean(foundThorpe || foundLink)
+  return foundThorpe || foundLink
 }
 
 const verifiedThorpe = async ({html, o}) => {
@@ -59,7 +59,7 @@ const verifiedThorpe = async ({html, o}) => {
   // let jsonFound = verifyJSON(json, target)
   let htmlFound = verifyHTML(html, target)
 
-  return new Boolean(htmlFound)
+  return htmlFound
 }
 
 const extantTerm = async (o) => {
@@ -161,14 +161,10 @@ export async function GET(req) {
   let url = new URL(req.request.url)
 
   let s = url.searchParams.get('path')
-  console.log(s)
   let p = 'octo:octothorpes'
   let o = `${req.params.thorpe}`
 
-  console.log(new Boolean(s))
-  if (new Boolean(s)) {
-    console.log('???')
-    console.log(s, p, o)
+  if (s) {
     let response = await statementHandler({s, p, o})
     return response
   }
