@@ -5,10 +5,10 @@ import { JSDOM } from 'jsdom'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 const stashMeta = (s, html) => {
-  let title = html.querySelector('title').outerHTML
+  let title = html.querySelector('title')
   let metas = [...html.querySelectorAll('meta')]
   console.log(title)
-  console.log(metas.map(m => m.outerHTML))
+  console.log(metas)
 }
 
 const verifiedOrigin = async (s) => {
