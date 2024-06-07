@@ -161,10 +161,14 @@ export async function GET(req) {
   let url = new URL(req.request.url)
 
   let s = url.searchParams.get('path')
+  console.log(s)
   let p = 'octo:octothorpes'
   let o = `${req.params.thorpe}`
 
+  console.log(new Boolean(s))
   if (new Boolean(s)) {
+    console.log('???')
+    console.log(s, p, o)
     let response = await statementHandler({s, p, o})
     return response
   }
