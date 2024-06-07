@@ -15,14 +15,14 @@ const verifiedOrigin = async (s) => {
 }
 
 const getSubject = async (s) => {
-  const DOMParser = new JSDOM().window.DOMParser
-  const parser = new DOMParser()
   const r = await fetch(s)
   const src = await r.text()
   return src
 }
 
 const getSubjectHTML = async (src) => {
+  const DOMParser = new JSDOM().window.DOMParser
+  const parser = new DOMParser()
   let html = parser.parseFromString(src, "text/html")
   return html
 }
