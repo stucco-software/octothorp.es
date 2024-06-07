@@ -18,10 +18,11 @@ const getSubject = async (s) => {
   const DOMParser = new JSDOM().window.DOMParser
   const parser = new DOMParser()
   const r = await fetch(s)
+  const src = await r.text()
+  return src
 }
 
 const getSubjectHTML = async (src) => {
-  const src = await r.text()
   let html = parser.parseFromString(src, "text/html")
   return html
 }
