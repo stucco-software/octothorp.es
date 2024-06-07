@@ -5,8 +5,12 @@ import { JSDOM } from 'jsdom'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 const verifiedOrigin = async (s) => {
+  console.log(`--------`)
+  console.log(s)
   let url = new URL(s)
   let origin = `${url.origin}/`
+  console.log(origin)
+  console.log(`--------`)
   return await queryBoolean(`
     ask {
       <${origin}> octo:verified "true" .
