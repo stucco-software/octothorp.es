@@ -8,8 +8,16 @@ const stashMeta = (s, html) => {
   try {
     let title = html.querySelector('title')
     let metas = [...html.querySelectorAll('meta')]
-    console.log(title)
-    console.log(metas)
+    let links = [...html.querySelectorAll('link')]
+    if (title) {
+      console.log(title.innerText.trim())
+    }
+    metas.forEach(m => {
+      console.log(m.getAttribute('property'), m.getAttribute('content'))
+    })
+    links.forEach(l => {
+      console.log(l.getAttribute('rel'), l.getAttribute('property'), m.getAttribute('href'))
+    })
   } catch (e) {
     console.error(e)
   }
