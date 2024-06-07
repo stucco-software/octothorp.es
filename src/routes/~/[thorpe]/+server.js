@@ -4,13 +4,16 @@ import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
+const stashMeta = (s, html) => {
+  let title = html.querySelector('title').outerHTML
+  let metas = [...html.querySelectorAll('meta')]
+  console.log(title)
+  console.log(metas.map(m => m.outerHTML))
+}
+
 const verifiedOrigin = async (s) => {
-  console.log(`--------`)
-  console.log(s)
   let url = new URL(s)
   let origin = `${url.origin}/`
-  console.log(origin)
-  console.log(`--------`)
   return await queryBoolean(`
     ask {
       <${origin}> octo:verified "true" .
@@ -134,15 +137,7 @@ const statementHandler = async ({s, p, o}) => {
     await recordUsage({s, o})
   }
 
-//   let pageTitle = html.querySelector('title').innerText.trim()
-//   // let pageMeta = html.querySelector("meta[name='description']").getAttribute('content').trim()
-//   let pageIcon = html.querySelector("link[rel='icon']").getAttribute('href')
-//
-//   console.log(pageTitle)
-//   // console.log(pageMeta)
-//   console.log(pageIcon)
-
-  console.log(html)
+  stashMeta(s, html)
 
   return new Response(200)
 }
