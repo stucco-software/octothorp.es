@@ -131,11 +131,11 @@ const statementHandler = async ({s, p, o}) => {
   }
 
   let pageTitle = html.querySelector('title').innerText.trim()
-  let pageMeta = html.querySelector("meta[name='description']").getAttribute('content').trim()
+  // let pageMeta = html.querySelector("meta[name='description']").getAttribute('content').trim()
   let pageIcon = html.querySelector("link[rel='icon']").getAttribute('href')
 
   console.log(pageTitle)
-  console.log(pageMeta)
+  // console.log(pageMeta)
   console.log(pageIcon)
 
   return new Response(200)
