@@ -2,11 +2,40 @@ import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import { instance } from '$env/static/private'
 import { asyncMap} from '$lib/asyncMap.js'
-import { insert, query } from '$lib/sparql.js'
-import { queryBoolean } from '$lib/sparql.js'
+import { insert } from '$lib/sparql.js'
+import { queryBoolean, queryArray } from '$lib/sparql.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 let p = 'octo:octothorpes'
+let indexCooldown = 300000 //5min
+// let indexCooldown = 0
+
+const recentlyIndexed = async (s) => {
+  let now = Date.now()
+
+  let url = new URL(s)
+  let origin = `${url.origin}/`
+  let r = await queryArray(`
+    select distinct ?t {
+      <${s}> octo:indexed ?t .
+    }
+  `)
+  let indexed = r.results.bindings
+    .map(binding => binding.t.value)
+    .map(t => Number(t))
+  let mostRecent = Math.max(...indexed)
+  if (mostRecent === 0) {
+    return false
+  }
+  return now - indexCooldown < mostRecent
+}
+
+const recordIndexing = async (s) => {
+  let now = Date.now()
+  return await insert(`
+    <${s}> octo:indexed ${now} .
+  `)
+}
 
 const verifiedOrigin = async (s) => {
   let url = new URL(s)
@@ -113,6 +142,12 @@ const handler = async (s) => {
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }
+
+  let isRecentlyIndexed = await recentlyIndexed(s)
+  if (isRecentlyIndexed) {
+    return error(429, 'This page has been recently indexed.')
+  }
+  await recordIndexing(s)
 
   let subject = await fetch(s)
   if (subject.headers.get('content-type').includes('text/html')) {
