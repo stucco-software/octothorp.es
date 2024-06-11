@@ -18,7 +18,9 @@ const getTriples = (accept) => async (query) => await fetch(`${sparql_endpoint}/
 
 export const queryArray = async query => {
   let triples = await getTriples('application/sparql-results+json')(query)
-      .then(result => result.json())
+      .then(result => {
+        return result.json()
+      })
   return triples
 }
 
@@ -39,6 +41,22 @@ export const insert = async nquads => await fetch(`${sparql_endpoint}/update`, {
         insert data {
 ${nquads}
       }`
+    })
+  }).catch((error) => {
+    console.error('Error:', error);
+  }
+)
+
+export const query = async (nquads) => await fetch(`${sparql_endpoint}/update`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + btoa(sparql_user + ":" + sparql_password),
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      'update': `${prefixes}
+${query}
+      `
     })
   }).catch((error) => {
     console.error('Error:', error);

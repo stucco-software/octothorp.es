@@ -5,7 +5,6 @@ export async function load(req) {
   // get all the relevant thorpes
   const sr = await queryArray(`
     SELECT DISTINCT ?t {
-      ?s octo:octothorpes ?t .
       ?t rdf:type <octo:Term> .
     }
   `)

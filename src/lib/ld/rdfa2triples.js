@@ -10,7 +10,7 @@ const getO = (node) => {
   } catch (e) {
     o.startsWith('/')
       ? url = new URL(`${instance}${o.replace('/', '')}`)
-      : url = new URL(`${instance}${o}`)
+      : url = new URL(`${instance}~/${o}`)
   }
   return url.href
 }
@@ -40,7 +40,7 @@ const getStatementsAboutThisSubject = ({doc, s}) => {
   return triples
 }
 
-export const rdfa2json = ({doc, s}) => {
+export const rdfa2triples = ({doc, s}) => {
   let thisTriples = getStatementsAboutThisSubject({doc, s})
   let otherTriples = getStatementsAboutOtherSubjects({doc, s})
   return [...thisTriples, ...otherTriples]

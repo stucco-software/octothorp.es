@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Demo Octothorpe Markup</title>
+
+  <!-- Register this page with the octothorp.es server -->
+  <link
+    rel="preload"
+    as="fetch"
+    href="https://octothorp.es?path={/some/path/here}">
+
+  <!-- Verify backlinks from mmmx.cloud and nikolas.ws -->
+  <link rev="octo:octothorpes" href="https://www.mmmx.cloud">
+  <link rev="octo:octothorpes" href="https://nikolas.ws">
+
+  <!-- Verify backlinks from wherever -->
+  <link rev="octo:octothorpes" href="*">
+
+  <!-- Use the full Octothorpe custom element: <octo-thorpe> -->
+  <script src="https://octothorp.es/tag.js"></script>
+
+  <!-- Use an RDFa helper tag: <octo-helper> -->
+  <script src="https://octothorp.es/anchor.js"></script>
+
+  <!-- A Backlink in the Meta -->
+  <link rel="octo:octothorpes" href="https://nikolas.ws/design-and-crime">
+
+  <!-- A Hashtag in the Meta -->
+  <link rel="octo:octothorpes" href="/architecture">
+
+  <!-- A Backlink in the Meta -->
+  <link about="_:another" rel="octo:url" href="https://example.com/page">
+  <link about="_:another" rel="octo:octothorpes" href="/architecture">
+
+</head>
+<body>
+  <h1>Demo Octothorpe Markup</h1>
+
+  <p>
+    I am a helper backlink <back-link><a href="https://www.mmmx.cloud/burglars-guide-to-the-city">to a Page</a></back-link>.
+  </p>
+
+  <p>
+    I am a backlink <a rel="octo:octothorpes" href="https://www.mmmx.cloud/burglars-guide-to-the-city">to a Page.</a>.
+  </p>
+
+  <p>
+    I am the interactive tagged <octo-thorpe>term</octo-thorpe>.
+  </p>
+
+  <p>
+    I am the interactive tagged <octo-thorpe href="term">with an alternate label.</octo-thorpe>.
+  </p>
+
+  <p>
+    I am the helper node tagged <octo-helper><a href="/term">term</a></octo-helper>.
+  </p>
+
+  <p>
+    I am a pure HTML tagged <a href="/term" rel="octo:octothorpes">term</a>.
+  </p>
+
+  <p>
+    I am a helper tag bookmark, an assertion about the tags of <book-mark tagged="architecture, design, critique"><a href="https://example.com/page">a page.</a></book-mark>
+  </p>
+
+  <p>
+    I am a bookmark, an assertion about a <a about="_:example-page" rel="octo:url" href="https://example.com/page">pages</a> tagged <a about=_:"example-page" href="/term" rel="octo:octothorpes">term</a>.
+  </p>
+
+  <h2
+    id="some-fragment">
+    Some Fragment In the Page
+  </h2>
+
+  <p>
+    I am a pure HTML tagged <a about="#some-fragment" href="/term" rel="octo:octothorpes">term</a>.
+  </p>
+</body>
+</html>
