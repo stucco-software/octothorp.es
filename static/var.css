@@ -4,21 +4,19 @@
 
   /* Grayscale */
   --white: #fbfbfb;
-  --light-gray: #f0f0f0;
+  --light-gray: #f2f2f2;
   --gray: #dcdcdc;
   --dark-gray: #b0b0b0;
   --black: #2e2e2e;
 
   /* Brand */
   --pale-green: #EBF5EE;
-  --yellow: #FFE056;
-  --purple: #BB76CF;
-  --brown: #6D4E62;
   --dark-blue: #011C27;
+  --light-blue: #3c7efb;
 
   /* Assignment */
-  --bg-color: var(--dark-blue);
-  --txt-color: var(--purple);
+  --bg-color: var(--light-gray);
+  --txt-color: var(--dark-blue);
 
   /* Type */
   /* Stack */

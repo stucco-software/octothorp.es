@@ -1,25 +1,9 @@
 <script type="text/javascript">
   export let data
+  console.log(data)
 </script>
 
-<div class="container">
-  <header class="grid">
-    <h1>#Octothorpes</h1>
-    <p>Hashtags for Websites.</p>
-  </header>
-
-  <main class="grid">
-    {#each data.thorpes as t}
-      <a href="{t}">
-        #{t.split('/~/')[1]}
-      </a>
-    {/each}
-  </main>
-
-  <section>
-    <p><a href="/about">What is this?</a></p>
-  </section>
-</div>
+<h1>{data.instance}</h1>
 
 <style>
   header {

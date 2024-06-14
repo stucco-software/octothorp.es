@@ -12,6 +12,7 @@ export async function load(req) {
     .map(b => b.t.value)
     .filter(t => t.includes(instance)))
   return {
-    thorpes: thorpes
+    instance,
+    thorpes
   }
 }
