@@ -1,3 +1,4 @@
+
 body {
   font-size: var(--txt-0);
   font-family: var(--sans-stack);
@@ -50,13 +51,13 @@ h5 { font-size: var(--txt-0); }
 a,
 a:visited {
   display: inline-block;
-  color: var(--dark-blue);
+  color: var(--light-blue);
 }
 a:focus,
 a:hover {
-  background-color: var(--yellow);
-  color: var(--brown);
-  outline: 0.25em solid var(--yellow);
+  background-color: yellow;
+  color: var(--dark-blue);
+  outline: 0.25em solid yellow;
 }
 
 pre {
@@ -86,10 +87,11 @@ aside *:last-child {
 }
 
 input {
+  padding: 0.25rem;
   background-color: var(--pale-green);
   color: var(--brown);
   outline: none;
-  border: 3px solid var(--purple);
+  border: 1px solid var(--txt-color);
 }
 input:focus {
   background-color: var(--yellow);

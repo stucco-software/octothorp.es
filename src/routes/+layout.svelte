@@ -53,4 +53,9 @@
   aside {
     width: max-content;
   }
+
+  a {
+    text-decoration-skip-ink: auto;
+    color: currentColor;
+  }
 </style>
