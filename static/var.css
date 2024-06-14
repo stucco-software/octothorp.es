@@ -22,9 +22,9 @@
 
   /* Type */
   /* Stack */
-  --serif-stack:  "Titan One", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
-  --sans-stack:  "Prompt", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
-  --mono-stack: 'Plex Mono', monspsace;
+  --serif-stack:  "OCRA", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
+  --sans-stack:  "OCRA", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
+  --mono-stack: 'OCRA', monspsace;
 
   /* Scale */
   --txt--2: clamp(0.6331rem, 0.6141rem + 0.0949vi, 0.6877rem);
