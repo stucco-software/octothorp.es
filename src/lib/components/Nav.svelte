@@ -12,3 +12,16 @@
     <a href="/docs">docs</a>
   </li>
 </ul>
+
+<style>
+	ul {
+		margin: 0;
+		padding: 0;
+    padding-block-start: var(--baseline);
+	}
+	li {
+		margin: 0;
+		padding: 0;
+		list-style-type: '';
+	}
+</style>

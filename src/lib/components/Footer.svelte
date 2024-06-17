@@ -12,9 +12,10 @@
 
 <style type="text/css">
   footer {
-    margin-top: 2rem;
+    margin-top: calc(var(--baseline) * 2 - 2px);
     border-top: 2px dotted var(--dark-blue);
-    padding-block: 1rem;
+    padding-block: calc(var(--baseline) * 1);
+    padding-inline: 2ch
   }
 
   nav {

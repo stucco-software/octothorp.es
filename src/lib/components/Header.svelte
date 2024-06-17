@@ -5,7 +5,8 @@
 <style type="text/css">
   header {
     border-bottom: 2px dotted var(--dark-blue);
-    padding-block: 1rem;
+    padding-block: var(--baseline);
+    padding-inline: 2ch;
   }
 
   a {

@@ -22,7 +22,7 @@
   /* Stack */
   --serif-stack:  "OCRA", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
   --sans-stack:  "OCRA", -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
-  --mono-stack: 'OCRA', monspsace;
+  --mono-stack: 'OCRA', monospace;
 
   /* Scale */
   --txt--2: clamp(0.6331rem, 0.6141rem + 0.0949vi, 0.6877rem);
@@ -48,4 +48,11 @@
   --grid-max-width: 64rem;
   --grid-gutter: var(--space-s-l, clamp(1rem, 0.4783rem + 2.6087vw, 2.5rem));
   --grid-columns: 12;
+
+  /* Baseline / Char Grid */
+  --baseline: 1.5rem;
+  --tracking: 0;
+  --track-ratio: .72;
+  --grid-color: #d3d3d3;
+
 }
