@@ -3,13 +3,8 @@
 </script>
 
 <h1>{data.instance}</h1>
-<section>
-  {#each data.thorpes as thorpe}
-  <p>
-    <a class="thorpe" href="{thorpe}">#{thorpe.split('/~/')[1]}</a>
-  </p>
-  {/each}
-</section>
+
+<p>This Octothropes instance is a network of <mark>{data.thorpes}</mark> tags and <mark>{data.links}</mark> backlinks.</p>
 
 <style type="text/css">
   h1 {
