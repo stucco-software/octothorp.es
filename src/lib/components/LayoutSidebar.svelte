@@ -17,13 +17,12 @@
 
   .layout > :first-child {
     flex-grow: 1;
-    border-left: 1px solid blue;
   }
 
   .layout > :last-child {
+    padding-block-start: var(--baseline);
     flex-basis: 0;
     flex-grow: 999;
     min-inline-size: 75%;
-    border-left: 1px solid blue;
   }
 </style>
