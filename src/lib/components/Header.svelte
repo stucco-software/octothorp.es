@@ -1,5 +1,8 @@
+<script type="text/javascript">
+  export let host
+</script>
 <header>
-	<a href="/">#octothorpes</a>
+	<a href="/">#{host}</a>
 </header>
 
 <style type="text/css">
