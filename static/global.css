@@ -53,8 +53,8 @@ details ul,
 details ol {
   padding-block-end: 0;
 }
-h1 { font-size: var(--txt-2); }
-h2 { font-size: var(--txt-1); }
+h1 { font-size: var(--txt-1); }
+h2 { font-size: var(--txt-0); }
 h3 { font-size: var(--txt-0); }
 h4 { font-size: var(--txt-0); }
 h5 { font-size: var(--txt-0); }
