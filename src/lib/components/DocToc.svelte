@@ -31,7 +31,7 @@
     <ul>
       <li>
         <span>
-          <a class="doc" href="/docs/web-component">Web Component</a>
+          <a class="doc" href="/docs/indexing-pages">Index a Page</a>
         </span>
       </li>
       <li>
@@ -41,9 +41,21 @@
       </li>
       <li>
         <span>
-          <a class="doc" href="/docs/json-index">JSON Index</a>
+          <a class="doc" href="/docs/anchor-tag">Anchor Tag</a>
         </span>
       </li>
+      <li>
+        <span>
+          <a class="doc" href="/docs/web-component">Web Component</a>
+        </span>
+      </li>
+      <!--
+        <li>
+          <span>
+            <a class="doc" href="/docs/json-index">JSON Index</a>
+          </span>
+        </li>
+      -->
     </ul>
   </details>
 
@@ -88,6 +100,11 @@
       <li>
         <span>
           <a class="doc" href="/docs/hosting-a-community">Hosting a Community</a>
+        </span>
+      </li>
+      <li>
+        <span>
+          <a class="doc" href="/docs/hosted-rings">Create a Hosted Ring</a>
         </span>
       </li>
     </ul>

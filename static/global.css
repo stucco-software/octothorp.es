@@ -33,8 +33,13 @@ p {
 }
 ul, ol {
   padding-inline-start: 2ch;
-  list-style-type: square;
   padding-block-end: var(--baseline);
+}
+ul {
+  list-style-type: square;
+}
+ol {
+  padding-inline-start: 3ch;
 }
 li {
   line-height: var(--baseline);

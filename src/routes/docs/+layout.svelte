@@ -6,10 +6,15 @@
   <DocToc />  
 </nav>
 
-<slot></slot>
+<div class="content">
+  <slot></slot>
+</div>
 
 <style type="text/css">
   nav {
     margin-block-end: var(--baseline);
+  }
+  .content {
+    max-width: 52ch;
   }
 </style>

@@ -7,7 +7,7 @@
 
 <section class="dotgrid">
   <p>
-    <span>This Octothropes instance is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a> and <mark>{data.links}</mark> backlinks across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
+    <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a> and <mark>{data.links}</mark> backlinks across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
   </p>
 
   <div class="dashboard">
@@ -29,8 +29,17 @@
     <TKCard span="2">
       Recent x Popular Terms for some sort of trending view.
     </TKCard>
+    <TKCard clear>
+      Filler Illustration
+    </TKCard>
     <TKCard span="2">
       Network diagram of pages, terms, and domains
+    </TKCard>
+    <TKCard>
+      RSS Feed
+    </TKCard>
+    <TKCard>
+      ActivityPub Links
     </TKCard>
     <TKCard>
       Admin Login
