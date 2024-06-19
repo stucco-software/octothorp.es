@@ -152,3 +152,14 @@ button:active {
   background-image:  repeating-linear-gradient(to right, var(--grid-color), var(--grid-color) 0.5px, transparent 1px, transparent);  
 }
 */
+
+
+.dotgrid {
+  background-image: url(/wonkgraph.png);
+  padding-block-start: calc(var(--baseline));
+  padding-block-end: calc(var(--baseline) * 3);
+  padding-inline: 3ch 1ch;
+}
+.dotgrid span {
+  background-color: var(--bg-color);
+}
