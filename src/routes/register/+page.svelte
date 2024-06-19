@@ -3,57 +3,68 @@
 </script>
 
 <h1>Register your Domain</h1>
-
-<form
-  method="POST"
-  action="/register">
-  <label
-    for="domain">
-    Your Domain:
-  </label>
-  <input
-    value={form?.domain ?? ''}
-    required
-    type="url"
-    id="domain"
-    placeholder="https://example.com"
-    name="domain">
-  <label
-    for="email">
-    Email Address:
-  </label>
-
-
-  <input
-    placeholder="you@example.com"
-    type="email"
-    name="email"
-    id="email">
-  <p>We'll send you an email once your website has been verified.</p>
-
-  <div class="grid">
-    <input
-    required
-    class="inline"
-    type="checkbox"
-    id="acceptTerms"
-    name="acceptTerms">
+<section class="dotgrid">
+  <form
+    method="POST"
+    action="/register">
     <label
-      class="inline"
-      for="acceptTerms">
-      I've read the terms of use and verify that my domain is chill.
+      for="domain">
+      <span>
+        Your Domain:
+      </span>
     </label>
-  </div> 
+    <input
+      value={form?.domain ?? ''}
+      required
+      type="url"
+      id="domain"
+      placeholder="https://example.com"
+      name="domain">
+    <label
+      for="email">
+      <span>
+        Email Address:
+      </span>
+    </label>
 
-  {#if form?.banned}
+
+    <input
+      placeholder="you@example.com"
+      type="email"
+      name="email"
+      id="email">
     <p>
-      <mark>This domain has been banned.</mark>
+      <span>We'll send you an email once your website has been verified.</span>
     </p>
-  {/if}
 
-  <p>
-    <button>
-      Register
-    </button>
-  </p>
-</form>
+    <div class="grid">
+      <input
+      required
+      class="inline"
+      type="checkbox"
+      id="acceptTerms"
+      name="acceptTerms">
+      <label
+        class="inline"
+        for="acceptTerms">
+        <span>
+          I've read the terms of use and verify that my domain is chill.
+        </span>
+      </label>
+    </div>
+
+    {#if form?.banned}
+      <p>
+        <span>
+          <mark>This domain has been banned.</mark>
+        </span>
+      </p>
+    {/if}
+
+    <p>
+      <button>
+        Register
+      </button>
+    </p>
+  </form>
+</section>

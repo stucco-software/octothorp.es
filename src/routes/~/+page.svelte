@@ -21,9 +21,13 @@
     name="filter">
 </form>
 
-{#each thorpes as thorpe}
-  <a class="thorpe" href="{thorpe}">#{thorpe.split('/~/')[1]}</a>
-{/each}
+<section class="dotgrid">
+  {#each thorpes as thorpe}
+    <span>
+      <a class="thorpe" href="{thorpe}">#{thorpe.split('/~/')[1]}</a>
+    </span>
+  {/each}
+</section>
 
 <style type="text/css">
   form {
@@ -32,7 +36,7 @@
   input {
     width: 100%;
   }
-  a {
+  span {
     margin-inline-end: 1ch;
   }
 </style>

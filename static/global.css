@@ -157,8 +157,8 @@ button:active {
 .dotgrid {
   background-image: url(/wonkgraph.png);
   padding-block-start: calc(var(--baseline));
-  padding-block-end: calc(var(--baseline) * 3);
-  padding-inline: 3ch 1ch;
+  padding-block-end: calc(var(--baseline));
+  padding-inline: 3ch 0;
 }
 .dotgrid span {
   background-color: var(--bg-color);

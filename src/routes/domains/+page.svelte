@@ -2,14 +2,13 @@
   export let data
 </script>
 
-<h1>Verified Websites</h1>
-
-<p>All domains that have been verified with Octothorpes</p>
-
-<ul>
-  {#each data.domains as domain}
-    <li>
-      <a href="{domain}">{domain}</a>
-    </li>
-  {/each}
-</ul>
+<h1>Websites</h1>
+<section class="dotgrid">
+  <ul>
+    {#each data.domains as domain}
+      <li>
+        <span><a href="{domain}">{domain}</a></span>
+      </li>
+    {/each}
+  </ul>
+</section>
