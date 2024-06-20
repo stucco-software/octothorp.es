@@ -9,7 +9,7 @@
 
 <nav class="dotgrid">
   <!-- New DocToc -->
-  {#each data.hasPart as part}
+  {#each arrayify(data.hasPart) as part}
     {#if part.type === 'Collection'}
       <details>
         <summary>
