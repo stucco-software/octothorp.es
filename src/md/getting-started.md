@@ -7,4 +7,6 @@ hasPart:
   - domain-approval
 ---
 
-TKTK
+Every Octothorpes Ring is a collection of verified domains, each opting in to being indexed and contributing it's links to the overall network. 
+
+The first step is to add your domain to the Ring.

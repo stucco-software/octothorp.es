@@ -7,4 +7,4 @@ hasPart:
   - anchor-tag
 ---
 
-TKTK
+You can tag your pages with terms, which are collected on your Ring.

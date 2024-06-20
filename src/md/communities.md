@@ -3,8 +3,9 @@ type: Collection
 prefLabel: Communities
 hasPart:
   - rss-feeds
+  - activity-pub
   - rest-api
   - hosting-a-community
 ---
 
-TKTK
+There are several ways to interact with an Octothorpes Ring.

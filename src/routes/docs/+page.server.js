@@ -10,8 +10,10 @@ export async function load({ params }){
       id: {},
       type: {},
       body: {},
+      draft: {},
       hasPart: {
         prefLabel: {},
+        draft: {},
         body: {}
       }
     }

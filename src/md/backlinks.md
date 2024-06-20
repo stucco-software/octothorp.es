@@ -7,4 +7,4 @@ hasPart:
   - fetching-backlinks
 ---
 
-TKTK
+Backlinks are links that go … back. Pages within a Ring can see which other pages linked to them.
