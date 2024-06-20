@@ -13,5 +13,13 @@
   },
   "octothorpedBy": {
     "@reverse": "octothorpes"
-  }
+  },
+  "hasPart": {
+    "@id": "hasPart",
+    "@type": "@id"
+  },
+  "partOf": {
+    "@reverse": "hasPart"
+  },
+  "prefLabel": "prefLabel"
 }

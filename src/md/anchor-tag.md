@@ -1,4 +1,7 @@
-# Octothorpes Are Anchors
+---
+type: Documentation
+prefLabel: Octothorpes Are Anchors
+---
 
 If you want a link to be an octothorpe in the content of your page rather than just metadata, you can use an `<a>` tag.
 

@@ -10,7 +10,7 @@
     <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a> and <mark>{data.links}</mark> backlinks across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
   </p>
 
-  <div class="dashboard">
+  <!-- <div class="dashboard">
     <TKCard span="2">
       Instance search field
     </TKCard>
@@ -44,7 +44,7 @@
     <TKCard>
       Admin Login
     </TKCard>
-  </div>
+  </div> -->
 </section>
 
 <style type="text/css">

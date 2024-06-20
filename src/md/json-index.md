@@ -1,1 +1,5 @@
+---
+type: Documentation
+---
+
 # JSON-LD
