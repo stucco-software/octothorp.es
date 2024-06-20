@@ -3,32 +3,38 @@
   export let data
 </script>
 
+<h1>
+  {data.prefLabel}
+</h1>
+
 <nav class="dotgrid">
   <!-- New DocToc -->
   {#each data.hasPart as part}
-    <details>
-      <summary>
-        <span>
-          {part.prefLabel}
-        </span>
-      </summary>
-      <ul>
-        <li>
-          <a href='#{part.id}'>
-            Introduction
-          </a>
-        </li>
-        {#each arrayify(part.hasPart) as subpart}
-          {#if subpart}
-            <li>
-              <a href='#{subpart.id}'>
-                {subpart.prefLabel}
-              </a>
-            </li>
-          {/if}
-        {/each}
-      </ul>
-    </details>  
+    {#if part.type === 'Collection'}
+      <details>
+        <summary>
+          <span>
+            {part.prefLabel}
+          </span>
+        </summary>
+        <ul>
+          <li>
+            <a href='#{part.id}'>
+              Introduction
+            </a>
+          </li>
+          {#each arrayify(part.hasPart) as subpart}
+            {#if subpart}
+              <li>
+                <a href='#{subpart.id}'>
+                  {subpart.prefLabel}
+                </a>
+              </li>
+            {/if}
+          {/each}
+        </ul>
+      </details>  
+    {/if}
   {/each}
 </nav>
 
