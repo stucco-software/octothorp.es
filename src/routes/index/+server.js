@@ -112,6 +112,7 @@ const recordUsage = async ({s, o}) => {
 const handleHTML = async (response, s) => {
   const src = await response.text()
   const doc = getSubjectHTML(src)
+  
   const verifiedThorpes = [...new Set([
       ...doc.querySelectorAll(`[rel="${p}"]`),
       ...doc.querySelectorAll('octo-thorpe')
@@ -133,6 +134,12 @@ const handleHTML = async (response, s) => {
       await recordUsage({s, o})
     }
   })
+
+  // TK: Web of Trust Verification
+  //  1. Grab `[rel="octo:endorses"]`
+  //  2. Create term <s> octo:endorses <o> .
+  //  3. Create term <o.origin> octo:verified "true" .
+
   // await indexHTML({doc, s})
   return new Response(200)
 }

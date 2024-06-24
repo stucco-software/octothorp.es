@@ -117,7 +117,8 @@
   .draft:after {
     content: "DRAFT // IMPLEMENTATION TK // DRAFT"
   }
-  .hide-draft .draft {
+  .hide-draft .draft,
+  .hide-draft .draft-item {
     display: none;
   }
 </style>
