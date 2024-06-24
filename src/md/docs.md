@@ -1,6 +1,6 @@
 ---
 type: Collection
-prefLabel: Hashtags for the Internet
+prefLabel: Hashtags for the Open Internet
 hasPart:
   - how-to
   - why

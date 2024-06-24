@@ -1,13 +1,43 @@
 <script type="text/javascript">
   import { arrayify } from '$lib/arrayify'
+  import { page } from '$app/stores'
+  
+  let hideDraft = Boolean($page.url.searchParams.get('draft'))
   export let data
+  $: {
+    console.log(hideDraft)
+  }
 </script>
 
+<details>
+  <summary>
+    View Options
+  </summary>
+  <form 
+    method="GET"
+    action="/docs">
+    <label>
+      Draft Content:
+    </label>
+    <input 
+      bind:checked={hideDraft}
+      type="checkbox" 
+      name="draft" 
+      value="true" /> Hide
+    
+    <!-- <label>
+      Audience:
+    </label>
+    <input type="radio" name="audience" value="general" /> General
+    <input type="radio" name="audience" value="technical" /> Technical -->
+    <button>ok</button>
+  </form>
+</details>
 <h1>
   {data.prefLabel}
 </h1>
 
-<nav class="dotgrid">
+<nav class="dotgrid {hideDraft ? 'hide-draft' : ''}">
   <!-- New DocToc -->
   {#each arrayify(data.hasPart) as part}
     {#if part.type === 'Collection'}
@@ -38,7 +68,7 @@
   {/each}
 </nav>
 
-<div class="content">
+<div class="content {hideDraft ? 'hide-draft' : ''}">
   {@html data.body}
   {#each data.hasPart as part}
     {#if part.draft}  
@@ -86,6 +116,9 @@
   }
   .draft:after {
     content: "DRAFT // IMPLEMENTATION TK // DRAFT"
+  }
+  .hide-draft .draft {
+    display: none;
   }
 </style>
 
