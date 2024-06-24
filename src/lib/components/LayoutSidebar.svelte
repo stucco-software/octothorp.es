@@ -17,6 +17,7 @@
 
   .layout > :first-child {
     flex-grow: 1;
+    display: flex;
   }
 
   .layout > :last-child {
