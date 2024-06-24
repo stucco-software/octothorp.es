@@ -4,6 +4,17 @@ import jsonld from 'jsonld'
 import context from '$lib/ld/context'
 import prefixes from '$lib/ld/prefixes'
 
+if (import.meta.vitest) {
+  const { it, expect } = import.meta.vitest
+  it.skip('Returns an empty array if input is false', () => {
+    // TEST TK: Not sure how I want to unit test these buddies yet.
+    //   They might neeed to be refactored to seperate the unit logic
+    //   from the side effect `fetch`?
+    expect('a').toStrictEqual('b')
+  })
+}
+
+
 const headers = new Headers()
 headers.set('Authorization', 'Basic ' + btoa(sparql_user + ":" + sparql_password));
 
