@@ -1,5 +1,7 @@
 <script type="text/javascript">
   export let data
+  console.log(data)
+
   let thorpes = [...data.thorpes]
   let value
   $: {

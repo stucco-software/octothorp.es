@@ -10,7 +10,14 @@ export async function load(req) {
     }
   `)
 
+  const subject = await queryArray(`
+    SELECT ?p ?o {
+     <${instance}~/${thorpe}> ?p ?o .
+    }
+  `)
+
   const thorpes = sr.results.bindings.map(b => b.s.value)
+  console.log(subject.results.bindings)
 
   // rturn this thorpe and all subjects which thorpe it
   return {

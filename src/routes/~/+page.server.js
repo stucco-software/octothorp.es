@@ -16,7 +16,23 @@ export async function load(req) {
   } catch (e) {
     console.log(e)
   }
+
+  // get all the relevant thorpes
+  let links = []
+  try {
+    const sr = await queryArray(`
+      SELECT DISTINCT ?t {
+        ?t rdf:type <octo:Page> .
+      }
+    `)
+    links = new Set(sr.results.bindings
+      .map(b => b.t.value)
+      .filter(t => t.includes(instance)))
+  } catch (e) {
+    console.log(e)
+  }
   return {
-    thorpes
+    thorpes,
+    links
   }
 }
