@@ -8,6 +8,7 @@
 
 <style>
 	div {
+		display: flex;
 		font-family: "DOS";
 		font-size: var(--txt-0);
 	}
