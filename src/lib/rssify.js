@@ -5,6 +5,7 @@ const rssDescription = d => d ? `<description>${encodedStr(d)}</description>` : 
 const rssID = l => l ? `<guid isPermaLink="true">${l}</guid>` : ``
 const rssTitle = t => t ? `<title>${encodedStr(t)}</title>` : ``
 const rssLink = l => l ? `<link>${l}</link>` : ``
+const rssCategory = c => c ? `<category>${c}</category>` : ``
 const rssPubDate = d => d ? `<pubDate>${(new Date(d)).toUTCString()}</pubDate>` : ``
 const rssAuthor = a => a && a.guid ? `<author>${a.guid}</author>` : ``
 const atomLink = l => l ? `<atom:link href="${l}" rel="self" type="application/rss+xml" />` : ``
@@ -64,6 +65,7 @@ const rssItem = item => (new Date(item.pubDate)).toUTCString() != "Invalid Date"
   ${rssID(item.guid)}
   ${rssPubDate(item.pubDate)}
   ${rssLink(item.link)}
+  ${rssCategory(item.category)}
 </item>` : ''
 
 if (import.meta.vitest) {
