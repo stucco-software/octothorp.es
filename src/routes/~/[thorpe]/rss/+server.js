@@ -12,14 +12,17 @@ export async function GET({ request, params }) {
      optional { ?s <${instance}~/${thorpe}> ?t . }
     }
   `)
-  const items = sr.results.bindings.map(b => {
-    return {
-      link: b.s.value,
-      title: b.s.value,
-      guid: b.s.value,
-      pubDate: b.t ? new Date(b.t.value) : new Date(1712911606727)
-    }
-  })
+  const items = sr.results.bindings
+    .map(b => {
+      return {
+        link: b.s.value,
+        title: b.s.value,
+        guid: b.s.value,
+        time: Number(b.t.value),
+        pubDate: new Date(Number(b.t.value))
+      }
+    })
+    .sort((a, b) => b.time - a.time)
 
   let tree = {
     channel: {
