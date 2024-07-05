@@ -1,8 +1,11 @@
 <script type="text/javascript">
+  import Lockup from './Lockup.svelte'
   export let host
 </script>
 <header>
-	<a href="/">#{host}</a>
+	<a href="/">
+    <Lockup {host} />
+  </a>
 </header>
 
 <style type="text/css">
