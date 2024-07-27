@@ -101,23 +101,16 @@ const hydrate = async (shadow, o) => {
   )
 
   let links = data.map(d => d.value)
-  console.log(links)
   let template = `${links.map(serverTemplate(o))}`
 
   let nodes = [...shadow.querySelectorAll(`[data-o="${o}"] article`)]
-  console.log(nodes)
   nodes.forEach(node => node.innerHTML = template)
-  console.log(nodes)
-  console.log(template)
-  console.log('???')
 }
 
 const instantiate = (node) => {
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
-  console.log('always something new to break')
-  console.log(o, label)
   wrapper.innerHTML = tag(o, label)
   const shadow = node.attachShadow({mode: 'open'})
   shadow.appendChild(wrapper)
