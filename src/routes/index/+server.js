@@ -75,6 +75,13 @@ const createOctothorpe = async ({s, p, o}) => {
   let now = Date.now()
   let url = new URL(s)
   let origin = `${url.origin}/`
+  console.log(
+`
+    <${s}> ${p} <${instance}~/${o}> .
+    <${s}> <${instance}~/${o}> ${now} .
+    <${origin}> octo:hasPart <${s}> .
+  `
+)
   return await insert(`
     <${s}> ${p} <${instance}~/${o}> .
     <${s}> <${instance}~/${o}> ${now} .
@@ -128,17 +135,19 @@ const handleHTML = async (response, s) => {
 
   await asyncMap(verifiedThorpes, async (o) => {
     let isExtantTerm = await extantTerm(o)
+    console.log('so…')
+    console.log(s, p, o)
+    console.log('extant term?', isExtantTerm)
     if (!isExtantTerm) {
       await recordCreation(o)
       await emailAdministrator({s, o})
     }
     let isExtantThorpe = await extantThorpe({s, p, o})
+    console.log('extant thorpe?', isExtantTerm)
     if (!isExtantThorpe) {
       await createOctothorpe({s, p, o})
       await recordUsage({s, o})
     }
-    console.log('so…')
-    console.log(s, p, o)
   })
 
   // TK: Web of Trust Verification
