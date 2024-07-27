@@ -1,4 +1,4 @@
-function tag(o, label) {
+function tag = (o, label) => {
   return `<style>
     a {
       color: inherit;
@@ -116,8 +116,9 @@ const instantiate = (node) => {
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
+  console.log('always something new to break'):
   console.log(o, label)
-  wrapper.innerHTML = tag`${o} ${label}`
+  wrapper.innerHTML = tag(o, label)
   const shadow = node.attachShadow({mode: 'open'})
   shadow.appendChild(wrapper)
   hydrate(shadow, o)
