@@ -116,7 +116,7 @@ const instantiate = (node) => {
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
-  console.log('always something new to break'):
+  console.log('always something new to break')
   console.log(o, label)
   wrapper.innerHTML = tag(o, label)
   const shadow = node.attachShadow({mode: 'open'})
