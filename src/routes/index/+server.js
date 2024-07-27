@@ -137,6 +137,8 @@ const handleHTML = async (response, s) => {
       await createOctothorpe({s, p, o})
       await recordUsage({s, o})
     }
+    console.log('so…')
+    console.log(s, p, o)
   })
 
   // TK: Web of Trust Verification
