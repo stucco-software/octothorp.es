@@ -6,6 +6,8 @@ export async function GET(req) {
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
+  console.log('????')
+  console.log(s)
   // If there is a URI
   if (s) {
     try {
