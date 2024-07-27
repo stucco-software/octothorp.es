@@ -15,6 +15,8 @@ export async function GET(req) {
     } catch (e) {
       return error(401, 'URI is not a valid resource.')
     }
+    console.log(uri)
+    console.log(s)
     fetch(`${instance}index?uri=${s}`)
   }
   return json({

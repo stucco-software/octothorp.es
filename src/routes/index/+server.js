@@ -165,6 +165,7 @@ const handler = async (s) => {
 }
 
 export async function GET(req) {
+  console.log('indexing:')
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   console.log(url)
