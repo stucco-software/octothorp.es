@@ -7,8 +7,8 @@ import { queryBoolean, queryArray } from '$lib/sparql.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 let p = 'octo:octothorpes'
-let indexCooldown = 300000 //5min
-// let indexCooldown = 0
+// let indexCooldown = 300000 //5min
+let indexCooldown = 0
 
 const recentlyIndexed = async (s) => {
   let now = Date.now()
@@ -123,6 +123,9 @@ const handleHTML = async (response, s) => {
     .map(term => encodeURIComponent(term))
   )]
 
+  console.log('indexing found:')
+  console.log(verifiedThorpes)
+
   await asyncMap(verifiedThorpes, async (o) => {
     let isExtantTerm = await extantTerm(o)
     if (!isExtantTerm) {
@@ -165,7 +168,7 @@ const handler = async (s) => {
 }
 
 export async function GET(req) {
-  console.log('indexing:')
+  console.log('indexing:')``
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   console.log(url)
