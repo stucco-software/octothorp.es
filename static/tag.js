@@ -17,6 +17,10 @@ function tag(o, label) {
       -webkit-appearance:none;
     }
 
+    .octo-thorpe summary::-webkit-details-marker {
+      display:none;
+    }
+
     .octo-thorpe summary::before {
       padding-inline-end: 0.1em;
       content: "#";
