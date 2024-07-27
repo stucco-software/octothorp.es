@@ -105,7 +105,10 @@ const hydrate = async (shadow, o) => {
   let template = `${links.map(serverTemplate(o))}`
 
   let nodes = [...shadow.querySelectorAll(`[data-o="${o}"] article`)]
+  console.log(nodes)
   nodes.forEach(node => node.innerHTML = template)
+  console.log(nodes)
+  console.log(template)
   console.log('???')
 }
 
