@@ -1,4 +1,4 @@
-function tag = (o, label) => {
+const tag = (o, label) => {
   return `<style>
     a {
       color: inherit;
