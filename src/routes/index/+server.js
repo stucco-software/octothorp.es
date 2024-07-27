@@ -14,6 +14,7 @@ const recentlyIndexed = async (s) => {
   let now = Date.now()
 
   let url = new URL(s)
+
   let origin = `${url.origin}/`
   let r = await queryArray(`
     select distinct ?t {
@@ -145,6 +146,7 @@ const handleHTML = async (response, s) => {
 }
 
 const handler = async (s) => {
+  console.log('Index Handler:', s)
   let isVerifiedOrigin = await verifiedOrigin(s)
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
@@ -164,7 +166,8 @@ const handler = async (s) => {
 
 export async function GET(req) {
   let url = new URL(req.request.url)
-  let s = url.searchParams.get('uri')
+  let uri = new URL(url.searchParams.get('uri'))
+  let s = `${uri.origin}${uri.pathname}`
   if (s) {
     return await handler(s)
     // @TKTK

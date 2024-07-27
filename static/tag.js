@@ -1,10 +1,11 @@
-function tag(strings, s, p, o, label, hash) {
+function tag(o, label) {
   return `<style>
     a {
       color: inherit;
     }
     .octo-thorpe {
       display: inline;
+      -webkit-appearance:none;
     }
     .octo-thorpe[open] {
       display: block;
@@ -13,6 +14,7 @@ function tag(strings, s, p, o, label, hash) {
     .octo-thorpe summary {
       list-style: none;
       cursor: zoom-in;
+      -webkit-appearance:none;
     }
 
     .octo-thorpe summary::before {
@@ -83,20 +85,6 @@ const webhooks = script
       .split(',')
       .map(hook => hook.endsWith('/') ? hook.slice(0, -1) : hook)
 
-const post = ({s, p, o}) => {
-  webhooks.map(webhook => {
-    console.log(webhook)
-    let formData = new FormData()
-    formData.append('s', s)
-    formData.append('p', p)
-    console.log(`${webhook}/~/${o}`, p, s)
-    fetch(`${webhook}/~/${o}`, {
-      method: "POST",
-      body: formData
-    })
-  })
-}
-
 const hydrate = async (shadow, o) => {
   let responses = await Promise.allSettled(
     webhooks.map(async webhook => await fetch(`${webhook}/~/${o}`))
@@ -117,16 +105,13 @@ const hydrate = async (shadow, o) => {
 }
 
 const instantiate = (node) => {
-  let s = window.location.href
-  let p = "octo:octothorpes"
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
-  wrapper.innerHTML = tag`${s} ${p} ${o} ${label}`
+  wrapper.innerHTML = tag`${o} ${label}`
   const shadow = node.attachShadow({mode: 'open'})
   shadow.appendChild(wrapper)
   hydrate(shadow, o)
-  post({s, p, o})
 }
 
 customElements.define('octo-thorpe', class extends HTMLElement {
