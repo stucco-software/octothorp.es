@@ -56,6 +56,11 @@ const getSubjectHTML = (src) => {
 }
 
 const extantTerm = async (o) => {
+  console.log(`
+    ask {
+      ?s ?p <${instance}~/${o}> .
+    }
+  `)
   return await queryBoolean(`
     ask {
       ?s ?p <${instance}~/${o}> .

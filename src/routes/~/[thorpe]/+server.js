@@ -16,12 +16,6 @@ export async function GET(req) {
   }
 
   const thorpe = req.params.thorpe
-  console.log(`GET BACKLINKS??`)
-  console.log(`
-    SELECT DISTINCT ?s {
-     ?s octo:octothorpes <${instance}~/${thorpe}> .
-    }
-  `)
   const sr = await queryArray(`
     SELECT DISTINCT ?s {
      ?s octo:octothorpes <${instance}~/${thorpe}> .
