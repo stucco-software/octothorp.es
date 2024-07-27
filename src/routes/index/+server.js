@@ -167,6 +167,9 @@ const handler = async (s) => {
 export async function GET(req) {
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
+  console.log(url)
+  console.log(uri)
+  console.log(uri.origin, uri.pathname, `${uri.origin}${uri.pathname}`)
   let s = `${uri.origin}${uri.pathname}`
   if (s) {
     return await handler(s)
