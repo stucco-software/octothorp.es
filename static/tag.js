@@ -40,9 +40,7 @@ function tag(o, label) {
   </style>
   <details class="octo-thorpe" data-o="${o}">
     <summary>${label}</summary>
-    <article>
-      <mark>${s} ${p} ${o}</mark>
-    </article>
+    <article></article>
   </details>`
 }
 
