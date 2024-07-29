@@ -2,7 +2,7 @@ import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 
 export async function load(req) {
-  const term = req.params.thorpe
+  const term = decodeURIComponent(req.params.thorpe)
   let o
   try {
     new URL(term)
