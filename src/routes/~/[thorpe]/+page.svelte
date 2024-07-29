@@ -6,7 +6,7 @@
   <h1>#{data.term}</h1>
 
   <ul>
-    {#each data.terms as thorpe}
+    {#each data.thorpes as thorpe}
       <li>
         <a
           rel="octothorpedBy"
