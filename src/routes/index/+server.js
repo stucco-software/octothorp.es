@@ -41,16 +41,34 @@ const recordIndexing = async (s) => {
 const verifiedOrigin = async (s) => {
   let url = new URL(s)
   let origin = `${url.origin}/`
-  console.log(`
+
+
+  const alias = origin.startsWith('https://www')
+    ? origin.replace('https://www', 'https://')
+    : origin.replace('https://', 'https://www')
+
+
+  let originVerified =  await queryBoolean(`
     ask {
       <${origin}> octo:verified "true" .
     }
   `)
-  return await queryBoolean(`
+    console.log(`
     ask {
       <${origin}> octo:verified "true" .
     }
+  `, originVerified)
+  let aliasVerified =  await queryBoolean(`
+    ask {
+      <${alias}> octo:verified "true" .
+    }
   `)
+      console.log(`
+    ask {
+      <${alias}> octo:verified "true" .
+    }
+  `, aliasVerified)
+  return originVerified || aliasVerified
 }
 
 const getSubjectHTML = (src) => {
