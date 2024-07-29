@@ -16,12 +16,17 @@ export async function GET(req) {
   } catch (err) {
     o = `${instance}~/${term}`
   }
+
   if (s) {
     let response = await statementHandler({s, p, o})
     return response
   }
 
-  const thorpe = req.params.thorpe
+  console.log(`
+    SELECT DISTINCT ?s {
+     ?s octo:octothorpes <${o}> .
+    }
+  `)
   const sr = await queryArray(`
     SELECT DISTINCT ?s {
      ?s octo:octothorpes <${o}> .
@@ -30,7 +35,7 @@ export async function GET(req) {
   const thorpes = sr.results.bindings.map(b => b.s.value)
 
   return json({
-    uri: `${instance}~/${thorpe}`,
+    uri: `${o}`,
     octothorpedBy: thorpes
   },{
     headers: {
