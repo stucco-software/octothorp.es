@@ -167,18 +167,22 @@ const handleHTML = async (response, s) => {
 const handler = async (s) => {
   console.log('Index Handler:', s)
   let isVerifiedOrigin = await verifiedOrigin(s)
+  console.log(s, `is verified origin?`, isVerifiedOrigin)
   if (!isVerifiedOrigin) {
+    console.log('no')
     return error(401, 'Origin is not registered with this server.')
   }
 
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
+    console.log('too recently indexed')
     return error(429, 'This page has been recently indexed.')
   }
   await recordIndexing(s)
 
   let subject = await fetch(s)
   if (subject.headers.get('content-type').includes('text/html')) {
+    console.log('handle html plz')
     return await handleHTML(subject, s)
   }
 }
