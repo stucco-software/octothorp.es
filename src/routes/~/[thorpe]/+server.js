@@ -8,8 +8,14 @@ export async function GET(req) {
 
   let s = url.searchParams.get('path')
   let p = 'octo:octothorpes'
-  let o = `${req.params.thorpe}`
-
+  let term = `${req.params.thorpe}`
+  let o
+  try {
+    new URL(term)
+    o = term
+  } catch (err) {
+    o = `${instance}~/${term}`
+  }
   if (s) {
     let response = await statementHandler({s, p, o})
     return response
@@ -18,7 +24,7 @@ export async function GET(req) {
   const thorpe = req.params.thorpe
   const sr = await queryArray(`
     SELECT DISTINCT ?s {
-     ?s octo:octothorpes <${instance}~/${thorpe}> .
+     ?s octo:octothorpes <${o}> .
     }
   `)
   const thorpes = sr.results.bindings.map(b => b.s.value)

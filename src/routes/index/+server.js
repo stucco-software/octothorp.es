@@ -167,7 +167,7 @@ const handleHTML = async (response, s) => {
       new URL(term)
       o = term
     } catch (err) {
-      o = `${'instance'}~/${term}`
+      o = `${instance}~/${term}`
     }
     let isExtantTerm = await extantTerm(o)
     console.log('so…')
