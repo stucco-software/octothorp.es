@@ -41,6 +41,11 @@ const recordIndexing = async (s) => {
 const verifiedOrigin = async (s) => {
   let url = new URL(s)
   let origin = `${url.origin}/`
+  console.log(`
+    ask {
+      <${origin}> octo:verified "true" .
+    }
+  `)
   return await queryBoolean(`
     ask {
       <${origin}> octo:verified "true" .
