@@ -5,6 +5,12 @@ export async function GET(req) {
   const uri = decodeURIComponent(req.params.uri)
   let url = new URL(uri)
   let origin = url.origin
+  console.log(`
+    SELECT ?s ?p {
+      ?p octo:partOf <${origin}/> .
+      ?s octo:octothorpes ?p .
+    }
+  `)
   const sr = await queryArray(`
     SELECT ?s ?p {
       ?p octo:partOf <${origin}/> .
