@@ -155,7 +155,7 @@ const handleHTML = async (response, s) => {
     ]
     .map(node => node.getAttribute('href') || node.textContent.trim())
     .map(term => term.startsWith('/') ? term.replace('/', '') : term)
-    .map(term => encodeURIComponent(term))
+    // .map(term => encodeURIComponent(term))
   )]
 
   console.log('indexing found:')
