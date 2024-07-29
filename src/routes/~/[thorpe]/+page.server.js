@@ -2,17 +2,24 @@ import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 
 export async function load(req) {
-  const thorpe = req.params.thorpe
+  const term = req.params.thorpe
+  let o
+  try {
+    new URL(term)
+    o = term
+  } catch (err) {
+    o = `${instance}~/${term}`
+  }
 
   const sr = await queryArray(`
     SELECT DISTINCT ?s {
-     ?s octo:octothorpes <${instance}~/${thorpe}> .
+     ?s octo:octothorpes <${o}> .
     }
   `)
 
   const subject = await queryArray(`
     SELECT ?p ?o {
-     <${instance}~/${thorpe}> ?p ?o .
+     <${o}> ?p ?o .
     }
   `)
 
