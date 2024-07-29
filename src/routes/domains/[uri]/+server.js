@@ -2,7 +2,7 @@ import { queryArray } from '$lib/sparql.js'
 import { json, error } from '@sveltejs/kit'
 
 export async function GET(req) {
-  const uri = req.params.uri
+  const uri = const term = decodeURIComponent(req.params.uri)
   let url = new URL(uri)
   let origin = url.origin
   const sr = await queryArray(`
