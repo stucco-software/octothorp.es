@@ -43,9 +43,9 @@ const verifiedOrigin = async (s) => {
   let origin = `${url.origin}/`
 
 
-  const alias = origin.startsWith('https://www')
-    ? origin.replace('https://www', 'https://')
-    : origin.replace('https://', 'https://www')
+  const alias = origin.startsWith('https://www.')
+    ? origin.replace('https://www.', 'https://')
+    : origin.replace('https://', 'https://www.')
 
 
   let originVerified =  await queryBoolean(`
