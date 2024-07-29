@@ -81,12 +81,12 @@ const getSubjectHTML = (src) => {
 const extantTerm = async (o) => {
   console.log(`
     ask {
-      ?s ?p <${instance}~/${o}> .
+      ?s ?p <${o}> .
     }
   `)
   return await queryBoolean(`
     ask {
-      ?s ?p <${instance}~/${o}> .
+      ?s ?p <${o}> .
     }
   `)
 }
@@ -94,7 +94,7 @@ const extantTerm = async (o) => {
 const extantThorpe = async ({s, p, o}) => {
   return await queryBoolean(`
     ask {
-      <${s}> ${p} <${instance}~/${o}> .
+      <${s}> ${p} <${o}> .
     }
   `)
 }
@@ -105,14 +105,14 @@ const createOctothorpe = async ({s, p, o}) => {
   let origin = `${url.origin}/`
   console.log(
 `
-    <${s}> ${p} <${instance}~/${o}> .
-    <${s}> <${instance}~/${o}> ${now} .
+    <${s}> ${p} <${o}> .
+    <${s}> <${o}> ${now} .
     <${origin}> octo:hasPart <${s}> .
   `
 )
   return await insert(`
-    <${s}> ${p} <${instance}~/${o}> .
-    <${s}> <${instance}~/${o}> ${now} .
+    <${s}> ${p} <${o}> .
+    <${s}> <${o}> ${now} .
     <${origin}> octo:hasPart <${s}> .
   `)
 }
@@ -124,14 +124,14 @@ const recordCreation = async (o) => {
     let url = new URL(uri)
     if (url) {
       return await insert(`
-        <${instance}~/${o}> octo:created ${now} .
-        <${instance}~/${o}> rdf:type <octo:Page> .
+        <${o}> octo:created ${now} .
+        <${o}> rdf:type <octo:Page> .
       `)
     }
   } catch (e) {
     return await insert(`
-      <${instance}~/${o}> octo:created ${now} .
-      <${instance}~/${o}> rdf:type <octo:Term> .
+      <${o}> octo:created ${now} .
+      <${o}> rdf:type <octo:Term> .
     `)
   }
 
@@ -140,7 +140,7 @@ const recordCreation = async (o) => {
 const recordUsage = async ({s, o}) => {
   let now = Date.now()
   return await insert(`
-    <${instance}~/${o}> octo:used ${now} .
+    <${o}> octo:used ${now} .
   `)
 }
 
@@ -161,10 +161,18 @@ const handleHTML = async (response, s) => {
   console.log('indexing found:')
   console.log(verifiedThorpes)
 
-  await asyncMap(verifiedThorpes, async (o) => {
+  await asyncMap(verifiedThorpes, async (term) => {
+    let o
+    try {
+      new URL(term)
+      o = term
+    } catch (err) {
+      o = `${'instance'}~/${term}`
+    }
     let isExtantTerm = await extantTerm(o)
     console.log('so…')
     console.log(s, p, o)
+
     console.log('extant term?', isExtantTerm)
     if (!isExtantTerm) {
       await recordCreation(o)
