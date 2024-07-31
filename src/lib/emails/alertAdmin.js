@@ -9,7 +9,7 @@ const alertAdmin = async ({s, o}) => {
       subject: `New Octothorpe on ${instance}`,
       html: `
         <p>
-          <b>${s}</b> created a new octothorpe <a href="${instance}~/${o}"><b>#${o}</b></a>.
+          <b>${s}</b> created a new octothorpe <a href="${o}"><b>${o}</b></a>.
         </p>
       `
     })
