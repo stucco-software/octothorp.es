@@ -7,6 +7,7 @@ hasPart:
   - getting-started
   - creating-octothorpes
   - backlinks
+  - bookmarks
   - communities
 ---
 
