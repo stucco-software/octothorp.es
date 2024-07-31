@@ -119,22 +119,17 @@ const createOctothorpe = async ({s, p, o}) => {
 
 const recordCreation = async (o) => {
   let now = Date.now()
-  try {
-    let uri = decodeURIComponent(o)
-    let url = new URL(uri)
-    if (url) {
-      return await insert(`
-        <${o}> octo:created ${now} .
-        <${o}> rdf:type <octo:Page> .
-      `)
-    }
-  } catch (e) {
+  if (o.includes(instance)) {
     return await insert(`
       <${o}> octo:created ${now} .
       <${o}> rdf:type <octo:Term> .
     `)
+  } else {
+    return await insert(`
+      <${o}> octo:created ${now} .
+      <${o}> rdf:type <octo:Page> .
+    `)
   }
-
 }
 
 const recordUsage = async ({s, o}) => {
