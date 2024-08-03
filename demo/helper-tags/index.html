@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Helper Tags</title>
+  <link
+    rel="preload"
+    as="fetch"
+    href="http://localhost:5173/?uri=http://localhost:8888/helper-tags">
+  <script
+    async=""
+    defer=""
+    type="module"
+    data-register="http://localhost:5173"
+    src="http://localhost:5173/tag.js"></script>
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/meta-links">Meta Links</a>
+    <a href="/raw-html">Raw HTML</a>
+    <a href="/helper-tags">Helper Tags</a>
+  </nav>
+  <h1>Helper Tags</h1>
+  <p>
+    I am the thorpe node tagged <octo-thorpe>customElements</octo-thorpe>
+  </p>
+  <p>
+    I am the thorpe node tagged <octo-thorpe href="/divergent">with a different href.</octo-thorpe>
+  </p>
+</body>
+</html>
