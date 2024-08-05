@@ -53,21 +53,11 @@ const verifiedOrigin = async (s) => {
       <${origin}> octo:verified "true" .
     }
   `)
-    console.log(`
-    ask {
-      <${origin}> octo:verified "true" .
-    }
-  `, originVerified)
   let aliasVerified =  await queryBoolean(`
     ask {
       <${alias}> octo:verified "true" .
     }
   `)
-      console.log(`
-    ask {
-      <${alias}> octo:verified "true" .
-    }
-  `, aliasVerified)
   return originVerified || aliasVerified
 }
 
@@ -79,11 +69,6 @@ const getSubjectHTML = (src) => {
 }
 
 const extantTerm = async (o) => {
-  console.log(`
-    ask {
-      ?s ?p <${o}> .
-    }
-  `)
   return await queryBoolean(`
     ask {
       ?s ?p <${o}> .
@@ -103,13 +88,6 @@ const createOctothorpe = async ({s, p, o}) => {
   let now = Date.now()
   let url = new URL(s)
   let origin = `${url.origin}/`
-  console.log(
-`
-    <${s}> ${p} <${o}> .
-    <${s}> <${o}> ${now} .
-    <${origin}> octo:hasPart <${s}> .
-  `
-)
   return await insert(`
     <${s}> ${p} <${o}> .
     <${s}> <${o}> ${now} .
@@ -153,9 +131,6 @@ const handleHTML = async (response, s) => {
     // .map(term => encodeURIComponent(term))
   )]
 
-  console.log('indexing found:')
-  console.log(verifiedThorpes)
-
   await asyncMap(verifiedThorpes, async (term) => {
     let o
     try {
@@ -165,16 +140,12 @@ const handleHTML = async (response, s) => {
       o = `${instance}~/${term}`
     }
     let isExtantTerm = await extantTerm(o)
-    console.log('so…')
-    console.log(s, p, o)
 
-    console.log('extant term?', isExtantTerm)
     if (!isExtantTerm) {
       await recordCreation(o)
       await emailAdministrator({s, o})
     }
     let isExtantThorpe = await extantThorpe({s, p, o})
-    console.log('extant thorpe?', isExtantTerm)
     if (!isExtantThorpe) {
       await createOctothorpe({s, p, o})
       await recordUsage({s, o})
@@ -191,36 +162,28 @@ const handleHTML = async (response, s) => {
 }
 
 const handler = async (s) => {
-  console.log('Index Handler:', s)
   let isVerifiedOrigin = await verifiedOrigin(s)
-  console.log(s, `is verified origin?`, isVerifiedOrigin)
   if (!isVerifiedOrigin) {
-    console.log('no')
     return error(401, 'Origin is not registered with this server.')
   }
 
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
-    console.log('too recently indexed')
     return error(429, 'This page has been recently indexed.')
   }
   await recordIndexing(s)
 
   let subject = await fetch(s)
   if (subject.headers.get('content-type').includes('text/html')) {
-    console.log('handle html plz')
     return await handleHTML(subject, s)
   }
 }
 
 export async function GET(req) {
-  console.log('indexing:')
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
-  console.log(url)
-  console.log(uri)
-  console.log(uri.origin, uri.pathname, `${uri.origin}${uri.pathname}`)
   let s = `${uri.origin}${uri.pathname}`
+
   if (s) {
     return await handler(s)
     // @TKTK

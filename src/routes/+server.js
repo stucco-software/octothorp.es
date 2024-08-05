@@ -1,25 +1,63 @@
 import { json, error } from '@sveltejs/kit'
 import { instance } from '$env/static/private'
+import { queryBoolean } from '$lib/sparql.js'
+import { assert } from '$lib/assert.js'
+
+const verifiedOrigin = async (origin) => {
+  let alias
+
+  if (origin.startsWith('https')) {
+    alias = origin.startsWith('https://www.')
+        ? origin.replace('https://www.', 'https://')
+        : origin.replace('https://', 'https://www.')
+  } else {
+    alias = origin.startsWith('http://www.')
+      ? origin.replace('http://www.', 'http://')
+      : origin.replace('http://', 'http://www.')
+  }
+
+
+  let originVerified =  await queryBoolean(`
+    ask {
+      <${origin}> octo:verified "true" .
+    }
+  `)
+  let aliasVerified =  await queryBoolean(`
+    ask {
+      <${alias}> octo:verified "true" .
+    }
+  `)
+  return originVerified || aliasVerified
+}
 
 // Accept a request object
 export async function GET(req) {
+  let reqOrigin = req.request.headers.get('referer')
+  let isVerifiedOrigin = await verifiedOrigin(reqOrigin)
+  if (!isVerifiedOrigin) {
+    return error(401, 'Origin is not registered with this server.')
+  }
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
-  console.log('????')
-  console.log(s)
   // If there is a URI
   if (s) {
+    let uri
     try {
-      let uri = new URL(s)
-      console.log(uri)
+      uri = new URL(s)
     } catch (e) {
-      console.log('NOPE')
-      console.log(e)
       return error(401, 'URI is not a valid resource.')
     }
-    console.log(s)
-    await fetch(`${instance}index?uri=${s}`)
+    console.log('are we indexing on the origin that sent the request?')
+    console.log(`${uri.origin}/`, reqOrigin, `${uri.origin}/` == reqOrigin)
+    if (`${uri.origin}/` == reqOrigin) {
+      console.log('go ahead and index it')
+      await fetch(`${instance}index?uri=${s}`)
+    } else {
+      console.log('dont index it, but make an assertion.')
+      await assert(reqOrigin, url.searchParams)
+    }
+
   }
   return json({
     instance

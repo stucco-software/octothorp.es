@@ -30,7 +30,6 @@ const getTriples = (accept) => async (query) => await fetch(`${sparql_endpoint}/
 export const queryArray = async query => {
   let triples = await getTriples('application/sparql-results+json')(query)
       .then(result => {
-        console.log(result)
         return result.json()
       })
   return triples

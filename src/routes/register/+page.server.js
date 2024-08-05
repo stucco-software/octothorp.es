@@ -15,12 +15,9 @@ const domainPresent = async (domain) => await queryBoolean(`ask {
 }`)
 
 const insertRequest = async ({domain, challenge}) => {
-  console.log('insert new domain verifiction request')
   if (domain === 'https://new.example.com/' || domain === 'http://new.example.com/') {
     return true
   }
-  console.log('this is not a drill')
-  console.log(domain, challenge)
   return true
 }
 

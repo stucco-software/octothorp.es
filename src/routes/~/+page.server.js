@@ -31,9 +31,6 @@ export async function load(req) {
   } catch (e) {
     console.log(e)
   }
-
-  console.log('links??')
-  console.log(links)
   return {
     thorpes,
     links
