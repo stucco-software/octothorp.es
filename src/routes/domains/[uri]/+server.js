@@ -5,12 +5,14 @@ export async function GET(req) {
   const uri = decodeURIComponent(req.params.uri)
   let url = new URL(uri)
   let origin = url.origin
+
   const sr = await queryArray(`
     SELECT ?s ?p {
-      ?p octo:partOf <${origin}/> .
+      <${origin}/> octo:hasPart ?s .
       ?s octo:octothorpes ?p .
     }
   `)
+
   const backlinks = sr.results.bindings
     .map(b => {
       return {
@@ -19,9 +21,26 @@ export async function GET(req) {
       }
     })
 
+  const sa = await queryArray(`
+    SELECT ?uri ?term {
+      <${origin}/> octo:asserts ?s .
+      ?s octo:uri ?uri .
+      ?s octo:octothorpes ?term .
+    }
+  `)
+
+  const bookmarks = sa.results.bindings
+    .map(b => {
+      return {
+        uri: b.uri.value,
+        octothorpes: b.term.value
+      }
+    })
+
   return json({
     uri: `${uri}`,
-    backlinks
+    backlinks,
+    bookmarks
   },{
     headers: {
       'Access-Control-Allow-Methods': 'GET',
