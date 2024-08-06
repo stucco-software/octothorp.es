@@ -30,7 +30,7 @@ export async function GET(req) {
     .map(b => {
       return {
         from: b.s.value,
-        to: b.p.value
+        to: b.o.value
       }
     })
 
