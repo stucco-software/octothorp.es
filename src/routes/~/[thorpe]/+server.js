@@ -22,21 +22,27 @@ export async function GET(req) {
     return response
   }
 
-  console.log(`
-    SELECT DISTINCT ?s {
-     ?s octo:octothorpes <${o}> .
-    }
-  `)
   const sr = await queryArray(`
     SELECT DISTINCT ?s {
      ?s octo:octothorpes <${o}> .
     }
   `)
-  const thorpes = sr.results.bindings.map(b => b.s.value)
+  const thorpes = sr.results.bindings
+    .map(b => b.s.value)
+    .filter(uri => !uri.startsWith(instance))
+
+  const sa = await queryArray(`
+    SELECT DISTINCT ?uri {
+     ?s octo:octothorpes <${o}> .
+     ?s octo:uri ?uri .
+    }
+  `)
+  const bookmarks = sa.results.bindings.map(b => b.uri.value)
 
   return json({
     uri: `${o}`,
-    octothorpedBy: thorpes
+    octothorpedBy: thorpes,
+    bookmarks: bookmarks
   },{
     headers: {
       'Access-Control-Allow-Methods': 'GET',

@@ -8,6 +8,7 @@ export async function load(req) {
   let thorpes = 0
   let links = 0
   let domains = 0
+  let assertions = 0
   try {
     // This isn't quite right since it's the entire graph
     // rather than scoping out just the records from this origin
@@ -21,6 +22,7 @@ export async function load(req) {
           <octo:Term>
           <octo:Page>
           <octo:Origin>
+          <octo:Assertion>
         }
         ?s rdf:type ?type
       }
@@ -30,6 +32,7 @@ export async function load(req) {
     thorpes = results('count', 'octo:Term') || 0
     links = results('count', 'octo:Page') || 0
     domains = results('count', 'octo:Origin') || 0
+    assertions = results('count', 'octo:Assertion') || 0
   } catch (e) {
     console.log(e)
   }
@@ -37,6 +40,7 @@ export async function load(req) {
     instance,
     thorpes,
     domains,
+    assertions,
     links
   }
 }

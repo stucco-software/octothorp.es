@@ -15,6 +15,16 @@
     {/each}
   </ul>
 
+  <h2>Bookmarked</h2>
+  <ul class="narrow">
+    {#each data.bookmarks as bookmark}
+      <li>
+        <a
+          rel="asserted"
+          href="{bookmark}">{bookmark}</a>
+      </li>
+    {/each}
+  </ul>
 
   <p>
     Follow <code>#{data.term}</code> on <a href="/~/{encodeURIComponent(data.term)}/rss">RSS</a> or use the
@@ -36,6 +46,9 @@ curl -X GET \
 <style type="text/css">
   ul {
     margin-block: var(--lead-4);
+  }
+  ul.narrow {
+    margin-top: var(--lead-1);
   }
   details {
     display: inline;

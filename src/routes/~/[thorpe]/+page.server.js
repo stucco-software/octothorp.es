@@ -16,19 +16,22 @@ export async function load(req) {
      ?s octo:octothorpes <${o}> .
     }
   `)
+  const thorpes = sr.results.bindings
+    .map(b => b.s.value)
+    .filter(uri => !uri.startsWith(instance))
 
-  const subject = await queryArray(`
-    SELECT ?p ?o {
-     <${o}> ?p ?o .
+  const sa = await queryArray(`
+    SELECT DISTINCT ?uri {
+     ?s octo:octothorpes <${o}> .
+     ?s octo:uri ?uri .
     }
   `)
-
-  const thorpes = sr.results.bindings.map(b => b.s.value)
-  console.log(subject.results.bindings)
+  const bookmarks = sa.results.bindings.map(b => b.uri.value)
 
   // rturn this thorpe and all subjects which thorpe it
   return {
     term,
-    thorpes
+    thorpes,
+    bookmarks
   }
 }

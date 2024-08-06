@@ -1,5 +1,15 @@
 import { instance } from '$env/static/private'
 import { queryBoolean, insert, query } from '$lib/sparql.js'
+import { asyncMap} from '$lib/asyncMap.js'
+import emailAdministrator from "$lib/emails/alertAdmin.js"
+
+const extantTerm = async (o) => {
+  return await queryBoolean(`
+    ask {
+      ?s ?p <${o}> .
+    }
+  `)
+}
 
 const extantAssertion = async (source, uri, tags) => {
   return await queryBoolean(`
@@ -12,19 +22,37 @@ const extantAssertion = async (source, uri, tags) => {
   `)
 }
 
+const recordCreation = async (o) => {
+  let now = Date.now()
+  return await insert(`
+    <${o}> octo:created ${now} .
+    <${o}> rdf:type <octo:Term> .
+  `)
+}
+
 export const assert = async (source, searchParams) => {
   let uuid = crypto.randomUUID()
 
   if (searchParams.has("uri") && searchParams.has("octothorpes")) {
-    let tags = searchParams
+    let thorpes = searchParams
       .get('octothorpes')
       .split(',')
+
+    await asyncMap(thorpes, async (term) => {
+      let isExtantTerm = await extantTerm(`${instance}~/${term}`)
+
+      if (!isExtantTerm) {
+        await recordCreation(`${instance}~/${term}`)
+        await emailAdministrator({s: source, o: `${instance}~/${term}`})
+      }
+    })
+
+    let tags = thorpes
       .map(term => `<${instance}${uuid}> octo:octothorpes <${instance}~/${term}> .`)
       .reduce((acc, cur) => `${acc}
         ${cur}`, ``)
-    let check = searchParams
-      .get('octothorpes')
-      .split(',')
+
+    let check = thorpes
       .map(term => `?node octo:octothorpes <${instance}~/${term}> .`)
       .reduce((acc, cur) => `${acc}
         ${cur}`, ``)
@@ -35,7 +63,9 @@ export const assert = async (source, searchParams) => {
       <${instance}${uuid}> octo:uri <${searchParams.get('uri')}> .`
     let triples = `${base}`
     triples = `${triples} ${tags}`
+
     const isExtantAssertion = await extantAssertion(source, searchParams.get('uri'), check)
+
     if (isExtantAssertion) {
       return false
     }

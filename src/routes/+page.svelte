@@ -7,7 +7,7 @@
 
 <section class="dotgrid">
   <p>
-    <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a> and <mark>{data.links}</mark> backlinks across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
+    <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a>, <mark>{data.links}</mark> backlinks and <mark>{data.assertions}</mark> bookmarks across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
   </p>
 
   <!-- <div class="dashboard">
