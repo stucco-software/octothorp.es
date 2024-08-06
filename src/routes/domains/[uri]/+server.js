@@ -23,7 +23,7 @@ export async function GET(req) {
       <https://mmmx.cloud/> octo:hasPart ?s .
       ?s octo:octothorpes ?o .
     }
-  `
+  `)
   console.log(sr.results.bindings)
 
   const backlinks = sr.results.bindings
