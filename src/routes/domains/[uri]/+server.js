@@ -7,11 +7,24 @@ export async function GET(req) {
   let origin = url.origin
 
   const sr = await queryArray(`
-    SELECT ?s ?p {
+    SELECT ?s ?p ?o {
       <${origin}/> octo:hasPart ?s .
-      ?s octo:octothorpes ?p .
+      ?s octo:octothorpes ?o .
     }
   `)
+  console.log(`
+    SELECT ?s ?p ?o {
+      <${origin}/> octo:hasPart ?s .
+      ?s octo:octothorpes ?o .
+    }
+  `)
+  console.log(`
+    SELECT ?s ?p ?o {
+      <https://mmmx.cloud/> octo:hasPart ?s .
+      ?s octo:octothorpes ?o .
+    }
+  `
+  console.log(sr.results.bindings)
 
   const backlinks = sr.results.bindings
     .map(b => {
