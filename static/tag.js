@@ -50,9 +50,9 @@ const tag = (o, label) => {
   </details>`
 }
 
-const linkTemplate = (uri) => `<li>
-    <a href="${uri}">
-      ${uri}
+const linkTemplate = (node) => `<li>
+    <a href="${node.uri}">
+      ${node.title ? node.title : node.uri}
     </a>
   </li>
 `
