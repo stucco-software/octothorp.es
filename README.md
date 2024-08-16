@@ -38,6 +38,7 @@ PREFIX octo: <https://vocab.octothorp.es#>
 
 insert data {
   <http://localhost:8888/> octo:verified "true" .
+  <http://localhost:8888/> rdf:type <octo:Origin> .
 }
 ```
 

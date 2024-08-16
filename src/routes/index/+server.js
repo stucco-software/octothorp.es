@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import { instance } from '$env/static/private'
 import { asyncMap} from '$lib/asyncMap.js'
-import { insert } from '$lib/sparql.js'
+import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
@@ -33,6 +33,13 @@ const recentlyIndexed = async (s) => {
 
 const recordIndexing = async (s) => {
   let now = Date.now()
+  await query(`
+    delete {
+      <${s}> octo:indexed ?o .
+    } where {
+      <${s}> octo:indexed ?o .
+    }
+  `)
   return await insert(`
     <${s}> octo:indexed ${now} .
   `)
@@ -117,6 +124,40 @@ const recordUsage = async ({s, o}) => {
   `)
 }
 
+const recordTitle = async ({s, title}) => {
+  let text = title.trim()
+  await query(`
+    delete {
+      <${s}> octo:title ?o .
+    } where {
+      <${s}> octo:title ?o .
+    }
+  `)
+  return await insert(`
+    <${s}> octo:title "${text}" .
+  `)
+}
+
+const recordDescription = async ({s, description}) => {
+  if (!description) {
+    return
+  }
+  if (!description) {
+    return
+  }
+  let text = description.trim()
+  await query(`
+    delete {
+      <${s}> octo:description ?o .
+    } where {
+      <${s}> octo:description ?o .
+    }
+  `)
+  return await insert(`
+    <${s}> octo:description "${text}" .
+  `)
+}
+
 // Accept a response
 const handleHTML = async (response, s) => {
   const src = await response.text()
@@ -128,7 +169,6 @@ const handleHTML = async (response, s) => {
     ]
     .map(node => node.getAttribute('href') || node.textContent.trim())
     .map(term => term.startsWith('/') ? term.replace('/', '') : term)
-    // .map(term => encodeURIComponent(term))
   )]
 
   await asyncMap(verifiedThorpes, async (term) => {
@@ -151,6 +191,17 @@ const handleHTML = async (response, s) => {
       await recordUsage({s, o})
     }
   })
+
+  // Grab title
+  let title = doc.querySelector('title').innerHTML || 'Untitled'
+  await recordTitle({s, title})
+
+  // Grab meta
+  let pageMetaNode = doc.querySelector("meta[name='description']")
+  if (pageMetaNode) {
+    let description = pageMetaNode.getAttribute("content") || null
+    await recordDescription({s, description})
+  }
 
   // TK: Web of Trust Verification
   //  1. Grab `[rel="octo:endorses"]`

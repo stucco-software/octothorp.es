@@ -58,7 +58,7 @@ ${nquads}
   }
 )
 
-export const query = async (nquads) => await fetch(`${sparql_endpoint}/update`, {
+export const query = async nquads => await fetch(`${sparql_endpoint}/update`, {
     method: 'POST',
     headers: {
       'Authorization': 'Basic ' + btoa(sparql_user + ":" + sparql_password),
@@ -66,7 +66,7 @@ export const query = async (nquads) => await fetch(`${sparql_endpoint}/update`, 
     },
     body: new URLSearchParams({
       'update': `${prefixes}
-${query}
+${nquads}
       `
     })
   }).catch((error) => {
