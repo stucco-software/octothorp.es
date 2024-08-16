@@ -23,21 +23,38 @@ export async function GET(req) {
   }
 
   const sr = await queryArray(`
-    SELECT DISTINCT ?s {
+    SELECT DISTINCT ?s ?t ?d {
      ?s octo:octothorpes <${o}> .
+     optional { ?s octo:title ?t . }
+     optional { ?s octo:description ?d . }
     }
   `)
   const thorpes = sr.results.bindings
-    .map(b => b.s.value)
-    .filter(uri => !uri.startsWith(instance))
+    .map(b => {
+      return {
+        uri: b.s.value,
+        title: b.t ? b.t.value : null,
+        description: b.d ? b.d.value : null
+      }
+    })
+    .filter(node => !node.uri.startsWith(instance))
 
   const sa = await queryArray(`
-    SELECT DISTINCT ?uri {
+    SELECT DISTINCT ?uri ?t ?d {
      ?s octo:octothorpes <${o}> .
      ?s octo:uri ?uri .
+     optional { ?s octo:title ?t . }
+     optional { ?s octo:description ?d . }
     }
   `)
-  const bookmarks = sa.results.bindings.map(b => b.uri.value)
+  const bookmarks = sa.results.bindings
+    .map(b => {
+      return {
+        uri: b.uri.value,
+        title: b.t ? b.t.value : null,
+        description: b.d ? b.d.value : null
+      }
+    })
 
   return json({
     uri: `${o}`,

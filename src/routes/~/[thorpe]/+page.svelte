@@ -10,12 +10,14 @@
       <li>
         <a
           rel="octothorpedBy"
-          href="{thorpe}">{thorpe}</a>
+          href="{thorpe.uri}">{thorpe.title ? thorpe.title : thorpe.uri}</a>
       </li>
     {/each}
   </ul>
 
-  <h2>Bookmarked</h2>
+  {#if data.bookmarks.length > 0}
+    <h2>Bookmarked</h2>
+  {/if}
   <ul class="narrow">
     {#each data.bookmarks as bookmark}
       <li>
