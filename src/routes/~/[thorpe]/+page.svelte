@@ -64,9 +64,7 @@ curl -X GET \
     display: inline;
   }
   p.narrow {
-    margin-bottom: 0;
-    margin-bottom: 0;
-    margin-top: .7rem;
+
     font-size: .7rem;
     width: 65%;
   }
