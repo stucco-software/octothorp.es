@@ -193,8 +193,8 @@ const handleHTML = async (response, s) => {
   })
 
   // Grab title
-  let title = doc.querySelector('title').innerHTML || 'Untitled'
-  if (doc.querySelector('title')) {
+  let titleNode = doc.querySelector('title')
+  if (titleNode) {
     let title = doc.querySelector('title').innerHTML || 'Untitled'
     await recordTitle({s, title})
   }
