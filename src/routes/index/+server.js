@@ -194,7 +194,10 @@ const handleHTML = async (response, s) => {
 
   // Grab title
   let title = doc.querySelector('title').innerHTML || 'Untitled'
-  await recordTitle({s, title})
+  if (doc.querySelector('title')) {
+    let title = doc.querySelector('title').innerHTML || 'Untitled'
+    await recordTitle({s, title})
+  }
 
   // Grab meta
   let pageMetaNode = doc.querySelector("meta[name='description']")
