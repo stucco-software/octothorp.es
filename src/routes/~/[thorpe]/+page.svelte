@@ -11,6 +11,12 @@
         <a
           rel="octothorpedBy"
           href="{thorpe.uri}">{thorpe.title ? thorpe.title : thorpe.uri}</a>
+        {#if thorpe.description}
+          <p class="narrow">{thorpe.description}</p>
+        {/if}
+        {#if thorpe.title}
+          <p class="gray">{thorpe.uri}</p>
+        {/if}
       </li>
     {/each}
   </ul>
@@ -54,5 +60,11 @@ curl -X GET \
   }
   details {
     display: inline;
+  }
+  p.narrow {
+    margin-bottom: 0;
+  }
+  p.gray {
+    color: var(--dark-gray);
   }
 </style>
