@@ -49,6 +49,11 @@ const verifiedOrigin = async (s) => {
   let url = new URL(s)
   let origin = `${url.origin}/`
 
+  console.log(`-------`)
+  console.log(s)
+  console.log(url)
+  console.log(origin)
+  console.log(`-------`)
 
   const alias = origin.startsWith('https://www.')
     ? origin.replace('https://www.', 'https://')
