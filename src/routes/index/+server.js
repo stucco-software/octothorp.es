@@ -126,6 +126,7 @@ const recordUsage = async ({s, o}) => {
 
 const recordTitle = async ({s, title}) => {
   let text = title.trim()
+  console.log(`record`, text)
   await query(`
     delete {
       <${s}> octo:title ?o .
@@ -142,10 +143,8 @@ const recordDescription = async ({s, description}) => {
   if (!description) {
     return
   }
-  if (!description) {
-    return
-  }
   let text = description.trim()
+  console.log(`record`, text)
   await query(`
     delete {
       <${s}> octo:description ?o .
@@ -194,15 +193,19 @@ const handleHTML = async (response, s) => {
 
   // Grab title
   let titleNode = doc.querySelector('title')
+  console.log(titleNode)
   if (titleNode) {
     let title = doc.querySelector('title').innerHTML || 'Untitled'
+    console.log(title)
     await recordTitle({s, title})
   }
 
   // Grab meta
   let pageMetaNode = doc.querySelector("meta[name='description']")
+  console.log(pageMetaNode)
   if (pageMetaNode) {
     let description = pageMetaNode.getAttribute("content") || null
+    console.log(description)
     await recordDescription({s, description})
   }
 
