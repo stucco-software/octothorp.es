@@ -17,11 +17,6 @@ export async function GET(req) {
     o = `${instance}~/${term}`
   }
 
-  if (s) {
-    let response = await statementHandler({s, p, o})
-    return response
-  }
-
   const sr = await queryArray(`
     SELECT DISTINCT ?s ?t ?d {
      ?s octo:octothorpes <${o}> .
