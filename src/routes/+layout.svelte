@@ -10,8 +10,10 @@
 <pushbroom url={$page.url.pathname} />
 
 <Header host={data.host} />
+
 <LayoutSidebar>
   <Nav slot="aside" />    
   <slot slot="main"></slot>
 </LayoutSidebar>
+
 <Footer />

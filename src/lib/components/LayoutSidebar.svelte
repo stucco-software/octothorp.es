@@ -13,7 +13,6 @@
     flex-wrap: wrap;
     gap: 2ch;
     padding-inline: 2ch;
-    position: relative;
   }
 
   .layout > :first-child {
