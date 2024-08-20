@@ -1,6 +1,6 @@
 <div class="container">
   <h1>
-    #xoxo2024
+    #xoxofest
   </h1>
 
   <p>Thank you for directing your browser to the kinda-secret launch of <a href="https://octothorp.es/">Octothorpes</a>.</p>
@@ -24,7 +24,7 @@
 
   <h3>Why Tweet or Toot When you can Oof!</h3>
 
-  <p>Octothorpes doesn't store any data, but just pointing at a web site can get you a microblog's worth of content. So we built a <a href="http://octothorpenty.glitch.me/oofs">feed</a> for  <octo-thorpe>xoxo24</octo-thorpe></p>
+  <p>Octothorpes doesn't store any data, but just pointing at a web site can get you a microblog's worth of content. So we built a <a href="http://octothorpenty.glitch.me/oofs">feed</a> for  <octo-thorpe>xoxofest</octo-thorpe></p>
 
   <p>Oof is yet another <a href="https://demo.ideastore.dev/synonyms">synonym</a> for "hashtag" so, you know, oof it up.</p>
 
