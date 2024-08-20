@@ -46,15 +46,11 @@ const recordIndexing = async (s) => {
 }
 
 const verifiedOrigin = async (s) => {
+  // TKTK
+  return true
+
   let url = new URL(s)
   let origin = `${url.origin}/`
-
-  console.log(`-------`)
-  console.log(s)
-  console.log(url)
-  console.log(origin)
-  console.log(`-------`)
-
   const alias = origin.startsWith('https://www.')
     ? origin.replace('https://www.', 'https://')
     : origin.replace('https://', 'https://www.')
