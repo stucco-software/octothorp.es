@@ -2,11 +2,10 @@
   import { arrayify } from '$lib/arrayify'
   import { page } from '$app/stores'
   
-  let hideDraft = Boolean($page.url.searchParams.get('draft'))
+  let showDraft = Boolean($page.url.searchParams.get('draft'))
+  let hideTechnical = Boolean($page.url.searchParams.get('tech'))
   export let data
-  $: {
-    console.log(hideDraft)
-  }
+
 </script>
 
 <details>
@@ -20,11 +19,20 @@
       Draft Content:
     </label>
     <input 
-      bind:checked={hideDraft}
+      bind:checked={showDraft}
       type="checkbox" 
       name="draft" 
+      value="true" /> Show
+
+<!--     <label>
+      Technical Details:
+    </label>
+    <input
+      bind:checked={hideTechnical}
+      type="checkbox"
+      name="draft"
       value="true" /> Hide
-    
+     -->
     <!-- <label>
       Audience:
     </label>
@@ -37,7 +45,7 @@
   {data.prefLabel}
 </h1>
 
-<nav class="dotgrid {hideDraft ? 'hide-draft' : ''}">
+<nav class="dotgrid {showDraft ? '' : 'hide-draft'}">
   <!-- New DocToc -->
   {#each arrayify(data.hasPart) as part}
     {#if part.type === 'Collection'}
@@ -68,7 +76,7 @@
   {/each}
 </nav>
 
-<div class="content {hideDraft ? 'hide-draft' : ''}">
+<div class="content {showDraft ? '' : 'hide-draft'}">
   {@html data.body}
   {#each data.hasPart as part}
     {#if part.draft}  

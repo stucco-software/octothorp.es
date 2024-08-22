@@ -1,6 +1,7 @@
 ---
 type: Documentation
 prefLabel: Endorsing Backlinks
+draft: true
 ---
 
 In order to be recorded in the Ring, a pages need to endorse backlinks. Any page can endorse backlinks from any origin by including a `<link>` tag in the the `<head>` of the page.

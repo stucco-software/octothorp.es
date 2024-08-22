@@ -9,6 +9,7 @@ hasPart:
   - backlinks
   - bookmarks
   - communities
+  - technical-details
 ---
 
-Octothorpes are [hashtags](/~) and [backlinks](/>) that can be used anywhere on the web, linking urls and resources across a network of [domains](/domains).
+Octothorpes are [hashtags](/~) and backlinks that can be used anywhere on the web, linking urls and resources across a network of [domains](/domains).

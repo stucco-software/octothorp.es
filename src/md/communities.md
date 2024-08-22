@@ -6,7 +6,6 @@ hasPart:
   - moderation
   - rss-feeds
   - activity-pub
-  - rest-api
   - hosting-a-community
 ---
 

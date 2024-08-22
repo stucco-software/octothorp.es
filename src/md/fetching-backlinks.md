@@ -1,7 +1,6 @@
 ---
 type: Documentation
 prefLabel: Fetching Backlinks
-draft: true
 ---
 
 You can fetch a pages backlinks as a JSON object by `GET`ing the following endpoint:
@@ -10,3 +9,4 @@ You can fetch a pages backlinks as a JSON object by `GET`ing the following endpo
 <ring>/~/<url>
 ```
 
+Note; make sure to [encode](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent) the URL
