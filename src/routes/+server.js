@@ -3,9 +3,10 @@ import { instance } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { assert } from '$lib/assert.js'
 
+import { load } from './load.js'
+
 const getAlias = (origin) => {
   let alias
-
   if (origin.startsWith('https')) {
     alias = origin.startsWith('https://www.')
         ? origin.replace('https://www.', 'https://')
@@ -23,12 +24,12 @@ const verifiedOrigin = async (origin) => {
   // TKTK
   return true
 
-  let originVerified =  await queryBoolean(`
+  let originVerified = await queryBoolean(`
     ask {
       <${origin}> octo:verified "true" .
     }
   `)
-  let aliasVerified =  await queryBoolean(`
+  let aliasVerified = await queryBoolean(`
     ask {
       <${alias}> octo:verified "true" .
     }
@@ -39,6 +40,11 @@ const verifiedOrigin = async (origin) => {
 // Accept a request object
 export async function GET(req) {
   let reqOrigin = req.request.headers.get('referer')
+  if (!reqOrigin) {
+    const response =  await load(req)
+    return json(response)
+  }
+
   let reqAlias = getAlias(reqOrigin)
   let isVerifiedOrigin = await verifiedOrigin(reqOrigin)
   if (!isVerifiedOrigin) {
@@ -55,18 +61,13 @@ export async function GET(req) {
     } catch (e) {
       return error(401, 'URI is not a valid resource.')
     }
-    console.log('are we indexing on the origin that sent the request?')
-    console.log(`${uri.origin}/`, reqOrigin, `${uri.origin}/` == reqOrigin)
-
     if (`${uri.origin}/` == reqOrigin || `${uri.origin}/` == reqAlias) {
-      console.log('go ahead and index it')
       await fetch(`${instance}index?uri=${s}`)
     } else {
-      console.log('dont index it, but make an assertion.')
       await assert(reqOrigin, url.searchParams)
     }
-
   }
+
   return json({
     instance
   })

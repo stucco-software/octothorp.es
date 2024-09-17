@@ -2,6 +2,7 @@
   import Lockup from './Lockup.svelte'
   export let host
 </script>
+
 <header>
 	<a href="/">
     <Lockup {host} />
