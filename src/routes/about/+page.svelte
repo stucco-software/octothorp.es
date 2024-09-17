@@ -7,7 +7,6 @@
     The following domains are currently linked with the Octothorpes protocol:
   </p>
   
-
   <ul>
     <li>
       <a href="https://demo.ideastore.dev/">

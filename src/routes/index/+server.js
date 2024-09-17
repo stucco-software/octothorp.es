@@ -4,6 +4,7 @@ import { instance } from '$env/static/private'
 import { asyncMap} from '$lib/asyncMap.js'
 import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
+import { verifiedOrigin } from '$lib/origin.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 let p = 'octo:octothorpes'
@@ -43,30 +44,6 @@ const recordIndexing = async (s) => {
   return await insert(`
     <${s}> octo:indexed ${now} .
   `)
-}
-
-const verifiedOrigin = async (s) => {
-  // TKTK
-  return true
-
-  let url = new URL(s)
-  let origin = `${url.origin}/`
-  const alias = origin.startsWith('https://www.')
-    ? origin.replace('https://www.', 'https://')
-    : origin.replace('https://', 'https://www.')
-
-
-  let originVerified =  await queryBoolean(`
-    ask {
-      <${origin}> octo:verified "true" .
-    }
-  `)
-  let aliasVerified =  await queryBoolean(`
-    ask {
-      <${alias}> octo:verified "true" .
-    }
-  `)
-  return originVerified || aliasVerified
 }
 
 const getSubjectHTML = (src) => {
@@ -127,7 +104,6 @@ const recordUsage = async ({s, o}) => {
 
 const recordTitle = async ({s, title}) => {
   let text = title.trim()
-  console.log(`record`, text)
   await query(`
     delete {
       <${s}> octo:title ?o .
@@ -145,7 +121,6 @@ const recordDescription = async ({s, description}) => {
     return
   }
   let text = description.trim()
-  console.log(`record`, text)
   await query(`
     delete {
       <${s}> octo:description ?o .
@@ -194,19 +169,15 @@ const handleHTML = async (response, s) => {
 
   // Grab title
   let titleNode = doc.querySelector('title')
-  console.log(titleNode)
   if (titleNode) {
     let title = doc.querySelector('title').innerHTML || 'Untitled'
-    console.log(title)
     await recordTitle({s, title})
   }
 
   // Grab meta
   let pageMetaNode = doc.querySelector("meta[name='description']")
-  console.log(pageMetaNode)
   if (pageMetaNode) {
     let description = pageMetaNode.getAttribute("content") || null
-    console.log(description)
     await recordDescription({s, description})
   }
 

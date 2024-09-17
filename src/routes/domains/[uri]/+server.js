@@ -12,19 +12,6 @@ export async function GET(req) {
       ?s octo:octothorpes ?o .
     }
   `)
-  console.log(`
-    SELECT ?s ?p ?o {
-      <${origin}/> octo:hasPart ?s .
-      ?s octo:octothorpes ?o .
-    }
-  `)
-  console.log(`
-    SELECT ?s ?p ?o {
-      <https://mmmx.cloud/> octo:hasPart ?s .
-      ?s octo:octothorpes ?o .
-    }
-  `)
-  console.log(sr.results.bindings)
 
   const backlinks = sr.results.bindings
     .map(b => {
