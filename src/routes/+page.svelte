@@ -1,7 +1,14 @@
 <script type="text/javascript">
   import TKCard from '$lib/components/TKCard.svelte'
   export let data
+  let rss = `${data.instance}rss/`
 </script>
+
+<link
+  rel="alternate"
+  type="application/rss+xml"
+  title={data.instance}
+  href={rss}>
 
 <h1>{data.instance}</h1>
 
