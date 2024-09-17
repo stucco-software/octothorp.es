@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit'
 import { load } from './load.js'
-import { index } from './load.js'
+import { index } from './index.js'
 
 // Accept a request object
 export async function GET(req) {
