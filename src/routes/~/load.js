@@ -33,6 +33,7 @@ export async function load(req) {
   }
 
   return {
+    uri: instance,
     thorpes: [...thorpes],
     links: [...links]
   }
