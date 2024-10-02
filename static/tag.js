@@ -73,7 +73,7 @@ const serverTemplate = (o) => (data) => {
         </b>
       </p>
       <ul>
-        ${data.octothorpedBy.map(linkTemplate).join(' ')}
+        ${data.thorpes.map(linkTemplate).join(' ')}
       </ul>
     </section>
   `
