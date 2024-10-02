@@ -61,7 +61,7 @@
 
 #### Priorities
 
-1. Refactor server codebase
+1. ~~Refactor server codebase~~
 2. Abstract to stand up multiple rings
 3. Make a _local_ dashboard app for admin
 4. JSON-LD for proactive indexing
