@@ -47,6 +47,7 @@ export async function load(req) {
 
   // rturn this thorpe and all subjects which thorpe it
   return {
+    uri: instance,
     term,
     thorpes,
     bookmarks
