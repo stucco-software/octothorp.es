@@ -31,7 +31,7 @@
 
   <p>
     <span>
-      This is a space for our community, and you're invited to be a part of it. We hold all our communuty members to the same standard.
+      This is a space for our community, and you're invited to be a part of it. We hold all our community members to the same standard.
     </span>
   </p>
 </section>
