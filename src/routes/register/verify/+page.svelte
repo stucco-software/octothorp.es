@@ -1,19 +1,13 @@
 <script type="text/javascript">
   import { page } from '$app/stores'
   let domain = $page.url.searchParams.get('d')
-  let challenge = $page.url.searchParams.get('c')
+  let email = $page.url.searchParams.get('e')
 </script>
 
 <h1>
-  Verify your domain.
+  Verifying your domain.
 </h1>
 
 <p>
-  To ensure that you own <code>{domain}</code>, please add the following TXT record to your DNS records:
+  You will be contacted at <code>{email}</code> once the domain is verified or if we have any questions.
 </p>
-
-<pre>
-  <code>
-TXT {challenge}
-  </code>
-</pre>

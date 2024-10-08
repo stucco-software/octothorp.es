@@ -22,7 +22,7 @@ const insertRequest = async ({domain, challenge}) => {
   return true
 }
 
-const alertAdmin = async ({domain, challenge}) => {
+const alertAdmin = async ({domain, email}) => {
   let success
   try {
     let success = await send({
@@ -33,10 +33,10 @@ const alertAdmin = async ({domain, challenge}) => {
           New domain request:
         </p>
         <p>
-          <b>${domain}</b> is requesting verification.
+          <b>${domain}</b> is requesting verification
         </p>
         <p>
-          <code>${challenge}</code>
+          Contact <code>${email}</code> for more information.
         </p>
       `
     })
@@ -49,7 +49,8 @@ const alertAdmin = async ({domain, challenge}) => {
 
 export const actions = {
   default: async ({request}) => {
-    const data = await request.formData();
+    const data = await request.formData()
+    const email = data.get('email')
     const domain = data.get('domain').endsWith('/')
       ? data.get('domain')
       : `${data.get('domain')}/`
@@ -62,25 +63,13 @@ export const actions = {
       return redirect(303, `/domains#${domain}`)
     }
 
-    let challenge
-    if(await domainPresent(domain)) {
-      const response = await queryArray(`select ?c {
-        <${domain}> octo:challenge ?c
-      }`)
-      challenge = response.results.bindings[0].c.value
-      return redirect(303, `/register/verify?d=${domain}&c=${challenge}`)
-    }
-
-    challenge = crypto.randomUUID()
-
     await insertRequest({
       domain,
-      challenge
     })
     await alertAdmin({
       domain,
-      challenge
+      email
     })
-    return redirect(303, `/register/verify?d=${domain}&c=${challenge}`)
+    return redirect(303, `/register/verify?d=${domain}&e=${email}`)
   }
 };

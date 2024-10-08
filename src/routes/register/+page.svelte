@@ -4,7 +4,11 @@
 
 <h1>Register your Domain</h1>
 <section class="dotgrid">
-  <form
+  <p>
+    Domain registrations are temporarily closed.
+  </p>
+<!--
+<form
     method="POST"
     action="/register">
     <label
@@ -26,10 +30,9 @@
         Email Address:
       </span>
     </label>
-
-
     <input
       placeholder="you@example.com"
+      required
       type="email"
       name="email"
       id="email">
@@ -67,4 +70,5 @@
       </button>
     </p>
   </form>
+  -->
 </section>
