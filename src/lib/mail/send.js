@@ -1,4 +1,11 @@
-import { fastmail_password } from '$env/static/private'
+import {
+  smtp_host,
+  smtp_port,
+  smtp_secure,
+  smtp_user,
+  smtp_password,
+  robot_email
+} from '$env/static/private'
 import nodemailer from 'nodemailer'
 
 if (import.meta.vitest) {
@@ -14,12 +21,12 @@ if (import.meta.vitest) {
 //     mail_user
 //     mail_pass
 const transport = nodemailer.createTransport({
-  host: "smtp.fastmail.com",
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  host: smtp_host,
+  port: smtp_port,
+  secure: smtp_secure, // true for 465, false for other ports
   auth: {
-    user: 'hello@nikolas.ws',
-    pass: fastmail_password
+    user: smtp_user,
+    pass: smtp_password
   }
 })
 
@@ -35,7 +42,7 @@ if (import.meta.vitest) {
 //     send emails from robot @ instance host
 export const send = async ({to, subject, text, html}) => {
   const mailOptions = {
-    from: '"Octothorpes Robot" robot@octothorp.es',
+    from: `"Octothorpes Robot" ${robot_email}`,
     to: to,
     subject: subject,
     text: text,

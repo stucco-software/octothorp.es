@@ -1,11 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit'
+import { admin_email } from '$env/static/private'
 import { send } from '$lib/mail/send.js'
 
 const alertAdmin = async ({url}) => {
   let success
   try {
     let success = await send({
-      to: 'admin@octothorp.es',
+      to: admin_email,
       subject: 'New Report',
       html: `
         <p>

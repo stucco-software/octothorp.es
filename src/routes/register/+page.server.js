@@ -1,5 +1,6 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
+import { admin_email } from '$env/static/private'
 import { send } from '$lib/mail/send.js'
 
 const domainBanned = async (domain) => await queryBoolean(`ask {
@@ -25,7 +26,7 @@ const alertAdmin = async ({domain, challenge}) => {
   let success
   try {
     let success = await send({
-      to: 'admin@octothorp.es',
+      to: admin_email,
       subject: 'New Domain Verification Request',
       html: `
         <p>

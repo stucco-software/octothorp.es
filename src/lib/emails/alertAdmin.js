@@ -1,11 +1,11 @@
 import { send } from '$lib/mail/send.js'
-import { instance } from '$env/static/private'
+import { instance, admin_email } from '$env/static/private'
 
 const alertAdmin = async ({s, o}) => {
   let success
   try {
     let success = await send({
-      to: 'admin@octothorp.es',
+      to: admin_email,
       subject: `New Octothorpe on ${instance}`,
       html: `
         <p>
