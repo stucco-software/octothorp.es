@@ -14,7 +14,6 @@ if (import.meta.vitest) {
   })
 }
 
-
 const headers = new Headers()
 headers.set('Authorization', 'Basic ' + btoa(sparql_user + ":" + sparql_password));
 

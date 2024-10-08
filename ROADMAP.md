@@ -64,17 +64,37 @@
 1. ~~Refactor server codebase~~
 2. Abstract to stand up multiple rings
 3. Make a _local_ dashboard app for admin
-4. JSON-LD for proactive indexing
-5. Harmonizer UI/UX sample and spec.
-6. Make the Tagazine
+4. JSON-LD for proactive indexing*
+5. Harmonizer UI/UX sample and spec*
+6. Make the Tagazine / Project Ratbike*
 
 ### Rings
 
 - hashtags.rdf.systems
 - tag.glitch.io
+- weird web
 - octothorp.es
 
 ### Ring of Rings
 
 - world.octothorp.es
 	- Community and Content Marketing
+
+### Project Ratbike
+
+- Individual project
+- Invite people to work with it
+- Learn and shit
+- Do a Kickstarter
+	- https://www.kickstarter.com/projects/manton/indie-microblogging-owning-your-short-form-writing
+	- Make it deployable
+	- Make it administatable
+
+- Accounts if no website?
+- Hire a moderator?
+
+## How To Money
+
+- Enterprise Rings
+- Octothorpe Accounts
+- Kickstarter / Rich Uncle
