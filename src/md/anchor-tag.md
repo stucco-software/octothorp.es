@@ -8,7 +8,7 @@ If you want a link to be an octothorpe in the content of your page rather than j
 ```
 <a 
   rel="octo:octothorpes" 
-  href="/architecture">
+  href="<ring>/~/architecture">
   Architecture
 </a>
 ```
