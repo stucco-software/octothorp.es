@@ -90,10 +90,20 @@
       {#if subpart}
         {#if subpart.draft}  
           <div class="draft">
+            {#if subpart.ticket}
+              <p>
+                <a href={subpart.ticket}>View In Roadmap // Feedback</a>
+              </p>
+            {/if}
             <h3 id={subpart.id}>
               {subpart.prefLabel}
             </h3>
             {@html subpart.body}
+            {#if subpart.ticket}
+              <p>
+                <a href={subpart.ticket}>View In Roadmap // Feedback</a>
+              </p>
+            {/if}
           </div>
         {:else}
           <h3 id={subpart.id}>
