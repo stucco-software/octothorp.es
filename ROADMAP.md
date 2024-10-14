@@ -62,10 +62,21 @@
 #### Priorities
 
 1. ~~Refactor server codebase~~
-2. Abstract to stand up multiple rings
+2. ~~Abstract to stand up multiple rings~~
+2b. Create 2 more rings: hashtags.rdf.systems, glitch, and neocities
+3b. core cleanup:
+	- implement backlink endorsements
+	- implement new anchor tag docs
+	- queries on api endpoints
+	- bookmark ui
+		- /bookmark/~/<term>
+		- /backlink/
+	- url normalization
+
 3. Make a _local_ dashboard app for admin
 4. JSON-LD for proactive indexing*
 5. Harmonizer UI/UX sample and spec*
+
 6. Make the Tagazine / Project Ratbike*
 
 ### Rings
