@@ -8,8 +8,8 @@ import { verifiedOrigin } from '$lib/origin.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 let p = 'octo:octothorpes'
-// let indexCooldown = 300000 //5min
-let indexCooldown = 0
+let indexCooldown = 300000 //5min
+// let indexCooldown = 0
 
 const recentlyIndexed = async (s) => {
   let now = Date.now()
