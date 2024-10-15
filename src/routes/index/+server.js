@@ -8,8 +8,8 @@ import { verifiedOrigin } from '$lib/origin.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 
 let p = 'octo:octothorpes'
-let indexCooldown = 300000 //5min
-// let indexCooldown = 0
+// let indexCooldown = 300000 //5min
+let indexCooldown = 0
 
 const recentlyIndexed = async (s) => {
   let now = Date.now()
@@ -138,21 +138,13 @@ const handleHTML = async (response, s) => {
   const src = await response.text()
   const doc = getSubjectHTML(src)
   
-  const linkAndElementThorpes = [...new Set([
-      ...doc.querySelectorAll(`link[rel="${p}"]`),
+  const verifiedThorpes = [...new Set([
+      ...doc.querySelectorAll(`[rel="${p}"]`),
       ...doc.querySelectorAll('octo-thorpe')
     ]
     .map(node => node.getAttribute('href') || node.textContent.trim())
-    .map(term => term.startsWith('/') ? term.replace('/', '') : term)
+    .map(term => term.startsWith(instance) ? term.replace(`${instance}~/`, '') : term)
   )]
-  const anchorThorpes = [...new Set([
-      ...doc.querySelectorAll(`a[rel="${p}"]`)
-    ]
-    .map(node => node.getAttribute('href'))
-    .filter(term => term.startsWith(instance))
-    .map(term => term.replace('instance', ''))
-  )]
-  const verifiedThorpes = [...linkAndElementThorpes, ...anchorThorpes]
 
   await asyncMap(verifiedThorpes, async (term) => {
     let o
@@ -217,6 +209,7 @@ const handler = async (s) => {
 }
 
 export async function GET(req) {
+  console.log('DONG')
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   let s = `${uri.origin}${uri.pathname}`
