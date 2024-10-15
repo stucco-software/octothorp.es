@@ -138,13 +138,21 @@ const handleHTML = async (response, s) => {
   const src = await response.text()
   const doc = getSubjectHTML(src)
   
-  const verifiedThorpes = [...new Set([
-      ...doc.querySelectorAll(`[rel="${p}"]`),
+  const linkAndElementThorpes = [...new Set([
+      ...doc.querySelectorAll(`link[rel="${p}"]`),
       ...doc.querySelectorAll('octo-thorpe')
     ]
     .map(node => node.getAttribute('href') || node.textContent.trim())
     .map(term => term.startsWith('/') ? term.replace('/', '') : term)
   )]
+  const anchorThorpes = [...new Set([
+      ...doc.querySelectorAll(`a[rel="${p}"]`)
+    ]
+    .map(node => node.getAttribute('href'))
+    .filter(term => term.startsWith(instance))
+    .map(term => term.replace('instance', ''))
+  )]
+  const verifiedThorpes = [...linkAndElementThorpes, ...anchorThorpes]
 
   await asyncMap(verifiedThorpes, async (term) => {
     let o
