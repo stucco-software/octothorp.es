@@ -60,8 +60,7 @@
     <li>
       <a href="/bookmarks">all</a>
     </li>
-    {#each data.bookmarks as mark}
-      {#each arrayify(mark.tag) as tag}
+    {#each data.thorpes as tag}
         <li >
           <a
             href="?tag={tag.split('/~/')[1]}"
@@ -69,7 +68,6 @@
             #{tag.split('/~/')[1]}
           </a>
         </li>
-      {/each}
     {/each}
   </ul>
 </LayoutSidebar>

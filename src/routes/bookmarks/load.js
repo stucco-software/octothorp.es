@@ -24,6 +24,7 @@ export async function load(req) {
     .map(node => node.tag)
   const uniqueTags = [...new Set(tags)]
 
+  console.log(uniqueTags)
   return {
     uri: instance,
     bookmarks: [...bookmarks],
