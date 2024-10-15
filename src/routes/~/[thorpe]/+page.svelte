@@ -26,11 +26,24 @@
     <h2>Bookmarked</h2>
   {/if}
   <ul class="narrow">
-    {#each data.bookmarks as bookmark}
+    {#each data.bookmarks as mark}
       <li>
         <a
-          rel="asserted"
-          href="{bookmark}">{bookmark}</a>
+          rel="octothorpedBy"
+          href="{mark.uri}">{mark.title ? mark.title : mark.uri}
+        </a>
+        {#if mark.title}
+          <p class="gray">{mark.uri}</p>
+        {/if}
+        {#if mark.description}
+          <p class="narrow">{mark.description}</p>
+        {/if}
+        <p>
+          {#each arrayify(mark.tag) as tag}
+            <a href="{tag}">#{tag.split('/~/')[1]}</a>
+          {/each}
+        </p>
+
       </li>
     {/each}
   </ul>
