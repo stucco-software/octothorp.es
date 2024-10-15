@@ -149,8 +149,23 @@ const handleHTML = async (response, s) => {
   await asyncMap(verifiedThorpes, async (term) => {
     let o
     try {
-      new URL(term)
+      let oURL = new URL(term)
       o = term
+      let backlink = await fetch(o)
+      let bSrc = await backlink.text()
+      let bDoc = getSubjectHTML(bSrc)
+      let endorsements = [...bDoc.querySelectorAll(`[rev="${p}"]`)]
+      let didEndorse = endorsements
+        .find(link => {
+          if (link.getAttribute('href') === '*') {
+            return true
+          }
+          let tURL = new URL(link.getAttribute('href'))
+          return tURL.origin === oURL.origin
+        })
+      if (!didEndorse) {
+        return
+      }
     } catch (err) {
       o = `${instance}~/${term}`
     }
@@ -209,7 +224,6 @@ const handler = async (s) => {
 }
 
 export async function GET(req) {
-  console.log('DONG')
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   let s = `${uri.origin}${uri.pathname}`

@@ -67,7 +67,7 @@
 2b. Create 2 more rings: hashtags.rdf.systems, glitch, and neocities
 3b. core cleanup:
 	- implement backlink endorsements
-	- implement new anchor tag docs
+	- ~~implement new anchor tag docs~~
 	- queries on api endpoints
 	- bookmark ui
 		- /bookmark/~/<term>
