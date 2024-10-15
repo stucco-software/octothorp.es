@@ -4,6 +4,9 @@
       <a href="/~">#</a>
     </li>
     <li>
+      <a href="/bookmarks">bookmarks</a>
+    </li>
+    <li>
       <a href="/domains">sites</a>
     </li>
     <li>
@@ -28,7 +31,6 @@
 	ul {
 		margin: 0;
 		padding: 0;
-    padding-block-start: var(--baseline);
 	}
 	li {
 		margin: 0;

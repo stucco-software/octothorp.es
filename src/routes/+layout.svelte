@@ -11,9 +11,19 @@
 
 <Header host={data.host} />
 
-<LayoutSidebar>
-  <Nav slot="aside" />    
-  <slot slot="main"></slot>
-</LayoutSidebar>
+<div class="container">
+  <LayoutSidebar>
+    <Nav slot="aside" />
+    <slot slot="main"></slot>
+  </LayoutSidebar>
+</div>
 
 <Footer />
+
+
+<style type="text/css">
+  .container {
+        padding-inline: 2ch;
+        padding-block-start: var(--baseline);
+  }
+</style>
