@@ -62,8 +62,12 @@
     </li>
     {#each data.bookmarks as mark}
       {#each arrayify(mark.tag) as tag}
-        <li>
-          <a href="?tag={tag.split('/~/')[1]}">#{tag.split('/~/')[1]}</a>
+        <li >
+          <a
+            href="?tag={tag.split('/~/')[1]}"
+            class={tag.split('/~/')[1] == filter ? 'active' : ''}>
+            #{tag.split('/~/')[1]}
+          </a>
         </li>
       {/each}
     {/each}
@@ -74,6 +78,11 @@
   ul {
     list-style-type: none;
     padding: 0;
+  }
+  a.active {
+    background-color: yellow;
+    color: var(--dark-blue);
+    outline: 0.25em solid yellow;
   }
   input {
     width: 100%;
