@@ -32,7 +32,6 @@
     </form>
     <ul>
       {#each marks as mark}
-
         {#if !filter || arrayify(mark.tag).map(tag => tag.split('/~/')[1]).includes(filter)}
           <li>
             <a
@@ -47,7 +46,7 @@
             {/if}
             <p>
               {#each arrayify(mark.tag) as tag}
-                <a href="{tag}">#{tag.split('/~/')[1]}</a>
+                <a href="{tag}">#{tag.split('/~/')[1]}</a>,
               {/each}
             </p>
           </li>
