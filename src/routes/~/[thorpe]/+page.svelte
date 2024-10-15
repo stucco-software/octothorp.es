@@ -1,4 +1,5 @@
 <script type="text/javascript">
+  import {arrayify} from "$lib/arrayify"
   export let data
 </script>
 
