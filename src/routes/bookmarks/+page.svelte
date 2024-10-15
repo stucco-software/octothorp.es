@@ -3,20 +3,35 @@
   import {arrayify} from "$lib/arrayify"
   import LayoutSidebar from '$lib/components/LayoutSidebar.svelte'
   export let data
-  console.log(data)
   let filter = null
   $: {
-    console.log($page.url)
     filter = $page.url.searchParams.get('tag')
-    console.log(filter)
+  }
+
+  let marks = [...data.bookmarks]
+  let value
+  $: {
+    marks = value
+      ? [...data.bookmarks].filter(n => JSON.stringify(n).includes(value))
+      : [...data.bookmarks]
   }
 </script>
 
 <LayoutSidebar>
   <div slot="main">
-
+    <form>
+      <label
+        for="value">
+        Search
+      </label>
+      <input
+        placeholder="…"
+        type="text"
+        bind:value={value}
+        name="filter">
+    </form>
     <ul>
-      {#each data.bookmarks as mark}
+      {#each marks as mark}
 
         {#if !filter || arrayify(mark.tag).map(tag => tag.split('/~/')[1]).includes(filter)}
           <li>
@@ -58,5 +73,9 @@
 <style type="text/css">
   ul {
     list-style-type: none;
+    padding: 0;
+  }
+  input {
+    width: 100%;
   }
 </style>
