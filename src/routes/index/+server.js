@@ -109,6 +109,7 @@ const recordCreation = async (o) => {
 
 const recordBacklinkCreation = async (o) => {
   let now = Date.now()
+  console.log(`create: <${o}> rdf:type <octo:Page> .`)
   return await insert(`
     <${o}> octo:created ${now} .
     <${o}> rdf:type <octo:Page> .
@@ -202,6 +203,7 @@ const handleHTML = async (response, s) => {
     }
 
     let isExtantPage = extantPage(o)
+    console.log(`does ${o} exist as a page?`, isExtantPage)
     if (!isExtantPage) {
       await recordBacklinkCreation(o)
     }
