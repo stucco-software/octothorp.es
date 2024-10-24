@@ -64,11 +64,21 @@ const extantTerm = async (o) => {
 
 const extantPage = async (o) => {
   console.log(`does ${o} exist as a page?`)
-  return await queryBoolean(`
+  let isTerm = await queryBoolean(`
+    ask {
+      <${o}> rdf:type <octo:Term> .
+    }
+  `)
+  let isPage = await queryBoolean(`
     ask {
       <${o}> rdf:type <octo:Page> .
     }
   `)
+  if (isTerm) {
+    return isTerm
+  } else {
+    return isPage
+  }
 }
 
 const extantThorpe = async ({s, p, o}) => {
