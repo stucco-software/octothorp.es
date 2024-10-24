@@ -62,6 +62,15 @@ const extantTerm = async (o) => {
   `)
 }
 
+const extantPage = async (o) => {
+  console.log(`does ${o} exist as a page?`)
+  return await queryBoolean(`
+    ask {
+      <${o}> rdf:type <octo:Page> .
+    }
+  `)
+}
+
 const extantThorpe = async ({s, p, o}) => {
   console.log(`is <${s}> ${p} <${o}> in the graph?`)
   return await queryBoolean(`
@@ -96,6 +105,14 @@ const recordCreation = async (o) => {
       <${o}> rdf:type <octo:Page> .
     `)
   }
+}
+
+const recordBacklinkCreation = async (o) => {
+  let now = Date.now()
+  return await insert(`
+    <${o}> octo:created ${now} .
+    <${o}> rdf:type <octo:Page> .
+  `)
 }
 
 const recordUsage = async ({s, o}) => {
@@ -183,6 +200,12 @@ const handleHTML = async (response, s) => {
       await recordCreation(o)
       await emailAdministrator({s, o})
     }
+
+    let isExtantPage = extantPage(o)
+    if (!isExtantPage) {
+      await recordBacklinkCreation(o)
+    }
+
     let isExtantThorpe = await extantThorpe({s, p, o})
     console.log(isExtantThorpe)
     if (!isExtantThorpe) {
