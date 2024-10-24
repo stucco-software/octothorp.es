@@ -202,7 +202,7 @@ const handleHTML = async (response, s) => {
       await emailAdministrator({s, o})
     }
 
-    let isExtantPage = extantPage(o)
+    let isExtantPage = await extantPage(o)
     console.log(`does ${o} exist as a page?`, isExtantPage)
     if (!isExtantPage) {
       await recordBacklinkCreation(o)
