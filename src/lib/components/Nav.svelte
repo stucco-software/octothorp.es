@@ -7,6 +7,9 @@
       <a href="/bookmarks">bookmarks</a>
     </li>
     <li>
+      <a href="/backlinks">backlinks</a>
+    </li>
+    <li>
       <a href="/domains">sites</a>
     </li>
     <li>

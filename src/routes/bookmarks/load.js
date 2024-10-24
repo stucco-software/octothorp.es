@@ -34,17 +34,65 @@ export async function load(req) {
         return true
       }
     })
-
-  console.log(bookmarks)
   const tags = bookmarks
     .map(node => node.tag)
     .flat()
   const uniqueTags = [...new Set(tags)]
-
-  console.log(uniqueTags)
   return {
     uri: instance,
     bookmarks: [...bookmarks],
     thorpes: uniqueTags
   }
 }
+
+// I could apparently also do it like this!
+// I wonder which is faster…
+// const mergeBacklinks = (backlinks) => {
+//   let uIDs = [...new Set(backlinks.map(b => b.id))]
+//   let collected = new Map(uIDs.map(id => [id, {
+//     id,
+//     tag: [],
+//     source: null,
+//     uri: null
+//   }]))
+//   backlinks.forEach(link => {
+//     let node = collected.get(link.id)
+//     let updated = {
+//       id: node.id,
+//       source: link.source,
+//       uri: link.uri,
+//       tag: [...node.tag, link.tag]
+//     }
+//     collected.set(link.id, updated)
+//   })
+//   let array = [...collected].map(arr => arr[1])
+//   return array
+// }
+//
+// export async function load(req) {
+//   const sa = await queryArray(`
+//     select ?a ?source ?tag ?uri {
+//      ?a rdf:type <octo:Assertion> .
+//      ?a octo:octothorpes ?tag .
+//      ?a octo:uri ?uri .
+//      ?source octo:asserts ?a .
+//     }
+//   `)
+//
+//   console.log(sa.results.bindings)
+//   let ungroupedBacklinks = sa.results.bindings
+//     .map(binding => {
+//       return {
+//         id: binding.a.value,
+//         uri: binding.uri.value,
+//         tag: binding.tag.value,
+//         source: binding.source.value
+//       }
+//     })
+//   let backlinks = mergeBacklinks(ungroupedBacklinks)
+//
+//   return {
+//     uri: instance,
+//     backlinks,
+//   }
+// }

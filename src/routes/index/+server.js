@@ -54,6 +54,7 @@ const getSubjectHTML = (src) => {
 }
 
 const extantTerm = async (o) => {
+  console.log(`does ${o} exist as a term?`)
   return await queryBoolean(`
     ask {
       ?s ?p <${o}> .
@@ -62,6 +63,7 @@ const extantTerm = async (o) => {
 }
 
 const extantThorpe = async ({s, p, o}) => {
+  console.log(`is <${s}> ${p} <${o}> in the graph?`)
   return await queryBoolean(`
     ask {
       <${s}> ${p} <${o}> .
@@ -82,6 +84,7 @@ const createOctothorpe = async ({s, p, o}) => {
 
 const recordCreation = async (o) => {
   let now = Date.now()
+  console.log('Create a backlink:', o)
   if (o.includes(instance)) {
     return await insert(`
       <${o}> octo:created ${now} .
@@ -135,6 +138,7 @@ const recordDescription = async ({s, description}) => {
 
 // Accept a response
 const handleHTML = async (response, s) => {
+  console.log('Oh fuck do these work at all')
   const src = await response.text()
   const doc = getSubjectHTML(src)
   
@@ -146,6 +150,8 @@ const handleHTML = async (response, s) => {
     .map(term => term.startsWith(instance) ? term.replace(`${instance}~/`, '') : term)
   )]
 
+  console.log('found some thorpes:')
+  console.log(verifiedThorpes)
   await asyncMap(verifiedThorpes, async (term) => {
     let o
     try {
@@ -166,16 +172,19 @@ const handleHTML = async (response, s) => {
       if (!didEndorse) {
         return
       }
+      console.log(`${oURL} endorsed backlink from ${s}`)
     } catch (err) {
       o = `${instance}~/${term}`
     }
     let isExtantTerm = await extantTerm(o)
+    console.log(isExtantTerm)
 
     if (!isExtantTerm) {
       await recordCreation(o)
       await emailAdministrator({s, o})
     }
     let isExtantThorpe = await extantThorpe({s, p, o})
+    console.log(isExtantThorpe)
     if (!isExtantThorpe) {
       await createOctothorpe({s, p, o})
       await recordUsage({s, o})

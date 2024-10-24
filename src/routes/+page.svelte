@@ -14,7 +14,7 @@
 
 <section class="dotgrid">
   <p>
-    <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a>, <mark>{data.links}</mark> backlinks and <mark>{data.assertions}</mark> bookmarks across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
+    <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a>, <mark>{data.links}</mark> <a href="/backlinks">backlinks</a> and <mark>{data.assertions}</mark> <a href="/bookmarks">bookmarks</a> across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
   </p>
 </section>
 
