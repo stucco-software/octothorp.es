@@ -3,7 +3,7 @@ type: Documentation
 prefLabel: Octothorpes Are Links
 ---
 
-Specifically, octothorpes are links between your page a Ring’s tag. Create them by adding a `<link>` tag to your pages `<head>`.
+Specifically, octothorpes are links between your page and a Ring’s tag. Create them by adding a `<link>` tag to your pages `<head>`.
 
 ```
 <link 
