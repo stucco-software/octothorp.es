@@ -10,9 +10,15 @@
   title={data.instance}
   href={rss}>
 
-<h1>{data.instance}</h1>
 
-<section class="dotgrid">
+
+<section class="dashboard">
+  <p>
+    <span>
+    Welcome to the first Octothorpes ring. add some content. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi aliquam laoreet metus, id elementum tellus vulputate et. Mauris eros est, pulvinar vitae condimentum ac, laoreet tincidunt sem. Proin vel lacus mattis libero varius iaculis. Morbi rutrum porta tristique.
+  </span>
+  </p>
+
   <p>
     <span>This Octothorpes Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a>, <mark>{data.links}</mark> <a href="/backlinks">backlinks</a> and <mark>{data.assertions}</mark> <a href="/bookmarks">bookmarks</a> across <mark>{data.domains}</mark> <a href="/domains">websites.</a></span>
   </p>
@@ -24,8 +30,14 @@
   }
   .dashboard {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 21ch);
-    gap: 1ch;
+    grid-template-columns: repeat(auto-fill, 24ch);
+    gap: 4ch;
     grid-auto-rows: minmax(0, auto);
+  }
+
+  .dashboard p {
+    /* border-top: 16px solid var(--bg-color); */
+    padding: 1ch;
+
   }
 </style>

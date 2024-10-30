@@ -165,7 +165,12 @@ button:active {
   padding-block-end: calc(var(--baseline));
   padding-inline: 3ch 0;
 }
-.dotgrid span {
-  background-color: var(--bg-color);
-  outline: 0.5ch solid var(--bg-color);
+
+main.dotgrid {
+  min-height: 80vh;
+}
+.dotgrid p {
+  background-color: lightgoldenrodyellow;
+  outline: 1ch solid var(--bg-color);
+ 
 }

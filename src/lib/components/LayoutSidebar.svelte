@@ -1,9 +1,7 @@
 <div class="layout">
-  <aside>
-    <slot name="aside"></slot>
-  </aside>
+ 
 
-  <main>
+  <main class="dotgrid">
     <slot name="main"></slot>
   </main>
 </div>
@@ -15,10 +13,7 @@
     gap: 2ch;
   }
 
-  aside {
-    flex-grow: 1;
-    display: flex;
-  }
+
 
   main {
 /*    padding-block-start: var(--baseline);*/
