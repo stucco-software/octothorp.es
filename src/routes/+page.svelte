@@ -38,6 +38,7 @@
   .dashboard p {
     /* border-top: 16px solid var(--bg-color); */
     padding: 1ch;
+    font-family: "DOS";
 
   }
 </style>
