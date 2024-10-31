@@ -15,7 +15,7 @@
 <div class="dashboard dotgrid">
 <section>
   <p>Welcome to the first Octothorpes ring.</p>
-  <hr />
+  <p># # # # # # # # # # # </p>
   <em>News from the Ring</em>
     <a href="/~/weirdweboctober">Weird Web October has almost wrapped! Last day to post!</a>
 
