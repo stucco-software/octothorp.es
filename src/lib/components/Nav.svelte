@@ -36,6 +36,7 @@
     flex-grow: 999;
     display: flex;
     flex-direction: row;
+    background-color: var(--bg-color);
   }
 	ul {
 		margin: 0;

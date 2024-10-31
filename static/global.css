@@ -9,6 +9,7 @@ html {
 
 body {
   line-height: var(--baseline);
+  background-image: var(--background-image);
 }
 
 b {
@@ -58,11 +59,11 @@ details ul,
 details ol {
   padding-block-end: 0;
 }
-h1 { font-size: var(--txt-2); }
-h2 { font-size: var(--txt-1); }
-h3 { font-size: var(--txt-0); }
-h4 { font-size: var(--txt-0); }
-h5 { font-size: var(--txt-0); }
+h1 { font-size: var(--txt-1); }
+h2 { font-size: var(--txt-0); }
+h3 { font-size: var(--txt--0); }
+h4 { font-size: var(--txt--1); }
+h5 { font-size: var(--txt--1); }
 
 
 a,
@@ -146,6 +147,8 @@ button:active {
   margin-block-end: var(--baseline);
 }
 
+
+
 /* grid helpers
 .baseline-grid {
   background-size: calc(var(--baseline)) calc(var(--baseline));
@@ -166,11 +169,15 @@ button:active {
   padding-inline: 3ch 0;
 }
 
-main.dotgrid {
+.dotgrid {
   min-height: 80vh;
 }
-.dotgrid p {
+
+.dotgrid span {
+  background-color: var(--bg-color);
+  padding: .5ch;
+}
+.dashboard p {
   background-color: lightgoldenrodyellow;
   outline: 1ch solid var(--bg-color);
- 
 }

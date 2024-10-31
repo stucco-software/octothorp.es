@@ -1,7 +1,7 @@
 <div class="layout">
  
 
-  <main class="dotgrid">
+  <main >
     <slot name="main"></slot>
   </main>
 </div>

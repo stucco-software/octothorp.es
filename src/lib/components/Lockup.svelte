@@ -3,7 +3,7 @@
 </script>
 
 <div>
-	<span>#</span><span>#</span><span>#</span><span>#</span><span>#</span><span>#</span>{host} / thorpename 
+	<span>#</span><span>#</span><span>#</span><span>#</span><span>#</span><span>#</span>{host}
 </div>
 
 <style>

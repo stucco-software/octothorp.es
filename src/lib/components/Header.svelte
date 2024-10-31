@@ -20,11 +20,8 @@
     border-bottom: 2px dotted var(--dark-blue);
     padding-block: calc(var(--baseline) * .5);
     padding-inline: 2ch;
+    background-color: var(--bg-color);
   }
-
-
-
-
   a, li a {
     text-decoration-skip-ink: auto;
     text-decoration: none;
