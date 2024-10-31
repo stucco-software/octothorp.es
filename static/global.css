@@ -177,7 +177,7 @@ button:active {
   background-color: var(--bg-color);
   padding: .5ch;
 }
-.dashboard p {
+.dashboard p, .dashboard p span {
   background-color: lightgoldenrodyellow;
   outline: 1ch solid var(--bg-color);
 }
