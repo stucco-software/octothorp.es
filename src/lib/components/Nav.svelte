@@ -4,19 +4,19 @@
       <a href="/~">#</a>
     </li>
     <li>
-      <a href="/bookmarks">bookmarks</a>
-    </li>
-    <li>
-      <a href="/backlinks">backlinks</a>
-    </li>
-    <li>
-      <a href="/domains">sites</a>
+      <a href="/docs">docs</a>
     </li>
     <li>
       <a href="/register">register</a>
     </li>
     <li>
-      <a href="/docs">docs</a>
+      <a href="/domains">sites</a>
+    </li>
+    <li>
+      <a href="/bookmarks">bookmarks</a>
+    </li>
+    <li>
+      <a href="/backlinks">backlinks</a>
     </li>
     <li>
       <a href="/report">report</a>  

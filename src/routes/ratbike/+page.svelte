@@ -12,7 +12,7 @@
 
 <h2>Tag freely, tag often</h2>
 
-<p>Octothorpes is a protocol, not a platform. So what goes on the network is up to you. We have a newsletter and an official hashtag for <a href="https://octothorp.es/~/octothorpe-news">#octothorpes-news</a> and some social media accounts where we'll be sharing updates to the project as well as cool stuff we see and find on the network, but beyond that, what one might find clicking on any octothorpe will be up to those of you who choose to octothorpe your posts. If you want to organize any sort of hashtag-based project or campaign and want help in spreading the idea, get in touch. Otherwise… browse and discover!</p>
+<p>Octothorpes is a protocol, not a platform. So what goes on the network is up to you. We have a newsletter and an official hashtag for <a href="https://octothorp.es/~/octothorpe-news">#octothorpes-news</a> and some social media accounts where we'll be sharing updates to the project as well as cool stuff we see and find on the network, but beyond that, what one might find clicking on any octothorpe will be up to those of you who choose to octothorpe your posts. If you want to organize any sort of hashtag-based project or campaign and want help in spreading the idea, get in touch. Otherwise... browse and discover!</p>
 
 <h3>Then what?</h3>
 
@@ -40,23 +40,23 @@
 
 <p>Q: How do I start using Octothorpes?</p>
 
-<p>A: First, request to register your url. Then, check out the <a href="https://demo.ideastore.dev/quickstart"></a>quickstart guide. If you still have questions, hit us up on <a href="https://hachyderm.io/@octothorpes">Mastodon</a>,  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a> or <a href="mailto:info@octothorp.es">email</a>.</p>
+<p>A: First, <a href="https://octothorp.es/register">request to register</a> your domain. Then, check out the <a href="https://demo.ideastore.dev/quickstart"></a>quickstart guide. If you still have questions, hit us up on <a href="https://hachyderm.io/@octothorpes">Mastodon</a>,  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a> or <a href="mailto:info@octothorp.es">email</a>.</p>
 
 <p>Q: Can I still register?</p>
 
-<p>A: <a href="https://octothorp.es/~/octothorpe-news">If this page</a> says you can, you can. If this says you can't, we're at capacity.</p>
+<p>A: <a href="https://octothorp.es/register">If this page</a> says you can, you can. If this says you can't, we're at capacity.</p>
 
 <p>Q: You mention Rings. Can I start my own Web Ring or convert my existing one?</p>
 
-<p>A: Not yet, but we're working on it. See the <a href="https://github.com/orgs/stucco-software/projects/3/views/2?pane=issue&amp;itemId=84746160&amp;issue=stucco-software%7Coctothorp.es%7C60">Roadmap</a></p>
+<p>A: Not yet, but we're working on it. See the <a href="https://github.com/orgs/stucco-software/projects/3/views/2?pane=issue&amp;itemId=84746160&amp;issue=stucco-software%7Coctothorp.es%7C60">Roadmap item.</a></p>
 
 <p>Q: There's another way I think you should do something. How should I tell you?</p>
 
-<p>A: See the Roadmap. It's full of github issues for things that we have and haven't started working on yet.  </p>
+<p>A: See the <a href="https://github.com/orgs/stucco-software/projects/3/views/2" target="_blank">Roadmap</a>. It's full of github issues for things that we have and haven't started working on yet. Feel free to comment or open one if you don't see your topic reflected.</p>
 
 <p>Q: Can I use Octothorpes without adding your code to my page?</p>
 
-<p>A: Not right now, but check out the Harmonizers discussion on the Roadmap to see how we plan to do this.</p>
+<p>A: Not right now, but check out the <a href="https://github.com/orgs/stucco-software/projects/3?pane=issue&itemId=83693608&issue=stucco-software%7Coctothorp.es%7C50" target="_blank">Harmonizers</a> discussion on the Roadmap to see how we plan to do this.</p>
 
 <p>Q: I want to contribute to the project. How can I do that?</p>
 
@@ -64,11 +64,11 @@
 
 <p>Q: I think I found a bug. How can I report it?</p>
 
-<p>A: First, check to see if we know about it already at the <a href="https://github.com/orgs/stucco-software/projects/3/views/3">Bugs</a> list. If not, create a new issue and tag it <code>bug</code>.</p>
+<p>A: First, check to see if we know about it already at the <a href="https://github.com/orgs/stucco-software/projects/3/views/3" target="_blank">Bugs</a> list. If not, create a new issue and tag it <code>bug</code>.</p>
 
 <p>Q: How can I find out what's going on with Octothorpes?</p>
 
-<p>A: Join the <a href="https://octothorpe-news.beehiiv.com/subscribe" target="_blank">newsletter</a> follow #octothorpe-news, or #ratbike-news and find us on  <a href="https://hachyderm.io/@octothorpes">Mastodon</a> or  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a>.</p>
+<p>A: Join the <a href="https://octothorpe-news.beehiiv.com/subscribe" target="_blank">newsletter</a> follow <a href="https://octothorp.es/~/octothorpe-news">#octothorpe-news</a>, or <a href="https://octothorp.es/~/ratbike-news">#ratbike-news</a> and find us on  <a href="https://hachyderm.io/@octothorpes">Mastodon</a> or  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a>.</p>
 
 <p>Q: Who are you guys?</p>
 
