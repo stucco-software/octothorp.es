@@ -1,3 +1,5 @@
+import { queryBoolean } from '$lib/sparql.js'
+
 export const getAlias = (origin) => {
   let alias
   if (origin.startsWith('https')) {
