@@ -42,6 +42,7 @@ const alertAdmin = async ({domain, email}) => {
     })
   } catch (e) {
     console.log(e)
+    console.log(success)
     console.log(`something went wrong email the admin re: ${domain}, ${email}`)
     success = false
   }

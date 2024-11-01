@@ -23,7 +23,7 @@ if (import.meta.vitest) {
 const transport = nodemailer.createTransport({
   host: smtp_host,
   port: smtp_port,
-  secure: smtp_secure, // true for 465, false for other ports
+  secure: false, // true for 465, false for other ports
   auth: {
     user: smtp_user,
     pass: smtp_password
@@ -48,5 +48,7 @@ export const send = async ({to, subject, text, html}) => {
     text: text,
     html: html
   };
+  console.log(smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password)
+  console.log(mailOptions)
   return await transport.sendMail(mailOptions);
 }
