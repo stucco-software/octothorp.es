@@ -16,7 +16,7 @@ export const verifiedOrigin = async (origin) => {
   let alias = getAlias(origin)
 
   // TKTK
-  return true
+  // return true
 
   let originVerified = await queryBoolean(`
     ask {
