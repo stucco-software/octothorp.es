@@ -16,7 +16,7 @@ export const getAlias = (origin) => {
 
 export const verifiedOrigin = async (origin) => {
   let alias = getAlias(origin)
-
+  console.log(alias, origin)
   // TKTK
   // return true
 
@@ -30,5 +30,6 @@ export const verifiedOrigin = async (origin) => {
       <${alias}> octo:verified "true" .
     }
   `)
+  console.log(originVerified || aliasVerified)
   return originVerified || aliasVerified
 }
