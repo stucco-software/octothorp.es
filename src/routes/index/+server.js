@@ -251,7 +251,7 @@ const handleHTML = async (response, s) => {
 
 const handler = async (s) => {
   let url = new URL(s)
-  let isVerifiedOrigin = await verifiedOrigin(url.origin)
+  let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
   if (!isVerifiedOrigin) {
     console.log(`handler issue here`)
     return error(401, 'Origin is not registered with this server.')
