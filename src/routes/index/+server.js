@@ -252,6 +252,7 @@ const handleHTML = async (response, s) => {
 const handler = async (s) => {
   let isVerifiedOrigin = await verifiedOrigin(s)
   if (!isVerifiedOrigin) {
+    console.log(`handler issue here`)
     return error(401, 'Origin is not registered with this server.')
   }
 
@@ -273,6 +274,7 @@ export async function GET(req) {
   let s = `${uri.origin}${uri.pathname}`
 
   if (s) {
+    console.log(`handle:`, s)
     return await handler(s)
     // @TKTK
     // if it's JSON, pass to JSON handler
