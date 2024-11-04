@@ -40,7 +40,7 @@
 
 <p>Q: How do I start using Octothorpes?</p>
 
-<p>A: First, <a href="https://octothorp.es/register">request to register</a> your domain. Then, check out the <a href="https://demo.ideastore.dev/quickstart"></a>quickstart guide. If you still have questions, hit us up on <a href="https://hachyderm.io/@octothorpes">Mastodon</a>,  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a> or <a href="mailto:info@octothorp.es">email</a>.</p>
+<p>A: First, <a href="https://octothorp.es/register">request to register</a> your domain. Then, check out the <a href="https://demo.ideastore.dev/quickstart">quickstart</a> guide. If you still have questions, hit us up on <a href="https://hachyderm.io/@octothorpes">Mastodon</a>,  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a> or <a href="mailto:info@octothorp.es">email</a>.</p>
 
 <p>Q: Can I still register?</p>
 

@@ -1,5 +1,7 @@
 <script type="text/javascript">
   export let form
+  import { assets } from '$app/paths';
+  const badgeCode = `<a href="https://octothorp.es"><img src="https://octothorp.es/badge.png" alt="Badge for the Octothorpes main ring" /></a>`;
 </script>
 
 <h1>Register your Domain</h1>
@@ -54,6 +56,13 @@
           I've read the terms of use and verify that my domain is chill.
         </span>
       </label>
+
+      <p>
+        <button>
+          Register
+        </button>
+      </p>
+
     </div>
 
     {#if form?.banned}
@@ -64,10 +73,17 @@
       </p>
     {/if}
 
-    <p>
-      <button>
-        Register
-      </button>
-    </p>
+
   </form>
+  <div>
+    <h3><span>Once you're verified: </span></h3>
+    <p><span>Here's some flair to show off your membership in the first Octothorpes Ring.</span></p>
+    <p><a href="https://octothorp.es"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main ring" /></a></p>
+    
+    <p>Copy this to put it on your site:</p>
+    <code>{badgeCode}</code>
+  </div>
+</section>
+<section>
+  
 </section>
