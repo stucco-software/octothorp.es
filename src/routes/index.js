@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit'
 import { instance } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { assert } from '$lib/assert.js'
@@ -8,6 +9,7 @@ export const index = async (req) => {
   let isVerifiedOrigin = await verifiedOrigin(reqOrigin)
 
   if (!isVerifiedOrigin) {
+    console.log(reqOrigin)
     return error(401, 'Origin is not registered with this server.')
   }
   // Grab a URI from the ?uri search param
@@ -20,6 +22,7 @@ export const index = async (req) => {
     try {
       uri = new URL(s)
     } catch (e) {
+      console.log(s, e)
       return error(401, 'URI is not a valid resource.')
     }
 
