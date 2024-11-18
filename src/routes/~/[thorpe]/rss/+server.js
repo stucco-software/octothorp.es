@@ -31,6 +31,11 @@ export async function GET({ request, params }) {
       items: items
     }
   }
+  fetch(`https://ping.pushbroom.co/ping?t=View&url=/~/${thorpe}/rss&s=null&p=null`, {
+    headers: {
+      "origin": instance,
+    }
+  })
   return new Response(String(rss(tree)), {
     headers: {
       "content-type": "application/rss+xml"
