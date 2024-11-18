@@ -2,6 +2,7 @@ import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 
 export async function load(req) {
+  // grt query params here
   const term = decodeURIComponent(req.params.thorpe)
   let o
   try {
@@ -27,6 +28,7 @@ export async function load(req) {
       }
     })
     .filter(node => !node.uri.startsWith(instance))
+    // filter out the things you dont want based on your query
 
   const sa = await queryArray(`
     SELECT DISTINCT ?uri ?t ?d {
