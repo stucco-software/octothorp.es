@@ -31,7 +31,7 @@ export async function GET({ request, params }) {
       items: items
     }
   }
-  await fetch(`https://ping.pushbroom.co/ping?t=View&url=/~/${thorpe}/rss&s=null&p=null`, {
+  await fetch(`https://ping.pushbroom.co/ping?t=RSS&url=/~/${thorpe}/rss&s=null&p=null`, {
     headers: {
       "origin": instance.slice(0, -1),
     }
