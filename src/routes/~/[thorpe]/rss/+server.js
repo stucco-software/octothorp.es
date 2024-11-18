@@ -33,7 +33,7 @@ export async function GET({ request, params }) {
   }
   await fetch(`https://ping.pushbroom.co/ping?t=View&url=/~/${thorpe}/rss&s=null&p=null`, {
     headers: {
-      "origin": instance,
+      "origin": instance.slice(0, -1),
     }
   })
   return new Response(String(rss(tree)), {
