@@ -1,3 +1,6 @@
+// TODO: 
+// - don't duplicate custom welcome messages with multiple components on a page
+// - styling
 const ring = (o) => {
   return `<style>
   .web-ring {
@@ -97,7 +100,6 @@ const hydrate = async (shadow, o) => {
 }
 let bannerMsg = "<h3>This site is part of the "+ webhooks +" webring</h3>"
 const instantiate = (node) => {
-  // gotta get the ring url -- is it webhook?
 
 
   let o = node.getAttribute("title") || node.innerText.trim()
