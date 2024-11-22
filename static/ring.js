@@ -158,7 +158,7 @@ const hydrate = async (shadow, o) => {
   console.log(links[0])
   const parentOrigin = window.location.origin;
   console.log("Parent origin: " + parentOrigin)
-  const currentSite = "https://sarahkateemerson.com/"
+  const currentSite = parentOrigin
 
   let template = `${ringTemplate(currentSite, links[0], o)}`
   
