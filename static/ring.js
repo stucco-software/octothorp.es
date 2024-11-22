@@ -146,7 +146,13 @@ const webhooks = script
 const hydrate = async (shadow, o) => {
   console.log(o);
   let responses = await Promise.allSettled(
-    webhooks.map(async webhook => await fetch(`${webhook}/domains/`))
+    webhooks.map(async webhook => 
+      await fetch(`${webhook}/domains/`, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+    )
   )
 
   let data = await Promise.allSettled(
@@ -159,6 +165,7 @@ const hydrate = async (shadow, o) => {
   const parentOrigin = window.location.origin;
   console.log("Parent origin: " + parentOrigin)
   const currentSite = parentOrigin
+  const testSite = "https://www.mmmx.cloud"
 
   let template = `${ringTemplate(currentSite, links[0], o)}`
   
