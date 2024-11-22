@@ -1,19 +1,85 @@
+
+
+
 // TODO: 
 // - don't duplicate custom welcome messages with multiple components on a page
-// - styling
+
 const ring = (o) => {
-  return `<style>
-  .web-ring {
-    background-color: whitesmoke;
-    width: 400px;
-    padding: 2rem;
-    border: outset 6px #333;
+  return `
+  <style>
+
+
+    
+:host {
+  
+  --ring-background: white;
+  --ring-anchor: #3c7efb;
+  --ring-text-color: #333;
+  --ring-font: monospace;
+  --ring-width: 50vw;
+  --ring-highlight: yellow;
+  --ring-rule: 2px dashed var(--ring-text-color);
+}
+.web-ring {
+  background-color: var(--ring-background);
+  width: var(--ring-width);
+  padding: 2rem;
+  font-family: var(--ring-font);
+  text-align: center;
+}
+
+.web-ring a {
+padding: 1rem;
+font-family: var(--ring-font);
+  color: var(--ring-anchor);
+}
+
+
+.web-ring section {
+  display: grid;
+  grid-auto-flow: column;
   }
+
+
+
+.web-ring .ring-head {
+  border-bottom: var(--ring-rule);
+  display: block;
+}
+
+.web-ring .rand {
+  float: left;
+  padding: 0px;
+}
+
+  .web-ring .ring-button {
+    border-left: var(--ring-rule);
+    border-right: var(--ring-rule);
+    padding-top: 1rem;
+  }
+
+  .web-ring .ring-button a {
+    overflow: auto;
+    display: block;
+    padding: .3rem;
+  }
+
+  .web-ring .ring-button a:hover {
+    background-color: var(--ring-background);
+  }
+.web-ring a:hover {
+  background-color: var(--ring-highlight);
+  color: var(--ring-text-color);
+  text-decoration-style: wavy;
+  letter-spacing: 2px;
+
+}
+
+
+
   </style>
   <div class="web-ring" data-ring="${o}">
-    <article>
       …
-    </article>
   </div>`
 }
 
@@ -28,19 +94,20 @@ const ringTemplate = (p, d, o) => {
   console.log(neighbors.previous);
   // hook up params to set labels
   return `
+    <div class='ring-head'>${o}</div>
     <section>
-        <h3>${o}</h3>
-       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
-    <p><em>Previous site</em>
-    <a href="${neighbors.previous}">${neighbors.previous}</a>
-    </p>
 
-  <p><em>Next site</em>
-      <a href="${neighbors.next}">${neighbors.next}</a>
-  </p>
-    </section>
+      <a href="${neighbors.previous}">< Previous site</a>
 
-  `
+    <div class="ring-button">
+      <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
+      <a href="rand">Random Site</a>
+    </div>
+
+    <a href="${neighbors.next}">Next site ></a>
+
+  </section>
+    `
 }
 
 
@@ -95,10 +162,10 @@ const hydrate = async (shadow, o) => {
 
   let template = `${ringTemplate(currentSite, links[0], o)}`
   
-  let nodes = [...shadow.querySelectorAll(`[data-ring="${webhooks}"] article`)]
+  let nodes = [...shadow.querySelectorAll(`div.web-ring`)]
   nodes.forEach(node => node.innerHTML = template)
 }
-let bannerMsg = "<h3>This site is part of the "+ webhooks +" webring</h3>"
+let bannerMsg = "<h3>This site octothorpes on the "+ webhooks +" webring</h3>"
 const instantiate = (node) => {
 
 
@@ -109,6 +176,7 @@ const instantiate = (node) => {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = ring(webhooks)
   const shadow = node.attachShadow({mode: 'open'})
+      // Add styles first
   shadow.appendChild(wrapper)
   hydrate(shadow, bannerMsg)
 }
@@ -116,6 +184,11 @@ const instantiate = (node) => {
 customElements.define('web-ring', class extends HTMLElement {
   constructor () {
     super()
+
+    
+
+
+
     document.addEventListener("DOMContentLoaded", (event) => {
 // turning off for now to avoid calling twice
 
@@ -129,6 +202,7 @@ customElements.define('web-ring', class extends HTMLElement {
     // let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
     // if (o.length > 0) {
       instantiate(this)
+
     // }
   }
 })
