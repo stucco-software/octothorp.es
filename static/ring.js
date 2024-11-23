@@ -147,11 +147,7 @@ const hydrate = async (shadow, o) => {
   console.log(o);
   let responses = await Promise.allSettled(
     webhooks.map(async webhook => 
-      await fetch(`${webhook}/domains/`, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
+      await fetch(`${webhook}/domains`)
     )
   )
 
