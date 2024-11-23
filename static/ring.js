@@ -130,7 +130,7 @@ const webring = (parentDoc, links) => {
 
   return {
     previous: links[previousIndex],
-    next: links[nextIndex]
+    next: links[nextIndex],
     random: links[Math.floor(Math.random() * links.length)]
   };    
 };
