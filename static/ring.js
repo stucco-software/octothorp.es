@@ -101,7 +101,7 @@ const ringTemplate = (p, d, o) => {
 
     <div class="ring-button">
       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
-      <a href="rand">Random Site</a>
+      <a href="${neighbors.random}">Random Site</a>
     </div>
 
     <a href="${neighbors.next}">Next site ></a>
@@ -131,6 +131,7 @@ const webring = (parentDoc, links) => {
   return {
     previous: links[previousIndex],
     next: links[nextIndex]
+    random: links[Math.floor(Math.random() * links.length)]
   };    
 };
 
