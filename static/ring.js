@@ -101,7 +101,7 @@ const ringTemplate = (p, d, o) => {
 
     <div class="ring-button">
       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
-      <a href="rand">Random Site</a>
+      <a href="${neighbors.random}">Random Site</a>
     </div>
 
     <a href="${neighbors.next}">Next site ></a>
@@ -130,7 +130,8 @@ const webring = (parentDoc, links) => {
 
   return {
     previous: links[previousIndex],
-    next: links[nextIndex]
+    next: links[nextIndex],
+    random: links[Math.floor(Math.random() * links.length)]
   };    
 };
 
@@ -147,11 +148,7 @@ const hydrate = async (shadow, o) => {
   console.log(o);
   let responses = await Promise.allSettled(
     webhooks.map(async webhook => 
-      await fetch(`${webhook}/domains/`, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
+      await fetch(`${webhook}/domains`)
     )
   )
 
@@ -164,7 +161,7 @@ const hydrate = async (shadow, o) => {
   console.log(links[0])
   const parentOrigin = window.location.origin;
   console.log("Parent origin: " + parentOrigin)
-  const currentSite = parentOrigin
+  const currentSite = `${parentOrigin}/`
   const testSite = "https://www.mmmx.cloud"
 
   let template = `${ringTemplate(currentSite, links[0], o)}`
