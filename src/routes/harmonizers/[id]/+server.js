@@ -4,7 +4,7 @@ import { instance } from '$env/static/private'
 let sample_harmonizer = (id) => {
   return {
     "@context": `${instance}context.json`,
-    "@id": `${instance}harmonizer/${id}`,
+    "@id": `${instance}harmonizers/${id}`,
     "@type": "Harmonizer",
     "title": "Sample Microformat Harmonizer",
     "term": `Hashtag`,
