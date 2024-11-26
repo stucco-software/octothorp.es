@@ -29,7 +29,7 @@ const ring = (o) => {
 }
 
 .web-ring a {
-padding: 1em;
+padding: 1rem;
 font-family: var(--ring-font);
   color: var(--ring-anchor);
 }
@@ -86,23 +86,25 @@ font-family: var(--ring-font);
 // while not strictly necessary to keep this as a separate template
 // doing so makes room to ship multiple templates that can be set by some param
 
-const ringTemplate = (n, o) => {
+const ringTemplate = (p, d, o) => {
   // let url = new URL(data.uri)
   // let origin = url.origin
   // let oTxt = decodeURIComponent(o)
+  let neighbors = webring(p, d);
+  console.log(neighbors.previous);
   // hook up params to set labels
   return `
     <div class='ring-head'>${o}</div>
     <section>
 
-      <a href="${n.previous}">< Previous site</a>
+      <a href="${neighbors.previous}">< Previous site</a>
 
     <div class="ring-button">
       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
-      <a href="${n.rand}">Random Site</a>
+      <a href="rand">Random Site</a>
     </div>
 
-    <a href="${n.next}">Next site ></a>
+    <a href="${neighbors.next}">Next site ></a>
 
   </section>
     `
@@ -123,23 +125,14 @@ const webring = (parentDoc, links) => {
   const nextIndex = currentIndex === links.length - 1 
     ? 0 
     : currentIndex + 1;
+  console.log(links[previousIndex])
+  console.log(links[nextIndex])
 
-    const filteredLinks = links.filter((link, index) => {
-      return index !== previousIndex && index !== currentIndex && index !== nextIndex;
-    });
-
-  let randomIndex = Math.floor(Math.random() * filteredLinks.length);
-
-  
-  // Get a random entry from the array that does not match any of the values we want to exclude
-  const randomEntry = filteredLinks[randomIndex];
   return {
     previous: links[previousIndex],
-    next: links[nextIndex],
-    rand: randomEntry
+    next: links[nextIndex]
   };    
 };
-
 
 const script = document.querySelector('script[data-register]')
 const webhooks = script
@@ -168,14 +161,13 @@ const hydrate = async (shadow, o) => {
       .map(async r => r.value.json())
   )
   let links = data.map(d => d.value.domains)
-  // console.log(links[0])
+  console.log(links[0])
   const parentOrigin = window.location.origin;
-  // console.log("Parent origin: " + parentOrigin)
+  console.log("Parent origin: " + parentOrigin)
   const currentSite = parentOrigin
-  const testSite = "https://www.mmmx.cloud/"
-  const neighbors = webring(currentSite, links[0]);
-  
-  let template = `${ringTemplate(neighbors, o)}`
+  const testSite = "https://www.mmmx.cloud"
+
+  let template = `${ringTemplate(currentSite, links[0], o)}`
   
   let nodes = [...shadow.querySelectorAll(`div.web-ring`)]
   nodes.forEach(node => node.innerHTML = template)
