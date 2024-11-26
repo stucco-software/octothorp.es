@@ -100,6 +100,7 @@ const ringTemplate = (n, o) => {
     <div class="ring-button">
       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
       <a href="${n.rand}">Random Site</a>
+      <a href="${neighbors.random}">Random Site</a>
     </div>
 
     <a href="${n.next}">Next site ></a>
