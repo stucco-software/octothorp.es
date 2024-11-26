@@ -298,3 +298,10 @@ export async function GET(req) {
   }
   return new Response(200)
 }
+
+export async function POST({request}) {
+  const data = await request.formData()
+  let uri = data.get('uri')
+  let harmonizer = data.get('harmonizer')
+  return new Response(200)
+}
