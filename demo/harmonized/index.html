@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Harmonized</title>
+  <link
+    rel="preload"
+    as="fetch"
+    href="http://localhost:5173/?uri=http://localhost:8888/harmonized">
+  <meta name="octo:harmonizer" content="[rel='tag']">
+  <meta name="octo:harmonizer" content="[rel='category tag']">
+  <meta name="octo:harmonizer" content=".tagged">
+  <meta name="octo:harmonizer" content=".entry-content .link-title a">
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+  </nav>
+    <h1>Harmonized</h1>
+    <p>
+      Lets say you use something like microformats or your own system for tagging stuff and doing bookmarks. How can we tell an Octothorpes ring that when you say "h-tag" your mean "octo:octothorpes"?
+    </p>
+    <h2>Some Example of Markup:</h2>
+    <pre><code>
+&lt;a rel="tag" href="/microformats">Microformats!&lt;/a>
+
+&lt;link rel="tag" href="http://localhost:5173/~/relTag">
+
+&lt;div class="entry-content">
+  &lt;span class="link-title">
+    &lt;a href="https://example.com/a-cool-bookmark">A Cool Bookmark&lt;/a>
+  &lt;/span>
+&lt;/div>
+
+&lt;a class="tagged" href="css">CSS Selectors!&lt;/a>
+
+&lt;a class="tag p-category" href="/feed/tag/us_politics" title="See all feed posts tagged &quot;US politics&quot;" rel="category tag">US politics&lt;/a>
+    </code></pre>
+  <h2>Test it!</h2>
+<a rel="tag" href="/microformats">Microformats!</a>
+
+<link rel="tag" href="http://localhost:5173/~/relTag">
+
+<div class="entry-content">
+  <span class="link-title">
+    <a href="https://example.com/a-cool-bookmark">A Cool Bookmark</a>
+  </span>
+</div>
+
+<a class="tagged" href="css">CSS Selectors!</a>
+
+<a class="tag p-category" href="/feed/tag/us_politics" title="See all feed posts tagged &quot;US politics&quot;" rel="category tag">US politics</a>
+</body>
+</html>

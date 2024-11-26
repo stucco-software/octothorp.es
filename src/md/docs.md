@@ -8,6 +8,7 @@ hasPart:
   - creating-octothorpes
   - backlinks
   - bookmarks
+  - harmonizers
   - communities
   - technical-details
 ---

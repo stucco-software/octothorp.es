@@ -7,27 +7,20 @@ import { verifiedOrigin, getAlias } from '$lib/origin.js'
 export const index = async (req) => {
   let reqOrigin = req.request.headers.get('referer')
   let isVerifiedOrigin = await verifiedOrigin(reqOrigin)
-  console.log(reqOrigin, isVerifiedOrigin)
   if (!isVerifiedOrigin) {
-    console.log(reqOrigin)
     return error(401, 'Origin is not registered with this server.')
   }
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
-  console.log(url, s)
   // If there is a URI
   if (s) {
-    console.log(s)
     let uri
     try {
       uri = new URL(s)
-      console.log(uri)
     } catch (e) {
-      console.log(s, e)
       return error(401, 'URI is not a valid resource.')
     }
-
     let reqAlias = getAlias(reqOrigin)
     if (`${uri.origin}/` == reqOrigin || `${uri.origin}/` == reqAlias) {
       console.log('fetch!')

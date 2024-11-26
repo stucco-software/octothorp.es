@@ -11,6 +11,17 @@ let p = 'octo:octothorpes'
 // let indexCooldown = 300000 //5min
 let indexCooldown = 0
 
+const isURL = (term) => {
+  let bool
+  try {
+    new URL(term)
+    bool = true
+  } catch (e) {
+    bool = false
+  }
+  return bool
+}
+
 const recentlyIndexed = async (s) => {
   let now = Date.now()
 
@@ -54,7 +65,6 @@ const getSubjectHTML = (src) => {
 }
 
 const extantTerm = async (o) => {
-  console.log(`does ${o} exist as a term?`)
   return await queryBoolean(`
     ask {
       ?s ?p <${o}> .
@@ -63,7 +73,6 @@ const extantTerm = async (o) => {
 }
 
 const extantPage = async (o) => {
-  console.log(`does ${o} exist as a page?`)
   let isTerm = await queryBoolean(`
     ask {
       <${o}> rdf:type <octo:Term> .
@@ -82,7 +91,6 @@ const extantPage = async (o) => {
 }
 
 const extantThorpe = async ({s, p, o}) => {
-  console.log(`is <${s}> ${p} <${o}> in the graph?`)
   return await queryBoolean(`
     ask {
       <${s}> ${p} <${o}> .
@@ -103,7 +111,6 @@ const createOctothorpe = async ({s, p, o}) => {
 
 const recordCreation = async (o) => {
   let now = Date.now()
-  console.log('Create a backlink:', o)
   if (o.includes(instance)) {
     return await insert(`
       <${o}> octo:created ${now} .
@@ -119,7 +126,6 @@ const recordCreation = async (o) => {
 
 const recordBacklinkCreation = async (o) => {
   let now = Date.now()
-  console.log(`create: <${o}> rdf:type <octo:Page> .`)
   return await insert(`
     <${o}> octo:created ${now} .
     <${o}> rdf:type <octo:Page> .
@@ -166,10 +172,26 @@ const recordDescription = async ({s, description}) => {
 
 // Accept a response
 const handleHTML = async (response, s) => {
-  console.log('Oh fuck do these work at all')
   const src = await response.text()
   const doc = getSubjectHTML(src)
   
+  let harmonizers = [...doc.querySelectorAll('[name="octo:harmonizer"]')]
+  let selectors = harmonizers.map(node => {
+    return node.getAttribute('content')
+  })
+  let userdefined = selectors.map(selector => {
+    let harmonizedThorpes = [...new Set([
+      ...doc.querySelectorAll(selector)
+    ])]
+      .map(node => node.getAttribute('href') || node.textContent.trim())
+      .map(term => term.startsWith(instance) ? term.replace(`${instance}~/`, '') : term)
+    return harmonizedThorpes
+  })
+    .flat()
+    .map(term => isURL(term) ? term : term.split('/').pop())
+
+  // Harmonizers live here:
+  // this is just the default harmonizer
   const verifiedThorpes = [...new Set([
       ...doc.querySelectorAll(`[rel="${p}"]`),
       ...doc.querySelectorAll('octo-thorpe')
@@ -178,9 +200,9 @@ const handleHTML = async (response, s) => {
     .map(term => term.startsWith(instance) ? term.replace(`${instance}~/`, '') : term)
   )]
 
-  console.log('found some thorpes:')
-  console.log(verifiedThorpes)
-  await asyncMap(verifiedThorpes, async (term) => {
+  const allThorpes = [...userdefined, ...verifiedThorpes]
+  console.log(allThorpes)
+  await asyncMap(allThorpes, async (term) => {
     let o
     try {
       let oURL = new URL(term)
@@ -200,12 +222,10 @@ const handleHTML = async (response, s) => {
       if (!didEndorse) {
         return
       }
-      console.log(`${oURL} endorsed backlink from ${s}`)
     } catch (err) {
       o = `${instance}~/${term}`
     }
     let isExtantTerm = await extantTerm(o)
-    console.log(isExtantTerm)
 
     if (!isExtantTerm) {
       await recordCreation(o)
@@ -213,13 +233,11 @@ const handleHTML = async (response, s) => {
     }
 
     let isExtantPage = await extantPage(o)
-    console.log(`does ${o} exist as a page?`, isExtantPage)
     if (!isExtantPage) {
       await recordBacklinkCreation(o)
     }
 
     let isExtantThorpe = await extantThorpe({s, p, o})
-    console.log(isExtantThorpe)
     if (!isExtantThorpe) {
       await createOctothorpe({s, p, o})
       await recordUsage({s, o})
@@ -253,7 +271,6 @@ const handler = async (s) => {
   let url = new URL(s)
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
   if (!isVerifiedOrigin) {
-    console.log(`handler issue here`)
     return error(401, 'Origin is not registered with this server.')
   }
 
@@ -275,7 +292,6 @@ export async function GET(req) {
   let s = `${uri.origin}${uri.pathname}`
 
   if (s) {
-    console.log(`handle:`, s)
     return await handler(s)
     // @TKTK
     // if it's JSON, pass to JSON handler
