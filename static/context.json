@@ -1,0 +1,21 @@
+{
+  "@base": "https://vocab.octothorp.es",
+  "@vocab": "#",
+  "id": "@id",
+  "type": "@type",
+  "Harmonizer": {
+    "@id": "Harmonizer",
+    "@type": "@id"
+  },
+  "octothorpes": {
+    "@id": "octothorpes",
+    "@type": "@id"
+  },
+  "octothorpedBy": {
+    "@reverse": "octothorpes"
+  },
+  "title": "title",
+  "term": "term",
+  "selector": "selector",
+  "attribute": "attribute"
+}
