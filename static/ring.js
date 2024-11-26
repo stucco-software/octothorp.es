@@ -100,6 +100,7 @@ const ringTemplate = (n, o) => {
     <div class="ring-button">
       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
       <a href="${n.rand}">Random Site</a>
+      <a href="${neighbors.random}">Random Site</a>
     </div>
 
     <a href="${n.next}">Next site ></a>
@@ -136,7 +137,7 @@ const webring = (parentDoc, links) => {
   return {
     previous: links[previousIndex],
     next: links[nextIndex],
-    rand: randomEntry
+    random: links[Math.floor(Math.random() * links.length)]
   };    
 };
 
@@ -154,11 +155,7 @@ const hydrate = async (shadow, o) => {
   console.log(o);
   let responses = await Promise.allSettled(
     webhooks.map(async webhook => 
-      await fetch(`${webhook}/domains/`, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
+      await fetch(`${webhook}/domains`)
     )
   )
 
@@ -170,12 +167,11 @@ const hydrate = async (shadow, o) => {
   let links = data.map(d => d.value.domains)
   // console.log(links[0])
   const parentOrigin = window.location.origin;
-  // console.log("Parent origin: " + parentOrigin)
-  const currentSite = parentOrigin
-  const testSite = "https://www.mmmx.cloud/"
-  const neighbors = webring(currentSite, links[0]);
-  
-  let template = `${ringTemplate(neighbors, o)}`
+  console.log("Parent origin: " + parentOrigin)
+  const currentSite = `${parentOrigin}/`
+  const testSite = "https://www.mmmx.cloud"
+
+  let template = `${ringTemplate(currentSite, links[0], o)}`
   
   let nodes = [...shadow.querySelectorAll(`div.web-ring`)]
   nodes.forEach(node => node.innerHTML = template)
