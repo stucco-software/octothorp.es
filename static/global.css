@@ -1,5 +1,5 @@
 html {
-  font-family: var(--sans-stack);
+  font-family: var(--serif-stack);
   font-size: var(--txt-0);
   line-height: var(--baseline);
   letter-spacing: calc(var(--tracking) * 1px);
@@ -10,6 +10,15 @@ html {
 body {
   line-height: var(--baseline);
   background-image: var(--background-image);
+}
+
+.container {
+  max-width: 1200px;
+  margin: auto;
+}
+
+.container .dotgrid {
+  padding: 2rem 3rem;
 }
 
 b {
@@ -23,11 +32,12 @@ h1, h2, h3, h4, h5 {
 }
 h1 {
   line-height: calc(var(--baseline) * 2);
-  font-family: var(--serif-stack);
+  font-family: var(--sans-stack);
   margin-block-start: 0;
   margin-block-end: var(--baseline);
 }
 p {
+  font-family: var(--serif-stack);
   margin-block-start: 0;
   line-height: var(--baseline);
   margin-block-end: var(--baseline);

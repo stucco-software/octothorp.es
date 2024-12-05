@@ -4,6 +4,9 @@
       <a href="/~">#</a>
     </li>
     <li>
+      <a href="/about">about</a>
+    </li>
+    <li>
       <a href="/docs">docs</a>
     </li>
     <li>
@@ -11,9 +14,6 @@
     </li>
     <li>
       <a href="/domains">sites</a>
-    </li>
-    <li>
-      <a href="/bookmarks">bookmarks</a>
     </li>
     <li>
       <a href="/backlinks">backlinks</a>
