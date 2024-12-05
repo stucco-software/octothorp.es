@@ -24,7 +24,7 @@
   <p>First step is to <a href="https://octothorp.es/register">register</a> your site here. Then check out the <a href="https://demo.ideastore.dev/quickstart">quickstart</a> page to, well, get started quickly.</p>
   <p>If you want to get more in-depth, check out the <a href="https://octothorp.es/docs">documentation</a>.</p>
   <h2 id="why-did-you-make-this">Why Did You Make This?</h2>
-  <p>Lots of reasons! We're collecting them here as we think of them: <octo-thorpe>why-we-made-octothorpes</octo-thorpe></p>
+  <p>Lots of reasons! We're collecting them here as we think of them: <a href="https://octothorp.es/~/why-we-made-octothorpes">why-we-made-octothorpes</a></p>
   <h2 id="id-prefer-a-nerdier-more-detailed-summary">I'd prefer a nerdier, more detailed summary</h2>
   <p>Great. Here ya go:</p>
   <p>Octothorpes is a lightweight protocol for creating hashtags and backlinks between websites across domains. The process is simple and platform independent. Register your domain with an octothorpe server, and you can send and receive information about hashtags used by any other domain on that server. "Octothorping" a webpage creates a relationship between the page's URL and the octothorped term on a server. All pages sharing terms and servers will be linked to each other just like posts with the same hashtags are linked on closed platforms like Instagram.</p>
