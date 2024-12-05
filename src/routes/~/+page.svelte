@@ -31,6 +31,9 @@
 </section>
 
 <style type="text/css">
+a.thorpe {
+  font-family: var(--sans-stack);
+}
   form {
     margin-block-end: var(--baseline);
   }

@@ -118,6 +118,7 @@ input {
   border: 1px solid var(--txt-color);
   margin-block-end: calc(var(--baseline) * 0.5 - 2px);
   line-height: var(--baseline);
+  font-family: var(--sans-stack);
 }
 input:focus {
   background-color: yellow;
