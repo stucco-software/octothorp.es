@@ -31,6 +31,9 @@ const recordCreation = async (o) => {
 }
 
 export const assert = async (source, searchParams) => {
+
+  // how are we avoiding collisions on randomUUID?
+
   let uuid = crypto.randomUUID()
 
   if (searchParams.has("uri") && searchParams.has("octothorpes")) {
@@ -56,6 +59,10 @@ export const assert = async (source, searchParams) => {
       .map(term => `?node octo:octothorpes <${instance}~/${term}> .`)
       .reduce((acc, cur) => `${acc}
         ${cur}`, ``)
+        // QUESTION
+        // 1. could we externalize the content of base to define
+        // schema for other assertions, perhaps with the below as a hardcoded default ? 
+
 
     let base = `
       <${source}> octo:asserts <${instance}${uuid}> .
@@ -63,7 +70,12 @@ export const assert = async (source, searchParams) => {
       <${instance}${uuid}> octo:uri <${searchParams.get('uri')}> .`
     let triples = `${base}`
     triples = `${triples} ${tags}`
+        // QUESTION
+        // 2. Wherever it comes from, can we just wang in a new type of statement here and
+        // the system will accept it, or is there a deeper backend place where acceptable 
+        // statements need to be defined before we can make them from this context?
 
+          
     const isExtantAssertion = await extantAssertion(source, searchParams.get('uri'), check)
 
     if (isExtantAssertion) {
