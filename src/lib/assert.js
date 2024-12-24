@@ -32,7 +32,12 @@ const recordCreation = async (o) => {
 
 export const assert = async (source, searchParams) => {
 
+  // QUESTION
   // how are we avoiding collisions on randomUUID?
+  // ANSWER
+  // you don't need to. there are so many that when
+  // you make 'em to spec like `crypto` does here
+  // the odds of a collision are essentially zero.
 
   let uuid = crypto.randomUUID()
 
@@ -61,8 +66,15 @@ export const assert = async (source, searchParams) => {
         ${cur}`, ``)
         // QUESTION
         // 1. could we externalize the content of base to define
-        // schema for other assertions, perhaps with the below as a hardcoded default ? 
-
+        //    schema for other assertions, perhaps with the below
+        //    as a hardcoded default ?
+        // ANSWER
+        // Yeah the base shape of the assertion could be a function;
+        // like…
+        // const baseAssert = ({source, uuid, instance, uri}) => ``
+        // but even more fundamentally the bits that matter are
+        // rdf:type and the verb, here octo:asserts.
+        // That could come from anywhere
 
     let base = `
       <${source}> octo:asserts <${instance}${uuid}> .
@@ -71,10 +83,16 @@ export const assert = async (source, searchParams) => {
     let triples = `${base}`
     triples = `${triples} ${tags}`
         // QUESTION
-        // 2. Wherever it comes from, can we just wang in a new type of statement here and
-        // the system will accept it, or is there a deeper backend place where acceptable 
-        // statements need to be defined before we can make them from this context?
-
+        // 2. Wherever it comes from, can we
+        //    just wang in a new type of statement
+        //    here and the system will accept it,
+        //    or is there a deeper backend place
+        //    where acceptable statements need to
+        //    be defined before we can make them
+        //    from this context?
+        // ANSWER
+        // Nope. Thats the magic; there is no deeper
+        // there there. Whatever you put in just goes in.
           
     const isExtantAssertion = await extantAssertion(source, searchParams.get('uri'), check)
 
