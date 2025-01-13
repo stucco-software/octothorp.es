@@ -69,6 +69,8 @@ a.thorpe {
 }
   form {
     margin-block-end: var(--baseline);
+    padding-inline: 3ch;
+    padding-block-start: var(--baseline);
   }
   input {
     width: 100%;

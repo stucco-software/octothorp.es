@@ -11,12 +11,12 @@
 
 <Header host={data.host} />
 
-<div class="container">
+<!-- <div class="container"> -->
   <LayoutSidebar>
     <Nav slot="aside" />
     <slot slot="main"></slot>
   </LayoutSidebar>
-</div>
+<!-- </div> -->
 
 <Footer />
 
