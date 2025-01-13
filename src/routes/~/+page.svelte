@@ -2,12 +2,16 @@
   export let data
 
   let thorpes = [...data.thorpes]
+  let tags = data.tags.sort((a, b) => b.count - a.count)
   let value
   $: {
-    thorpes = value
-      ? [...data.thorpes].filter(n => n.includes(value))
-      : [...data.thorpes]
+    console.log(value)
+    tags = value
+      ? [...data.tags.sort((a, b) => b.count - a.count)].filter(n => n.term.includes(value))
+      : [...data.tags.sort((a, b) => b.count - a.count)]
   }
+
+  console.log(data.tags)
 </script>
 
 <form>
@@ -23,11 +27,40 @@
 </form>
 
 <section class="dotgrid">
-  {#each thorpes as thorpe}
+  {#each tags as tag}
+  <div class="card">
+    <a class="thorpe" href="{tag.term}">#{tag.term.split('/~/')[1]}</a>
+    <details>
+      <summary>{tag.count} pages</summary>
+      <ul>
+        {#each tag.pages as page}
+        <li>
+          <a href="{page.url}">{page.url}</a>
+        </li>
+        {/each}
+      </ul>
+    </details>
+    <details>
+      <summary>{tag.domains.length} domains</summary>
+      <ul>
+        {#each tag.domains as domain}
+          <li>
+            <!-- <a href="/domains/{encodeURIComponent(domain)}">{domain}</a> -->
+            <a href="{domain}">{domain}</a>
+          </li>
+        {/each}
+      </ul>
+    </details>
+
+    <p>Last Updated: {new Date(Number(tag.latest)).getFullYear()}/{new Date(Number(tag.latest)).getMonth()  + 1}/{new Date(Number(tag.latest)).getDate()}</p>
+  </div>
+
+  {/each}
+  <!-- {#each thorpes as thorpe}
     <span>
       <a class="thorpe" href="{thorpe}">#{thorpe.split('/~/')[1]}</a>
     </span>
-  {/each}
+  {/each} -->
 </section>
 
 <style type="text/css">
@@ -42,5 +75,16 @@ a.thorpe {
   }
   span {
     margin-inline-end: 1ch;
+  }
+
+  .card {
+    border: 1px solid black;
+    display: inline-block;
+    background-color: white;
+    padding: 1ch;
+    margin: 1ch;
+  }
+  .card p {
+    margin-block-end: 0;
   }
 </style>
