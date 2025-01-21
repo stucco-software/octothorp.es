@@ -1,6 +1,7 @@
 <script type="text/javascript">
-  import TKCard from '$lib/components/TKCard.svelte'
+  import BearblogCard from '$lib/components/bearblogCard.svelte'
   export let data
+  export let server_name
   import { assets } from '$app/paths';
   let rss = `${data.instance}rss/`
 </script>
@@ -15,7 +16,11 @@
 
 <div class="dashboard dotgrid">
 <section>
-  <p>Welcome to the first Octothorpes ring.</p>
+  {#if data.server_name === 'Octothorpes'}
+    <p>Welcome to the first Octothorpes Server.</p>
+  {:else}
+    <p>Welcome to the {data.server_name} Server</p>
+  {/if}
   <p># # # # # # # # # # # </p>
   <p>
     This Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a>, <mark>{data.links}</mark> <a href="/backlinks">backlinks</a> and <mark>{data.assertions}</mark> <a href="/bookmarks">bookmarks</a> across <mark>{data.domains}</mark> <a href="/domains">websites.</a>
@@ -23,25 +28,33 @@
   <p>   <a href="https://octothorp.es"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main ring" /></a>
   </p>
 </section>
-<section>
-  <em>News from the Ring</em>
-  <p># # # # # # # # # # # </p>
 
- <p>Registrations are open again for <a href="/ratbike">Project Ratbike</a></p>
- <p># # # # # # # # # # # </p>
-   <a href="/~/weirdweboctober">Weird Web October has wrapped! Revel in the fun that was WWO!</a>
+  
+  {#if data.server_name === 'Bear Blog'}
+  <section>
+    <BearblogCard></BearblogCard>
+  </section>
+  {:else}
+  <section>
+    <em>News from the Ring</em>
+    <p># # # # # # # # # # # </p>
 
-</section>
-<section class="testimonial">
-  <p>The latest web nerd feature.</p>
-  <p class="attribution">-- Anil Dash</p>
-
-  <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
-  <p class="attribution">-- <a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">Ludic</a></p>
-
-  <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
-  <p class="attribution">-- <a href="https://news.ycombinator.com/item?id=41761873">Some dude on hackernews</a></p>
-</section>
+    <p>Registrations are open again for <a href="/ratbike">Project Ratbike</a></p>
+    <p># # # # # # # # # # # </p>
+    <a href="/~/weirdweboctober">Weird Web October has wrapped! Revel in the fun that was WWO!</a>
+  </section>
+  <section class="testimonial">
+  
+    <p>The latest web nerd feature.</p>
+    <p class="attribution">-- Anil Dash</p>
+  
+    <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
+    <p class="attribution">-- <a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">Ludic</a></p>
+  
+    <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
+    <p class="attribution">-- <a href="https://news.ycombinator.com/item?id=41761873">Some dude on hackernews</a></p>
+  </section>
+  {/if}
 </div>
 
 <style type="text/css">
