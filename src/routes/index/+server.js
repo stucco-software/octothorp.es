@@ -270,8 +270,16 @@ const handleHTML = async (response, s) => {
 const handler = async (s) => {
   let url = new URL(s)
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
+  let isBearBlog = document.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
   if (!isVerifiedOrigin) {
-    return error(401, 'Origin is not registered with this server.')
+    // adding as second level check so we still have the option to manually register
+    // which we might have to do in the case of white/blacklisting if anyone starts spoofing this check
+    // in any case, hard-coding this check into the main indexer is obvs not ideal and should be 
+    // generalized to an extendable from of altVerification
+    
+    if (!isBearBlog){
+      return error(401, 'Origin is not registered with this server.')
+    }
   }
 
   let isRecentlyIndexed = await recentlyIndexed(s)
