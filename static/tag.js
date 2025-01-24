@@ -1,4 +1,4 @@
-const tag = (o, label) => {
+const tag = (o, label, flags) => {
   return `<style>
     a {
       color: inherit;
@@ -79,7 +79,30 @@ const serverTemplate = (o) => (data) => {
   `
 }
 
-const script = document.querySelector('script[data-register]')
+const script = document.querySelector('script[src*="tag.js"]')
+
+const plugins = script.dataset.plugins
+
+if (plugins === "linkfill") {
+  console.log("do link fill");
+  const preloadLink = document.querySelector('link[rel="preload"][as="fetch"]');
+  const baseUrl = script.dataset.register+"?uri='";
+  const currentUrl = window.location.href;
+  const preloadHref = baseUrl + encodeURI(currentUrl)
+
+if (preloadLink) {
+    preloadLink.setAttribute('href', preloadHref);
+}
+else 
+{
+  let link = document.createElementNS('http://www.w3.org/1999/XHTML/V10', 'link');
+  link.setAttribute("rel", 'preload');
+  link.setAttribute("as", 'fetch');
+  link.setAttribute("href", preloadHref);
+  document.head.appendChild(link);
+}
+}
+
 const webhooks = script
       .dataset
       .register
@@ -109,12 +132,14 @@ const hydrate = async (shadow, o) => {
 
 const instantiate = (node) => {
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
+  const attributes = Array.from(element.attributes).filter(attr => attr.name.startsWith('data-'))
+  let flags =  attributes.map(attr => ({ [attr.name]: attr.value }))
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
   wrapper.innerHTML = tag(o, label)
   const shadow = node.attachShadow({mode: 'open'})
   shadow.appendChild(wrapper)
-  hydrate(shadow, o)
+  hydrate(shadow, o, flags)
 }
 
 customElements.define('octo-thorpe', class extends HTMLElement {
