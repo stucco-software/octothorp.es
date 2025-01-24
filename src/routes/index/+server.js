@@ -270,14 +270,32 @@ const handleHTML = async (response, s) => {
 const handler = async (s) => {
   let url = new URL(s)
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
-  let isBearBlog = document.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
+
+  const isBearBlog(document){
+    let isGood = document.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
+    let isNotBad = true;
+    const robotsMetaTags = document.querySelectorAll('meta[robots]');
+    for (const robot of robotsMetaTags) {
+      if (robot.getAttribute('robots') === 'noindex' || robot.getAttribute('robots') === 'nofollow') {
+          isNotBad = false;
+      }
+    }
+    if (isGood && isNotBad ) {
+      return true;
+    }
+    else {
+      return false;
+      console.log("Octothorpes will not index this page");
+    }
+   }
+
   if (!isVerifiedOrigin) {
     // adding as second level check so we still have the option to manually register
     // which we might have to do in the case of white/blacklisting if anyone starts spoofing this check
     // in any case, hard-coding this check into the main indexer is obvs not ideal and should be 
     // generalized to an extendable from of altVerification
-    
-    if (!isBearBlog){
+  
+    if (!isBearBlog(document)){
       return error(401, 'Origin is not registered with this server.')
     }
   }
