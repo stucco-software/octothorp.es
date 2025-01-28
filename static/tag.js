@@ -132,7 +132,7 @@ const hydrate = async (shadow, o) => {
 
 const instantiate = (node) => {
   let o = encodeURIComponent(node.getAttribute("href") || node.innerText.trim())
-  const attributes = Array.from(element.attributes).filter(attr => attr.name.startsWith('data-'))
+  const attributes = Array.from(node.attributes).filter(attr => attr.name.startsWith('data-'))
   let flags =  attributes.map(attr => ({ [attr.name]: attr.value }))
   let label = node.innerText.trim()
   const wrapper = document.createElement('span');
