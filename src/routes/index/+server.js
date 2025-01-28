@@ -271,10 +271,10 @@ const handler = async (s) => {
   let url = new URL(s)
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
 
-  function isBearBlog(document){
-    let isGood = document.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
+  function isBearBlog(s){
+    let isGood = s.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
     let isNotBad = true;
-    const robotsMetaTags = document.querySelectorAll('meta[robots]');
+    const robotsMetaTags = s.querySelectorAll('meta[robots]');
     for (const robot of robotsMetaTags) {
       if (robot.getAttribute('robots') === 'noindex' || robot.getAttribute('robots') === 'nofollow') {
           isNotBad = false;
@@ -295,7 +295,7 @@ const handler = async (s) => {
     // in any case, hard-coding this check into the main indexer is obvs not ideal and should be 
     // generalized to an extendable from of altVerification
   
-    if (!isBearBlog(document)){
+    if (!isBearBlog(s)){
       return error(401, 'Origin is not registered with this server.')
     }
   }
