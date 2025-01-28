@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import { instance } from '$env/static/private'
+import { server_name } from '$env/static/private'
 import { asyncMap} from '$lib/asyncMap.js'
 import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
@@ -278,9 +279,10 @@ const handler = async (s) => {
 
   let subject = await fetch(s)
   
-  const isBearBlog = async (response) => {
-    const newsrc = await response.text()
-    const doc = getSubjectHTML(newsrc)
+  const isBearBlog = async (s) => {
+    let response = await fetch(s)
+    const src = await response.text()
+    const doc = getSubjectHTML(src)
     // let pageMetaNode = doc.querySelector("meta[content='look-for-the-bear-necessities']")
     let isGood = false
     let isNotBad = true;
@@ -317,7 +319,7 @@ const handler = async (s) => {
     }
    }
   
-   isBearBlog(subject)
+  //  isBearBlog(subject)
   
 
   if (!isVerifiedOrigin) {
@@ -325,10 +327,14 @@ const handler = async (s) => {
     // which we might have to do in the case of white/blacklisting if anyone starts spoofing this check
     // in any case, hard-coding this check into the main indexer is obvs not ideal and should be 
     // generalized to an extendable from of altVerification
-    // let thepage = getSubjectHTML(url)
-    // if (!isBearBlog(subject)){
+    if (server_name == "Bear Blog") {
+      if (!isBearBlog(s)){
+        return error(401, 'Origin is not registered with this server.')
+      }  
+    }
+    else {
       return error(401, 'Origin is not registered with this server.')
-    // }
+    }
   }
 
   let isRecentlyIndexed = await recentlyIndexed(s)
