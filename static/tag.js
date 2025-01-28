@@ -86,7 +86,7 @@ const plugins = script.dataset.plugins
 if (plugins === "linkfill") {
   console.log("do link fill");
   const preloadLink = document.querySelector('link[rel="preload"][as="fetch"]');
-  const baseUrl = script.dataset.register+"?uri='";
+  const baseUrl = script.dataset.register+"?uri=";
   const currentUrl = window.location.href;
   const preloadHref = baseUrl + encodeURI(currentUrl)
 
