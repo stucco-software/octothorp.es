@@ -271,7 +271,9 @@ const handler = async (s) => {
   let url = new URL(s)
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
 
-  function isBearBlog(doc){
+  let subject = await fetch(s)
+
+  const isBearBlog = (doc) => {
     let isGood = doc.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
     let isNotBad = true;
     const robotsMetaTags = doc.querySelectorAll('meta[robots]');
@@ -295,7 +297,7 @@ const handler = async (s) => {
     // in any case, hard-coding this check into the main indexer is obvs not ideal and should be 
     // generalized to an extendable from of altVerification
   
-    if (!isBearBlog(url)){
+    if (!isBearBlog(subject)){
       return error(401, 'Origin is not registered with this server.')
     }
   }
@@ -306,7 +308,6 @@ const handler = async (s) => {
   }
   await recordIndexing(s)
 
-  let subject = await fetch(s)
   if (subject.headers.get('content-type').includes('text/html')) {
     return await handleHTML(subject, s)
   }
