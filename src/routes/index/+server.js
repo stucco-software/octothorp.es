@@ -1,7 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import { instance } from '$env/static/private'
-import { server_name } from '$env/static/private'
 import { asyncMap} from '$lib/asyncMap.js'
 import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
@@ -59,6 +58,8 @@ const recordIndexing = async (s) => {
     <${s}> octo:indexed ${now} .
   `)
 }
+
+// maybe we export this as a utility elsewhere?
 
 const getSubjectHTML = (src) => {
   const DOMParser = new JSDOM().window.DOMParser
@@ -278,63 +279,13 @@ const handler = async (s) => {
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
 
   let subject = await fetch(s)
-  
-  const isBearBlog = async (s) => {
-    let response = await fetch(s)
-    const src = await response.text()
-    const doc = getSubjectHTML(src)
-    // let pageMetaNode = doc.querySelector("meta[content='look-for-the-bear-necessities']")
-    let isGood = false
-    let isNotBad = true;
-    // const robotsMetaTags = doc.querySelectorAll("meta[name='robots']");
-    const metaTags = doc.getElementsByTagName('meta');
+  console.log("handling")
 
-    // Iterate through all meta tags
-    for (let i = 0; i < metaTags.length; i++) {
-        const metaTag = metaTags[i];
-
-        if (metaTag.getAttribute('content') == 'look-for-the-bear-necessities') {
-          isGood = true;
-        }
-
-        // Check if the meta tag has a name attribute set to "robots"
-        if (metaTag.getAttribute('name') === 'robots') {
-            const content = metaTag.getAttribute('content');
-
-            // Check if the content contains "nofollow" or "noindex"
-            if (content && (content.toLowerCase().includes('nofollow') || content.toLowerCase().includes('noindex'))) {
-                isNotBad = false; // Return true if either is found
-            }
-        }
-    }
-
-    if (isGood && isNotBad ) {
-      console.log("Passes")
-      return true;
-    }
-    else {
-      console.log("Octothorpes will not index this page");
-
-      return false;
-    }
-   }
-  
-  //  isBearBlog(subject)
   
 
   if (!isVerifiedOrigin) {
-    // adding as second level check so we still have the option to manually register
-    // which we might have to do in the case of white/blacklisting if anyone starts spoofing this check
-    // in any case, hard-coding this check into the main indexer is obvs not ideal and should be 
-    // generalized to an extendable from of altVerification
-    if (server_name == "Bear Blog") {
-      if (!isBearBlog(s)){
-        return error(401, 'Origin is not registered with this server.')
-      }  
-    }
-    else {
-      return error(401, 'Origin is not registered with this server.')
-    }
+    console.log('FAILED')
+    return error(401, 'Origin is not registered with this server.')
   }
 
   let isRecentlyIndexed = await recentlyIndexed(s)
@@ -344,6 +295,14 @@ const handler = async (s) => {
   await recordIndexing(s)
 
   if (subject.headers.get('content-type').includes('text/html')) {
+  
+    // If we wanted to speed things up and were using
+  // a verification method that pre-loads the html
+  // we could try passing the actual html here
+  // rather than asking to load again
+  // but we'd have to have the HTML for the full url in hand
+  // whereas isVerifiedOrigin is only looking at the url origin
+
     return await handleHTML(subject, s)
   }
 }
