@@ -20,7 +20,7 @@ const ring = (o) => {
   --ring-highlight: yellow;
   --ring-rule: 2px dashed var(--ring-text-color);
 }
-.web-ring {
+.web-ring-expanded {
   background-color: var(--ring-background);
   width: var(--ring-width);
   padding: 2rem;
@@ -28,37 +28,37 @@ const ring = (o) => {
   text-align: center;
 }
 
-.web-ring a {
+.web-ring-expanded a {
 padding: 1em;
 font-family: var(--ring-font);
   color: var(--ring-anchor);
 }
 
 
-.web-ring section {
+.web-ring-expanded section {
   display: grid;
   grid-auto-flow: column;
   }
 
 
 
-.web-ring .ring-head {
+.web-ring-expanded .ring-head {
   border-bottom: var(--ring-rule);
   display: block;
 }
 
-.web-ring .rand {
+.web-ring-expanded .rand {
   float: left;
   padding: 0px;
 }
 
-  .web-ring .ring-button {
+  .web-ring-expanded .ring-button {
     border-left: var(--ring-rule);
     border-right: var(--ring-rule);
     padding-top: 1rem;
   }
 
-  .web-ring .ring-button a {
+  .web-ring-expanded .ring-button a img {
     overflow: auto;
     display: block;
     padding: .3rem;
@@ -93,7 +93,7 @@ const ringTemplate = (n, o) => {
 
       <a href="${n.previous}">< Previous site</a>
 
-    <div class="ring-button">
+    <div class="ring-button">so sit
       <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
       <a href="${n.random}">Random Site</a>
     </div>
@@ -174,11 +174,16 @@ const hydrate = async (shadow, o) => {
 }
 let bannerMsg = "<h3>This site octothorpes on the "+ webhooks +" webring</h3>"
 const instantiate = (node) => {
-
-
+    
   let o = node.getAttribute("title") || node.innerText.trim()
+
   if (o){
     bannerMsg = o
+  }
+
+  let s = node.dataset.appearance;
+  if (s){
+    console.log(s);
   }
   const wrapper = document.createElement('div');
   wrapper.innerHTML = ring(webhooks)

@@ -271,7 +271,7 @@ const handler = async (s) => {
   let url = new URL(s)
   let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
 
-  const isBearBlog(document){
+  function isBearBlog(document){
     let isGood = document.head.querySelectorAll('meta').some(metaTag => metaTag.getAttribute('content') === 'look-for-the-bear-necessities')
     let isNotBad = true;
     const robotsMetaTags = document.querySelectorAll('meta[robots]');
