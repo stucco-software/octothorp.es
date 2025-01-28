@@ -2,7 +2,7 @@
 <section class="dotgrid">
   <p>
     <span>
-      Octothorpes is a community-run project with explicit community-run ideals. This project is anti-racist, feminist, and anti-fascist. Hateful, racsist, and inflammatory content and octothorpes are disallowed. Our team will review octothoropes and domains and reserve the right to make the final determination on if the content is against our terms.
+      Octothorpes is a community-run project with explicit community-run ideals. This project is anti-racist, feminist, and anti-fascist. Hateful, racsist, and inflammatory content and octothorpes are disallowed. Our team will review octothorpes and domains and reserve the right to make the final determination on if the content is against our terms.
     </span>
   </p>
 
