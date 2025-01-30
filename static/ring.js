@@ -52,7 +52,7 @@ font-family: var(--ring-font);
   padding: 0px;
 }
 
-  .web-ring-expanded .ring-button {
+  .web-ring-expanded div.ring-button {
     border-left: var(--ring-rule);
     border-right: var(--ring-rule);
     padding-top: 1rem;
@@ -93,9 +93,10 @@ const ringTemplate = (n, o) => {
 
       <a href="${n.previous}">< Previous site</a>
 
-    <div class="ring-button">so sit
-      <a href="${webhooks}"><img src="${webhooks}/badge.png" ></a>
+    <div>
       <a href="${n.random}">Random Site</a>
+      <a class="ring-button" href="${webhooks}"><img class="ring-button" src="${webhooks}/badge.png" ></a>
+
     </div>
 
     <a href="${n.next}">Next site ></a>
