@@ -46,8 +46,10 @@ export const verifiedOrigin = async (origin) => {
             const content = metaTag.getAttribute('content');
 
             // Check if the content contains "nofollow" or "noindex"
-            if (content && (content.toLowerCase().includes('nofollow') || content.toLowerCase().includes('noindex'))) {
-                isNotBad = false; // Return true if either is found
+            if (content && (content.toLowerCase().includes('nofollow') && content.toLowerCase().includes('noindex'))) {
+                // Return false if both are found
+                // This lets people still use "nofollow" on its own
+                isNotBad = false; 
             }
         }
     }
