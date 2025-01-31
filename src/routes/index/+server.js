@@ -69,8 +69,6 @@ const getSubjectHTML = (src) => {
 }
 
 
-
-
 const extantTerm = async (o) => {
   return await queryBoolean(`
     ask {
@@ -236,7 +234,7 @@ const handleHTML = async (response, s) => {
 
     if (!isExtantTerm) {
       await recordCreation(o)
-      await emailAdministrator({s, o})
+      // await emailAdministrator({s, o})
     }
 
     let isExtantPage = await extantPage(o)
