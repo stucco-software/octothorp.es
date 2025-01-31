@@ -63,6 +63,10 @@ font-family: var(--ring-font);
     display: none;
   }
 
+  img.ring-button {
+    margin: auto;
+  }
+
   .octothorpe-webring.expanded .ring-button {
     overflow: auto;
     display: block;
