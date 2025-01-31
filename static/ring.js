@@ -8,8 +8,6 @@ const ring = (o) => {
   return `
   <style>
 
-
-    
 :host {
   
   --ring-background: white;
@@ -20,7 +18,7 @@ const ring = (o) => {
   --ring-highlight: yellow;
   --ring-rule: 2px dashed var(--ring-text-color);
 }
-.web-ring-expanded {
+.octothorpe-webring.expanded {
   background-color: var(--ring-background);
   width: var(--ring-width);
   padding: 2rem;
@@ -28,46 +26,50 @@ const ring = (o) => {
   text-align: center;
 }
 
-.web-ring-expanded a {
+.octothorpe-webring.expanded a {
 padding: 1em;
 font-family: var(--ring-font);
   color: var(--ring-anchor);
 }
 
 
-.web-ring-expanded section {
+.octothorpe-webring section {
   display: grid;
   grid-auto-flow: column;
   }
 
 
 
-.web-ring-expanded .ring-head {
+.octothorpe-webring.expanded .ring-head {
   border-bottom: var(--ring-rule);
   display: block;
 }
 
-.web-ring-expanded .rand {
+.octothorpe-webring.expanded .rand {
   float: left;
   padding: 0px;
 }
 
-  .web-ring-expanded div.ring-button {
+  .octothorpe-webring.expanded div.ring-button-container {
     border-left: var(--ring-rule);
     border-right: var(--ring-rule);
     padding-top: 1rem;
   }
 
-  .web-ring-expanded .ring-button a img {
+  .ring-button {
+    display: none;
+  }
+
+  .octothorpe-webring.expanded .ring-button {
     overflow: auto;
     display: block;
     padding: .3rem;
   }
 
-  .web-ring .ring-button a:hover {
+  .octothorpe-webring .ring-button a:hover {
     background-color: var(--ring-background);
   }
-.web-ring a:hover {
+.octothorpe-webring a:hover {
   background-color: var(--ring-highlight);
   color: var(--ring-text-color);
   text-decoration-style: wavy;
@@ -78,7 +80,7 @@ font-family: var(--ring-font);
 
 
   </style>
-  <div class="web-ring" data-ring="${o}">
+  <div class="ring-content" data-ring="${o}">
   </div>`
 }
 
@@ -93,9 +95,11 @@ const ringTemplate = (n, o) => {
 
       <a href="${n.previous}">< Previous site</a>
 
-    <div>
+    <div class="ring-button-container">
       <a href="${n.random}">Random Site</a>
-      <a class="ring-button" href="${webhooks}"><img class="ring-button" src="${webhooks}/badge.png" ></a>
+      <a class="ring-button" href="${webhooks}">
+      
+      <img class="ring-button" src="${webhooks}/badge.png" ></a>
 
     </div>
 
@@ -170,7 +174,7 @@ const hydrate = async (shadow, o) => {
   let neighbors = webring(currentSite, links[0]);
   let template = `${ringTemplate(neighbors, o)}`
   
-  let nodes = [...shadow.querySelectorAll(`div.web-ring`)]
+  let nodes = [...shadow.querySelectorAll(`div.ring-content`)]
   nodes.forEach(node => node.innerHTML = template)
 }
 let bannerMsg = "<h3>This site octothorpes on the "+ webhooks +" webring</h3>"
@@ -182,11 +186,14 @@ const instantiate = (node) => {
     bannerMsg = o
   }
 
-  let s = node.dataset.appearance;
-  if (s){
-    console.log(s);
+  let appearance = node.dataset.appearance;
+
+  const wrapper = document.createElement('div')
+  wrapper.classList.add("octothorpe-webring")
+
+  if (appearance){
+    wrapper.classList.add(appearance)
   }
-  const wrapper = document.createElement('div');
   wrapper.innerHTML = ring(webhooks)
   const shadow = node.attachShadow({mode: 'open'})
       // Add styles first
