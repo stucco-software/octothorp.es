@@ -18,12 +18,15 @@ const ring = (o) => {
   --ring-highlight: yellow;
   --ring-rule: 2px dashed var(--ring-text-color);
 }
-.octothorpe-webring.expanded {
+.octothorpe-webring {
   background-color: var(--ring-background);
   width: var(--ring-width);
-  padding: 2rem;
   font-family: var(--ring-font);
   text-align: center;
+}
+
+.octothorpe-webring.expanded {
+  padding: 2rem;
 }
 
 .octothorpe-webring.expanded a {
