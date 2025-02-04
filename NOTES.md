@@ -15,6 +15,37 @@
 3. Domain is in Ring
 <https://www.mmmx.cloud/> octo:inRing <https://nikolas.ws/goodboiz-web-ring> .
 
+## GET
+/~/[thorpe]
+/get/rings/[ring]
+
+thorpe
+{
+  term: "cats",
+  thorpes: [...uri],
+  bookmarks: [...uri]
+}
+
+/domains/[domain] => {parts, terms, backlinks, bookmarks}
+/page/[url] => {terms, backlinks, bookmarks}
+
+/ring/[url] => domains
+/ring/[url]/terms => terms
+
+/get/domains?ring=dope => domains
+
+/get/thorpes?domains=wow
+  ?domains
+  ?urls
+  ?rings
+  => [...thorpe]
+
+/get/query?all=term,also&not=bad
+  ?all
+  ?not
+  ?or
+  => [...thorpe]
+
 ## Harmonizers
 1. on this url: https://www.mollywhite.net/micro/entry/202411211431
 
