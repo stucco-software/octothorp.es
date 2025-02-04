@@ -1,3 +1,20 @@
+## WebRings
+
+<https://nikolas.ws/> rdf:type <octo:Domain> .
+<https://nikolas.ws/> octo:hasRing <https://nikolas.ws/goodboiz-web-ring> .
+
+1. Add WebRing Component to Your Page
+<web-ring url="https://nikolas.ws/goodboiz-web-ring" />
+
+<https://nikolas.ws/goodboiz-web-ring> rdf:type <octo:Ring> .
+<https://nikolas.ws/goodboiz-web-ring> octo:member ?domain .
+
+2. Admin adds RDFa to Page:
+<a href="https://www.mmmx.cloud/" rel="octo:member">Nim</a>
+
+3. Domain is in Ring
+<https://www.mmmx.cloud/> octo:inRing <https://nikolas.ws/goodboiz-web-ring> .
+
 ## Harmonizers
 1. on this url: https://www.mollywhite.net/micro/entry/202411211431
 
