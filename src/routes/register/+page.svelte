@@ -1,9 +1,18 @@
 <script type="text/javascript">
   export let form
+  export let data
   import { assets } from '$app/paths';
   const badgeCode = `<a href="https://octothorp.es"><img src="https://octothorp.es/badge.png" alt="Badge for the Octothorpes main ring" /></a>`;
+
+  console.log(data)
 </script>
 
+{#if data.server_name === 'Bear Blog'}
+  <h1>Registrations are Automatic for Bear Blog Sites</h1>
+  <p>
+    This server is soley for sites on <a href="https://bearblog.dev/">Bear Blog</a>. Read more about how it works <a href="https://octothorpes.bearblog.dev/you-can-use-hashtags-on-your-bear-blog-now/">on the Octothorpes bear blog</a>.
+  </p>
+{:else}
 <h1>Register your Domain</h1>
 <section class="dotgrid">
   <!-- <iframe src="https://embeds.beehiiv.com/622f1b7c-3782-45cc-8991-e78207df2960" data-test-id="beehiiv-embed" width="100%" height="320" frameborder="0" scrolling="no" style="border-radius: 4px; border: 2px solid #e5e7eb; margin: 0; background-color: transparent; max-width: 44ch"></iframe>
@@ -84,6 +93,7 @@
     <code>{badgeCode}</code>
   </div>
 </section>
+{/if}
 <section>
   
 </section>
