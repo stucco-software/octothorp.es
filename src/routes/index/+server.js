@@ -251,6 +251,8 @@ const handleHTML = async (response, s) => {
     }
   })
 
+  // TKTK Delete thorpes no longer present here.
+
   // Grab title
   let titleNode = doc.querySelector('title')
   if (titleNode) {

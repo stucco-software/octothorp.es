@@ -22,9 +22,10 @@
     <p>Welcome to the {data.server_name} Server</p>
   {/if}
   <p># # # # # # # # # # # </p>
-  <p>
+  <!-- <p>
     This Ring is a network of <mark>{data.thorpes}</mark> <a href="/~">tags</a>, <mark>{data.links}</mark> <a href="/backlinks">backlinks</a> and <mark>{data.assertions}</mark> <a href="/bookmarks">bookmarks</a> across <mark>{data.domains}</mark> <a href="/domains">websites.</a>
-   </p> 
+   </p>  -->
+
   <p>   <a href="https://octothorp.es"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main ring" /></a>
   </p>
 </section>
@@ -38,10 +39,10 @@
   <section>
     <em>News from the Ring</em>
     <p># # # # # # # # # # # </p>
-
-    <p>Registrations are open again for <a href="/ratbike">Project Ratbike</a></p>
+    <p>Please stand by while we resolve resolve technical difficulties.</p>
+    <!-- <p>Registrations are open again for <a href="/ratbike">Project Ratbike</a></p>
     <p># # # # # # # # # # # </p>
-    <a href="/~/weirdweboctober">Weird Web October has wrapped! Revel in the fun that was WWO!</a>
+    <a href="/~/weirdweboctober">Weird Web October has wrapped! Revel in the fun that was WWO!</a> -->
   </section>
   <section class="testimonial">
   
