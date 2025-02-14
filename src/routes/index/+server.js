@@ -279,8 +279,8 @@ const handleHTML = async (response, s) => {
 const handler = async (s) => {
   console.log(`handle fn…`, s)
   let s_url = new URL(s)
-  let url = normalizeUrl(url)
-  let origin = normalizeUrl(s_url.origin)
+  let url = normalizeUrl(s_url)
+  let origin = normalizeUrl(url.origin)
 
   console.log(`reverify origin…`, origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
@@ -312,11 +312,12 @@ const handler = async (s) => {
 }
 
 export async function GET(req) {
+  console.log(`index server handler…`)
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   let s = `${uri.origin}${uri.pathname}`
 
-  console.log(`index server handler…`, s)
+  console.log(`built a subject…`, s)
 
   if (s) {
     return await handler(s)

@@ -22,10 +22,12 @@ export const index = async (req) => {
     let uri
     try {
       uri = new URL(s)
+      console.log(uri, uri.origin)
     } catch (e) {
       return error(401, 'URI is not a valid resource.')
     }
-    if (`${normalizeUrl(uri.origin)}` == origin) {
+
+    if (normalizeUrl(uri.origin) == origin) {
       await fetch(`${instance}index?uri=${s}`)
     } else {
       await assert(origin, url.searchParams)
