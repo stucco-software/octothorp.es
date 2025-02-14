@@ -2,11 +2,14 @@ import { error } from '@sveltejs/kit'
 import { instance } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { assert } from '$lib/assert.js'
-import { verifiedOrigin, getAlias } from '$lib/origin.js'
+import { verifiedOrigin } from '$lib/origin.js'
+import normalizeUrl from 'normalize-url'
 
 export const index = async (req) => {
   let reqOrigin = req.request.headers.get('referer')
-  let isVerifiedOrigin = await verifiedOrigin(reqOrigin)
+  let origin = normalizeUrl(origin_url)
+
+  let isVerifiedOrigin = await verifiedOrigin(origin)
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }
@@ -21,13 +24,10 @@ export const index = async (req) => {
     } catch (e) {
       return error(401, 'URI is not a valid resource.')
     }
-    let reqAlias = getAlias(reqOrigin)
-    if (`${uri.origin}/` == reqOrigin || `${uri.origin}/` == reqAlias) {
-      console.log('fetch!')
+    if (`${uri.origin}/` == origin) {
       await fetch(`${instance}index?uri=${s}`)
     } else {
-      console.log('assert!')
-      await assert(reqOrigin, url.searchParams)
+      await assert(origin, url.searchParams)
     }
   }
 

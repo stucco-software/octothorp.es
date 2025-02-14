@@ -1,25 +1,7 @@
 import { queryBoolean } from '$lib/sparql.js'
 import { server_name } from '$env/static/private'
 import { JSDOM } from 'jsdom'
-
-
-export const getAlias = (origin) => {
-  let alias
-  if (origin.startsWith('https')) {
-    alias = origin.startsWith('https://www.')
-        ? origin.replace('https://www.', 'https://')
-        : origin.replace('https://', 'https://www.')
-  } else {
-    alias = origin.startsWith('http://www.')
-      ? origin.replace('http://www.', 'http://')
-      : origin.replace('http://', 'http://www.')
-  }
-  return alias
-}
-
 export const verifiedOrigin = async (origin) => {
-
-  
   const verifiyContent = async (s) => {
     let response = await fetch(s)
     const src = await response.text()
@@ -80,19 +62,11 @@ export const verifiedOrigin = async (origin) => {
    }
   }
   else {
-
-    let alias = getAlias(origin)
-
     let originVerified = await queryBoolean(`
       ask {
         <${origin}> octo:verified "true" .
       }
     `)
-    let aliasVerified = await queryBoolean(`
-      ask {
-        <${alias}> octo:verified "true" .
-      }
-    `)
-    return originVerified || aliasVerified
+    return originVerified
   }
 }

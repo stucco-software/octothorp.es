@@ -6,6 +6,7 @@ import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { verifiedOrigin } from '$lib/origin.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"
+import normalizeUrl from 'normalize-url'
 
 let p = 'octo:octothorpes'
 // let indexCooldown = 300000 //5min
@@ -208,7 +209,6 @@ const handleHTML = async (response, s) => {
   )]
 
   const allThorpes = [...userdefined, ...verifiedThorpes]
-  console.log(allThorpes)
   await asyncMap(allThorpes, async (term) => {
     let o
     try {
@@ -277,16 +277,14 @@ const handleHTML = async (response, s) => {
 }
 
 const handler = async (s) => {
-  let url = new URL(s)
-  let isVerifiedOrigin = await verifiedOrigin(`${url.origin}/`)
+  let s_url = new URL(s)
+  let url = normalizeUrl(url)
+  let origin = normalizeUrl(s_url.origin)
+  let isVerifiedOrigin = await verifiedOrigin(origin)
 
   let subject = await fetch(s)
-  console.log("handling")
-
-  
 
   if (!isVerifiedOrigin) {
-    console.log('FAILED')
     return error(401, 'Origin is not registered with this server.')
   }
 
@@ -294,18 +292,18 @@ const handler = async (s) => {
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')
   }
-  await recordIndexing(s)
+  await recordIndexing(url)
 
   if (subject.headers.get('content-type').includes('text/html')) {
   
-    // If we wanted to speed things up and were using
+  // If we wanted to speed things up and were using
   // a verification method that pre-loads the html
   // we could try passing the actual html here
   // rather than asking to load again
   // but we'd have to have the HTML for the full url in hand
   // whereas isVerifiedOrigin is only looking at the url origin
 
-    return await handleHTML(subject, s)
+    return await handleHTML(subject, url)
   }
 }
 
