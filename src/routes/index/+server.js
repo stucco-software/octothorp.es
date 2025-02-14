@@ -232,6 +232,7 @@ const handleHTML = async (response, s) => {
     } catch (err) {
       o = `${instance}~/${term}`
     }
+    console.log(`DING DING DING`, s, p, o)
     let isExtantTerm = await extantTerm(o)
 
     if (!isExtantTerm) {
@@ -295,7 +296,7 @@ const handler = async (s) => {
   // rather than asking to load again
   // but we'd have to have the HTML for the full url in hand
   // whereas isVerifiedOrigin is only looking at the url origin
-    console.lof("handle html…", s)
+    console.log("handle html…", s)
     return await handleHTML(subject, s)
   }
 }
