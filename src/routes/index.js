@@ -7,7 +7,7 @@ import normalizeUrl from 'normalize-url'
 
 export const index = async (req) => {
   let reqOrigin = req.request.headers.get('referer')
-  let origin = normalizeUrl(origin_url)
+  let origin = normalizeUrl(reqOrigin)
 
   let isVerifiedOrigin = await verifiedOrigin(origin)
   if (!isVerifiedOrigin) {
