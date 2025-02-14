@@ -16,6 +16,7 @@ export const index = async (req) => {
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
+  console.log(`Index a resource…`, s)
   // If there is a URI
   if (s) {
     let uri

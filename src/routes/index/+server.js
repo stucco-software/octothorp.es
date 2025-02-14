@@ -277,9 +277,12 @@ const handleHTML = async (response, s) => {
 }
 
 const handler = async (s) => {
+  console.log(`handle fn…`, s)
   let s_url = new URL(s)
   let url = normalizeUrl(url)
   let origin = normalizeUrl(s_url.origin)
+
+  console.log(`reverify origin…`, origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
 
   let subject = await fetch(s)
@@ -303,6 +306,7 @@ const handler = async (s) => {
   // but we'd have to have the HTML for the full url in hand
   // whereas isVerifiedOrigin is only looking at the url origin
 
+    console.lof("handle html…", subject, url)
     return await handleHTML(subject, url)
   }
 }
@@ -311,6 +315,8 @@ export async function GET(req) {
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   let s = `${uri.origin}${uri.pathname}`
+
+  console.log(`index server handler…`, s)
 
   if (s) {
     return await handler(s)
