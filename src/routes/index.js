@@ -16,7 +16,7 @@ export const index = async (req) => {
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
-  console.log(`Index a resource…`, s)
+  console.log(`Index a resource on…`, s)
   // If there is a URI
   if (s) {
     let uri
@@ -25,7 +25,7 @@ export const index = async (req) => {
     } catch (e) {
       return error(401, 'URI is not a valid resource.')
     }
-    if (`${uri.origin}/` == origin) {
+    if (`${normalizeUrl(uri.origin)}` == origin) {
       await fetch(`${instance}index?uri=${s}`)
     } else {
       await assert(origin, url.searchParams)
