@@ -278,24 +278,14 @@ const handleHTML = async (response, s) => {
 
 const handler = async (s) => {
   console.log(`handle fn…`, s)
-  let s_url = new URL(s)
-  let url = normalizeUrl(s_url)
-  let origin = normalizeUrl(url.origin)
-
-  console.log(`reverify origin…`, origin)
-  let isVerifiedOrigin = await verifiedOrigin(origin)
 
   let subject = await fetch(s)
-
-  if (!isVerifiedOrigin) {
-    return error(401, 'Origin is not registered with this server.')
-  }
 
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')
   }
-  await recordIndexing(url)
+  await recordIndexing(s)
 
   if (subject.headers.get('content-type').includes('text/html')) {
   
@@ -305,9 +295,8 @@ const handler = async (s) => {
   // rather than asking to load again
   // but we'd have to have the HTML for the full url in hand
   // whereas isVerifiedOrigin is only looking at the url origin
-
-    console.lof("handle html…", subject, url)
-    return await handleHTML(subject, url)
+    console.lof("handle html…", s)
+    return await handleHTML(subject, s)
   }
 }
 
@@ -315,12 +304,18 @@ export async function GET(req) {
   console.log(`index server handler…`)
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
-  let s = `${uri.origin}${uri.pathname}`
+  let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
+  let origin = normalizeUrl(uri.origin)
+  console.log(`built a subject…`, s, origin)
 
-  console.log(`built a subject…`, s)
+  console.log(`reverify origin…`, origin)
+  let isVerifiedOrigin = await verifiedOrigin(origin)
+  if (!isVerifiedOrigin) {
+    return error(401, 'Origin is not registered with this server.')
+  }
 
   if (s) {
-    return await handler(s)
+    return await handler(s, origin)
     // @TKTK
     // if it's JSON, pass to JSON handler
   }
