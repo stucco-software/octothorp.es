@@ -42,7 +42,7 @@
     <!-- <p>Please stand by while we resolve resolve technical difficulties.</p> -->
     <p>Registrations are open again for <a href="/ratbike">Project Ratbike</a></p>
     <p># # # # # # # # # # # </p>
-    <a href="/~/weirdweboctober">Weird Web October has wrapped! Revel in the fun that was WWO!</a>
+    <a href="https://bearblog.octothorp.es/">Welcome Bear Bloggers!</a> <p>All Blogs on Bear can now octothorpe on their own server!</p>
   </section>
   <section class="testimonial">
   
