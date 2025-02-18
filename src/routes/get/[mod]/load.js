@@ -10,28 +10,28 @@ export async function load({ params, url }) {
   const subs = searchParams.get('sub') ? searchParams.get('sub').split(',') : `?s`
   const objs = searchParams.get('obj') ? searchParams.get('obj').split(',') : `?o` 
 
-  function processUrls (urls) {
+
+  function processUrls (urls, _func ="norm") {
     if (urls === `?s` || urls === `?o`) {
       return urls
     }
     else {
-      let num = urls.length;
-      let processedUrls = ""
-      for (let i = 0; i < num; i++) {
-        const sub = urls[i]
-        processedUrls += normalizeUrl(sub, {forceHttps: true})
-        if ( num > 1 && i < num-1){
-          processedUrls += "|" 
-        }
+      let processedUrls = []
+      if (_func === "norm") {
+        processedUrls = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
       }
-      return processedUrls
+      else if (_func === "pre") {
+        let inst = instance+"~/"
+        processUrls = urls.map((item) => inst + item)
+      }
+      return processedUrls.join('|')
     }
   }
 
   function thorpeQuery (subjects, objects) {
 
-    let s = processUrls(subjects);
-
+    let s = processUrls(subjects)
+    let o = processUrls(objects, "pre")
 
       let query = `SELECT DISTINCT ?s ?o ?t ?d
       WHERE {
@@ -40,7 +40,8 @@ export async function load({ params, url }) {
         "${s}"
         }
           VALUES ?thorpes {
-          "${instance}/~/${objects}"
+          "${o}"
+
         }
         FILTER(CONTAINS(STR(?s), ?url))
         FILTER(CONTAINS(STR(?o), ?thorpes))
