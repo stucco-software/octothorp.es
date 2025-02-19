@@ -89,52 +89,6 @@ function buildSparqlQuery(sub, obj, metadataFields = ["title", "description"]) {
   return query.replace(/[\r\n]+/gm, '')
 }
 
-  function thorpeQuery (subs, objs) {
-
-  
-
-      // let query = `SELECT DISTINCT ?s ?o ?t ?d
-      // WHERE {
-      //   ?s octo:octothorpes ?o
-      //   VALUES ?url {
-      //   "${s}"
-      //   }
-      //     VALUES ?thorpes {
-      //     "${o}"
-
-      //   }
-      //   FILTER(CONTAINS(STR(?s), ?url))
-      //   FILTER(CONTAINS(STR(?o), ?thorpes))
-      //   OPTIONAL { ?s octo:title ?t . }
-      //   OPTIONAL { ?s octo:description ?d . }
-      // }
-      // `
-      // return query.replace(/[\r\n]+/gm, '');
-
-      return buildSparqlQuery(s, o);
-
-  }
-
-  function backlinkQuery (subs, objs) {
-
-    let s = processUrls(subjects)
-    let o = processUrls(objects)
-    // process subjects
-    // process objects
-   
-  
-     let query = `SELECT DISTINCT ?s ?o ?t ?d
-      WHERE {
-        ?s octo:octothorpes ?o ;
-          (octo:title|octo:description)? ?t .
-        FILTER(REGEX(STR(?s), "${s}"))
-        FILTER(REGEX(STR(?o), "${o}"))
-        OPTIONAL { ?s octo:title ?t }
-        OPTIONAL { ?s octo:description ?d }
-      }`
-      return query.replace(/[\r\n]+/gm, '');
-  }
-
 
   const mode = params.mod
     let query = ""
