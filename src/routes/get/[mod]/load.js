@@ -7,65 +7,121 @@ import normalizeUrl from 'normalize-url';
 
 export async function load({ params, url }) {
   const searchParams = url.searchParams;
-  const subs = searchParams.get('sub') ? searchParams.get('sub').split(',') : `?s`
-  const objs = searchParams.get('obj') ? searchParams.get('obj').split(',') : `?o` 
+  const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : `?s`
+  const objects = searchParams.get('o') ? searchParams.get('o').split(',') : `?o` 
 
 
-  function processUrls (urls, _func ="norm") {
+  function processUrls (urls, mod = "norm") {
     if (urls === `?s` || urls === `?o`) {
       return urls
     }
     else {
-      let processedUrls = []
-      if (_func === "norm") {
-        processedUrls = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
+      let output = []
+      if (mod === "norm") {
+        output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
       }
-      else if (_func === "pre") {
+      else if (mod === "pre") {
         let inst = instance+"~/"
-        processUrls = urls.map((item) => inst + item)
+        output = urls.map((item) => inst + item)
       }
-      return processedUrls.join('|')
+      // 
+      return output
     }
   }
 
-  function thorpeQuery (subjects, objects) {
+  /**
+ * Builds a SPARQL query to filter records by subjects and objects.
+ *
+ * @param {string[]} sub - An array of subject filters (e.g., URLs or domains).
+ * @param {string[]} obj - An array of object filters (e.g., terms or categories).
+ * @param {string[]} [metadataFields=[]] - Optional metadata fields to include (e.g., ["title", "description"]).
+ * @returns {string} - The generated SPARQL query.
+ */
+function buildSparqlQuery(sub, obj, metadataFields = ["title", "description"]) {
+  // Base query structure
+  let query = `
+    SELECT DISTINCT ?s ?o
+  `;
 
-    let s = processUrls(subjects)
-    let o = processUrls(objects, "pre")
+  // Add metadata fields to the SELECT clause
+  metadataFields.forEach((field) => {
+    query += ` ?${field}`;
+  });
 
-      let query = `SELECT DISTINCT ?s ?o ?t ?d
-      WHERE {
-        ?s octo:octothorpes ?o
-        VALUES ?url {
-        "${s}"
-        }
-          VALUES ?thorpes {
-          "${o}"
+  query += `
+    WHERE {
+      VALUES ?sub {
+  `;
 
-        }
-        FILTER(CONTAINS(STR(?s), ?url))
-        FILTER(CONTAINS(STR(?o), ?thorpes))
-        OPTIONAL { ?s octo:title ?t . }
-        OPTIONAL { ?s octo:description ?d . }
+  // Add subject filters to the VALUES clause
+  sub.forEach((s) => {
+    query += ` "${s}" `;
+  });
+
+  query += `
       }
-      `
-      return query.replace(/[\r\n]+/gm, '');
+      VALUES ?obj {
+  `;
+
+  // Add object filters to the VALUES clause
+  obj.forEach((o) => {
+    query += ` "${o}" `;
+  });
+
+  query += `
+      }
+      ?s octo:octothorpes ?o.
+      FILTER(CONTAINS(STR(?s), ?sub))
+      FILTER(CONTAINS(STR(?o), ?obj))
+  `;
+
+  // Add optional metadata fields
+  metadataFields.forEach((field) => {
+    query += `
+      OPTIONAL { ?s octo:${field} ?${field} . }
+    `;
+  });
+
+  query += `
+    }
+  `;
+
+  return query.replace(/[\r\n]+/gm, '')
+}
+
+  function thorpeQuery (subs, objs) {
+
+  
+
+      // let query = `SELECT DISTINCT ?s ?o ?t ?d
+      // WHERE {
+      //   ?s octo:octothorpes ?o
+      //   VALUES ?url {
+      //   "${s}"
+      //   }
+      //     VALUES ?thorpes {
+      //     "${o}"
+
+      //   }
+      //   FILTER(CONTAINS(STR(?s), ?url))
+      //   FILTER(CONTAINS(STR(?o), ?thorpes))
+      //   OPTIONAL { ?s octo:title ?t . }
+      //   OPTIONAL { ?s octo:description ?d . }
+      // }
+      // `
+      // return query.replace(/[\r\n]+/gm, '');
+
+      return buildSparqlQuery(s, o);
 
   }
 
-  function backlinkQuery (subjects, objects) {
+  function backlinkQuery (subs, objs) {
 
-    let s = processUrls(subjects);
-    let o = processUrls(objects);
+    let s = processUrls(subjects)
+    let o = processUrls(objects)
     // process subjects
     // process objects
-    
-    // let query = `SELECT DISTINCT ?uri ?t ?d {
-    //   ?s octo:octothorpes <${}> .
-    //   ?s octo:uri ?uri .
-    //   optional { ?s octo:title ?t . }
-    //   optional { ?s octo:description ?d . }
-    //  }`
+   
   
      let query = `SELECT DISTINCT ?s ?o ?t ?d
       WHERE {
@@ -81,17 +137,27 @@ export async function load({ params, url }) {
 
 
   const mode = params.mod
-  let query = ""
+    let query = ""
+    let s = "?s"
+    let o = "?o"
 
-  if (mode === "thorpes") {
-    query = thorpeQuery(subs, objs)
+  if (mode === "thorpes" || mode === "octothorpes") {
+    s = processUrls(subjects)
+    o = processUrls(objects, "pre")
   }
   else if ( mode === "backlinks") {
-    query = backlinkQuery(subs, objs)
+    s = processUrls(subjects)
+    o = processUrls(objects)
+  }
+  else {
+    return "Error: not a supported mode. Use 'thorpes' or 'backlinks'"
   }
   
-
+  query = buildSparqlQuery(s, o)
   const sr = await queryArray(query)
+
+  // TKTK Maybe we should consider making a "getResults" utility since I lifted this from [thorpe].
+  
   const getResults = sr.results.bindings
     .map(b => {
       return {
@@ -101,9 +167,9 @@ export async function load({ params, url }) {
       }
     })
   return {
-      func: params.mod,
-      subs,
-      objs,
+      query_mode: params.mod,
+      subjects,
+      objects,
       results: getResults,
       query: query
   };
