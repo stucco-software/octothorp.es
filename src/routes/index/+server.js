@@ -311,6 +311,7 @@ export async function GET(req) {
   console.log(`reverify origin…`, origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
   if (!isVerifiedOrigin) {
+    console.error(401, 'Origin is not registered with this server.')
     return error(401, 'Origin is not registered with this server.')
   }
 
