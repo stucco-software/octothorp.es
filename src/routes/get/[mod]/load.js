@@ -49,31 +49,38 @@ function buildSparqlQuery(sub, obj, metadataFields = ["title", "description"]) {
   });
 
   query += `
-    WHERE {
-      VALUES ?sub {
-  `;
+    WHERE {`;
 
-  // Add subject filters to the VALUES clause
+// Add subject filters to the VALUES clause if subject is specified
+if (sub != "?s") {
+  query += `VALUES ?sub {`
   sub.forEach((s) => {
     query += ` "${s}" `;
   });
 
   query += `
-      }
-      VALUES ?obj {
-  `;
+      }`;  
+}
 
-  // Add object filters to the VALUES clause
-  obj.forEach((o) => {
-    query += ` "${o}" `;
-  });
+if (obj != "?o") {
+
+    query += `VALUES ?obj {`;
+
+    // Add object filters to the VALUES clause
+    obj.forEach((o) => {
+      query += ` "${o}" }`;
+    });
+}
 
   query += `
+      ?s octo:octothorpes ?o.`;
+
+      if (sub != "?s") {
+            query += `FILTER(CONTAINS(STR(?s), ?sub))`;
       }
-      ?s octo:octothorpes ?o.
-      FILTER(CONTAINS(STR(?s), ?sub))
-      FILTER(CONTAINS(STR(?o), ?obj))
-  `;
+      if (obj != "?o") {
+        query += `FILTER(CONTAINS(STR(?o), ?obj))`;
+    }
 
   // Add optional metadata fields
   metadataFields.forEach((field) => {
