@@ -37,7 +37,7 @@ export async function load({ params, url }) {
  * @param {string[]} [metadataFields=[]] - Optional metadata fields to include (e.g., ["title", "description"]).
  * @returns {string} - The generated SPARQL query.
  */
-function buildSparqlQuery(sub, obj, metadataFields = ["title", "description"]) {
+function buildSparqlQuery(sub, obj, mode ="", metadataFields = ["title", "description"]) {
   // Base query structure
   let query = `
     SELECT DISTINCT ?s ?o
@@ -47,7 +47,9 @@ function buildSparqlQuery(sub, obj, metadataFields = ["title", "description"]) {
   metadataFields.forEach((field) => {
     query += ` ?${field}`;
   });
-
+  if (mode === "backlinks") {
+    query += ` ?ot ?od`;
+  }
   query += `
     WHERE {`;
 
@@ -74,20 +76,33 @@ if (obj != "?o") {
 
   query += `
       ?s octo:octothorpes ?o.`;
-
-      if (sub != "?s") {
+  if (sub != "?s") {
             query += `FILTER(CONTAINS(STR(?s), ?sub))`;
       }
       if (obj != "?o") {
         query += `FILTER(CONTAINS(STR(?o), ?obj))`;
     }
-
+    if (mode === "thorpes" || mode === "octothorpes") {
+      //  only want term urls
+      query += `?o rdf:type <octo:Term> .`
+    }
+    if (mode === "backlinks") {
+      // only want things that are NOT term urls
+      query += `?o rdf:type <octo:Page> .`
+    }
   // Add optional metadata fields
   metadataFields.forEach((field) => {
-    query += `
+      query += `
       OPTIONAL { ?s octo:${field} ?${field} . }
     `;
   });
+  if (mode === "backlinks") {
+    // get the metadata for the objects when they're pages
+  query += `
+    OPTIONAL { ?o octo:title ?ot. }
+    OPTIONAL { ?o octo:description ?od. }
+    `;
+  }
 
   query += `
     }
@@ -107,6 +122,9 @@ if (obj != "?o") {
     o = processUrls(objects, "pre")
   }
   else if ( mode === "backlinks") {
+    // OK, figured out the difference. Backlinks should only return 
+    // objects that dont' contain the instance. And Thorpes are the reverse.
+    // so there needs to be a hook for adding a FILTER NOT EXISTS
     s = processUrls(subjects)
     o = processUrls(objects)
   }
@@ -114,7 +132,7 @@ if (obj != "?o") {
     return "Error: not a supported mode. Use 'thorpes' or 'backlinks'"
   }
   
-  query = buildSparqlQuery(s, o)
+  query = buildSparqlQuery(s, o, mode)
   const sr = await queryArray(query)
 
   // TKTK Maybe we should consider making a "getResults" utility since I lifted this from [thorpe].
@@ -122,9 +140,12 @@ if (obj != "?o") {
   const getResults = sr.results.bindings
     .map(b => {
       return {
-        uri: b.s.value,
+        subject: b.s.value,
+        object: b.o.value,
         title: b.t ? b.t.value : null,
-        description: b.d ? b.d.value : null
+        description: b.d ? b.d.value : null,
+        object_title: b.ot ? b.ot.value : null,
+        object_description: b.od ? b.od.value : null
       }
     })
   return {
