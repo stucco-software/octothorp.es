@@ -1,19 +1,36 @@
-import { json, error } from '@sveltejs/kit'
+// src/routes/harmonizers/[id]/+server.js
+import { json } from '@sveltejs/kit'
+import { getHarmonizer } from '$lib/getHarmonizer.js'
 
-import { instance } from '$env/static/private'
-let sample_harmonizer = (id) => {
-  return {
-    "@context": `${instance}context.json`,
-    "@id": `${instance}harmonizers/${id}`,
-    "@type": "Harmonizer",
-    "title": "Sample Microformat Harmonizer",
-    "term": `Hashtag`,
-    "selector": "[rel='category tag']",
-    "attribute": "href"
-  }
-}
+// Cache for harmonizer schemas
+const harmonizerCache = new Map();
 
-export async function GET(req) {
-  let harmonizerId = req.params.id
-  return json(sample_harmonizer(harmonizerId))
+
+
+export async function GET({ params }) {
+    const { id } = params;
+
+    // Validate the ID
+    if (!id || typeof id !== 'string') {
+        return json({ error: 'Invalid harmonizer ID' }, { status: 400 });
+    }
+
+    // Check the cache first
+    if (harmonizerCache.has(id)) {
+        return json(harmonizerCache.get(id));
+    }
+
+    // Fetch the harmonizer schema (from predefined harmonizers or an external source)
+    const harmonizer = await getHarmonizer(id);
+
+    // Validate the harmonizer
+    if (!harmonizer) {
+        return json({ error: 'Harmonizer not found' }, { status: 404 });
+    }
+
+    // Cache the harmonizer
+    harmonizerCache.set(id, harmonizer);
+
+    // Return the harmonizer schema
+    return json(harmonizer);
 }
