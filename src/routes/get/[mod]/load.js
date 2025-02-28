@@ -140,19 +140,25 @@ if (obj != "?o") {
   const getResults = sr.results.bindings
     .map(b => {
       return {
-        subject: b.s.value,
-        object: b.o.value,
-        title: b.t ? b.t.value : null,
-        description: b.d ? b.d.value : null,
-        object_title: b.ot ? b.ot.value : null,
-        object_description: b.od ? b.od.value : null
+        subject: {
+          uri: b.s.value,
+          title: b.title ? b.title.value : null,
+          description: b.description ? b.description.value : null
+      },
+        object: {
+          uri: b.o.value,
+          title: b.ot ? b.ot.value : null,
+          description: b.od ? b.od.value : null
+        }
       }
     })
   return {
-      query_mode: params.mod,
-      subjects,
-      objects,
-      results: getResults,
-      query: query
+      query: {
+        mode: params.mod,
+        subjects,
+        objects   
+      },
+      results: getResults
   };
+
 }
