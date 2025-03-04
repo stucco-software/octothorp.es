@@ -10,10 +10,7 @@ export async function load(req) {
   let domains = 0
   let assertions = 0
   try {
-    // This isn't quite right since it's the entire graph
-    // rather than scoping out just the records from this origin
-    // We could solve this by creating subgraphs
-    // Or just give each instance their own store which is better.
+    // We just gave each instance its own store
     let counters = await queryArray(`
       select ?type (
         count(?s) AS ?count
