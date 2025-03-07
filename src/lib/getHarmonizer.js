@@ -10,9 +10,66 @@ const baseId = `${instance}/harmonizers/`;
 
 // Predefined harmonizer schemas (can be loaded from a file or database)
 const predefinedHarmonizers = {
-    article: {
+    "webmention-client": {
         "@context": context,
         "@id": `${baseId}article`,
+        "@type": "Harmonizer",
+        "title": "Client-side Webmention to backlink harmonizer",
+        "mode": "html",
+        "BacklinkObject": {
+            "object": {
+                "selector": "a.u-in-reply-to",
+                "attribute": "href"
+            },
+            // no specified subject = default to page url
+            "DocumentRecord": {
+                "author": {
+                    "name": {
+                        "selector": ".h-entry .u-author.h-card .p-name",
+                        // this might not always work but hey it's their schema
+                        "attribute": "innerHtml"
+                    },
+                    "photo": {
+                        "selector": ".h-entry .u-author.h-card .u-photo",
+                        // this might not always work but hey it's their schema
+                        "attribute": "src"
+                    },
+                    "url": {
+                        "selector": ".h-entry .u-author.h-card .u-url",
+                        // this might not always work but hey it's their schema
+                        "attribute": "href"
+                    }
+                    }
+                },
+                "content": {
+                // this is just hardcoded to be spec compliant. seems fine to do
+                    "content-type": "text/html",
+                // this is psychotic but the webmention.io response returns the whole element
+                // TWICE and then also the inner html
+                // so might as well create a hook for parsing both.
+                    "value": {
+                        "selector": ".h-entry .e-content",
+                        "attribute": "outerHtml"    
+                    },
+                    "html": {
+                        "selector": ".h-entry .e-content",
+                        "attribute": "outerHtml"    
+                    },
+                    "html": {
+                        "selector": ".h-entry .e-content",
+                        "attribute": "innerHtml"    
+                    }
+                },
+
+            }
+            }
+        }
+
+    }
+    "article": {
+        "@context": context,
+        "@id": `${baseId}article`,
+        "title": "SKOS: Basic Article Harmonizer",
         "mode": "json",
         "type": "Article",
         "fields": {
@@ -24,7 +81,7 @@ const predefinedHarmonizers = {
             "image": { "path": "image.url" }
         }
     },
-    seo: {
+    "seo": {
         "@context": context,
         "@id": `${baseId}seo`,
         "mode": "html",
@@ -43,7 +100,7 @@ const predefinedHarmonizers = {
             }
         }
     },
-    product: {
+    "product": {
         "@context": context,
         "@id": `${baseId}product`,
         "mode": "json",
