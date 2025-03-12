@@ -1,95 +1,5 @@
-
-export async function extractData(html, schema) {
-    const output = {};
-  
-    // Helper function to extract values based on a schema rule
-    function extractValues(html, rule) {
-      if (typeof rule === "string") {
-        // If the rule is a string, return it as-is
-        return [rule];
-      }
-  
-      const { selector, attribute, postprocess } = rule;
-      const elements = html.querySelectorAll(selector);
-      const values = Array.from(elements).map((element) => {
-        let value = element[attribute];
-  
-        // Apply postprocessing if defined
-        if (postprocess && postprocess.method === "regex") {
-          const regex = new RegExp(postprocess.params);
-          const match = value.match(regex);
-          if (match) {
-            value = match[1]; // Use the captured group
-          }
-        }
-  
-        return value;
-      });
-  
-      return values;
-    }
-  
-    // Helper function to set a nested property in an object
-    function setNestedProperty(obj, keyPath, value) {
-      const keys = keyPath.split(".");
-      let current = obj;
-      for (let i = 0; i < keys.length - 1; i++) {
-        const key = keys[i];
-        if (!current[key]) {
-          current[key] = {};
-        }
-        current = current[key];
-      }
-      current[keys[keys.length - 1]] = value;
-    }
-  
-    // Process each top-level object in the schema
-    for (const key in schema) {
-      const { s, o } = schema[key];
-      const sValues = extractValues(html, s); // Extract all s values
-  
-      // Special handling for schema.subject and schema.DocumentRecord
-      if (key === "subject" || key === "DocumentRecord") {
-        output[key] = {};
-  
-        // Process each rule in the "o" array
-        o.forEach((rule) => {
-          const values = extractValues(html, rule);
-  
-          // Use the "key" property to reconstruct the nested structure
-          if (rule.key) {
-            setNestedProperty(output[key], rule.key, values);
-          } else {
-            // If no key is provided, add the values directly
-            output[key] = values;
-          }
-        });
-      } else {
-        // Default handling for other top-level objects
-        const oValues = [];
-  
-        // Process each rule in the "o" array
-        o.forEach((rule) => {
-          const values = extractValues(html, rule);
-  
-          // If the rule has a "key", use it to reconstruct the nested structure
-          if (rule.key) {
-            setNestedProperty(oValues, rule.key, values);
-          } else {
-            // Otherwise, add the values directly to the oValues array
-            oValues.push(...values);
-          }
-        });
-  
-        // Combine s and o values into pairs
-        output[key] = sValues.flatMap((sVal) =>
-          oValues.map((oVal) => [sVal, oVal])
-        );
-      }
-    }
-  
-    return output;
-  }
+// TODO:
+// iterate over unique subjects
 
 const schema = {
     hashtags: {
@@ -116,12 +26,8 @@ const schema = {
       },
       o: [
         {
-          selector: "octo-thorpe",
-          attribute: "textContent",
-        },
-        {
-          selector: "[rel='octo:octothorpes']",
-          attribute: "href",
+          selector: "[rel='octo:octothorpes']:not([href*='https://example.com/~/'])",
+          attribute: "href"
         },
       ],
     },
@@ -175,14 +81,152 @@ const schema = {
   };
   
   
-
+  function extractData(html, schema) {
+    const output = {}
+    function processValue(value, flag, p) {
+      // regex
+        if ( flag === "regex") {
+          const regex = new RegExp(p);
+          const match = value.match(regex);
+            if (match) {
+               return match[1]; // Use the captured group
+            }
+            else {
+              return null
+            }
+          }
+    }
+    // Helper function to extract values based on a schema rule
+    function extractValues(html, rule) {
+      if (typeof rule === "string") {
+        // If the rule is a string, return it as-is
+        return [rule];
+      }
+      const { selector, attribute, postprocess } = rule;
+      const elements = html.querySelectorAll(selector);
+      const values = Array.from(elements).map((element) => {
+      let value = element[attribute];
+      return value
+      });
+      return values;
+    }
+  
+    // Helper function to set a nested property in an object
+    function setNestedProperty(obj, keyPath, value) {
+      const keys = keyPath.split(".");
+      let current = obj;
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        if (!current[key]) {
+          current[key] = {};
+        }
+        current = current[key];
+      }
+      current[keys[keys.length - 1]] = value;
+    }
+  
+    // Process each top-level object in the schema
+    for (const key in schema) {  
+      const s = schema[key].s
+      const o = schema[key].o 
+      // TKTK think about how to handle multiple sources one day
+      const sValues = extractValues(html, s); // Extract all s values
+  
+      // Special handling for schema.subject and schema.DocumentRecord
+      if (key === "subject" || key === "DocumentRecord") {
+         if (key === "subject") {
+        // will need a refactor if we want to allow non-source indexing
+        // ie from a proactive-indexing standpoint
+         // build subjects array ?
+        output["@id"] = sValues.toString()
+         }
+        else {
+            output[key] = {};
+        }
+  
+        // Process each rule in the "o" array
+        o.forEach((rule) => {
+          const values = extractValues(html, rule);
+          // Use the "key" property to reconstruct the nested structure
+          if (rule.key) {
+            if (key == "subject") {
+              // set source properties on output directly
+            setNestedProperty(output, rule.key, values.toString());       
+            }
+            else {
+            setNestedProperty(output[key], rule.key, values);
+            }
+          } 
+          else {
+            // If no key is provided, add the values directly
+              output[key] = values;            
+            }
+        });
+      } 
+      // end subject/doc record
+      
+      else {
+      const typedOutput = {}
+      typedOutput[key] =[]  
+        // Default handling for other top-level objects
+        const oValues = [];
+        // Process each rule in the "o" array
+        o.forEach((rule) => {
+          let values = extractValues(html, rule);
+          // If the rule has a "key", use it to reconstruct the nested structure. 
+          // Unless the API spec changes, this will never run, but since we have it on DocumentRecord, might as well account for it here.
+          if (rule.key) {
+            setNestedProperty(oValues, rule.key, values);
+          } else {
+  
+            if (rule.postprocess) {
+              let pVals = []
+              values.forEach((val) =>{ 
+                 let pv = processValue(val, rule.postprocess.method, rule.postprocess.params)
+                 if (pv) {
+                  pVals.push(pv) 
+                 }
+                values = pVals
+              })
+              console.log(rule.postprocess.method)
+              console.log(pVals)
+            }
+   
+  
+            // Otherwise, add the values directly to the oValues array
+            oValues.push(...values);
+                  typedOutput[key] = oValues
+  
+          }
+        });
+        
+      
+  
+        // Combine s and o values into pairs
+    
+        // sValues.flatMap((sVal) =>
+        //   oValues.map((oVal) => [key, sVal, oVal])
+        // );
+        
+        // output["ovals"] = oValues
+        console.log(typedOutput.hashtags)
+        output["octothorpes"] = []
+        // output["octothorpes"].push(typedOutput.hashtags)
+      }
+      
+      // end else
+    }
+    // end process key
+  
+    return output;
+  }
   
   const html = document.createElement("div");
   html.innerHTML = `
-    <octo-thorpe>#example1</octo-thorpe>
-    <a rel="octo:octothorpes" href="https://example.com/~/term1"></a>
-    <octo-thorpe>#example2</octo-thorpe>
-    <a rel="octo:octothorpes" href="https://another-domain.com/~/term2"></a>
+    <octo-thorpe>webcomponent-1</octo-thorpe>
+    <a rel="octo:octothorpes" href="https://example.com/~/TERM-ON-SERVER"></a>
+    <octo-thorpe>webcomponent</octo-thorpe>
+    <a rel="octo:octothorpes" href="https://backlink-domain.com/"></a>
     <title>Example Title</title>
     <meta name="description" content="Example Description">
     <meta property="og:image" content="https://example.com/image.png">
@@ -198,4 +242,4 @@ const schema = {
   `;
   
   const result = extractData(html, schema);
-  console.log(result);
+    console.log(result);
