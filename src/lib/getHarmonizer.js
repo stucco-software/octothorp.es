@@ -9,10 +9,96 @@ const context = `${instance}/context.json`;
 const baseId = `${instance}/harmonizers/`;
 
 // Predefined harmonizer schemas (can be loaded from a file or database)
-const predefinedHarmonizers = {
-    "webmention-client": {
+const localHarmonizers = {
+    "default": {
         "@context": context,
-        "@id": `${baseId}article`,
+        "@id": `${baseId}default`,
+        "@type": "Harmonizer",
+        "title": "Default Octothorpe Harmonizer",
+        "mode": "html",
+        "schema" : {
+            hashtag: {
+                s: "source", // s can be a string
+                o: [
+                  {
+                    selector: "octo-thorpe",
+                    attribute: "textContent",
+                  },
+                  {
+                    selector: "[rel='octo:octothorpes']",
+                    attribute: "href",
+                    postprocess: {
+                      method: "regex",
+                      params: "https?://example.com/~/([^/]+)",
+                    },
+                  },
+                ],
+              },
+              mention: {
+                s: {
+                  selector: "link[rel='canonical']", // s can also be a selector/attribute group
+                  attribute: "href",
+                },
+                o: [
+                  {
+                    selector: "[rel='octo:octothorpes']:not([href*='https://example.com/~/'])",
+                    attribute: "href"
+                  },
+                ],
+              },
+              subject: {
+                s: "source",
+                o: [
+                  {
+                    selector: "title",
+                    attribute: "textContent",
+                    key: "title",
+                  },
+                  {
+                    selector: "meta[name='description']",
+                    attribute: "content",
+                    key: "description",
+                  },
+                  {
+                    selector: "meta[property='og:image']",
+                    attribute: "content",
+                    key: "image",
+                  },
+                ],
+              },
+              DocumentRecord: {
+                s: {
+                  selector: "meta[property='og:url']", // s can also have postprocessing
+                  attribute: "content",
+                  postprocess: {
+                    method: "regex",
+                    params: "https?://([^/]+)",
+                  },
+                },
+                o: [
+                  {
+                    selector: ".h-entry .u-author.h-card .p-name",
+                    attribute: "innerHTML",
+                    key: "author.name",
+                  },
+                  {
+                    selector: ".h-entry .u-author.h-card .u-photo",
+                    attribute: "src",
+                    key: "author.photo",
+                  },
+                  {
+                    selector: ".h-entry .u-author.h-card .u-url",
+                    attribute: "href",
+                    key: "author.url",
+                  },
+                ],
+              }        
+        }
+    }
+    // no dashes in names
+    "webmentionClient": {
+        "@context": context,
+        "@id": `${baseId}webmention-client`,
         "@type": "Harmonizer",
         "title": "Client-side Webmention to backlink harmonizer",
         "mode": "html",
@@ -69,7 +155,8 @@ const predefinedHarmonizers = {
         "title": "SKOS: Basic Article Harmonizer",
         "mode": "json",
         "type": "Article",
-        "fields": {
+        "@type": "Harmonizer",
+        "DocumentRecord": {
             "headline": { "path": "headline" },
             "description": { "path": "description" },
             "author": { "path": "author.name" },
@@ -77,38 +164,38 @@ const predefinedHarmonizers = {
             "publisher": { "path": "publisher.name" },
             "image": { "path": "image.url" }
         }
-    },
-    "seo": {
-        "@context": context,
-        "@id": `${baseId}seo`,
-        "mode": "html",
-        "fields": {
-            "title": {
-                "selector": "meta[property='og:title'], meta[name='twitter:title'], title",
-                "attribute": "content"
-            },
-            "description": {
-                "selector": "meta[property='og:description'], meta[name='twitter:description'], meta[name='description']",
-                "attribute": "content"
-            },
-            "image": {
-                "selector": "meta[property='og:image'], meta[name='twitter:image']",
-                "attribute": "content"
-            }
-        }
-    },
-    "product": {
-        "@context": context,
-        "@id": `${baseId}product`,
-        "mode": "json",
-        "type": "Product",
-        "fields": {
-            "name": { "path": "name" },
-            "description": { "path": "description" },
-            "price": { "path": "offers.price" },
-            "brand": { "path": "brand.name" }
-        }
     }
+    // "seo": {
+    //     "@context": context,
+    //     "@id": `${baseId}seo`,
+    //     "mode": "html",
+    //     "DocumentRecord": {
+    //         "title": {
+    //             "selector": "meta[property='og:title'], meta[name='twitter:title'], title",
+    //             "attribute": "content"
+    //         },
+    //         "description": {
+    //             "selector": "meta[property='og:description'], meta[name='twitter:description'], meta[name='description']",
+    //             "attribute": "content"
+    //         },
+    //         "image": {
+    //             "selector": "meta[property='og:image'], meta[name='twitter:image']",
+    //             "attribute": "content"
+    //         }
+    //     }
+    // },
+    // "product": {
+    //     "@context": context,
+    //     "@id": `${baseId}product`,
+    //     "mode": "json",
+    //     "type": "Product",
+    //     "fields": {
+    //         "name": { "path": "name" },
+    //         "description": { "path": "description" },
+    //         "price": { "path": "offers.price" },
+    //         "brand": { "path": "brand.name" }
+    //     }
+    // }
     // Add more harmonizers as needed
 };
 
@@ -129,7 +216,7 @@ export async function getHarmonizer(id) {
     }
 
     // Fetch the harmonizer schema (from predefined harmonizers or an external source)
-    const harmonizer = predefinedHarmonizers[id];
+    const harmonizer = localHarmonizers[id];
 
     // Validate the harmonizer
     if (!harmonizer) {
