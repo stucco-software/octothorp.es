@@ -5,8 +5,8 @@ import { instance } from '$env/static/private';
 const harmonizerCache = new Map();
 
 // Shared context and base ID
-const context = `${instance}/context.json`;
-const baseId = `${instance}/harmonizers/`;
+const context = `${instance}context.json`;
+const baseId = `${instance}harmonizer/`;
 
 // Predefined harmonizer schemas (can be loaded from a file or database)
 const localHarmonizers = {
@@ -17,84 +17,57 @@ const localHarmonizers = {
         "title": "Default Octothorpe Harmonizer",
         "mode": "html",
         "schema" : {
-            hashtag: {
-                s: "source", // s can be a string
-                o: [
+            "hashtag": {
+                "s": "source", // s can be a string
+                "o": [
                   {
-                    selector: "octo-thorpe",
-                    attribute: "textContent",
+                    "selector": "octo-thorpe",
+                    "attribute": "textContent",
                   },
                   {
-                    selector: "[rel='octo:octothorpes']",
-                    attribute: "href",
-                    postprocess: {
-                      method: "regex",
-                      params: "https?://example.com/~/([^/]+)",
+                    "selector": "[rel='octo:octothorpes']",
+                    "attribute": "href",
+                    "postprocess": {
+                      "method": "regex",
+                      "params": `${instance}~/([^/]+)`
                     },
                   },
                 ],
               },
-              mention: {
-                s: {
-                  selector: "link[rel='canonical']", // s can also be a selector/attribute group
-                  attribute: "href",
+              "mention": {
+                "s": {
+                  "selector": "link[rel='canonical']", // s can also be a "selector"/attribute group
+                  "attribute": "href",
                 },
-                o: [
+                "o": [
                   {
-                    selector: "[rel='octo:octothorpes']:not([href*='https://example.com/~/'])",
-                    attribute: "href"
+                    "selector": `[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
+                    "attribute": "href"
                   },
                 ],
               },
-              subject: {
-                s: "source",
-                o: [
+              "subject": {
+                "s": "source",
+                "o": [
                   {
-                    selector: "title",
-                    attribute: "textContent",
-                    key: "title",
+                    "selector": "title",
+                    "attribute": "textContent",
+                    "key": "title",
                   },
                   {
-                    selector: "meta[name='description']",
-                    attribute: "content",
-                    key: "description",
+                    "selector": "meta[name='description']",
+                    "attribute": "content",
+                    "key": "description",
                   },
                   {
-                    selector: "meta[property='og:image']",
-                    attribute: "content",
-                    key: "image",
+                    "selector": "meta[property='og:image']",
+                    "attribute": "content",
+                    "key": "image",
                   },
                 ],
-              },
-              DocumentRecord: {
-                s: {
-                  selector: "meta[property='og:url']", // s can also have postprocessing
-                  attribute: "content",
-                  postprocess: {
-                    method: "regex",
-                    params: "https?://([^/]+)",
-                  },
-                },
-                o: [
-                  {
-                    selector: ".h-entry .u-author.h-card .p-name",
-                    attribute: "innerHTML",
-                    key: "author.name",
-                  },
-                  {
-                    selector: ".h-entry .u-author.h-card .u-photo",
-                    attribute: "src",
-                    key: "author.photo",
-                  },
-                  {
-                    selector: ".h-entry .u-author.h-card .u-url",
-                    attribute: "href",
-                    key: "author.url",
-                  },
-                ],
-              }        
-        }
-    }
+              }
+            }     
+    },
     // no dashes in names
     "webmentionClient": {
         "@context": context,
@@ -102,100 +75,98 @@ const localHarmonizers = {
         "@type": "Harmonizer",
         "title": "Client-side Webmention to backlink harmonizer",
         "mode": "html",
-        "BacklinkObject": {
-            "object": {
+        "schema": {
+            "DocumentRecord": {
+                "s": {
+                  "selector": "meta[property='og:url']", // s can also have postprocessing
+                  "attribute": "content",
+                  "postprocess": {
+                    "method": "regex",
+                    "params": "https?://([^/]+)",
+                  },
+                },
+                "o": [
+                  {
+                    "selector": ".h-entry .u-author.h-card .p-name",
+                    "attribute": "innerHTML",
+                    "key": "author.name",
+                  },
+                  {
+                    "selector": ".h-entry .u-author.h-card .u-photo",
+                    "attribute": "src",
+                    "key": "author.photo",
+                  },
+                  {
+                    "selector": ".h-entry .u-author.h-card .u-url",
+                    "attribute": "href",
+                    "key": "author.url",
+                  },
+                  {
+                    "selector": ".h-entry .e-content",
+                    "attribute": "innerHtml",
+                    "key": "content.html"   
+                    },
+                    {
+                        "selector": ".h-entry .e-content",
+                        "attribute": "textContent",
+                        "key": "content.text"   
+                        },
+                ],
+              },
+        "mention": {
+            "s": "source",
+            "o": [{
                 "selector": "a.u-in-reply-to",
                 "attribute": "href"
-            },
-            // no specified subject = default to page url
+            }]
+            // no specified "subject" = default to page url
         },
-        "DocumentRecord": {
-            "author": {
-                "name": {
-                    "selector": ".h-entry .u-author.h-card .p-name",
-                    // this might not always work but hey it's their schema
-                    "attribute": "innerHtml"
-                },
-                "photo": {
-                    "selector": ".h-entry .u-author.h-card .u-photo",
-                    // this might not always work but hey it's their schema
-                    "attribute": "src"
-                },
-                "url": {
-                    "selector": ".h-entry .u-author.h-card .u-url",
-                    // this might not always work but hey it's their schema
-                    "attribute": "href"
-                }
-            },
-            "content": {
-            // this is just hardcoded to be spec compliant. seems fine to do
-                "content-type": "text/html",
-            // this is psychotic but the webmention.io response returns the whole element
-            // TWICE and then also the inner html
-            // so might as well create a hook for parsing both.
-                "value": {
-                    "selector": ".h-entry .e-content",
-                    "attribute": "outerHtml"    
-                },
-                "html": {
-                    "selector": ".h-entry .e-content",
-                    "attribute": "outerHtml"    
-                },
-                "html": {
-                    "selector": ".h-entry .e-content",
-                    "attribute": "innerHtml"    
-                }
-            },
 
         }
-        },
-    "article": {
+    },
+        "article": {
         "@context": context,
         "@id": `${baseId}article`,
-        "title": "SKOS: Basic Article Harmonizer",
+        "title": "SKOs: Basic Article Harmonizer",
         "mode": "json",
         "type": "Article",
         "@type": "Harmonizer",
-        "DocumentRecord": {
-            "headline": { "path": "headline" },
-            "description": { "path": "description" },
-            "author": { "path": "author.name" },
-            "datePublished": { "path": "datePublished" },
-            "publisher": { "path": "publisher.name" },
-            "image": { "path": "image.url" }
+        "schema": {
+            // TODO define json schema
+            // "DocumentRecord": {
+            //     "headline": { "path": "headline" },
+            //     "description": { "path": "description" },
+            //     "author": { "path": "author.name" },
+            //     "datePublished": { "path": "datePublished" },
+            //     "publisher": { "path": "publisher.name" },
+            //     "image": { "path": "image.url" }
+            // }
+
         }
+    },
+    "seo": {
+        "@context": context,
+        "@id": `${baseId}seo`,
+        "mode": "html",
+        "schema": {
+// TODO clean up, integrate with default
+            // "DocumentRecord": {
+            //     "title": {
+            //         "selector": "meta[property='og:title'], meta[name='twitter:title'], title",
+            //         "attribute": "content"
+            //     },
+            //     "description": {
+            //         "selector": "meta[property='og:description'], meta[name='twitter:description'], meta[name='description']",
+            //         "attribute": "content"
+            //     },
+            //     "image": {
+            //         "selector": "meta[property='og:image'], meta[name='twitter:image']",
+            //         "attribute": "content"
+            //     }
+            // }
+        }
+
     }
-    // "seo": {
-    //     "@context": context,
-    //     "@id": `${baseId}seo`,
-    //     "mode": "html",
-    //     "DocumentRecord": {
-    //         "title": {
-    //             "selector": "meta[property='og:title'], meta[name='twitter:title'], title",
-    //             "attribute": "content"
-    //         },
-    //         "description": {
-    //             "selector": "meta[property='og:description'], meta[name='twitter:description'], meta[name='description']",
-    //             "attribute": "content"
-    //         },
-    //         "image": {
-    //             "selector": "meta[property='og:image'], meta[name='twitter:image']",
-    //             "attribute": "content"
-    //         }
-    //     }
-    // },
-    // "product": {
-    //     "@context": context,
-    //     "@id": `${baseId}product`,
-    //     "mode": "json",
-    //     "type": "Product",
-    //     "fields": {
-    //         "name": { "path": "name" },
-    //         "description": { "path": "description" },
-    //         "price": { "path": "offers.price" },
-    //         "brand": { "path": "brand.name" }
-    //     }
-    // }
     // Add more harmonizers as needed
 };
 
