@@ -13,6 +13,7 @@ export async function load(req) {
         ?domain octo:hasPart ?url .
       }
     `)
+    console.log(sr.results.bindings)
     thorpes = new Set(sr.results.bindings
       .map(b => b.t.value)
       .filter(t => t.includes(instance)))

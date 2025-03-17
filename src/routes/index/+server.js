@@ -5,6 +5,8 @@ import { asyncMap} from '$lib/asyncMap.js'
 import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { verifiedOrigin } from '$lib/origin.js'
+import { harmonizeSource } from '$lib/harmonizeSource.js';
+
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 import normalizeUrl from 'normalize-url'
 
@@ -60,43 +62,32 @@ const recordIndexing = async (s) => {
   `)
 }
 
-// maybe we export this as a utility elsewhere?
-
-const getSubjectHTML = (src) => {
-  const DOMParser = new JSDOM().window.DOMParser
-  const parser = new DOMParser()
-  let html = parser.parseFromString(src, "text/html")
-  return html
-}
-
 
 const extantTerm = async (o) => {
   return await queryBoolean(`
     ask {
-      ?s ?p <${o}> .
+      ?s ?p <${instance}~/${o}> .
     }
   `)
 }
 
 const extantPage = async (o) => {
-  let isTerm = await queryBoolean(`
-    ask {
-      <${o}> rdf:type <octo:Term> .
-    }
-  `)
-  let isPage = await queryBoolean(`
+  await queryBoolean(`
     ask {
       <${o}> rdf:type <octo:Page> .
     }
   `)
-  if (isTerm) {
-    return isTerm
-  } else {
-    return isPage
-  }
 }
 
 const extantThorpe = async ({s, p, o}) => {
+  return await queryBoolean(`
+    ask {
+      <${s}> ${p} <${instance}~/${o}> .
+    }
+  `)
+}
+
+const extantMention = async ({s, p, o}) => {
   return await queryBoolean(`
     ask {
       <${s}> ${p} <${o}> .
@@ -104,7 +95,29 @@ const extantThorpe = async ({s, p, o}) => {
   `)
 }
 
+const extantBacklink = async ({s, o}) => {
+  return await queryBoolean(`
+    ask {
+      <${o}> ${p} _:backlink .
+        _:backlink octo:url <${s}> .
+    }
+  `)
+}
+
 const createOctothorpe = async ({s, p, o}) => {
+  let now = Date.now()
+  let url = new URL(s)
+  return await insert(`
+    <${s}> ${p} <${instance}~/${o}> .
+    <${s}> <${instance}~/${o}> ${now} .
+    <${url.origin}> octo:hasPart <${s}> .
+    <${url.origin}> octo:verified "true" .
+    <${url.origin}> rdf:type <octo:Origin> .
+  `)
+}
+
+const createMention = async ({s, p, o}) => {
+  console.log(`create mention…`)
   let now = Date.now()
   let url = new URL(s)
   return await insert(`
@@ -116,22 +129,32 @@ const createOctothorpe = async ({s, p, o}) => {
   `)
 }
 
+
 const recordCreation = async (o) => {
   let now = Date.now()
   if (o.includes(instance)) {
     return await insert(`
-      <${o}> octo:created ${now} .
-      <${o}> rdf:type <octo:Term> .
+      <${instance}~/${o}> octo:created ${now} .
+      <${instance}~/${o}> rdf:type <octo:Term> .
     `)
   } else {
     return await insert(`
-      <${o}> octo:created ${now} .
-      <${o}> rdf:type <octo:Page> .
+      <${instance}~/${o}> octo:created ${now} .
+      <${instance}~/${o}> rdf:type <octo:Page> .
     `)
   }
 }
 
-const recordBacklinkCreation = async (o) => {
+const createTerm = async (o) => {
+  let now = Date.now()
+  return await insert(`
+    <${instance}~/${o}> octo:created ${now} .
+    <${instance}~/${o}> rdf:type <octo:Term> .
+  `)
+}
+
+const createPage = async (o) => {
+  console.log('create page')
   let now = Date.now()
   return await insert(`
     <${o}> octo:created ${now} .
@@ -139,10 +162,30 @@ const recordBacklinkCreation = async (o) => {
   `)
 }
 
+// const recordBacklinkCreation = async (o) => {
+//   let now = Date.now()
+//   return await insert(`
+//     <${instance}~/${o}> octo:created ${now} .
+//     <${instance}~/${o}> rdf:type <octo:Page> .
+//   `)
+// }
+
+const createBacklink = async ({s, o}) => {
+  console.log(`create backlink…`)
+  let now = Date.now()
+  return await insert(`
+    <${o}> ${p} _:backlink .
+      _:backlink octo:created ${now} .
+      _:backlink octo:url <${s}> .
+      _:backlink rdf:type <octo:Backlink> .
+  `)
+}
+
+
 const recordUsage = async ({s, o}) => {
   let now = Date.now()
   return await insert(`
-    <${o}> octo:used ${now} .
+    <${instance}~/${o}> octo:used ${now} .
   `)
 }
 
@@ -177,102 +220,100 @@ const recordDescription = async ({s, description}) => {
   `)
 }
 
+const handleThorpe = async (s, p, o) => {
+  let isExtantTerm = await extantTerm(o)
+  if (!isExtantTerm) {
+    await createTerm(o)
+  }
+  let isExtantThorpe = await extantThorpe({s, p, o})
+  if (!isExtantThorpe) {
+    await createOctothorpe({s, p, o})
+    await recordUsage({s, o})
+  }
+}
+
+const originEndorsesOrigin = async ({s, o}) => {
+  return await queryBoolean(`
+    ask {
+      <${o}> octo:endorses <${s}> .
+    }
+  `)
+}
+
+const checkReciprocalMention = async ({s, o}) => {
+  return await queryBoolean(`
+    ask {
+      <${o}> ${p} <${s}> .
+    }
+  `)
+}
+
+const checkEndorsement = async ({s, o}) => {
+  let oURL = new URL(o)
+  let sURL = new URL(s)
+  let oOrigin = oURL.origin
+  let sOrigin = sURL.origin
+  // if origins are the same, assume endorsement
+  if (oOrigin === sOrigin) {
+    return true
+  }
+  // if oOrigin endorses sOrigin…
+  let originEndorsed = await originEndorsesOrigin({sOrigin, oOrigin})
+  if (originEndorsed) {
+    return true
+  }
+  // if o mentions s
+  let isMentioned = await checkReciprocalMention({s, o})
+  if (isMentioned) {
+    return true
+  }
+}
+
+const handleMention = async (s, p, o) => {
+  let isExtantPage = await extantPage(o)
+  console.log(`isExtantPage?`, isExtantPage)
+  if (!isExtantPage) {
+    await createPage(o)
+  }
+  let isExtantMention= await extantMention({s, p, o})
+  console.log(`isExtantMention?`, isExtantMention)
+  if (!isExtantMention) {
+    await createMention({s, p, o})
+  }
+  let isEndorsed = await checkEndorsement({s, o})
+  let isExtantbacklink = await extantBacklink({s, o})
+  console.log(`isExtantbacklink?`, isExtantbacklink)
+  if (!isExtantbacklink) {
+    await createBacklink({s, o})
+  }
+}
+
 // Accept a response
-const handleHTML = async (response, s) => {
+const handleHTML = async (response, uri) => {
   const src = await response.text()
-  const doc = getSubjectHTML(src)
-  
-  let harmonizers = [...doc.querySelectorAll('[name="octo:harmonizer"]')]
-  let selectors = harmonizers.map(node => {
-    return node.getAttribute('content')
-  })
-  let userdefined = selectors.map(selector => {
-    let harmonizedThorpes = [...new Set([
-      ...doc.querySelectorAll(selector)
-    ])]
-      .map(node => node.getAttribute('href') || node.textContent.trim())
-      .map(term => term.startsWith(instance) ? term.replace(`${instance}~/`, '') : term)
-    return harmonizedThorpes
-  })
-    .flat()
-    .map(term => isURL(term) ? term : term.split('/').pop())
-
-  // Harmonizers live here:
-  // this is just the default harmonizer
-  const verifiedThorpes = [...new Set([
-      ...doc.querySelectorAll(`[rel="${p}"]`),
-      ...doc.querySelectorAll('octo-thorpe')
-    ]
-    .map(node => node.getAttribute('href') || node.textContent.trim())
-    .map(term => term.startsWith(instance) ? term.replace(`${instance}~/`, '') : term)
-  )]
-
-  const allThorpes = [...userdefined, ...verifiedThorpes]
-  await asyncMap(allThorpes, async (term) => {
-    let o
-    try {
-      let oURL = new URL(term)
-      o = term
-      let backlink = await fetch(o)
-      let bSrc = await backlink.text()
-      let bDoc = getSubjectHTML(bSrc)
-      let endorsements = [...bDoc.querySelectorAll(`[rev="${p}"]`)]
-      let didEndorse = endorsements
-        .find(link => {
-          if (link.getAttribute('href') === '*') {
-            return true
-          }
-          let tURL = new URL(link.getAttribute('href'))
-          return tURL.origin === oURL.origin
-        })
-      if (!didEndorse) {
-        return
-      }
-    } catch (err) {
-      o = `${instance}~/${term}`
-    }
-    console.log(`DING DING DING`, s, p, o)
-    let isExtantTerm = await extantTerm(o)
-
-    if (!isExtantTerm) {
-      await recordCreation(o)
-      // await emailAdministrator({s, o})
-    }
-
-    let isExtantPage = await extantPage(o)
-    if (!isExtantPage) {
-      await recordBacklinkCreation(o)
-    }
-
-    let isExtantThorpe = await extantThorpe({s, p, o})
-    if (!isExtantThorpe) {
-      await createOctothorpe({s, p, o})
-      await recordUsage({s, o})
+  const harmed = await harmonizeSource(src)
+  let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
+  harmed.octothorpes.forEach(async octothorpe => {
+    switch(true) {
+      case octothorpe.type === 'mention':
+        await handleMention(s, p, octothorpe.uri)
+        break;
+      case octothorpe.type === 'hashtag':
+        await handleThorpe(s, p, octothorpe.uri)
+        break;
+      default:
+        await handleThorpe(s, p, octothorpe)
+        break;
     }
   })
 
   // TKTK Delete thorpes no longer present here.
-
-  // Grab title
-  let titleNode = doc.querySelector('title')
-  if (titleNode) {
-    let title = doc.querySelector('title').innerHTML || 'Untitled'
-    await recordTitle({s, title})
-  }
-
-  // Grab meta
-  let pageMetaNode = doc.querySelector("meta[name='description']")
-  if (pageMetaNode) {
-    let description = pageMetaNode.getAttribute("content") || null
-    await recordDescription({s, description})
-  }
-
+  await recordTitle({s, title: harmed.title})
+  await recordDescription({s, description: harmed.description})
   // TK: Web of Trust Verification
   //  1. Grab `[rel="octo:endorses"]`
   //  2. Create term <s> octo:endorses <o> .
   //  3. Create term <o.origin> octo:verified "true" .
-
-  // await indexHTML({doc, s})
   return new Response(200)
 }
 
@@ -288,30 +329,19 @@ const handler = async (s) => {
   await recordIndexing(s)
 
   if (subject.headers.get('content-type').includes('text/html')) {
-  
-  // If we wanted to speed things up and were using
-  // a verification method that pre-loads the html
-  // we could try passing the actual html here
-  // rather than asking to load again
-  // but we'd have to have the HTML for the full url in hand
-  // whereas isVerifiedOrigin is only looking at the url origin
     console.log("handle html…", s)
     return await handleHTML(subject, s)
   }
 }
 
 export async function GET(req) {
-  console.log(`index server handler…`)
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
   let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
   let origin = normalizeUrl(uri.origin)
-  console.log(`built a subject…`, s, origin)
-
-  console.log(`reverify origin…`, origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
+
   if (!isVerifiedOrigin) {
-    console.error(401, 'Origin is not registered with this server.')
     return error(401, 'Origin is not registered with this server.')
   }
 

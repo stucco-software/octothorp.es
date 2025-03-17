@@ -12,3 +12,10 @@
     {/each}
   </ul>
 </section>
+
+<style>
+  h1 {
+    padding-inline: 1.5rem;
+    padding-block-start: 1.5rem;
+  }
+</style>

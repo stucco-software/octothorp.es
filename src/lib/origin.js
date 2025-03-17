@@ -1,6 +1,7 @@
 import { queryBoolean } from '$lib/sparql.js'
 import { server_name } from '$env/static/private'
 import { JSDOM } from 'jsdom'
+
 export const verifiedOrigin = async (origin) => {
   const verifiyContent = async (s) => {
     let response = await fetch(s)

@@ -7,6 +7,57 @@ import { JSDOM } from 'jsdom'
 // import { json } from '@sveltejs/kit'
 import { getHarmonizer } from "$lib/getHarmonizer"
 
+// this is copied from getSubjectHTML from index
+const DOMParser = new JSDOM().window.DOMParser
+const parser = new DOMParser()
+
+const processValue = (value, flag, p) => {
+  // regex
+  if ( flag === "regex") {
+    const regex = new RegExp(p)
+    const match = value.match(regex)
+      if (match) {
+         return match[1] // Use the captured group
+      }
+      else {
+        return null
+      }
+    }
+}
+
+
+// Helper function to extract values based on a schema rule
+const extractValues = (html, rule) => {
+  if (typeof rule === "string") {
+    // If the rule is a string, return it as-is
+    return [rule]
+  }
+  const { selector, attribute, postprocess } = rule
+  let tempContainer = parser.parseFromString(html, "text/html")
+  const elements = [...tempContainer.querySelectorAll(selector)]
+  const values = elements
+    .map((element) => {
+      let value = element[attribute]
+      return value
+    })
+  return values
+}
+
+// Helper function to set a nested property in an object
+const setNestedProperty = (obj, keyPath, value) => {
+  const keys = keyPath.split(".")
+  let current = obj
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i]
+    if (!current[key]) {
+      current[key] = {}
+    }
+    current = current[key]
+  }
+  current[keys[keys.length - 1]] = value
+}
+
+
 export async function harmonizeSource(html, harmonizer = "default") {
   // accept harmonizer name or json blob
  
@@ -32,58 +83,10 @@ export async function harmonizeSource(html, harmonizer = "default") {
   console.log('SCHEEEEEMA')
   console.log(schema)
 
-  const output = {}
-  function processValue(value, flag, p) {
-    // regex
-      if ( flag === "regex") {
-        const regex = new RegExp(p)
-        const match = value.match(regex)
-          if (match) {
-             return match[1] // Use the captured group
-          }
-          else {
-            return null
-          }
-        }
-  }
-
-
-  // Helper function to extract values based on a schema rule
-  function extractValues(html, rule) {
-    if (typeof rule === "string") {
-      // If the rule is a string, return it as-is
-      return [rule]
-    }
-    const { selector, attribute, postprocess } = rule
-    // this is copied from getSubjectHTML from index
-    const DOMParser = new JSDOM().window.DOMParser
-    const parser = new DOMParser()
-    let tempContainer = parser.parseFromString(html, "text/html")
-
-    const elements = tempContainer.querySelectorAll(selector)
-    const values = Array.from(elements).map((element) => {
-    let value = element[attribute]
-    return value
-    })
-    return values
-  }
-
-  // Helper function to set a nested property in an object
-  function setNestedProperty(obj, keyPath, value) {
-    const keys = keyPath.split(".")
-    let current = obj
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i]
-      if (!current[key]) {
-        current[key] = {}
-      }
-      current = current[key]
-    }
-    current[keys[keys.length - 1]] = value
-  }
+  let output = {}
 
   // Process each top-level object in the schema
-  const typedOutput = {}
+  let typedOutput = {}
   for (const key in schema) {  
     typedOutput[key] = []
     const s = schema[key].s
@@ -93,14 +96,13 @@ export async function harmonizeSource(html, harmonizer = "default") {
 
     // Special handling for schema.subject and schema.DocumentRecord
     if (key === "subject" || key === "DocumentRecord") {
-       if (key === "subject") {
-      // will need a refactor if we want to allow non-source indexing
-      // ie from a proactive-indexing standpoint
-       // build subjects array ?
-      output["@id"] = sValues.toString()
-       }
-      else {
-          output[key] = {}
+      if (key === "subject") {
+        // will need a refactor if we want to allow non-source indexing
+        // ie from a proactive-indexing standpoint
+         // build subjects array ?
+        output["@id"] = sValues.toString()
+      } else {
+        output[key] = {}
       }
 
       // Process each rule in the "o" array
@@ -115,17 +117,15 @@ export async function harmonizeSource(html, harmonizer = "default") {
           else {
           setNestedProperty(output[key], rule.key, values)
           }
-        } 
-        else {
+        } else {
           // If no key is provided, add the values directly
-            output[key] = values            
-          }
+          output[key] = values
+        }
       })
     } 
     // end subject/doc record
-    
     else {
-    // typedOutput[key] =[]  
+      // typedOutput[key] =[]
       // Default handling for other top-level objects
       const oValues = []
       // Process each rule in the "o" array
@@ -136,7 +136,6 @@ export async function harmonizeSource(html, harmonizer = "default") {
         if (rule.key) {
           setNestedProperty(oValues, rule.key, values)
         } else {
-
           if (rule.postprocess) {
             let pVals = []
             values.forEach((val) =>{ 
@@ -149,28 +148,21 @@ export async function harmonizeSource(html, harmonizer = "default") {
             // console.log(rule.postprocess.method)
             // console.log(pVals)
           }
- 
-
           // Otherwise, add the values directly to the oValues array
           oValues.push(...values)
           typedOutput[key] = oValues
-
         }
       })
-      
     }
     // end else
   }
   // end process key
-
   output["octothorpes"] = [
     ...(typedOutput.hashtag || []),
     ...Object.entries(typedOutput)
       .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
       .map(([key, [uri]]) => ({ type: key, uri }))
-]
-console.log("HERE WE ARE")
-console.log(output)
+  ]
   return output
 }
 
