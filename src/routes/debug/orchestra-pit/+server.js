@@ -1,7 +1,8 @@
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import { verifiedOrigin } from '$lib/origin.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js';
+import { harmonizeSource } from '$lib/harmonizeSource.js'
+import { getHarmonizer } from '$lib/getHarmonizer.js'
 
 import normalizeUrl from 'normalize-url'
 
@@ -14,7 +15,9 @@ let p = 'octo:octothorpes'
 // Accept a response
 const handleHTML = async (response, uri, h) => {
   const src = await response.text()
+
   const harmed = await harmonizeSource(src, h)
+  harmed.harmonizerUsed = await getHarmonizer(h)
   // debug could log harmed
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
   harmed.octothorpes.forEach(async octothorpe => {
