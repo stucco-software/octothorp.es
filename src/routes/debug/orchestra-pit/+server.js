@@ -15,9 +15,11 @@ let p = 'octo:octothorpes'
 // Accept a response
 const handleHTML = async (response, uri, h) => {
   const src = await response.text()
+  const bigdump = Array(src)
 
   const harmed = await harmonizeSource(src, h)
   harmed.harmonizerUsed = await getHarmonizer(h)
+//   harmed.dump = bigdump
   // debug could log harmed
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
   harmed.octothorpes.forEach(async octothorpe => {

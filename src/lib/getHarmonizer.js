@@ -10,41 +10,134 @@ const baseId = `${instance}harmonizer/`;
 
 // Predefined harmonizer schemas (can be loaded from a file or database)
 const localHarmonizers = {
-    "default": {
+  "default": {
         "@context": context,
         "@id": `${baseId}default`,
-        "@type": "Harmonizer",
+        "@type": "Harmonizer", // should it be Harmonizer or harmonizer
         "title": "Default Octothorpe Harmonizer",
+        // mode:html expects css selectors
+        // mode:json expects json dot notation
+        // mode:xpath expects xpath
+        "mode": "html",
+        "schema" : {
+          // one subject per blobject
+          "subject": {
+            // subject.s can be defined in the same way as o but also 
+            // accepts the string "source" for the source of the request
+            "s": "source",
+            "o": [
+              {
+                "key": "title",
+                "selector": "title",
+                "attribute": "textContent"
+              },
+              {
+                "key": "description",
+                "selector": "meta[name='description']",
+                "attribute": "content"
+              },
+              {
+                "key": "image",
+                "selector": "meta[property='og:image']",
+                "attribute": "content"
+              }
+            ]
+          },
+          // definition keys become type labels in the 
+          // blobject.octothorpes, hence are singular
+          // usage will be octothorpes.hashtag, octothorpes.mention, etc
+
+          "hashtag": {
+              "s": "source", 
+              "o": [
+                // criteria is additive, so this harmonizer will return
+                // results for EVERY condition listed here
+                {
+                  "selector": "octo-thorpe",
+                  "attribute": "textContent"
+                },
+                {
+                  "selector": "[rel='octo:octothorpes']",
+                  "attribute": "href",
+                  // postProcess alters the returned strings.
+                  // if you want to instead filter results
+                  // use filterResults. postProcess runs last
+                  // both accept the regex method
+                  "postProcess": {
+                    "method": "regex",
+                    "params": `${instance}~/([^/]+)`
+                  }
+                }
+              ]
+            },
+            "mention": {
+              "s": "source",
+              "o": [
+                {
+                  "selector": `[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
+                  "attribute": "href"
+                }
+              ]
+            },
+            "endorsement": {
+              "s": "source",
+              "o": [
+                {
+                  // link rev 
+                }
+              ]
+            },
+
+            "webringHub": {
+              "s": "source",
+              "o": [
+                {
+              // link rev. anything else?
+                }
+              ]
+            },
+            "bookmark": {
+              "s": "source",
+              "o": [
+                {
+
+                }
+              ]
+            }
+            }     
+    },
+    "instagram": {
+        "@context": context,
+        "@id": `${baseId}instagram`,
+        "@type": "Harmonizer",
+        "title": "Instagram Tags to Octothorpes",
         "mode": "html",
         "schema" : {
             "hashtag": {
                 "s": "source", // s can be a string
                 "o": [
                   {
-                    "selector": "octo-thorpe",
+                    "selector": `a[href^="/explore/tags"]`,
                     "attribute": "textContent",
-                  },
-                  {
-                    "selector": "[rel='octo:octothorpes']",
-                    "attribute": "href",
-                    "postprocess": {
-                      "method": "regex",
-                      "params": `${instance}~/([^/]+)`
-                    },
+                    "postProcess": {
+                      "method": "substring",
+                      "params": [1]
+                    }
                   },
                 ],
               },
               "mention": {
-                "s": {
-                  "selector": "link[rel='canonical']", // s can also be a "selector"/attribute group
-                  "attribute": "href",
-                },
+                "s": "source",
                 "o": [
                   {
-                    "selector": `[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
-                    "attribute": "href"
-                  },
-                ],
+                    "selector": "a[role='link']", // s can also be a "selector"/attribute group
+                    "attribute": "textContent",
+                    "filterResults": {
+                      "method": "contains",
+                      "params": "@"
+                    }            
+                  }
+                ]
               },
               "subject": {
                 "s": "source",
@@ -78,9 +171,9 @@ const localHarmonizers = {
         "schema": {
             "DocumentRecord": {
                 "s": {
-                  "selector": "meta[property='og:url']", // s can also have postprocessing
+                  "selector": "meta[property='og:url']", // s can also have postProcessing
                   "attribute": "content",
-                  "postprocess": {
+                  "postProcess": {
                     "method": "regex",
                     "params": "https?://([^/]+)",
                   },
@@ -117,7 +210,7 @@ const localHarmonizers = {
             "s": "source",
             "o": [{
                 "selector": ".u-in-reply-to",
-                "attribute": "href"
+                "attribute": "innerText"
             }]
             // no specified "subject" = default to page url
         },

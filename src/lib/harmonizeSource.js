@@ -23,7 +23,42 @@ const processValue = (value, flag, p) => {
         return null
       }
     }
+    if (flag === "substring") {
+      // Destructure the start and end points from the params array
+      const [start, end] = p;
+
+      // Apply the substring method to each value in the array
+      return value.substring(start, end)
+  }
 }
+
+function filterValues(values, filterResults) {
+  console.log('VALUES', values)
+  const { method, params } = filterResults;
+
+  switch (method) {
+      case "regex":
+          const regex = new RegExp(params)
+          return values.filter(value => regex.test(value))
+      case "contains":
+          return values.filter(value => value.includes(params))
+
+      case "exclude":
+          return values.filter(value => !value.includes(params))
+
+      case "startsWith":
+          return values.filter(value => value.startsWith(params))
+
+      case "endsWith":
+          return values.filter(value => value.endsWith(params))
+
+      default:
+          console.warn(`Unknown filter method: ${method}`)
+          return values
+  }
+}
+
+
 
 
 // Helper function to extract values based on a schema rule
@@ -32,7 +67,7 @@ const extractValues = (html, rule) => {
     // If the rule is a string, return it as-is
     return [rule]
   }
-  const { selector, attribute, postprocess } = rule
+  const { selector, attribute, postProcess } = rule
   let tempContainer = parser.parseFromString(html, "text/html")
   const elements = [...tempContainer.querySelectorAll(selector)]
   const values = elements
@@ -78,10 +113,35 @@ export async function harmonizeSource(html, harmonizer = "default") {
     
     
   // until we have stricter checking we can at least assume the schema object exists
-  const harm = await getHarmonizer(harmonizer)
-  const schema = harm.schema
+  function mergeSchemas(defaultSchema, newSchema) {
+    // Create a copy of the default schema to avoid modifying the original
+    const mergedSchema = { ...defaultSchema };
+
+    // Iterate over the keys in the new schema
+    for (const key in newSchema) {
+        if (newSchema.hasOwnProperty(key)) {
+            // If the key exists in both schemas, replace the default with the new value
+            mergedSchema[key] = newSchema[key];
+        }
+    }
+
+    return mergedSchema;
+}
+
+let schema = {}
+  let d = await getHarmonizer("default")
+
+  if (harmonizer != "default") {
+    let h = await getHarmonizer(harmonizer)
+    schema = mergeSchemas(d.schema, h.schema)
+  }
+  else {
+    schema = d.schema
+  }
+
+  
+  // const schema = harm
   console.log('SCHEEEEEMA')
-  console.log(schema)
 
   let output = {}
 
@@ -131,21 +191,26 @@ export async function harmonizeSource(html, harmonizer = "default") {
       // Process each rule in the "o" array
       o.forEach((rule) => {
         let values = extractValues(html, rule)
+
+        if (rule.filterResults) {
+          console.log("filtering")
+          values = filterValues(values, rule.filterResults)
+        }
         // If the rule has a "key", use it to reconstruct the nested structure. 
         // Unless the API spec changes, this will never run, but since we have it on DocumentRecord, might as well account for it here.
         if (rule.key) {
           setNestedProperty(oValues, rule.key, values)
         } else {
-          if (rule.postprocess) {
+          if (rule.postProcess) {
             let pVals = []
             values.forEach((val) =>{ 
-               let pv = processValue(val, rule.postprocess.method, rule.postprocess.params)
+               let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
                if (pv) {
                 pVals.push(pv) 
                }
               values = pVals
             })
-            // console.log(rule.postprocess.method)
+            // console.log(rule.postProcess.method)
             // console.log(pVals)
           }
           // Otherwise, add the values directly to the oValues array
