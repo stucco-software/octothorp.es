@@ -116,7 +116,7 @@ const localHarmonizers = {
         "mention": {
             "s": "source",
             "o": [{
-                "selector": "a.u-in-reply-to",
+                "selector": ".u-in-reply-to",
                 "attribute": "href"
             }]
             // no specified "subject" = default to page url
