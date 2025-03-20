@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import { verifiedOrigin } from '$lib/origin.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js'
+import { harmonizeSource, remoteHarmonizer } from '$lib/harmonizeSource.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 
 import normalizeUrl from 'normalize-url'
@@ -18,7 +18,12 @@ const handleHTML = async (response, uri, h) => {
   const bigdump = Array(src)
 
   const harmed = await harmonizeSource(src, h)
-  harmed.harmonizerUsed = await getHarmonizer(h)
+        if (h.startsWith("http")){
+          harmed.harmonizerUsed = await remoteHarmonizer(h)
+        }
+        else {
+          harmed.harmonizerUsed = await getHarmonizer(h)
+        }
 //   harmed.dump = bigdump
   // debug could log harmed
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']

@@ -2,6 +2,7 @@
 // iterate over unique subjects and output one object per
 // add support for type=json
 // add support for type=xpath
+import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 
 // import { json } from '@sveltejs/kit'
@@ -92,49 +93,76 @@ const setNestedProperty = (obj, keyPath, value) => {
   current[keys[keys.length - 1]] = value
 }
 
+// helper function use one schema as a base and one as an override
+function mergeSchemas(baseSchema, override) {
+  // Create a copy of the default schema to avoid modifying the original
+  const mergedSchema = { ...baseSchema };
 
-export async function harmonizeSource(html, harmonizer = "default") {
-  // accept harmonizer name or json blob
- 
-//   function hCheck(h) {
-//     if (typeof h === 'string') {
-//         const harmed = json(getHarmonizer(h))
-//         console.log(json(harmed))
-//         return harmed.schema
-//     }
+  // Iterate over the keys in the new schema
+  for (const key in override) {
+      if (override.hasOwnProperty(key)) {
+          // If the key exists in both schemas, replace the default with the new value
+          mergedSchema[key] = override[key];
+      }
+  }
 
-//     if (typeof h === 'object' && h.schema !== null) {
-//         return h.schema; // Valid JSON with 'schema' property
-//     }
-
-//     throw new Error("Something's wrong with the harmonizer JSON")
-// }
-  
-    
-    
-  // until we have stricter checking we can at least assume the schema object exists
-  function mergeSchemas(defaultSchema, newSchema) {
-    // Create a copy of the default schema to avoid modifying the original
-    const mergedSchema = { ...defaultSchema };
-
-    // Iterate over the keys in the new schema
-    for (const key in newSchema) {
-        if (newSchema.hasOwnProperty(key)) {
-            // If the key exists in both schemas, replace the default with the new value
-            mergedSchema[key] = newSchema[key];
-        }
-    }
-
-    return mergedSchema;
+  return mergedSchema;
 }
 
-let schema = {}
-  let d = await getHarmonizer("default")
+// exporting in case anything else is gonna need to grab harmonizers remotely
+
+export async function remoteHarmonizer(url) {
+  try {
+      // Fetch the remote URL
+      const response = await fetch(url);
+
+      // Check if the response is OK (status code 200-299)
+      if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      // Parse the response as JSON
+      const data = await response.json();
+
+      // Validate that the JSON has the required properties
+      if (!data.title || !data.schema) {
+          throw new Error("JSON is missing required properties: 'title' or 'schema'");
+      }
+      return data
+  } catch (error) {
+      // Handle any errors (e.g., network issues, invalid JSON, missing properties)
+      console.error("Error fetching or validating JSON:", error.message);
+      return null; // Return null or handle the error as needed
+  }
+}
+
+export async function harmonizeSource(html, harmonizer = "default") {
+
+  
+    
+
+  let schema = {}
+  const d = await getHarmonizer("default")
 
   if (harmonizer != "default") {
-    let h = await getHarmonizer(harmonizer)
-    schema = mergeSchemas(d.schema, h.schema)
-  }
+    // TKTK might need other checks if you want to accept a json blob directly
+    // but on the other hand, when are you going to get one except from a remote harmonizer? 
+      if (harmonizer.startsWith("http")){
+          let h = await remoteHarmonizer(harmonizer)
+          console.log("remote harmonizer", h.title)
+
+        if (h) {
+          schema = mergeSchemas(d.schema, h.schema)
+        }
+        else {
+          throw new Error('Invalid harmonizer structure')
+        }
+      }
+      else {
+        let h = await getHarmonizer(harmonizer)
+        schema = mergeSchemas(d.schema, h.schema)
+      }
+    }
   else {
     schema = d.schema
   }
