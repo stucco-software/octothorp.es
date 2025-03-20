@@ -88,7 +88,7 @@ const localHarmonizers = {
               ]
             },
 
-            "webringHub": {
+            "webringIndex": {
               "s": "source",
               "o": [
                 {
@@ -100,7 +100,7 @@ const localHarmonizers = {
               "s": "source",
               "o": [
                 {
-
+                // consider any custom markup to make a bookmark?
                 }
               ]
             }
