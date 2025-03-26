@@ -1,4 +1,3 @@
-// src/lib/utils/harmonizerPicker.js
 import { instance } from '$env/static/private';
 
 // Cache for harmonizer schemas
@@ -15,6 +14,124 @@ const localHarmonizers = {
         "@id": `${baseId}default`,
         "@type": "Harmonizer",
         "title": "Default Octothorpe Harmonizer",
+        // mode:html expects css selectors
+        // mode:json expects json dot notation
+        // mode:xpath expects xpath
+        "mode": "html",
+        "schema" : {
+          // one subject per blobject
+          "subject": {
+            // subject.s can be defined in the same way as o but also 
+            // accepts the string "source" for the source of the request
+            "s": "source",
+            "o": [
+              {
+                "key": "title",
+                "selector": "title",
+                "attribute": "textContent"
+              },
+              {
+                "key": "description",
+                "selector": "meta[name='description']",
+                "attribute": "content"
+              },
+              {
+                "key": "image",
+                "selector": "meta[property='og:image']",
+                "attribute": "content"
+              }
+            ]
+          },
+          // definition keys become type labels in the 
+          // blobject.octothorpes, hence are singular
+          // usage will be octothorpes.hashtag, octothorpes.mention, etc
+
+          "hashtag": {
+              "s": "source", 
+              "o": [
+                // criteria is additive, so this harmonizer will return
+                // results for EVERY condition listed here
+                {
+                  "selector": "octo-thorpe",
+                  "attribute": "textContent"
+                },
+                {
+                  "selector": "a[rel='octo:octothorpes']",
+                  "attribute": "href",
+                  // postProcess alters the returned strings.
+                  // if you want to instead filter results
+                  // use filterResults. postProcess runs last
+                  // both accept the regex method
+                  "postprocess": {
+                    "method": "regex",
+                    "params": `${instance}~/([^/]+)`
+                  }
+                },
+                {
+                  "selector": "link[rel='octo:octothorpes']",
+                  "attribute": "href"
+                }
+              ]
+            },
+            "mention": {
+              "s": "source",
+              "o": [
+                {
+                  "selector": `a[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
+                  "attribute": "href"
+                }
+              ]
+            },
+            "endorsement": {
+              "s": "source",
+              "o": [
+                {
+                  // link rev 
+                }
+              ]
+            },
+
+            "webringIndex": {
+              "s": "source",
+              "o": [
+                {
+              // link rev. anything else?
+                }
+              ]
+            },
+            "bookmark": {
+              "s": "source",
+              "o": [
+                {
+                // consider any custom markup to make a bookmark?
+                }
+              ]
+            }
+            }     
+    },
+    "squarespace": {
+      "@context": context,
+      "@id": `${baseId}instagram`,
+      "@type": "Harmonizer",
+      "title": "Squarespace Tags to Octothorpes",
+      "mode": "html",
+      "schema" : {
+          "hashtag": {
+              "s": "source", // s can be a string
+              "o": [
+                {
+                  "selector": `a[rel="tag"]`,
+                  "attribute": "textContent",
+                }
+              ]
+            }
+          }
+        },
+    "instagram": {
+        "@context": context,
+        "@id": `${baseId}instagram`,
+        "@type": "Harmonizer",
+        "title": "Instagram Tags to Octothorpes",
         "mode": "html",
         "schema" : {
             "hashtag": {
