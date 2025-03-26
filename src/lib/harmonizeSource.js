@@ -161,7 +161,9 @@ export async function harmonizeSource(html, harmonizer = "default") {
     ...(typedOutput.hashtag || []),
     ...Object.entries(typedOutput)
       .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
-      .map(([key, [uri]]) => ({ type: key, uri }))
+      .flatMap(([key, uris]) => 
+        uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
+      )
   ]
   return output
 }
