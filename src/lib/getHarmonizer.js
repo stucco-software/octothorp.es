@@ -57,7 +57,7 @@ const localHarmonizers = {
                   "attribute": "textContent"
                 },
                 {
-                  "selector": "[rel='octo:octothorpes']",
+                  "selector": "a[rel='octo:octothorpes']",
                   "attribute": "href",
                   // postProcess alters the returned strings.
                   // if you want to instead filter results
@@ -67,6 +67,10 @@ const localHarmonizers = {
                     "method": "regex",
                     "params": `${instance}~/([^/]+)`
                   }
+                },
+                {
+                  "selector": "link[rel='octo:octothorpes']",
+                  "attribute": "href"
                 }
               ]
             },
