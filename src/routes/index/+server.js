@@ -292,7 +292,9 @@ const handleMention = async (s, p, o) => {
 const handleHTML = async (response, uri) => {
   const src = await response.text()
   const harmed = await harmonizeSource(src)
+
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
+
   harmed.octothorpes.forEach(async octothorpe => {
     switch(true) {
       case octothorpe.type === 'mention':
@@ -320,12 +322,11 @@ const handleHTML = async (response, uri) => {
 const handler = async (s) => {
   console.log(`handle fn…`, s)
 
-  let subject = await fetch(s)
-
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')
   }
+  let subject = await fetch(s)
   await recordIndexing(s)
 
   if (subject.headers.get('content-type').includes('text/html')) {
