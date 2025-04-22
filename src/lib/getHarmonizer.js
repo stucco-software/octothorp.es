@@ -22,30 +22,42 @@ const localHarmonizers = {
         "schema" : {
           // one subject per blobject
           "subject": {
-            // subject.s can be defined in the same way as o but also 
+            // s can be defined in the same way as o but also 
             // accepts the string "source" for the source of the request
+            // TKTK support for non-source uris
             "s": "source",
-            "o": [
-              {
-                "key": "title",
-                "selector": "title",
-                "attribute": "textContent"
-              },
-              {
-                "key": "description",
+            "title" : [
+                {
+                  "selector": "title",
+                  "attribute": "textContent"
+                }
+              ],
+            "description": [{
                 "selector": "meta[name='description']",
                 "attribute": "content"
-              },
-              {
-                "key": "image",
+              }],
+            "image" : 
+              [{
                 "selector": "meta[property='og:image']",
                 "attribute": "content"
-              }
-            ]
-          },
+              }],
+            "contact":
+              [{
+                "selector": "meta[name='octo:contact']",
+                "attribute": "content"
+              }],
+              // Pages can have multiple types
+              // All public URLs are typed as octo:page by default
+            "type":
+              [{
+                "selector": "meta[name='octo:type']",
+                "attribute": "content"
+              }]
+            },
+
           // definition keys become type labels in the 
           // blobject.octothorpes, hence are singular
-          // usage will be octothorpes.hashtag, octothorpes.mention, etc
+          // usage will be octothorpes.hashtag, octothorpes.link, octothorpes.bookmark etc
 
           "hashtag": {
               "s": "source", 
@@ -71,10 +83,18 @@ const localHarmonizers = {
                 {
                   "selector": "link[rel='octo:octothorpes']",
                   "attribute": "href"
-                }
+                },
+                {
+                  "selector": "meta[name='keywords']",
+                  "attribute": "content",
+                  "postProcess": {
+                    "method": "split",
+                    "params": `,`
+                  }
+                },
               ]
             },
-            "mention": {
+          "link": {
               "s": "source",
               "o": [
                 {
@@ -83,32 +103,34 @@ const localHarmonizers = {
                 }
               ]
             },
-            "endorsement": {
-              "s": "source",
-              "o": [
-                {
-                  // link rev 
-                }
-              ]
-            },
-
-            "webringIndex": {
-              "s": "source",
-              "o": [
-                {
-              // link rev. anything else?
-                }
-              ]
-            },
+          "endorse": {
+            "s": "source",
+            "o": [
+              {
+                "selector": `[rel='octo:endorses']:not([href*='${instance}~/'])`,
+                "attribute": "href"
+              }
+            ]
+          },
             "bookmark": {
               "s": "source",
               "o": [
                 {
-                // consider any custom markup to make a bookmark?
+                  "selector": `[rel='octo:bookmarks']:not([href*='${instance}~/'])`,
+                  "attribute": "href"
+                }
+              ]
+            },
+            "cite": {
+              "s": "source",
+              "o": [
+                {
+                  "selector": `[rel='octo:cites']:not([href*='${instance}~/'])`,
+                  "attribute": "href"
                 }
               ]
             }
-            }     
+          }     
     },
     "instagram": {
         "@context": context,
@@ -173,7 +195,7 @@ const localHarmonizers = {
         "title": "Client-side Webmention to backlink harmonizer",
         "mode": "html",
         "schema": {
-            "DocumentRecord": {
+            "documentRecord": {
                 "s": {
                   "selector": "meta[property='og:url']", // s can also have postProcessing
                   "attribute": "content",
@@ -297,3 +319,8 @@ export async function getHarmonizer(id) {
     // Return the harmonizer schema
     return harmonizer;
 }
+
+/*
+
+
+*/

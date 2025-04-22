@@ -31,6 +31,11 @@ const processValue = (value, flag, p) => {
       // Apply the substring method to each value in the array
       return value.substring(start, end)
   }
+
+  if (flag === "split") {
+    // console.log(value.split(p))
+    return value.split(p)
+  }
 }
 
 function filterValues(values, filterResults) {
@@ -170,64 +175,26 @@ export async function harmonizeSource(html, harmonizer = "default") {
   
   // const schema = harm
   console.log('SCHEEEEEMA')
+  // console.log(schema)
 
   let output = {}
 
   // Process each top-level object in the schema
   let typedOutput = {}
-  for (const key in schema) {  
-    typedOutput[key] = []
-    const s = schema[key].s
-    const o = schema[key].o 
-    // TKTK think about how to handle multiple sources one day
-    const sValues = extractValues(html, s) // Extract all s values
-
-    // Special handling for schema.subject and schema.DocumentRecord
-    if (key === "subject" || key === "DocumentRecord") {
-      if (key === "subject") {
-        // will need a refactor if we want to allow non-source indexing
-        // ie from a proactive-indexing standpoint
-         // build subjects array ?
-        output["@id"] = sValues.toString()
-      } else {
-        output[key] = {}
-      }
-
+async function getObjectVals(obj) {
+  const oValues = []
       // Process each rule in the "o" array
-      o.forEach((rule) => {
-        const values = extractValues(html, rule)
-        // Use the "key" property to reconstruct the nested structure
-        if (rule.key) {
-          if (key == "subject") {
-            // set source properties on output directly
-          setNestedProperty(output, rule.key, values.toString())       
-          }
-          else {
-          setNestedProperty(output[key], rule.key, values)
-          }
-        } else {
-          // If no key is provided, add the values directly
-          output[key] = values
-        }
-      })
-    } 
-    // end subject/doc record
-    else {
-      // typedOutput[key] =[]
-      // Default handling for other top-level objects
-      const oValues = []
-      // Process each rule in the "o" array
-      o.forEach((rule) => {
+      obj.forEach((rule) => {
         let values = extractValues(html, rule)
 
         if (rule.filterResults) {
           console.log("filtering")
           values = filterValues(values, rule.filterResults)
         }
-        // If the rule has a "key", use it to reconstruct the nested structure. 
+        // If the rule has a "name", use it to reconstruct the nested structure. 
         // Unless the API spec changes, this will never run, but since we have it on DocumentRecord, might as well account for it here.
-        if (rule.key) {
-          setNestedProperty(oValues, rule.key, values)
+        if (rule.name) {
+          setNestedProperty(oValues, rule.name, values)
         } else {
           if (rule.postProcess) {
             let pVals = []
@@ -243,12 +210,66 @@ export async function harmonizeSource(html, harmonizer = "default") {
           }
           // Otherwise, add the values directly to the oValues array
           oValues.push(...values)
-          typedOutput[key] = oValues
         }
       })
+      return oValues
+    }
+
+
+  for (const key in schema) {  
+    typedOutput[key] = []
+    const thisObj = schema.key
+    console.log( schema[key].title )
+    const s = schema[key].s
+    const o = schema[key].o 
+    // TKTK think about how to handle multiple sources one day
+    const sValues = extractValues(html, s) // Extract all s values
+
+  // Special handling for schema.subject and schema.documentRecord
+    if (key === "subject" || key === "documentRecord") {
+      // props for subject go in the top level of the blobject
+      if (key === "subject") {
+        // TKTK will need a refactor if we want to allow non-source indexing
+        // ie from a proactive-indexing standpoint
+        // build subjects array ?
+        output["@id"] = sValues.toString()
+      } else {
+        // documentRecord goes in own object at top level as-is
+        output[key] = {}
+      }
+      // Process each rule in the "o" array
+
+      for (const [prop, val] of Object.entries(schema.subject)) {
+              // skip source because it's already in the subject array
+              let values = []
+              if (prop != "s") {
+                console.log(val)
+                  values = await getObjectVals(val)
+              // Use the "key" property to reconstruct the nested structure
+              if (key == "subject") {
+                  // set source properties on output directly
+                setNestedProperty(output, prop, values.toString())       
+                }
+                else {
+                setNestedProperty(output[key], prop, values)
+                }
+              } else {
+                // If no key is provided, add the values directly
+                output[key] = values
+              }
+            }
+        }
+    // end subject/doc record
+    else {
+      // Default handling for other top-level objects
+      typedOutput[key] = await getObjectVals(schema[key].o)
+      console.log("PROBS")
+      // console.log(schema[key].o)
+      // console.log(typedOutput[key].o)
     }
     // end else
   }
+
   // end process key
   output["octothorpes"] = [
     ...(typedOutput.hashtag || []),
@@ -257,7 +278,6 @@ export async function harmonizeSource(html, harmonizer = "default") {
       .flatMap(([key, uris]) => 
         uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
       )
-  ];
+  ]
   return output
 }
-
