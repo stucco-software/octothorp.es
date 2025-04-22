@@ -26,7 +26,9 @@ const handleHTML = async (response, uri, h) => {
         }
 //   harmed.dump = bigdump
   // debug could log harmed
-  let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
+      if (harmed['@id'] === 'source') { harmed['@id'] = uri
+      }
+
   harmed.octothorpes.forEach(async octothorpe => {
     switch(true) {
       case octothorpe.type === 'mention':

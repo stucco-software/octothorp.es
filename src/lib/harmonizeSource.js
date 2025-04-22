@@ -251,12 +251,10 @@ async function getObjectVals(obj) {
                 setNestedProperty(output, prop, values.toString())       
                 }
                 else {
+                // TKTK documentRecords
                 setNestedProperty(output[key], prop, values)
                 }
-              } else {
-                // If no key is provided, add the values directly
-                output[key] = values
-              }
+              } 
             }
         }
     // end subject/doc record
