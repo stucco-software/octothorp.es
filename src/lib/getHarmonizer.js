@@ -1,4 +1,3 @@
-// src/lib/utils/harmonizerPicker.js
 import { instance } from '$env/static/private';
 
 // Shared context and base ID

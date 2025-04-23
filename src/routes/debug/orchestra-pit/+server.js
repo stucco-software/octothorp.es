@@ -56,8 +56,9 @@ const handler = async (s, h = "default") => {
 }
 
 export async function GET({url}) {
-    let harmonizer = url.searchParams.get('as') ?? "default"
-    console.log(harmonizer)
+  console.log('GET')
+  let harmonizer = url.searchParams.get('as') ?? "default"
+  console.log(harmonizer)
     //   let url = new URL(req.request.url)
   let defaultURL = 'https://demo.ideastore.dev'
   let uri = url.searchParams.get('uri') ?? defaultURL
@@ -73,8 +74,6 @@ export async function GET({url}) {
 }
 
 export async function POST({request}) {
-  const data = await request.formData()
-  let uri = data.get('uri')
-  let harmonizer = data.get('harmonizer')
+  console.log('DOOP')
   return new Response(200)
 }
