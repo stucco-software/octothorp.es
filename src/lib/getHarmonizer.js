@@ -1,18 +1,15 @@
 import { instance } from '$env/static/private';
 
-// Cache for harmonizer schemas
-const harmonizerCache = new Map();
-
 // Shared context and base ID
 const context = `${instance}context.json`;
 const baseId = `${instance}harmonizer/`;
 
 // Predefined harmonizer schemas (can be loaded from a file or database)
 const localHarmonizers = {
-    "default": {
+  "default": {
         "@context": context,
         "@id": `${baseId}default`,
-        "@type": "Harmonizer",
+        "@type": "harmonizer", 
         "title": "Default Octothorpe Harmonizer",
         // mode:html expects css selectors
         // mode:json expects json dot notation
@@ -21,30 +18,51 @@ const localHarmonizers = {
         "schema" : {
           // one subject per blobject
           "subject": {
-            // subject.s can be defined in the same way as o but also 
+            // s can be defined in the same way as o but also 
             // accepts the string "source" for the source of the request
+            // TKTK support for non-source uris
             "s": "source",
-            "o": [
-              {
-                "key": "title",
-                "selector": "title",
-                "attribute": "textContent"
-              },
-              {
-                "key": "description",
+            "title" : [
+                {
+                  "selector": "title",
+                  "attribute": "textContent"
+                }
+              ],
+            "description": [{
                 "selector": "meta[name='description']",
                 "attribute": "content"
-              },
-              {
-                "key": "image",
-                "selector": "meta[property='og:image']",
+              }],
+            "image" : 
+              [
+                {
+                  "selector": "link[rel='octo:image']",
+                  "attribute": "href"
+                },
+                {
+                  "selector": "[data-octo-image]",
+                  "attribute": "href"
+                },
+                {
+                  "selector": "[data-octo-image]",
+                  "attribute": "src"
+                }
+            ],
+            "contact":
+              [{
+                "selector": "meta[name='octo:contact']",
                 "attribute": "content"
-              }
-            ]
-          },
+              }],
+              // Pages can have multiple types
+              // All public URLs are typed as octo:page by default
+            "type":
+              [{
+                "selector": "meta[property='octo:type']",
+                "attribute": "content"
+              }]
+            },
+
           // definition keys become type labels in the 
           // blobject.octothorpes, hence are singular
-          // usage will be octothorpes.hashtag, octothorpes.mention, etc
 
           "hashtag": {
               "s": "source", 
@@ -62,7 +80,7 @@ const localHarmonizers = {
                   // if you want to instead filter results
                   // use filterResults. postProcess runs last
                   // both accept the regex method
-                  "postprocess": {
+                  "postProcess": {
                     "method": "regex",
                     "params": `${instance}~/([^/]+)`
                   }
@@ -70,221 +88,81 @@ const localHarmonizers = {
                 {
                   "selector": "link[rel='octo:octothorpes']",
                   "attribute": "href"
-                }
+                },
+                {
+                  "selector": "meta[name='keywords']",
+                  "attribute": "content",
+                  "postProcess": {
+                    "method": "split",
+                    "params": `,`
+                  }
+                },
               ]
             },
-            "mention": {
+          "link": {
               "s": "source",
               "o": [
                 {
-                  "selector": `a[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
+                  "selector": `[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
                   "attribute": "href"
                 }
               ]
             },
-            "endorsement": {
-              "s": "source",
-              "o": [
-                {
-                  // link rev 
-                }
-              ]
-            },
-
-            "webringIndex": {
-              "s": "source",
-              "o": [
-                {
-              // link rev. anything else?
-                }
-              ]
-            },
+          "endorse": {
+            "s": "source",
+            "o": [
+              {
+                "selector": `[rel='octo:endorses']:not([href*='${instance}~/'])`,
+                "attribute": "href"
+              }
+            ]
+          },
             "bookmark": {
               "s": "source",
               "o": [
                 {
-                // consider any custom markup to make a bookmark?
+                  "selector": `[rel='octo:bookmarks']:not([href*='${instance}~/'])`,
+                  "attribute": "href"
                 }
               ]
-            }
-            }     
-    },
-    "squarespace": {
-      "@context": context,
-      "@id": `${baseId}instagram`,
-      "@type": "Harmonizer",
-      "title": "Squarespace Tags to Octothorpes",
-      "mode": "html",
-      "schema" : {
-          "hashtag": {
-              "s": "source", // s can be a string
+            },
+            "cite": {
+              "s": "source",
               "o": [
                 {
-                  "selector": `a[rel="tag"]`,
-                  "attribute": "textContent",
+                  "selector": `[rel='octo:cites']:not([href*='${instance}~/'])`,
+                  "attribute": "href"
                 }
               ]
             }
-          }
-        },
-    "instagram": {
-        "@context": context,
-        "@id": `${baseId}instagram`,
-        "@type": "Harmonizer",
-        "title": "Instagram Tags to Octothorpes",
-        "mode": "html",
-        "schema" : {
-            "hashtag": {
-                "s": "source", // s can be a string
-                "o": [
-                  {
-                    "selector": "octo-thorpe",
-                    "attribute": "textContent",
-                  },
-                  {
-                    "selector": "[rel='octo:octothorpes']",
-                    "attribute": "href",
-                    "postprocess": {
-                      "method": "regex",
-                      "params": `${instance}~/([^/]+)`
-                    },
-                  },
-                ],
-              },
-              "mention": {
-                "s": {
-                  "selector": "link[rel='canonical']", // s can also be a "selector"/attribute group
-                  "attribute": "href",
-                },
-                "o": [
-                  {
-                    "selector": `[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
-                    "attribute": "href"
-                  },
-                ],
-              },
-              "subject": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": "title",
-                    "attribute": "textContent",
-                    "key": "title",
-                  },
-                  {
-                    "selector": "meta[name='description']",
-                    "attribute": "content",
-                    "key": "description",
-                  },
-                  {
-                    "selector": "meta[property='og:image']",
-                    "attribute": "content",
-                    "key": "image",
-                  },
-                ],
-              }
-            }     
+          }     
     },
-    // no dashes in names
-    "webmentionClient": {
-        "@context": context,
-        "@id": `${baseId}webmention-client`,
-        "@type": "Harmonizer",
-        "title": "Client-side Webmention to backlink harmonizer",
-        "mode": "html",
-        "schema": {
-            "DocumentRecord": {
-                "s": {
-                  "selector": "meta[property='og:url']", // s can also have postprocessing
-                  "attribute": "content",
-                  "postprocess": {
-                    "method": "regex",
-                    "params": "https?://([^/]+)",
-                  },
-                },
-                "o": [
-                  {
-                    "selector": ".h-entry .u-author.h-card .p-name",
-                    "attribute": "innerHTML",
-                    "key": "author.name",
-                  },
-                  {
-                    "selector": ".h-entry .u-author.h-card .u-photo",
-                    "attribute": "src",
-                    "key": "author.photo",
-                  },
-                  {
-                    "selector": ".h-entry .u-author.h-card .u-url",
-                    "attribute": "href",
-                    "key": "author.url",
-                  },
-                  {
-                    "selector": ".h-entry .e-content",
-                    "attribute": "innerHtml",
-                    "key": "content.html"   
-                    },
-                    {
-                        "selector": ".h-entry .e-content",
-                        "attribute": "textContent",
-                        "key": "content.text"   
-                        },
-                ],
-              },
-        "mention": {
-            "s": "source",
-            "o": [{
-                "selector": ".u-in-reply-to",
-                "attribute": "href"
-            }]
-            // no specified "subject" = default to page url
-        },
-
-        }
-    },
-        "article": {
-        "@context": context,
-        "@id": `${baseId}article`,
-        "title": "SKOs: Basic Article Harmonizer",
-        "mode": "json",
-        "type": "Article",
-        "@type": "Harmonizer",
-        "schema": {
-            // TODO define json schema
-            // "DocumentRecord": {
-            //     "headline": { "path": "headline" },
-            //     "description": { "path": "description" },
-            //     "author": { "path": "author.name" },
-            //     "datePublished": { "path": "datePublished" },
-            //     "publisher": { "path": "publisher.name" },
-            //     "image": { "path": "image.url" }
-            // }
-
-        }
-    },
-    "seo": {
-        "@context": context,
-        "@id": `${baseId}seo`,
-        "mode": "html",
-        "schema": {
-// TODO clean up, integrate with default
-            // "DocumentRecord": {
-            //     "title": {
-            //         "selector": "meta[property='og:title'], meta[name='twitter:title'], title",
-            //         "attribute": "content"
-            //     },
-            //     "description": {
-            //         "selector": "meta[property='og:description'], meta[name='twitter:description'], meta[name='description']",
-            //         "attribute": "content"
-            //     },
-            //     "image": {
-            //         "selector": "meta[property='og:image'], meta[name='twitter:image']",
-            //         "attribute": "content"
-            //     }
-            // }
-        }
-
+    "openGraph": {
+      "@context": context,
+      "@id": `${baseId}openGraph`,
+      "@type": "harmonizer", 
+      "title": "Opengraph Protocol Harmonizer",
+      "mode": "html",
+      "schema" : {
+        "subject": {
+          "s": "source",
+          "title" : [
+              {
+                "selector": "meta[property='og:title']",
+                "attribute": "content"
+                }
+            ],
+          "description": [{
+              "selector": "meta[property='og:description']",
+              "attribute": "content"
+            }],
+          "image" : [{
+              "selector": "meta[property='og:image']",
+              "attribute": "content"
+          }]
+      }
     }
-    // Add more harmonizers as needed
+  }
 };
 
 /**
@@ -298,10 +176,7 @@ export async function getHarmonizer(id) {
         throw new Error('Invalid harmonizer ID');
     }
 
-    // Check the cache first
-    if (harmonizerCache.has(id)) {
-        return harmonizerCache.get(id);
-    }
+
 
     // Fetch the harmonizer schema (from predefined harmonizers or an external source)
     const harmonizer = localHarmonizers[id];
@@ -311,9 +186,12 @@ export async function getHarmonizer(id) {
         throw new Error('Harmonizer not found');
     }
 
-    // Cache the harmonizer
-    harmonizerCache.set(id, harmonizer);
 
     // Return the harmonizer schema
     return harmonizer;
 }
+
+/*
+
+
+*/

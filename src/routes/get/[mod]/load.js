@@ -125,6 +125,7 @@ if (obj != "?o") {
     // OK, figured out the difference. Backlinks should only return 
     // objects that dont' contain the instance. And Thorpes are the reverse.
     // so there needs to be a hook for adding a FILTER NOT EXISTS
+    // UPDATE 3/27 -- this now happens in the harmonizer step, so this should check for type 
     s = processUrls(subjects)
     o = processUrls(objects)
   }

@@ -1,25 +1,29 @@
 import { json, error } from '@sveltejs/kit'
-import { JSDOM } from 'jsdom'
-import { verifiedOrigin } from '$lib/origin.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js'
+import { harmonizeSource, remoteHarmonizer } from '$lib/harmonizeSource.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
+// TKTK import testHarmonizer for more fun
 
 import normalizeUrl from 'normalize-url'
 
 let p = 'octo:octothorpes'
-// let indexCooldown = 300000 //5min
 
-
-
-// /////// just this stuff 
 // Accept a response
 const handleHTML = async (response, uri, h) => {
   const src = await response.text()
+  const bigdump = Array(src)
 
   const harmed = await harmonizeSource(src, h)
-  harmed.harmonizerUsed = await getHarmonizer(h)
+        if (h.startsWith("http")){
+          harmed.harmonizerUsed = await remoteHarmonizer(h)
+        }
+        else {
+          harmed.harmonizerUsed = await getHarmonizer(h)
+        }
+//   harmed.dump = bigdump
   // debug could log harmed
-  let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
+      if (harmed['@id'] === 'source') { harmed['@id'] = uri
+      }
+
   harmed.octothorpes.forEach(async octothorpe => {
     switch(true) {
       case octothorpe.type === 'mention':
