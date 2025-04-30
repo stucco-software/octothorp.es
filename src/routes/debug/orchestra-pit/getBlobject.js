@@ -3424,3 +3424,46 @@ function processSparqlResponse(response, instance) {
   const instance = "https://octothorp.es/~/";
   processSparqlResponse(kitchenSink, instance)
   
+
+  /* the get all the things SPARQL
+
+
+  SELECT DISTINCT ?s ?o ?title ?description ?ot ?od ?type ?blankNode ?blankNodePred ?blankNodeObj
+WHERE {
+  VALUES ?sub { 
+    "https://demo.ideastore.dev"  
+    "https://mmmx.cloud"       
+  }
+  
+  ?s octo:octothorpes ?o .
+  FILTER(CONTAINS(STR(?s), ?sub))
+  
+  {
+    ?o rdf:type <octo:Page> .
+    BIND("Page" AS ?type)
+    
+    # Capture blank nodes connected to the Page object
+    OPTIONAL {
+      ?o ?blankNodePred ?blankNode .
+      FILTER(isBlank(?blankNode))
+      
+      # Optionally capture properties of the blank node itself
+      OPTIONAL {
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))  # Prevents infinite recursion
+      }
+    }
+  }
+  UNION
+  {
+    ?o rdf:type <octo:Term> .
+    BIND("Term" AS ?type)
+  }
+  
+  OPTIONAL { ?s octo:title ?title . }
+  OPTIONAL { ?s octo:description ?description . }
+  OPTIONAL { ?o octo:title ?ot . }
+  OPTIONAL { ?o octo:description ?od . }
+}
+
+*/
