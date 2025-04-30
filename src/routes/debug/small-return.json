@@ -1,0 +1,124 @@
+{
+  "head": {
+    "vars": [
+      "s",
+      "o",
+      "title",
+      "description",
+      "ot",
+      "od",
+      "type",
+      "blankNode",
+      "blankNodePred",
+      "blankNodeObj"
+    ]
+  },
+  "results": {
+    "bindings": [
+      {
+        "s": {
+          "type": "uri",
+          "value": "https://mmmx.cloud/media/cats/img-6159-jpeg"
+        },
+        "o": {
+          "type": "uri",
+          "value": "https://octothorp.es/~/cats"
+        },
+        "title": {
+          "type": "literal",
+          "value": "Frank on the Balcony"
+        },
+        "type": {
+          "type": "literal",
+          "value": "Term"
+        }
+      },
+      {
+        "s": {
+          "type": "uri",
+          "value": "https://demo.ideastore.dev/alt-server"
+        },
+        "o": {
+          "type": "uri",
+          "value": "https://hashtags.rdf.systems/~/demo"
+        },
+        "title": {
+          "type": "literal",
+          "value": "Alternate server page - Octothorpes Demo"
+        },
+        "description": {
+          "type": "literal",
+          "value": "This page uses an alternate server, which can easily be set with a page variable."
+        },
+        "type": {
+          "type": "literal",
+          "value": "Term"
+        }
+      },
+      {
+        "s": {
+          "type": "uri",
+          "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+        },
+        "o": {
+          "type": "uri",
+          "value": "https://demo.ideastore.dev/multi-server"
+        },
+        "title": {
+          "type": "literal",
+          "value": "Tags and Octothorpes - Octothorpes Demo"
+        },
+        "description": {
+          "type": "literal",
+          "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+        },
+        "ot": {
+          "type": "literal",
+          "value": "Multiple Servers - Octothorpes Demo"
+        },
+        "od": {
+          "type": "literal",
+          "value": "This page sends octothorpes to two different servers."
+        },
+        "type": {
+          "type": "literal",
+          "value": "Page"
+        }
+      },
+      {
+        "s": {
+          "type": "uri",
+          "value": "https://demo.ideastore.dev"
+        },
+        "o": {
+          "type": "uri",
+          "value": "https://demo.ideastore.dev/shorthand"
+        },
+        "title": {
+          "type": "literal",
+          "value": "Home - Octothorpes Demo"
+        },
+        "description": {
+          "type": "literal",
+          "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+        },
+        "type": {
+          "type": "literal",
+          "value": "Page"
+        },
+        "blankNode": {
+          "type": "bnode",
+          "value": "53c81a693473b34cca014fcac12be380"
+        },
+        "blankNodePred": {
+          "type": "uri",
+          "value": "https://vocab.octothorp.es#octothorpes"
+        },
+        "blankNodeObj": {
+          "type": "uri",
+          "value": "octo:Backlink"
+        }
+      }
+    ]
+  }
+}

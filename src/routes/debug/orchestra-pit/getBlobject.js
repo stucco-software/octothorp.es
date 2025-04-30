@@ -1,0 +1,3426 @@
+function processSparqlResponse(response, instance) {
+    const urlMap = {};
+  
+    response.results.bindings.forEach(binding => {
+      const url = binding.s.value;
+      
+      if (!urlMap[url]) {
+        urlMap[url] = {
+          '@id': url,
+          title: null,
+          description: null,
+          octothorpes: []
+        };
+      }
+  
+      const current = urlMap[url];
+  
+      // Set title and description at top level if they exist
+      if (binding.title?.value && !current.title) {
+        current.title = binding.title.value;
+      }
+      if (binding.description?.value && !current.description) {
+        current.description = binding.description.value;
+      }
+  
+      // Process octothorpe links
+      if (binding.o?.value) {
+        const targetUrl = binding.o.value;
+        const isTerm = binding.type?.value === 'Term';
+  
+        if (isTerm) {
+          // For Terms, only include if starts with instance
+          if (targetUrl.startsWith(instance)) {
+            // Trim to value after last /
+            const termValue = targetUrl.substring(targetUrl.lastIndexOf('/') + 1);
+            if (!current.octothorpes.includes(termValue)) {
+              current.octothorpes.push(termValue);
+            }
+          }
+        } else {
+          // For Pages, determine type
+          let pageType = 'link';
+          if (binding.blankNodeObj?.value?.startsWith('octo:')) {
+            pageType = binding.blankNodeObj.value.substring(5); // Remove 'octo:' prefix
+          }
+  
+          // Check if this target already exists in the array
+          const existingIndex = current.octothorpes.findIndex(
+            item => typeof item === 'object' && item.target === targetUrl
+          );
+  
+          if (existingIndex === -1) {
+            current.octothorpes.push({
+              target: targetUrl,
+              type: pageType
+            });
+          } else if (pageType !== 'link') {
+            // Update existing entry if we have a more specific type
+            current.octothorpes[existingIndex].type = pageType;
+          }
+        }
+      }
+    });
+  
+    return Object.values(urlMap);
+  }
+  
+  
+  const kitchenSink = {
+    "head": {
+      "vars": [
+        "s",
+        "o",
+        "title",
+        "description",
+        "ot",
+        "od",
+        "type",
+        "blankNode",
+        "blankNodePred",
+        "blankNodeObj"
+      ]
+    },
+    "results": {
+      "bindings": [
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/media/cats/img-6159-jpeg"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/cats"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Frank on the Balcony"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/alt-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://hashtags.rdf.systems/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Alternate server page - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/octothorpethoughts"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/digitalGardens"
+          },
+          "description": {
+            "type": "literal",
+            "value": "DOES THIS WORK cozyweb???"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-server"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Multiple Servers - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "This page sends octothorpes to two different servers."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/fetch"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/backlinks"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Fetch - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/backlinks"
+          },
+          "title": {
+            "type": "literal",
+            "value": "No Backlinks - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page has been linked to using a well-formed backlink, but it doesn't endorse incoming links, so no link shows up."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/backlinks"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "87483e13d38072062e49a7a63a0e3c07"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "87483e13d38072062e49a7a63a0e3c07"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1742695667362",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "87483e13d38072062e49a7a63a0e3c07"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "http://octothorpes.fly.dev/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/shorthand"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "53c81a693473b34cca014fcac12be380"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/shorthand"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "53c81a693473b34cca014fcac12be380"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743273685255",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/shorthand"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "53c81a693473b34cca014fcac12be380"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/me"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/Buckman"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Me"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Hi I’m Ním."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/buckmanite"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/Buckman"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Buckmanite"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Buckmanite, or Buckman Slate, is a metamorphic substance endemic to many urban environments, but first identified in the Buckman neighborhood of Portland, Or..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/the-street-potato"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/Buckman"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Street Potato"
+          },
+          "description": {
+            "type": "literal",
+            "value": "The Street Potato as of August 6, 2023"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/gallery/buckmanite"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/Buckman"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Buckmanite Samples"
+          },
+          "description": {
+            "type": "literal",
+            "value": "[[Buckmanite]], or Buckman Slate, is a metamorphic substance endemic to many urban environments, but first identified in the Buckman neighborhood of Portland..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/buckmanite"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/buckmanite"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Buckmanite"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Buckmanite, or Buckman Slate, is a metamorphic substance endemic to many urban environments, but first identified in the Buckman neighborhood of Portland, Or..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/gallery/buckmanite"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/buckmanite"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Buckmanite Samples"
+          },
+          "description": {
+            "type": "literal",
+            "value": "[[Buckmanite]], or Buckman Slate, is a metamorphic substance endemic to many urban environments, but first identified in the Buckman neighborhood of Portland..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web-returns"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/rad-web-news"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Return of the Radical Web Art Workshop"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If  you wanted to attend the first Make Radical Websites workshop hosted at Virtua Gal but didn’t make it in, good news! We’re going to do it again."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/after-xoxo"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/xoxofest"
+          },
+          "title": {
+            "type": "literal",
+            "value": "After xoxo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There was a particularly strong thread that ran through most of my conversations at XOXO this year. It was braided from questions (pleas?) like the following:"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/quickstart"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/xoxofest"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Quickstart - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Everything you need to start using octothorpes."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "916bf1f9c003f68e46f4f8964ee42aaa"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "916bf1f9c003f68e46f4f8964ee42aaa"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743273679876",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "916bf1f9c003f68e46f4f8964ee42aaa"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "title": {
+            "type": "literal",
+            "value": "No Backlinks - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page has been linked to using a well-formed backlink, but it doesn't endorse incoming links, so no link shows up."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "916bf1f9c003f68e46f4f8964ee42aaa"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "title": {
+            "type": "literal",
+            "value": "No Backlinks - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page has been linked to using a well-formed backlink, but it doesn't endorse incoming links, so no link shows up."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "916bf1f9c003f68e46f4f8964ee42aaa"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743273679876",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "title": {
+            "type": "literal",
+            "value": "No Backlinks - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page has been linked to using a well-formed backlink, but it doesn't endorse incoming links, so no link shows up."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "916bf1f9c003f68e46f4f8964ee42aaa"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://hashtags.rdf.systems/~/rdf"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Multiple Servers - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page sends octothorpes to two different servers."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/alt-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://hashtags.rdf.systems/~/rdf"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Alternate server page - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/after-xoxo"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/why-we-made-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "After xoxo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There was a particularly strong thread that ran through most of my conversations at XOXO this year. It was braided from questions (pleas?) like the following:"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/i-cannot-stop-galaxy-braining"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/why-we-made-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "I Can't Stop Galaxy Braining"
+          },
+          "description": {
+            "type": "literal",
+            "value": "I have very strong, interconnected synesthesia. This makes categorization of really any kind rather non-linear for me. I’m glad to have avoided developing a ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/we-really-like-personal-sites-but-the-internet-has-been-turning-into-poisonous-garbage-at-an-alarming-rate"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/why-we-made-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "We really like personal sites but the internet has been turning into poisonous garbage at an alarming rate"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Part of me wants to talk about how fun the internet was when it was just websites. But we barely had tags then, let alone hashtags. Much like the “Y2K Garage..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/we-got-used-to-talking-to-the-internet-itself-instead-of-people-on-the-internet"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/why-we-made-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "We got used to talking to the internet itself instead of people on the internet"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-bun-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Bun Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a different hummingbird family."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "The Paddleboat Family - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/testing"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/page%20with%20spaces"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/testing"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Page with Spaces in URL - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web-returns"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/cozyweb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Return of the Radical Web Art Workshop"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If  you wanted to attend the first Make Radical Websites workshop hosted at Virtua Gal but didn’t make it in, good news! We’re going to do it again."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/instead-of-instagram"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/cozyweb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Instead of instagram"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This is a post following up a story I posted on Instagram volunteering to help anyone interested to get off Instagram and onto something more open, with the ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/cozyweb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Radical Web Art Workshop"
+          },
+          "description": {
+            "type": "literal",
+            "value": "The first workshop was great! We covered a lot of ground (maybe more than we needed to) and I was super impressed by all the cool sites that everyone made:"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web-first-workshop"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/cozyweb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Radical Web Art Workshop"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "9f3df84a366e29c29fd505d51ec28e6e"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "9f3df84a366e29c29fd505d51ec28e6e"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743273679824",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "9f3df84a366e29c29fd505d51ec28e6e"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "51b86f28a798a29de3fa017f3122ca5e"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "51b86f28a798a29de3fa017f3122ca5e"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743019395438",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "51b86f28a798a29de3fa017f3122ca5e"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/me"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/nim"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Me"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Hi I’m Ním."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://hashtags.rdf.systems/~/multiverse"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Multiple Servers - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page sends octothorpes to two different servers."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/assertions"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/etymology"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Assertions - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Statements about urls other than the page you're on are called Assertions"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/etymology"
+          },
+          "title": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/assertions"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/oof"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Assertions - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Statements about urls other than the page you're on are called Assertions"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/oof"
+          },
+          "title": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-bun-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/buns"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Bun Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a different hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/tags"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/assertions"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/assertions"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Assertions - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Statements about urls other than the page you're on are called Assertions"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/the-garden-and-the-stream"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/for-ryan"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The garden and the stream"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This essay was very influential on the [[Digital Gardens]] movement, and on the creation of this memex."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/a-group-is-its-own-worst-enemy"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/for-ryan"
+          },
+          "title": {
+            "type": "literal",
+            "value": "A group is its own worst enemy"
+          },
+          "description": {
+            "type": "literal",
+            "value": "While that definition—software for group interaction—cuts across existing categories, I think it is the right one, because it recognizes the fundamentally ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/fan-is-a-tool-using-animal"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/for-ryan"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Fan is a tool Using animal"
+          },
+          "description": {
+            "type": "literal",
+            "value": "The story of what happened when Pinboard asked Archive of Our Own “what do you want out of tags.” Of note:"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/quickstart"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Quickstart - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Everything you need to start using octothorpes."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/hak"
+          },
+          "title": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/shorthand/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/hummingbirds"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Paddleboat Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/the-bun-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/hummingbirds"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Bun Family"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Something incredible has happened in the short two weeks since I posted about the hummingbird family that lives in our courtyard, [[The Paddleboat Family.]]"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-bun-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/hummingbirds"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Bun Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a different hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-platform"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Anywhere - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Implementing Octothorpes is really easy. Here are some sites on other platforms that already have it."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/fetch"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Fetch - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/webring-component"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Webring component - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Easily add a webring navigator to your site with our web-ring web component"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/no-backlinks"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "No Backlinks - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page has been linked to using a well-formed backlink, but it doesn't endorse incoming links, so no link shows up."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/quickstart"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Quickstart - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Everything you need to start using octothorpes."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/tags-and-octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tags and Octothorpes - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/page%20with%20spaces"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/demo"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Page with Spaces in URL - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/alt-server"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Multiple Servers - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page sends octothorpes to two different servers."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Alternate server page - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/assertions"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/octothorpe"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Assertions - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Statements about urls other than the page you're on are called Assertions"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/octothorpe"
+          },
+          "title": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/after-xoxo"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/activeWeb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "After xoxo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "There was a particularly strong thread that ran through most of my conversations at XOXO this year. It was braided from questions (pleas?) like the following:"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web-returns"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/activeWeb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Return of the Radical Web Art Workshop"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If  you wanted to attend the first Make Radical Websites workshop hosted at Virtua Gal but didn’t make it in, good news! We’re going to do it again."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/instead-of-instagram"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/activeWeb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Instead of instagram"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This is a post following up a story I posted on Instagram volunteering to help anyone interested to get off Instagram and onto something more open, with the ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/activeWeb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Radical Web Art Workshop"
+          },
+          "description": {
+            "type": "literal",
+            "value": "The first workshop was great! We covered a lot of ground (maybe more than we needed to) and I was super impressed by all the cool sites that everyone made:"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/rad-web-first-workshop"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/activeWeb"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Radical Web Art Workshop"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-platform"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/wordpress"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Anywhere - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Implementing Octothorpes is really easy. Here are some sites on other platforms that already have it."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/instead-of-instagram"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/blogging"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Instead of instagram"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This is a post following up a story I posted on Instagram volunteering to help anyone interested to get off Instagram and onto something more open, with the ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/webring-component"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/webrings"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Webring component - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Easily add a webring navigator to your site with our web-ring web component"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "5cb9b1af6eb6ff816dcb4ecdf398f9f6"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "5cb9b1af6eb6ff816dcb4ecdf398f9f6"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743027164346",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "5cb9b1af6eb6ff816dcb4ecdf398f9f6"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3d63a892a60108e17f1a54f871f52c64"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3d63a892a60108e17f1a54f871f52c64"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743273679782",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3d63a892a60108e17f1a54f871f52c64"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "5cb9b1af6eb6ff816dcb4ecdf398f9f6"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "5cb9b1af6eb6ff816dcb4ecdf398f9f6"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743027164346",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "5cb9b1af6eb6ff816dcb4ecdf398f9f6"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3d63a892a60108e17f1a54f871f52c64"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3d63a892a60108e17f1a54f871f52c64"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743273679782",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/synonyms"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "What Do You Call the # symbol? - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "There are many synonyms for the hashtag. Here are some of our favorites."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3d63a892a60108e17f1a54f871f52c64"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/rdf"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Multiple Servers - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page sends octothorpes to two different servers."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/about"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/jekyll"
+          },
+          "title": {
+            "type": "literal",
+            "value": "About - Octothorpes Demo"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/instead-of-instagram"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/community"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Instead of instagram"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This is a post following up a story I posted on Instagram volunteering to help anyone interested to get off Instagram and onto something more open, with the ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/instead-of-instagram"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/reboot-blog"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Instead of instagram"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This is a post following up a story I posted on Instagram volunteering to help anyone interested to get off Instagram and onto something more open, with the ..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/tinstac"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/words"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Tinstac"
+          },
+          "description": {
+            "type": "literal",
+            "value": "T.I.N.S.T.A.C. stands for There Is No Such Thing as Coincidence, coined by [[Jon]], because life, well, it be that way."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/pede"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/words"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Pede"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This came to me in a dream about cats. The cats in the dream were being very, very pede. I loved that dream."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/hypolink"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/words"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Hypolink"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Once in the early days of the Infobahn, [[Jon]] and I were in a conversation where somone waxed poetic about how hyperlinks are like how the mind works, conn..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/internet-plus"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/words"
+          },
+          "title": {
+            "type": "literal",
+            "value": "internet+"
+          },
+          "description": {
+            "type": "literal",
+            "value": "When [[Jon]] and Megan got an iMac G4 – the one with the weird foot and arm situation – I asked “wow does that get Internet plus” and of course the answer wa..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/alt-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://hashtags.rdf.systems/~/testing"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Alternate server page - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/page%20with%20spaces"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Page with Spaces in URL - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "a8b6820bdc6a768326e8e6ba3a4d591"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/page%20with%20spaces"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Page with Spaces in URL - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "a8b6820bdc6a768326e8e6ba3a4d591"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1743194974273",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/page%20with%20spaces"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Backlinks - Octothorpes Demo"
+          },
+          "ot": {
+            "type": "literal",
+            "value": "Page with Spaces in URL - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "This page uses an alternate server, which can easily be set with a page variable."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "a8b6820bdc6a768326e8e6ba3a4d591"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/backlinked-page"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/pure-http"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/test"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Octothorpe Without Javascript - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/paddleboats"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Paddleboat Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/burglars-guide"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/architecture"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The burglar's guide to the city"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Because of Octothorpes, I saw that [[Nik]] posted about Design and Crime, so I’d like to post about The Burglar’s Guide to The City, another great book about..."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-bun-family"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Paddleboat Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a hummingbird family."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "The Bun Family - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a different hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "17e37c39565d3e51cac40dd8717a487"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-bun-family"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Paddleboat Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a hummingbird family."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "The Bun Family - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a different hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "17e37c39565d3e51cac40dd8717a487"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1742835722563",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-bun-family"
+          },
+          "title": {
+            "type": "literal",
+            "value": "The Paddleboat Family - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a hummingbird family."
+          },
+          "ot": {
+            "type": "literal",
+            "value": "The Bun Family - Octothorpes Demo"
+          },
+          "od": {
+            "type": "literal",
+            "value": "A content page with some nice pictures of a different hummingbird family."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "17e37c39565d3e51cac40dd8717a487"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/the-paddleboat-family"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://ideastore.dev/blog/why-tho/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3083bf1c5e131e2545eed2cfe7cb6c94"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "octo:Backlink"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://ideastore.dev/blog/why-tho/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3083bf1c5e131e2545eed2cfe7cb6c94"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "literal",
+            "value": "1742340484108",
+            "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://ideastore.dev/blog/why-tho/"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Page"
+          },
+          "blankNode": {
+            "type": "bnode",
+            "value": "3083bf1c5e131e2545eed2cfe7cb6c94"
+          },
+          "blankNodePred": {
+            "type": "uri",
+            "value": "https://vocab.octothorp.es#octothorpes"
+          },
+          "blankNodeObj": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev/multi-server"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/multiverse"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Multiple Servers - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "This page sends octothorpes to two different servers."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://demo.ideastore.dev"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "Home - Octothorpes Demo"
+          },
+          "description": {
+            "type": "literal",
+            "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        },
+        {
+          "s": {
+            "type": "uri",
+            "value": "https://mmmx.cloud/tag/octothorpes"
+          },
+          "o": {
+            "type": "uri",
+            "value": "https://octothorp.es/~/octothorpes"
+          },
+          "title": {
+            "type": "literal",
+            "value": "octothorpes"
+          },
+          "type": {
+            "type": "literal",
+            "value": "Term"
+          }
+        }
+      ]
+    }
+  }
+  const instance = "https://octothorp.es/~/";
+  processSparqlResponse(kitchenSink, instance)
+  
