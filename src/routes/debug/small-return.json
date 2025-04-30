@@ -66,19 +66,19 @@
         },
         "title": {
           "type": "literal",
-          "value": "Tags and Octothorpes - Octothorpes Demo"
+          "value": "abc"
         },
         "description": {
           "type": "literal",
-          "value": "Octothorpes are like super-tags for websites. So they are desingned to work seamlessly with any platform's normal method of tagging content."
+          "value": "another value"
         },
         "ot": {
           "type": "literal",
-          "value": "Multiple Servers - Octothorpes Demo"
+          "value": "lorem ipsum"
         },
         "od": {
           "type": "literal",
-          "value": "This page sends octothorpes to two different servers."
+          "value": "xyz"
         },
         "type": {
           "type": "literal",
@@ -100,7 +100,7 @@
         },
         "description": {
           "type": "literal",
-          "value": "Welcome to the demonstration site for the Octothorpes protocol. Here you can see standard octothorpes and [backlinks](/backlinked-page) in action, plus some suggestions for [shorthand](/shorthand) methods of making them."
+          "value": "a value."
         },
         "type": {
           "type": "literal",
@@ -122,3 +122,5 @@
     ]
   }
 }
+
+

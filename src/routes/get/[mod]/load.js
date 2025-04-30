@@ -1,9 +1,12 @@
 import { queryBoolean, queryArray } from '$lib/sparql.js'
+import { getBlobject } from '$lib/processors.js'
+
 import { instance } from '$env/static/private'
 import normalizeUrl from 'normalize-url';
 
 
-
+// const thorpePath = instance+"~/"
+const thorpePath = "https://octothorp.es/~/"
 
 export async function load({ params, url }) {
   const searchParams = url.searchParams;
@@ -21,7 +24,7 @@ export async function load({ params, url }) {
         output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
       }
       else if (mod === "pre") {
-        let inst = instance+"~/"
+        let inst = thorpePath
         output = urls.map((item) => inst + item)
       }
       // 
@@ -138,21 +141,25 @@ if (obj != "?o") {
 
   // TKTK Maybe we should consider making a "getResults" utility since I lifted this from [thorpe].
   
-  const getResults = sr.results.bindings
-    .map(b => {
-      return {
-        subject: {
-          uri: b.s.value,
-          title: b.title ? b.title.value : null,
-          description: b.description ? b.description.value : null
-      },
-        object: {
-          uri: b.o.value,
-          title: b.ot ? b.ot.value : null,
-          description: b.od ? b.od.value : null
-        }
-      }
-    })
+  const getResults = await getBlobject(sr, thorpePath)
+  console.log(getResults)
+  // const getResults = sr.results.bindings
+  //   .map(b => {
+  //     return {
+  //       subject: {
+  //         uri: b.s.value,
+  //         title: b.title ? b.title.value : null,
+  //         description: b.description ? b.description.value : null
+  //     },
+  //       object: {
+  //         uri: b.o.value,
+  //         title: b.ot ? b.ot.value : null,
+  //         description: b.od ? b.od.value : null
+  //       }
+  //     }
+  //   })
+
+
   return {
       query: {
         mode: params.mod,
