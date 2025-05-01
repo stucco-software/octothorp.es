@@ -295,7 +295,10 @@ const handleHTML = async (response, uri) => {
 
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
 
+  console.log(`HARMED`)
+  console.log(harmed)
   harmed.octothorpes.forEach(async octothorpe => {
+    console.log(octothorpe)
     switch(true) {
       case octothorpe.type === 'mention':
         await handleMention(s, p, octothorpe.uri)
