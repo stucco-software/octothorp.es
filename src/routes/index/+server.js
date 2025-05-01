@@ -64,6 +64,7 @@ const recordIndexing = async (s) => {
 
 
 const extantTerm = async (o) => {
+  console.log(`does ${o} exist?`)
   return await queryBoolean(`
     ask {
       ?s ?p <${instance}~/${o}> .
