@@ -221,6 +221,7 @@ const recordDescription = async ({s, description}) => {
 }
 
 const handleThorpe = async (s, p, o) => {
+  console.log(s, p, o)
   let isExtantTerm = await extantTerm(o)
   if (!isExtantTerm) {
     await createTerm(o)
