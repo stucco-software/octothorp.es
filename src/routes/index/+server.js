@@ -308,6 +308,10 @@ const handleHTML = async (response, uri) => {
       case octothorpe.type === 'hashtag':
         await handleThorpe(s, p, octothorpe.uri)
         break;
+      case octothorpe.type === 'endorse':
+        console.log(`handle endorsement?`, octothorpe.uri)
+        // await handleThorpe(s, p, octothorpe.uri)
+        break;
       default:
         await handleThorpe(s, p, octothorpe)
         break;
