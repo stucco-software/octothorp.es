@@ -89,14 +89,14 @@ const localHarmonizers = {
                   "selector": "link[rel='octo:octothorpes']",
                   "attribute": "href"
                 },
-                {
-                  "selector": "meta[name='keywords']",
-                  "attribute": "content",
-                  "postProcess": {
-                    "method": "split",
-                    "params": `,`
-                  }
-                },
+                // {
+                //   "selector": "meta[name='keywords']",
+                //   "attribute": "content",
+                //   "postProcess": {
+                //     "method": "split",
+                //     "params": `,`
+                //   }
+                // },
               ]
             },
           "link": {

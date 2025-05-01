@@ -277,5 +277,7 @@ async function getObjectVals(obj) {
         uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
       )
   ]
+  console.log(`-----`)
+  console.log(output)
   return output
 }
