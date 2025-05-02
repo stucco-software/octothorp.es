@@ -41,8 +41,55 @@ export async function load({ params, url }) {
  * @returns {string} - The generated SPARQL query.
  */
 function buildSparqlQuery(sub, obj, mode ="", metadataFields = ["title", "description"]) {
+  let query = ""
+  if (mode === "everything") {
+
+    query += `SELECT DISTINCT ?s ?o ?title ?description ?ot ?od ?type ?blankNode ?blankNodePred ?blankNodeObj
+          WHERE {`
+          
+    // Add subject filters to the VALUES clause if subject is specified
+        if (sub != "?s") {
+          query += `VALUES ?sub {`
+          sub.forEach((s) => {
+            query += ` "${s}" `;
+          });
+          query += `
+              }`;  
+        }
+      query +=`
+        ?s octo:octothorpes ?o .
+        FILTER(CONTAINS(STR(?s), ?sub))
+        
+        {
+          ?o rdf:type <octo:Page> .
+          BIND("Page" AS ?type)
+          
+          OPTIONAL {
+            ?o ?blankNodePred ?blankNode .
+            FILTER(isBlank(?blankNode))
+            
+            OPTIONAL {
+              ?blankNode ?bnp ?blankNodeObj .
+              FILTER(!isBlank(?blankNodeObj)) 
+            }
+          }
+        }
+        UNION
+        {
+          ?o rdf:type <octo:Term> .
+          BIND("Term" AS ?type)
+        }
+        
+        OPTIONAL { ?s octo:title ?title . }
+        OPTIONAL { ?s octo:description ?description . }
+        OPTIONAL { ?o octo:title ?ot . }
+        OPTIONAL { ?o octo:description ?od . }
+      }`;
+  }
+  else {
+
   // Base query structure
-  let query = `
+  query += `
     SELECT DISTINCT ?s ?o
   `;
 
@@ -110,7 +157,7 @@ if (obj != "?o") {
   query += `
     }
   `;
-
+}
   return query.replace(/[\r\n]+/gm, '')
 }
 
@@ -120,7 +167,7 @@ if (obj != "?o") {
     let s = "?s"
     let o = "?o"
 
-  if (mode === "thorpes" || mode === "octothorpes") {
+  if (mode === "thorpes" || mode === "octothorpes" || mode === "everything") {
     s = processUrls(subjects)
     o = processUrls(objects, "pre")
   }
