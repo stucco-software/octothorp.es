@@ -1,9 +1,12 @@
 import { queryBoolean, queryArray } from '$lib/sparql.js'
+import { getBlobject } from '$lib/processors.js'
+
 import { instance } from '$env/static/private'
 import normalizeUrl from 'normalize-url';
 
 
-
+// const thorpePath = instance+"~/"
+const thorpePath = "https://octothorp.es/~/"
 
 export async function load({ params, url }) {
   const searchParams = url.searchParams;
@@ -21,7 +24,7 @@ export async function load({ params, url }) {
         output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
       }
       else if (mod === "pre") {
-        let inst = instance+"~/"
+        let inst = thorpePath
         output = urls.map((item) => inst + item)
       }
       // 
@@ -38,8 +41,55 @@ export async function load({ params, url }) {
  * @returns {string} - The generated SPARQL query.
  */
 function buildSparqlQuery(sub, obj, mode ="", metadataFields = ["title", "description"]) {
+  let query = ""
+  if (mode === "everything") {
+
+    query += `SELECT DISTINCT ?s ?o ?title ?description ?ot ?od ?type ?blankNode ?blankNodePred ?blankNodeObj
+          WHERE {`
+          
+    // Add subject filters to the VALUES clause if subject is specified
+        if (sub != "?s") {
+          query += `VALUES ?sub {`
+          sub.forEach((s) => {
+            query += ` "${s}" `;
+          });
+          query += `
+              }`;  
+        }
+      query +=`
+        ?s octo:octothorpes ?o .
+        FILTER(CONTAINS(STR(?s), ?sub))
+        
+        {
+          ?o rdf:type <octo:Page> .
+          BIND("Page" AS ?type)
+          
+          OPTIONAL {
+            ?o ?blankNodePred ?blankNode .
+            FILTER(isBlank(?blankNode))
+            
+            OPTIONAL {
+              ?blankNode ?bnp ?blankNodeObj .
+              FILTER(!isBlank(?blankNodeObj)) 
+            }
+          }
+        }
+        UNION
+        {
+          ?o rdf:type <octo:Term> .
+          BIND("Term" AS ?type)
+        }
+        
+        OPTIONAL { ?s octo:title ?title . }
+        OPTIONAL { ?s octo:description ?description . }
+        OPTIONAL { ?o octo:title ?ot . }
+        OPTIONAL { ?o octo:description ?od . }
+      }`;
+  }
+  else {
+
   // Base query structure
-  let query = `
+  query += `
     SELECT DISTINCT ?s ?o
   `;
 
@@ -107,7 +157,7 @@ if (obj != "?o") {
   query += `
     }
   `;
-
+}
   return query.replace(/[\r\n]+/gm, '')
 }
 
@@ -117,7 +167,7 @@ if (obj != "?o") {
     let s = "?s"
     let o = "?o"
 
-  if (mode === "thorpes" || mode === "octothorpes") {
+  if (mode === "thorpes" || mode === "octothorpes" || mode === "everything") {
     s = processUrls(subjects)
     o = processUrls(objects, "pre")
   }
@@ -138,21 +188,25 @@ if (obj != "?o") {
 
   // TKTK Maybe we should consider making a "getResults" utility since I lifted this from [thorpe].
   
-  const getResults = sr.results.bindings
-    .map(b => {
-      return {
-        subject: {
-          uri: b.s.value,
-          title: b.title ? b.title.value : null,
-          description: b.description ? b.description.value : null
-      },
-        object: {
-          uri: b.o.value,
-          title: b.ot ? b.ot.value : null,
-          description: b.od ? b.od.value : null
-        }
-      }
-    })
+  const getResults = await getBlobject(sr, thorpePath)
+  console.log(getResults)
+  // const getResults = sr.results.bindings
+  //   .map(b => {
+  //     return {
+  //       subject: {
+  //         uri: b.s.value,
+  //         title: b.title ? b.title.value : null,
+  //         description: b.description ? b.description.value : null
+  //     },
+  //       object: {
+  //         uri: b.o.value,
+  //         title: b.ot ? b.ot.value : null,
+  //         description: b.od ? b.od.value : null
+  //       }
+  //     }
+  //   })
+
+
   return {
       query: {
         mode: params.mod,
