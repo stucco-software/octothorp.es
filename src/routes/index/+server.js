@@ -312,6 +312,10 @@ const handleHTML = async (response, uri) => {
         console.log(`handle endorsement?`, octothorpe.uri)
         // await handleThorpe(s, p, octothorpe.uri)
         break;
+      case octothorpe.type === 'bookmark':
+        console.log(`handle bookmark?`, octothorpe.uri)
+        // await handleThorpe(s, p, octothorpe.uri)
+        break;
       case octothorpe.type === 'link':
         console.log(`handle link?`, octothorpe.uri)
         // await handleThorpe(s, p, octothorpe.uri)

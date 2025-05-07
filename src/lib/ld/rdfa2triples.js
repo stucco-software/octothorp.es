@@ -57,6 +57,7 @@ if (import.meta.vitest) {
   })
 }
 const getStatementsAboutThisSubject = ({doc, s}) => {
+
   const subjectNodes = [...doc.querySelectorAll(`[rel="${p}"]`)]
   let triples = subjectNodes
     .map(node => `<${s}> ${p} <${getO(node)}> .`)
