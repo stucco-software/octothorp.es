@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import {rdfa2triples} from '$lib/ld/rdfa2triples'
-import {asyncMap} from '$lib/asyncmap'
+import {asyncMap} from '$lib/asyncMap'
 import getRdfaGraph from 'graph-rdfa-processor'
 import context from '$lib/ld/context.json'
 import jsonld from 'jsonld'
