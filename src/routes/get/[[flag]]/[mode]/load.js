@@ -4,6 +4,9 @@ import { getBlobject } from '$lib/processors.js'
 import { instance } from '$env/static/private'
 import normalizeUrl from 'normalize-url';
 
+// TKTK seeing a parseRequest utility that we can break out from the query builder
+// and thinking we should structure the API to put distinct query builds on their own endpoints
+// and use parseRequest to talk to them and return results
 
 
 // const thorpePath = instance+"~/"
@@ -32,6 +35,9 @@ export async function load({ params, url }) {
       return output
     }
   }
+
+  // ==============================
+
 
   /**
  * Builds a SPARQL query to filter records by subjects and objects.
@@ -173,6 +179,7 @@ if (obj != "?o") {
   return query.replace(/[\r\n]+/gm, '')
 }
 
+//  ================================== //
 
   const mode = params.mode
   const flag = params.flag
@@ -210,24 +217,33 @@ if (obj != "?o") {
     o = processUrls(objects, "pre")
   }
   else if ( mode === "backlinks") {
-    // OK, figured out the difference. Backlinks should only return 
-    // objects that dont' contain the instance. And Thorpes are the reverse.
-    // so there needs to be a hook for adding a FILTER NOT EXISTS
+    
     // UPDATE 3/27 -- this now happens in the harmonizer step, so this should check for type 
+    // TKTK -- to be thorough we should also have matchType checking here
+    // and the previous UPDATE is no longer valid if we move to inferring link types instead of using blank nodes
+
     s = processUrls(subjects)
     o = processUrls(objects)
   }
+  /* TKTK add modes:
+      - mentions
+      - bookmarks
+      - webring << is this a flag??
+  */
   else {
     return "Error: not a supported mode. Use 'thorpes' or 'backlinks'"
   }
   
   query = buildSparqlQuery(s, o, mode)
   const sr = await queryArray(query)
-
-  // TKTK Maybe we should consider making a "getResults" utility since I lifted this from [thorpe].
   
   const getResults = await getBlobject(sr, thorpePath)
   console.log(getResults)
+
+  // TKTK we should bring back the ability to return object-focused results for when blobjects aren't necessarily useful
+  // previous approach is below. Example would be on the /thorpes/ endpoint
+  // thinking that it should just be a blobject that only has the subject object on it
+
   // const getResults = sr.results.bindings
   //   .map(b => {
   //     return {
