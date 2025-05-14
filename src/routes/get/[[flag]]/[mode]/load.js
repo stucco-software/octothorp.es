@@ -5,6 +5,7 @@ import { instance } from '$env/static/private'
 import normalizeUrl from 'normalize-url';
 
 
+
 // const thorpePath = instance+"~/"
 const thorpePath = "https://octothorp.es/~/"
 
@@ -57,10 +58,15 @@ function buildSparqlQuery(sub, obj, mode ="", metadataFields = ["title", "descri
               }`;  
         }
       query +=`
-        ?s octo:octothorpes ?o .
-        FILTER(CONTAINS(STR(?s), ?sub))
+        ?s octo:octothorpes ?o .`
+      if (matchType === 'contains') {
+        query +=`FILTER(CONTAINS(STR(?s), ?sub))`
+      }
+      else if (matchType === 'distinct') {
+        query += `FILTER(?s = IRI(?sub))`
+      }
         
-        {
+      query +=`{
           ?o rdf:type <octo:Page> .
           BIND("Page" AS ?type)
           
@@ -107,11 +113,12 @@ function buildSparqlQuery(sub, obj, mode ="", metadataFields = ["title", "descri
 if (sub != "?s") {
   query += `VALUES ?sub {`
   sub.forEach((s) => {
-    query += ` "${s}" `;
-  });
+    query += ` "${s}" `
+
+  })
 
   query += `
-      }`;  
+      }`
 }
 
 if (obj != "?o") {
@@ -127,7 +134,12 @@ if (obj != "?o") {
   query += `
       ?s octo:octothorpes ?o.`;
   if (sub != "?s") {
-            query += `FILTER(CONTAINS(STR(?s), ?sub))`;
+      if (matchType === 'contains') {
+        query +=`FILTER(CONTAINS(STR(?s), ?sub))`
+      }
+      else if (matchType === 'distinct') {
+        query += `FILTER(?s = IRI(?sub))`
+      }
       }
       if (obj != "?o") {
         query += `FILTER(CONTAINS(STR(?o), ?obj))`;
@@ -162,10 +174,36 @@ if (obj != "?o") {
 }
 
 
-  const mode = params.mod
-    let query = ""
-    let s = "?s"
-    let o = "?o"
+  const mode = params.mode
+  const flag = params.flag
+
+  // defaults
+  let query = ""
+  let s = "?s"
+  let o = "?o"
+  let matchType = "distinct"
+
+  // process api params
+
+
+  if (params.flag) {
+    if (flag === "distinct" || flag === "contains" || flag === "fuzzy") {
+      matchType = flag
+    }
+    else {
+          return "Error: not a supported flag. Try any of the following flags, or no flag at all: distinct, contains, fuzzy"
+
+    }
+  }
+  else {
+      subjects.forEach((s) => {
+        if (!s.startsWith("http")) {
+      console.log('NOT TRUEEE')
+      matchType = "contains"
+    }
+    });
+  }
+
 
   if (mode === "thorpes" || mode === "octothorpes" || mode === "everything") {
     s = processUrls(subjects)
@@ -209,10 +247,12 @@ if (obj != "?o") {
 
   return {
       query: {
-        mode: params.mod,
+        mode: params.mode,
+        flag: params.flag,
         subjects,
         objects   
       },
+            queryString: query,
       results: getResults
   };
 
