@@ -14,8 +14,8 @@ WORKDIR /app
 COPY --from=0 /app .
 COPY . .
 
-# Expose port 5173 for the SvelteKit app and 24678 for Vite's HMR
-EXPOSE 5173
+# Expose port 8888 for the SvelteKit app and 24678 for Vite's HMR
+EXPOSE 8888
 EXPOSE 24678
 
 CMD ["npm", "run", "dev"]
