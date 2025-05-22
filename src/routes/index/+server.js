@@ -242,6 +242,8 @@ const originEndorsesOrigin = async ({s, o}) => {
   `)
 }
 
+
+
 const checkReciprocalMention = async ({s, o}) => {
   return await queryBoolean(`
     ask {
@@ -269,6 +271,11 @@ const checkEndorsement = async ({s, o}) => {
   if (isMentioned) {
     return true
   }
+
+  // Webrings are specific pages that endorse or link to origins
+  // so a third check, typed to webringIndex should also check
+  // checkReciprocalMention({s, oOrigin})
+  
 }
 
 const handleMention = async (s, p, o) => {

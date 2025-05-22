@@ -273,3 +273,47 @@ if (obj != "?o") {
   };
 
 }
+
+
+
+// concise blobject
+
+// {
+//   "@id": "https://example.url",
+//   "title": "url title",
+//   "description": "url description",
+//   "image": "https://example.url/og-image.jpg",
+//   "contact": "contact@example.url",
+//   "type": "",
+//   "octothorpes": [
+//     "octothorpes",
+//     "demo"
+//   ]
+// }
+
+
+/*
+describe
+get
+default? everything
+  - [[webring]]
+  - pages << everything
+
+  - links
+      octo:Page
+  - backlinks
+  - bookmarks
+    [[with blan nodes??]]
+  - endorsements
+  - feed
+
+
+
+  - parent relationship? (part of a webring?, something else someday)
+  - what kind of match -- contains or distinct 
+  - what kind of object (term or page)
+    - what type of that kind of object (backlink, all links, link only, bookmark only)
+
+...add filters
+...add output to subject (date, image, document record)
+*/

@@ -48,7 +48,9 @@ export const getBlobject = async (response, instance) => {
           const existingIndex = current.octothorpes.findIndex(
             item => typeof item === 'object' && item.target === targetUrl
           );
-  
+
+          // TKTK handle blank nodes, incl terms on triples like hashtagged bookmarks
+
           if (existingIndex === -1) {
             current.octothorpes.push({
               uri: targetUrl,
