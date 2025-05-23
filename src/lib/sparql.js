@@ -143,12 +143,10 @@ WHERE {
 
   ${objectStatements[objectMode]}
 
-  # Core subject info (only if we're querying subjects)
-  ${subjectList?.length ? `?s octo:indexed ?date .
-  ?s rdf:type ?pageType .` : ''}
-
-  # Core relationship
-  ${subjectList?.length ? '?' : ''}s octo:octothorpes ?o .
+  # Core graph patterns 
+  ?s octo:indexed ?date .
+  ?s rdf:type ?pageType .
+  ?s octo:octothorpes ?o .
 
   # Object type filter
   ${objectTypes[objectType]}

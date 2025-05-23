@@ -1,4 +1,7 @@
-export const getBlobject = async (response, instance) => {
+import { instance } from '$env/static/private'
+
+export const getBlobject = async (response) => {
+
     const urlMap = {};
   
     response.results.bindings.forEach(binding => {

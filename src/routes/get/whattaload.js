@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildQuery } from '$lib/sparql.js'
 import { getBlobject } from '$lib/processors.js'
 
 import { instance } from '$env/static/private'
@@ -9,24 +9,93 @@ import normalizeUrl from 'normalize-url';
 // and use parseRequest to talk to them and return results
 
 
-
-
 export async function processParams(params, url) {
+
+
+  const thorpePath = instance+"~/"
+  
+    // defaults
+    let s = "?s"
+    let o = "?o"
+    const searchParams = url.searchParams;
+    // searchParams is in get string
+    // params is api path
+
+    const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : `?s`
+    const objects = searchParams.get('o') ? searchParams.get('o').split(',') : `?o` 
+
+
+  // TKTK process flags and filters once you set the structure
+
+    let subjectMode = ""
+    let objectMode = "exact"
+    // let objectType = objFlag <<<
+
+
+    function isFuzzy (uris, flag) { 
+      let output = false 
+      if ( flag === "fuzzySubject" || flag === "something else?") {
+        output = true
+      }
+      else {
+        uris.forEach((s) => {
+          if (!s.startsWith("http")) {
+            output = true
+          }
+        })
+      }
+      return output
+  }
+
+  function processUrls (urls, mod = "norm") {
+      if (urls === `?s` || urls === `?o`) {
+        return urls
+      }
+      else {
+        let output = []
+        if (mod === "norm") {
+          // this should probably respect http: when set explicitly
+          output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
+        }
+        else if (mod === "pre") {
+          let inst = thorpePath
+          output = urls.map((item) => inst + item)
+        }
+        // 
+        return output
+      }
+    }
+
+    if ( objFlag === "fuzzy") {
+        objectMode = "fuzzy"
+    }
     
-// const thorpePath = instance+"~/"
-  const thorpePath = "https://octothorp.es/~/"
+    if ( isFuzzy(subjects) ) {
+      subjectMode = "fuzzy"
+    }
+    else {
+      subjectMode = "exact"
+    }
 
-  const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : `?s`
-  const objects = searchParams.get('o') ? searchParams.get('o').split(',') : `?o` 
-  // flag will probably change when you update the API structure
-  const mode = params.mode
-  const flag = params.flag
+    // mode = thorpes
+      s = processUrls(subjects)
+      o = processUrls(objects, "pre")
 
-  // defaults
-  let query = ""
-  let s = "?s"
-  let o = "?o"
-  let matchType = "distinct"
+    // mode = links 
+
+    o = processUrls(objects)
+
+
+    const queryTerms = {
+    subjectList: s,
+    objectList: o,
+    subjectMode: subjectMode,
+    objectMode: objectMode,
+    objectType: objectType
+    }
+
+    return queryTerms
+  }
 
 
 
@@ -35,47 +104,9 @@ export async function processParams(params, url) {
   // TKTK the check function should probably be outsourced to a matcher
   if (params.flag) {
 
-    else {
-          return "Error: not a supported flag. Try any of the following flags, or no flag at all: distinct, contains, fuzzy"
-    }
-  }
-
-  // return all this shit in a well-ordered object
-  }
-
-
-  // this needs to be part of the core URL process function
-  export function fuzzyOrNot (sub, flag) {
-    // set by flag
-    
-      subjects.forEach((s) => {
-        if (!s.startsWith("http")) {
-      console.log('NOT TRUEEE')
-      matchType = "contains"
-    }
-    });
-  }
-
-  // TKTK does this need to be exported? yes
-  export function processUrls (urls, mod = "norm") {
-    if (urls === `?s` || urls === `?o`) {
-      return urls
-    }
-    else {
-      let output = []
-      if (mod === "norm") {
-        // this should probably respect http: when set explicitly
-        output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
-      }
-      else if (mod === "pre") {
-        let inst = thorpePath
-        output = urls.map((item) => inst + item)
-      }
-      // 
-      return output
-    }
-
-
+    // else {
+    //       return "Error: not a supported flag. Try any of the following flags, or no flag at all: distinct, contains, fuzzy"
+    // }
   }
 
 
@@ -86,6 +117,24 @@ export async function load({ params, url }) {
   // query = buildSparqlQuery(s, o, mode)
   // const sr = await queryArray(query)
   // getBlobject(flag) << need a handler for whether to return blobject or 
+
+
+    const queryTerms = processParams(params)
+    const query = buildQuery(queryTerms)
+    const sr = await queryArray(query)  
+    const getResults = await getBlobject(sr)
+    console.log(getResults)
+    return {
+        query: {
+          mode: params.mode,
+          flag: params.flag,
+          subjects,
+          objects   
+        },
+              queryString: query,
+        results: getResults
+    }
+  }
 
 
 // >> This logic moves to the api structure
@@ -119,12 +168,6 @@ export async function load({ params, url }) {
 
   
 
-  query = buildSparqlQuery(s, o, mode)
-  const sr = await queryArray(query)
-  
-  const getResults = await getBlobject(sr, thorpePath)
-  console.log(getResults)
-
   // TKTK we should bring back the ability to return object-focused results for when blobjects aren't necessarily useful
   // previous approach is below. Example would be on the /thorpes/ endpoint
   // thinking that it should just be a blobject that only has the subject object on it
@@ -146,18 +189,9 @@ export async function load({ params, url }) {
   //   })
 
 
-  return {
-      query: {
-        mode: params.mode,
-        flag: params.flag,
-        subjects,
-        objects   
-      },
-            queryString: query,
-      results: getResults
-  };
 
-}
+
+
 
 
 
@@ -175,195 +209,5 @@ export async function load({ params, url }) {
 //     "demo"
 //   ]
 // }
-
-  // ==============================
-
-
-          
-    // Add subject filters to the VALUES clause if subject is specified
-
-    /* BUILD VALUE ARRAY
-        if (sub != "?s") {
-          query += `VALUES ?sub {`
-          sub.forEach((s) => {
-            query += ` "${s}" `;
-          });
-          query += `
-              }`;  
-        }
-      query +=`
-*/
-
-const filterStatement = buildSubjectFilter(XXXX)
-
-function buildSubjectFilter(flag){
-  switch (flag) {
-    case 'contains':
-          return `FILTER(CONTAINS(STR(?s), ?sub))`
-    case 'distinct':
-        `FILTER(?s = IRI(?sub))`
-      }
-}
-
-      /* 
-a query is 
-
-  DESCRIBE
-  -- OR --
-  SELECT
-    ?vars
-    WHERE
-      ?s something ?o
-      {filterStatemnt}
-      BIND subject type 
-      OPTIONAL { 
-        blank node shit
-        }
-      BIND other subject type << right now we just have pages and Terms, but wondering. maybe should just output rdf:type and trim it like on link types
-      OPTIONAL {
-        subject properties
-        title, etc.
-      }
-      
-
-
-      */
-
-
-
-  /**
- * Builds a SPARQL query to filter records by subjects and objects.
- *
- * @param {string[]} sub - An array of subject filters (e.g., URLs or domains).
- * @param {string[]} obj - An array of object filters (e.g., terms or categories).
- * @param {string[]} [metadataFields=[]] - Optional metadata fields to include (e.g., ["title", "description"]).
- * @returns {string} - The generated SPARQL query.
- */
-function buildSparqlQuery(sub, obj, mode ="", metadataFields = ["title", "description"]) {
-  let query = ""
-  if (mode === "everything") {
-
-    query += `SELECT DISTINCT ?s ?o ?title ?description ?ot ?od ?type ?blankNode ?blankNodePred ?blankNodeObj
-          WHERE {${valueArray}
-        ?s octo:octothorpes ?o . 
-        ${filterStatement}
-        {
-          ?o rdf:type <octo:Page> .
-          BIND("Page" AS ?type)
-          
-          OPTIONAL {
-            ?o ?blankNodePred ?blankNode .
-            FILTER(isBlank(?blankNode))
-            
-            OPTIONAL {
-              ?blankNode ?bnp ?blankNodeObj .
-              FILTER(!isBlank(?blankNodeObj)) 
-            }
-          }
-        }
-        UNION
-        {
-          ?o rdf:type <octo:Term> .
-          BIND("Term" AS ?type)
-        }
-        
-        OPTIONAL { ?s octo:title ?title . }
-        OPTIONAL { ?s octo:description ?description . }
-        OPTIONAL { ?o octo:title ?ot . }
-        OPTIONAL { ?o octo:description ?od . }
-      }`;
-    //   add more subject info here
-  }
-  else {
-
-  // Base query structure
-  query += `
-    SELECT DISTINCT ?s ?o ${metadataFields}
-  `;
-
-  // Add metadata fields to the SELECT clause
-  metadataFields.forEach((field) => {
-    query += ` ?${field}`;
-  });
-//   TKTK does this matter now? I think getblobject is the layer where this will happen
-//   and since they're optional just, like, pass them
-
-
-  if (mode === "backlinks") {
-    query += ` ?ot ?od`;
-  }
-  query += `
-    WHERE {`;
-
-// Add subject filters to the VALUES clause if subject is specified
-if (sub != "?s") {
-  query += `VALUES ?sub {`
-  sub.forEach((s) => {
-    query += ` "${s}" `
-
-  })
-
-  query += `
-      }`
-}
-
-if (obj != "?o") {
-
-    query += `VALUES ?obj {`;
-
-    // Add object filters to the VALUES clause
-    obj.forEach((o) => {
-      query += ` "${o}" }`;
-    });
-}
-
-  query += `
-      ?s octo:octothorpes ?o.`;
-  if (sub != "?s") {
-      if (matchType === 'contains') {
-        query +=`FILTER(CONTAINS(STR(?s), ?sub))`
-      }
-      else if (matchType === 'distinct') {
-        query += `FILTER(?s = IRI(?sub))`
-      }
-      }
-      if (obj != "?o") {
-        query += `FILTER(CONTAINS(STR(?o), ?obj))`;
-    }
-
-    // TKTK type could be something to pass 
-    if (mode === "thorpes" || mode === "octothorpes") {
-
-      //  only want term urls
-      query += `?o rdf:type <octo:Term> .`
-    }
-    if (mode === "backlinks") {
-      // only want things that are NOT term urls
-      query += `?o rdf:type <octo:Page> .`
-    }
-  // Add optional metadata fields
-  metadataFields.forEach((field) => {
-      query += `
-      OPTIONAL { ?s octo:${field} ?${field} . }
-    `;
-  });
-  if (mode === "backlinks") {
-    // get the metadata for the objects when they're pages
-    // dunno how important it is to make this conditional
-  query += `
-    OPTIONAL { ?o octo:title ?ot. }
-    OPTIONAL { ?o octo:description ?od. }
-    `;
-  }
-
-  query += `
-    }
-  `;
-}
-  return query.replace(/[\r\n]+/gm, '')
-}
-
-//  ================================== //
-
 
 
