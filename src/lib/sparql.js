@@ -88,13 +88,23 @@ ${nquads}
  * @throws {Error} If neither subjectList nor objectList is provided
  */
 
+// >>>>> need to start handling an incoming filters object
+// things like LIMIT and WHEN and OFFSET should take a flag and output a valid SPARQL statement
+// conditional to any of the filters being set
+// and then their output should go in the query
+
 
 export const buildQuery = async ({
   subjectList,
   objectList,
   subjectMode = 'exact',
   objectMode = 'exact',
-  objectType = 'all'
+  objectType = 'all',
+  filters = {
+    limit: 100,
+    offset: "",
+    time: ""
+  }
 }) => {
   // Validate at least one filter exists
   if (!subjectList?.length && !objectList?.length) {
@@ -145,6 +155,7 @@ WHERE {
 
   # Core graph patterns 
   ?s octo:indexed ?date .
+  ${filters[time]}
   ?s rdf:type ?pageType .
   ?s octo:octothorpes ?o .
 

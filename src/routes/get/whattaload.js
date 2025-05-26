@@ -1,92 +1,251 @@
 import { queryBoolean, queryArray, buildQuery } from '$lib/sparql.js'
-import { getBlobject } from '$lib/processors.js'
+import { queryToBlobject } from '$lib/processors.js'
 
 import { instance } from '$env/static/private'
 import normalizeUrl from 'normalize-url';
 
-// TKTK seeing a parseRequest utility that we can break out from the query builder
-// and thinking we should structure the API to put distinct query builds on their own endpoints
-// and use parseRequest to talk to them and return results
+
+// searchParams is in get string
+    // params is api path
+
+    // object mode should come from params
+    /*
+      FORMAT << params
+        rss
+        concise < short blobject
+        raw < nonblobject
+        default: json
+        (yaml, trtl?)
+      LIMIT
+        default: 100
+        int
+      OFFSET
+        > note that you can define an OFFSET statement but
+        > cursor-based (ie after a certain record) is better
+      WHEN
+        RECENT
+        after-timestamp
+        before-timestamp
+      MATCH
+        exact
+        fuzzy
+        fuzzy-s
+        fuzzy-o
+    
+    */
+const thorpePath = instance+"~/"
 
 
-export async function processParams(params, url) {
+export const buildQueryTermsFromParams = async ({
+    // params, 
+    url,
+    sMode = 'exact',
+    objectType = 'all' }) => {
 
-
-  const thorpePath = instance+"~/"
-  
     // defaults
     let s = "?s"
     let o = "?o"
+
     const searchParams = url.searchParams;
-    // searchParams is in get string
-    // params is api path
+    let output = {filters:{}, queryTerms: {}}
 
+    // assign query terms from request params
     const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : `?s`
-    const objects = searchParams.get('o') ? searchParams.get('o').split(',') : `?o` 
+    const objects = searchParams.get('o') ? searchParams.get('o').split(',') : `?o`
+
+    // assign filters from request params
+
+    output.filters['limit'] = searchParams.get('limit') ? searchParams.get('limit') : `0`
+    output.filters['format'] = searchParams.get('format') ? searchParams.get('format') : `json`
+    const whenParam = searchParams.get('when') ? searchParams.get('when') : `default`
+    const matchParam = searchParams.get('match') ? searchParams.get('match') : `exact`
 
 
-  // TKTK process flags and filters once you set the structure
+  ////////// ?MATCH //////////
 
-    let subjectMode = ""
+
+  // TKTK add validation on filters
+
+  // set subjectMode from route or request params or default to exact
+
+  // this should be a function check to parse the params
+
+/*
+      check matchtpe for any mode that applies to subject
+      check sMode -- which is a route param passed directly to the function
+      if neither are fuzzy-s, do the final default check
+      return fuzzy / exact accordingly
+*/
+
+    // sMode comes from [mode] and can override params.match 
+    // in certain cases, such as WEBRING
+
+    let subjectMode = sMode
     let objectMode = "exact"
-    // let objectType = objFlag <<<
 
+    switch (matchParam) {
+      case "fuzzy":
+        subjectMode = "fuzzy"
+        objectMode = "fuzzy"
+        break;
+      case "fuzzy-s":
+        subjectMode = "fuzzy"    
+        break;    
+      case "fuzzy-subject":
+        subjectMode = "fuzzy"    
+        break;
+      case "fuzzy-o":
+        objectMode = "fuzzy"    
+      case "fuzzy-object":
+        objectMode = "fuzzy"    
+      
+      default:
+        break;
+    }
 
-    function isFuzzy (uris, flag) { 
+    // check if they provided inexact URLs
+    function isFuzzy (uris) { 
       let output = false 
-      if ( flag === "fuzzySubject" || flag === "something else?") {
-        output = true
-      }
-      else {
         uris.forEach((s) => {
           if (!s.startsWith("http")) {
             output = true
           }
-        })
+         })
+        return output
+    }
+
+    // override default mode if inexact urls were provided
+    if (subjectMode != "fuzzy" && subjectMode != "byParent") {
+      if ( isFuzzy(subjects) ) {
+        subjectMode = "fuzzy"
+      } 
+    }
+
+    ////////// ?S and ?O //////////
+
+    // utility to normalize input into either valid urls or valid octothorpe terms
+    function processUrls (urls, mod = "norm") {
+        if (urls === `?s` || urls === `?o`) {
+          return urls
+        }
+        else {
+          let output = []
+          if (mod === "norm") {
+            // this should probably respect http: when set explicitly
+            output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
+          }
+          else if (mod === "pre") {
+            let inst = thorpePath
+            output = urls.map((item) => inst + item)
+          }
+          // 
+          return output
+        }
       }
-      return output
+
+    // normalize subjects.
+    s = processUrls(subjects)
+
+  // The /terms route should accept ?o as strings (ie "octothorpe") rather than full urls
+  // and prepend them with the local server's octothorpe path and filter objects to rdf:type octo:Term
+  // all other modes should treat ?o as it is given
+
+  switch (objectType) {
+    case "termsOnly":
+        o = processUrls(objects, "pre")
+      break
+    default:
+      o = processUrls(objects)
+      break
   }
 
-  function processUrls (urls, mod = "norm") {
-      if (urls === `?s` || urls === `?o`) {
-        return urls
-      }
-      else {
-        let output = []
-        if (mod === "norm") {
-          // this should probably respect http: when set explicitly
-          output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
-        }
-        else if (mod === "pre") {
-          let inst = thorpePath
-          output = urls.map((item) => inst + item)
-        }
-        // 
-        return output
-      }
-    }
+  ////////// ?WHEN //////////
 
-    if ( objFlag === "fuzzy") {
-        objectMode = "fuzzy"
+  function getUnixTime(dateInput) {
+    // If input is already a Unix timestamp
+    if (/^\d+$/.test(dateInput)) {
+      return parseInt(dateInput);
     }
     
-    if ( isFuzzy(subjects) ) {
-      subjectMode = "fuzzy"
+    // Try parsing as ISO date
+    const date = new Date(dateInput);
+    if (!isNaN(date.getTime())) {
+      return Math.floor(date.getTime() / 1000);
     }
-    else {
-      subjectMode = "exact"
-    }
+    
+    throw new Error(`Invalid date format: ${dateInput}`);
+}
 
-    // mode = thorpes
-      s = processUrls(subjects)
-      o = processUrls(objects, "pre")
+function buildTimeFilter(whenParam) {
+  if (!whenParam) return '';
+  
+  const now = Math.floor(Date.now() / 1000);
+  const twoWeeksAgo = now - (14 * 24 * 60 * 60);
+  
+  // Handle "recent" as special case
+  if (whenParam === 'recent') {
+    return `FILTER (?unixTime >= ${twoWeeksAgo})`;
+  }
+  
+  // Parse combined parameters
+  const parts = whenParam.split('-');
+  
+  // After filter: ?when=after-1672531200
+  if (parts[0] === 'after' && parts[1]) {
+    const timestamp = getUnixTime(parts[1]);
+    return `FILTER (?unixTime >= ${timestamp})`;
+  }
+  
+  // Before filter: ?when=before-1672531200
+  if (parts[0] === 'before' && parts[1]) {
+    const timestamp = getUnixTime(parts[1]);
+    return `FILTER (?unixTime <= ${timestamp})`;
+  }
+  
+  // Between filter: ?when=between-1672531200-and-1704067199
+  if (parts[0] === 'between' && parts[1] && parts[2] === 'and' && parts[3]) {
+    const start = getUnixTime(parts[1]);
+    const end = getUnixTime(parts[3]);
+    return `FILTER (?unixTime >= ${start} && ?unixTime <= ${end})`;
+  }
+  
+  throw new Error(`Invalid when parameter format: ${whenParam}`);
+}
 
-    // mode = links 
+output["dateFilter"] = " "
+if (whenParam != "default") {
+   output.filters["dateFilter"] = buildTimeFilter(whenParam)
+}
 
-    o = processUrls(objects)
 
+// // Example usage in your API route
+// function handleRequest(queryParams) {
+//   try {
+//     const timeFilter = buildTimeFilter(queryParams.when);
+    
+//     const sparqlQuery = `
+//       SELECT ?s ?o ?unixTime WHERE {
+//         ?s octo:octothorpes ?o .
+//         ?s octo:indexed ?unixTime .
+//         ${timeFilter}
+//       }
+//       LIMIT 100
+//     `;
+    
+//     console.log('Generated SPARQL:', sparqlQuery);
+//     return sparqlQuery;
+//   } catch (error) {
+//     console.error('Error building query:', error.message);
+//     throw error; // Or return a default query
+//   }
+// }
 
-    const queryTerms = {
+// // Test cases
+// console.log(handleRequest({ when: 'recent' }));
+// console.log(handleRequest({ when: 'after-1672531200' }));
+// console.log(handleRequest({ when: 'between-1672531200-and-1704067199' }));
+
+    output.queryTerms = {
     subjectList: s,
     objectList: o,
     subjectMode: subjectMode,
@@ -94,20 +253,14 @@ export async function processParams(params, url) {
     objectType: objectType
     }
 
-    return queryTerms
+    output.filters = {
+
+    }
+
+    return output
   }
 
 
-
-
-  // Set matchType based on params or subject structure
-  // TKTK the check function should probably be outsourced to a matcher
-  if (params.flag) {
-
-    // else {
-    //       return "Error: not a supported flag. Try any of the following flags, or no flag at all: distinct, contains, fuzzy"
-    // }
-  }
 
 
 export async function load({ params, url }) {
@@ -122,7 +275,7 @@ export async function load({ params, url }) {
     const queryTerms = processParams(params)
     const query = buildQuery(queryTerms)
     const sr = await queryArray(query)  
-    const getResults = await getBlobject(sr)
+    const getResults = await queryToBlobject(sr)
     console.log(getResults)
     return {
         query: {
@@ -162,52 +315,3 @@ export async function load({ params, url }) {
   else {
     return "Error: not a supported mode. Use 'thorpes' or 'backlinks'"
   }
-  
-  // TKTK return s, o, mode and flag maybe. 
-  // actually return an array of all the things
-
-  
-
-  // TKTK we should bring back the ability to return object-focused results for when blobjects aren't necessarily useful
-  // previous approach is below. Example would be on the /thorpes/ endpoint
-  // thinking that it should just be a blobject that only has the subject object on it
-
-  // const getResults = sr.results.bindings
-  //   .map(b => {
-  //     return {
-  //       subject: {
-  //         uri: b.s.value,
-  //         title: b.title ? b.title.value : null,
-  //         description: b.description ? b.description.value : null
-  //     },
-  //       object: {
-  //         uri: b.o.value,
-  //         title: b.ot ? b.ot.value : null,
-  //         description: b.od ? b.od.value : null
-  //       }
-  //     }
-  //   })
-
-
-
-
-
-
-
-
-// concise blobject
-
-// {
-//   "@id": "https://example.url",
-//   "title": "url title",
-//   "description": "url description",
-//   "image": "https://example.url/og-image.jpg",
-//   "contact": "contact@example.url",
-//   "type": "",
-//   "octothorpes": [
-//     "octothorpes",
-//     "demo"
-//   ]
-// }
-
-
