@@ -76,37 +76,36 @@ ${nquads}
   }
 )
 
+
 /**
- * Builds a SPARQL query dynamically with flexible subject/object matching
- * @param {Object} params - Configuration options
- * @param {string[]} [params.subjectList] - Array of subject URIs or strings
- * @param {string[]} [params.objectList] - Array of object URIs or strings
- * @param {'fuzzy'|'exact'|'byParent'} [params.subjectMode='exact'] - Subject matching strategy
- * @param {'fuzzy'|'exact'} [params.objectMode='exact'] - Object matching strategy
- * @param {'termsOnly'|'pagesOnly'|'all'} [params.objectType='all'] - Type filter for objects
- * @returns {Promise<string>} Complete SPARQL query string
- * @throws {Error} If neither subjectList nor objectList is provided
+  * Builds a SPARQL query from a valid MultiPass object.
+  * Empty defaults are set as empty strings
+  * so they can be included in output even if not set
+  * @param {Object} params - Configuration options
+  * @param {string[]} [params.subjectList] - Array of subject URIs or strings
+  * @param {string[]} [params.objectList] - Array of object URIs or strings
+  * @param {'fuzzy'|'exact'|'byParent'} [params.subjectMode='exact'] - Subject matching strategy
+  * @param {'fuzzy'|'exact'} [params.objectMode='exact'] - Object matching strategy
+  * @param {'termsOnly'|'pagesOnly'|'all'} [params.objectType='all'] - Type filter for objects
+  * @param {'fuzzy'|'exact'} [params.objectMode='exact'] - Object matching strategy
+  * @param {int} [params.limitResults=100] - Value for LIMIT statement
+  * @param {int} [params.offsetResults=""] - Value for OFFSET statement
+  * @returns {<string>} Complete SPARQL query string
+  * @throws {Error} If neither subjectList nor objectList is provided
  */
 
-// >>>>> need to start handling an incoming filters object
-// things like LIMIT and WHEN and OFFSET should take a flag and output a valid SPARQL statement
-// conditional to any of the filters being set
-// and then their output should go in the query
 
-
-export const buildQuery = async ({
+export const buildQueryFromMultiPass = ({
   subjectList,
   objectList,
   subjectMode = 'exact',
   objectMode = 'exact',
   objectType = 'all',
-  filters = {
-    limit: 100,
-    offset: "",
-    time: ""
-  }
-}) => {
-  // Validate at least one filter exists
+  limitResults = 100,
+  offsetResults = "",
+  dateRange = ""
+  }) => {
+  // Confirm at least one filter exists
   if (!subjectList?.length && !objectList?.length) {
     throw new Error('Must provide at least subjectList or objectList');
   }
@@ -147,38 +146,74 @@ export const buildQuery = async ({
     all: ''
   };
 
-  return `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
-WHERE {
-  ${subjectStatements[subjectMode]}
+  ////////// FILTERS //////////
 
-  ${objectStatements[objectMode]}
+  // Date 
+  let dateFilter = ""
 
-  # Core graph patterns 
-  ?s octo:indexed ?date .
-  ${filters[time]}
-  ?s rdf:type ?pageType .
-  ?s octo:octothorpes ?o .
-
-  # Object type filter
-  ${objectTypes[objectType]}
-
-  # Optional blank node exploration
-  OPTIONAL {
-    ?o ?blankNodePred ?blankNode .
-    FILTER(isBlank(?blankNode))
-    OPTIONAL {
-      ?blankNode ?bnp ?blankNodeObj .
-      FILTER(!isBlank(?blankNodeObj))
+  function createSPARQLFilter(dR) {  
+    const filters = [];
+    if (dR.after) {
+      filters.push(`?date >= ${dR.after}`);
     }
+    if (dR.before) {
+      filters.push(`?date <= ${dR.before}`);
+    }
+    return filters.length ? `FILTER (${filters.join(' && ')})` : '';
   }
 
-  # Optional properties
-  ${subjectList?.length ? `
-  OPTIONAL { ?s octo:title ?title . }
-  OPTIONAL { ?s octo:image ?image . }
-  OPTIONAL { ?s octo:description ?description . }` : ''}
-  OPTIONAL { ?o octo:title ?ot . }
-  OPTIONAL { ?o octo:description ?od . }
-  OPTIONAL { ?o octo:image ?oimg . }
-}`;
+  if (dateRange != "") {
+    dateFilter = createSPARQLFilter(dateRange)
+  }
+
+  // Limit
+
+  let limitStatement = ""
+  if (limitResults != "0" && limitResults != "no-limit" && !isNaN(parseInt(limitResults))) {
+    limitStatement = `LIMIT ${limitResults}`
+  }
+  
+  // Offset
+  let offsetStatement = ""
+  if (offsetResults != "" && !isNaN(parseInt(offsetResults))) {
+    offsetStatement = `OFFSET ${offsetResults}`
+  }
+
+  ////////// SPARQL //////////
+
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
+  WHERE {
+    ${subjectStatements[subjectMode]}
+
+    ${objectStatements[objectMode]}
+
+    ?s octo:indexed ?date .
+    ${dateFilter}
+    ?s rdf:type ?pageType .
+    ?s octo:octothorpes ?o .
+
+    ${objectTypes[objectType]}
+
+    OPTIONAL {
+      ?o ?blankNodePred ?blankNode .
+      FILTER(isBlank(?blankNode))
+      OPTIONAL {
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
+    }
+
+    ${subjectList?.length ? `
+    OPTIONAL { ?s octo:title ?title . }
+    OPTIONAL { ?s octo:image ?image . }
+    OPTIONAL { ?s octo:description ?description . }` : ''}
+    OPTIONAL { ?o octo:title ?ot . }
+    OPTIONAL { ?o octo:description ?od . }
+    OPTIONAL { ?o octo:image ?oimg . }
+  }
+    ORDER BY ?date
+  ${limitStatement}
+  ${offsetStatement}  
+  `
+  return query.replace(/[\r\n]+/gm, '')
 }
