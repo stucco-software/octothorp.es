@@ -232,9 +232,8 @@ export const getBlobjectFromResponse = async (response) => {
           uris.forEach((string) => {
             try {
               new URL(string);
-              output = true;
             } catch (_) {
-              
+                output = true
             }
           })
           return output
@@ -242,7 +241,7 @@ export const getBlobjectFromResponse = async (response) => {
 
       // override default mode if inexact urls were provided
       if (subjectMode != "fuzzy" && subjectMode != "byParent") {
-        if ( isFuzzy(subjects) ) {
+        if ( isFuzzy(subjects) === true ) {
           subjectMode = "fuzzy"
         } 
       }
