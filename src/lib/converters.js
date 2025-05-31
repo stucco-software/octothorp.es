@@ -149,7 +149,8 @@ export const getBlobjectFromResponse = async (response) => {
       }
 
     // normalize subjects.
-    s = processUrls(subjects)
+    // s = processUrls(subjects)
+      s = subjects
 
   // The /terms route should accept ?o as strings (ie "octothorpe") rather than full urls
   // and prepend them with the local server's octothorpe path and filter objects to rdf:type octo:Term
@@ -198,27 +199,30 @@ export const getBlobjectFromResponse = async (response) => {
           default:
               console.error(`Invalid parent route "${sMode}":`, error.message);
               throw new Error(`Invalid parent route. Either omit or use "webring" or "domain"`);
-            break;
         }
       }
       else {
         switch (matchParam) {
           case "exact":
-              subjectMode = "exact"
+            subjectMode = "exact"
+            break;
           case "fuzzy":
             subjectMode = "fuzzy"
             objectMode = "fuzzy"
             break;
           case "fuzzy-s":
             subjectMode = "fuzzy"    
-            break;    
+            break;
           case "fuzzy-subject":
             subjectMode = "fuzzy"    
             break;
           case "fuzzy-o":
-            objectMode = "fuzzy"    
+            objectMode = "fuzzy"
+            break ;   
           case "fuzzy-object":
             objectMode = "fuzzy"    
+            break;
+ 
           default:
               console.error(`Invalid match type "${matchParam}":`, error.message)
               throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
