@@ -1,6 +1,7 @@
 import { instance } from '$env/static/private'
 import normalizeUrl from 'normalize-url';
 import { error, json } from '@sveltejs/kit';
+import { getUnixDateFromString } from '$lib/utils';
 
 // const thorpePath = instance+"~/"
 const thorpePath = "https://octothorp.es/~/"
@@ -80,21 +81,6 @@ export const getBlobjectFromResponse = async (response) => {
     return Object.values(urlMap);
   }
 
-  export const getUnixDateFromString = (datestring) => { 
-  // Utility function for the various places we might want to accept
-  // a human readable date but want to send a UNIX date because 
-  // they're faster in SPARQL queries. Also functions as a format validator
-
-
-    if (/^\d+$/.test(datestring)) return parseInt(datestring);
-    
-    const date = new Date(datestring);
-    if (isNaN(date.getTime())) {
-      throw new Error(`Invalid date: ${datestring}`);
-    }
-    return Math.floor(date.getTime() / 1000);
-  }
-
   export const getMultiPassFromParams  = (
     params, 
     url,
@@ -109,11 +95,13 @@ export const getBlobjectFromResponse = async (response) => {
     let output = {}
 
     // TODO actually set params for smode and object type from params
-    console.log(params.what)
+    console.log(params.by)
     console.log(params)
 
-    const objectTypeParams = params.what ? params.what : "all"
+    // default to ask for objects objects as rdf:type octo:Term  
+    const objectTypeParams = params.by ? params.by : "termsOnly"
     let objectType = "all"
+
     // assign query terms from request params
     const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
     const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
@@ -125,7 +113,7 @@ export const getBlobjectFromResponse = async (response) => {
     const offsetParams = searchParams.get('offset') ? searchParams.get('offset') : `0`
     const whenParam = searchParams.get('when') ? searchParams.get('when') : `default`
     const matchParam = searchParams.get('match') ? searchParams.get('match') : `exact`
-
+    const resultParams = params.what ? params.what : "blobjects"
     ////////// ?S and ?O //////////
 
     // utility to normalize input into either valid urls or valid octothorpe terms
@@ -149,33 +137,55 @@ export const getBlobjectFromResponse = async (response) => {
       }
 
     // normalize subjects.
-    // s = processUrls(subjects)
-      s = subjects
+    s = processUrls(subjects)
 
-  // The /terms route should accept ?o as strings (ie "octothorpe") rather than full urls
+    let resultMode = "blobjects"
+    switch (resultParams) {
+      case "everything":
+      case "blobjects":
+      case "whatever":
+        resultMode = "blobjects"
+        break;
+      case "links":
+      case "mentions":
+      case "backlinks":
+      case "citations":
+      case "bookmarks":
+        resultMode = "links"
+        break;
+      case "thorpes":
+      case "octothorpes":
+      case "tags":
+      case "terms":
+        resultMode = "octothorpes"
+        break;
+      default:
+        break;
+    }
+  // The [what]/terms route should accept ?o as strings (ie "octothorpe") rather than full urls
   // and prepend them with the local server's octothorpe path and filter objects to rdf:type octo:Term
   // all other modes should treat ?o as it is given
 
+  // TKTK -- processUrls shouldn't ever handle thorpes. thorpes should go multipass raw and get processed there.
     switch (objectTypeParams) {
-      case "thorpes":
-          o = processUrls(objects, "pre")
-          objectType = "termsOnly"
-        break
-      case "octothorpes":
-          o = processUrls(objects, "pre")
-          objectType = "termsOnly"
-        break
-      case "terms":
-          o = processUrls(objects, "pre")
-          objectType = "termsOnly"
-        break  
+      case "thorped":
+      case "octothorped":
+      case "tagged":
+      case "termed":
       case "termsOnly":
-          o = processUrls(objects, "pre")
-          objectType = "termsOnly"
+        objectType = "termsOnly"
+        o = objects
         break    
-        default:
+      case "linked":
+      case "mentioned":
+      case "backlinked":
+      case "cited":
+      case "bookmarked":
         o = processUrls(objects)
-        break
+        default:
+          console.error(`Invalid parent route "${objectTypeParams}":`, error.message);
+          throw new Error(`Invalid parent route. You must specify a valid link or term type"`);
+      break
     }
 
 
@@ -211,14 +221,11 @@ export const getBlobjectFromResponse = async (response) => {
             objectMode = "fuzzy"
             break;
           case "fuzzy-s":
-            subjectMode = "fuzzy"    
-            break;
           case "fuzzy-subject":
             subjectMode = "fuzzy"    
             break;
+            // figure out extra-fuzzy
           case "fuzzy-o":
-            objectMode = "fuzzy"
-            break ;   
           case "fuzzy-object":
             objectMode = "fuzzy"    
             break;
@@ -294,6 +301,7 @@ export const getBlobjectFromResponse = async (response) => {
     } 
     
     output = {
+      resultMode: resultMode,
       subjectList: s,
       objectList: o,
       subjectMode: subjectMode,

@@ -1,8 +1,10 @@
 import { sparql_endpoint, sparql_user, sparql_password } from '$env/static/private'
-import { error, redirect, json } from '@sveltejs/kit';
-import jsonld from 'jsonld'
-import context from '$lib/ld/context'
+import { instance } from '$env/static/private'
+// import { error, redirect, json } from '@sveltejs/kit';
+// import jsonld from 'jsonld'
+// import context from '$lib/ld/context'
 import prefixes from '$lib/ld/prefixes'
+import { getFuzzyTags } from '$lib/utils';
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest
@@ -94,8 +96,54 @@ ${nquads}
   * @throws {Error} If neither subjectList nor objectList is provided
  */
 
+////////// UTILITIES //////////
+ // Format URIs as SPARQL records
+  const formatUris = uris => uris.map(uri => 
+    uri.startsWith('<') ? uri : `<${uri}>`
+  ).join(' ')
+
+
+// Assuming formatUris is available in scope
+function buildSubjectStatement(type, subjectList) {
+  if (!subjectList?.length) return null
+
+  switch (type) {
+    case 'fuzzy':
+      return `VALUES ?subList { ${subjectList.map(s => `"${s}"`).join(' ')} }
+             FILTER(CONTAINS(STR(?s), ?subList))`
+    
+    case 'exact':
+      return `VALUES ?s { ${formatUris(subjectList)} }`
+    
+    case 'byParent':
+      return `VALUES ?parents { ${formatUris(subjectList)} }
+             ?parents octo:hasPart ?s .`
+    
+    default:
+      return '';
+  }
+}
+
+function buildObjectStatement(type, objectList) {
+  if (!objectList?.length) return null
+  
+  switch (type) {
+    case 'fuzzy':
+      return `VALUES ?objList { ${objectList.map(o => `"${o}"`).join(' ')} }
+             FILTER(CONTAINS(STR(?o), ?objList))`
+    
+    case 'exact':
+      return `VALUES ?o { ${formatUris(objectList)} }`
+    
+    default:
+      return ''
+  }
+}
+
+////////// MultiPass > Query //////////
 
 export const buildQueryFromMultiPass = ({
+  resultMode,
   subjectList,
   objectList,
   subjectMode = 'exact',
@@ -104,47 +152,81 @@ export const buildQueryFromMultiPass = ({
   limitResults = 100,
   offsetResults = "",
   dateRange = ""
+  // TKTK if we need multiple query formats, add param to specify. or break this out into a utility
   }) => {
   // Confirm at least one filter exists
   if (!subjectList?.length && !objectList?.length) {
     throw new Error('Must provide at least subjectList or objectList');
   }
 
-  // Format URIs with angle brackets
-  const formatUris = uris => uris.map(uri => 
-    uri.startsWith('<') ? uri : `<${uri}>`
-  ).join(' ');
+ 
 
-  // Subject statement builders
-  const subjectStatements = {
-    fuzzy: subjectList?.length ? 
-      `VALUES ?subList { ${subjectList.map(s => `"${s}"`).join(' ')} }
-       FILTER(CONTAINS(STR(?s), ?subList))` : '',
+  // TKTK CHECK THE refactor of statement builders to be functions <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+  // TKTK ADD EXCLUDE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+  const subjectStatement = buildSubjectStatement(subjectMode, subjectList)
+  // console.log(subjectStatement  )
+  // // Subject statement builders
+  // const subjectStatements = {
+  //   fuzzy: subjectList?.length ? 
+  //     `VALUES ?subList { ${subjectList.map(s => `"${s}"`).join(' ')} }
+  //      FILTER(CONTAINS(STR(?s), ?subList))` : '',
     
-    exact: subjectList?.length ? 
-      `VALUES ?s { ${formatUris(subjectList)} }` : '',
+  //   exact: subjectList?.length ? 
+  //     `VALUES ?s { ${formatUris(subjectList)} }` : '',
     
-    byParent: subjectList?.length ?
-      `VALUES ?parents { ${formatUris(subjectList)} }
-       ?parents octo:hasPart ?s .` : ''
-  };
+  //   byParent: subjectList?.length ?
+  //     `VALUES ?parents { ${formatUris(subjectList)} }
+  //      ?parents octo:hasPart ?s .` : ''
+  // }
 
   // Object statement builders
-  const objectStatements = {
-    fuzzy: objectList?.length ?
-      `VALUES ?objList { ${objectList.map(o => `"${o}"`).join(' ')} }
-       FILTER(CONTAINS(STR(?o), ?objList))` : '',
-    
-    exact: objectList?.length ? 
-      `VALUES ?o { ${formatUris(objectList)} }` : ''
-  };
+  const objectStatement = buildObjectStatement(objectMode, objectList)
+  // console.log(objectStatement)
 
-  // Object type filters with angle brackets
+  // const objectStatements = {
+  //   fuzzy: objectList?.length ?
+  //     `VALUES ?objList { ${objectList.map(o => `"${o}"`).join(' ')} }
+  //      FILTER(CONTAINS(STR(?o), ?objList))` : '',
+    
+  //   exact: objectList?.length ? 
+  //     `VALUES ?o { ${formatUris(objectList)} }` : ''
+  // }
+
+  // const thorpePath = instance+"~/"
+const thorpePath = "https://octothorp.es/~/"
+  function processObjects (obs, mode) {
+      let inst = thorpePath
+      let output = obs
+      if (mode === "fuzzy") {
+        output = getFuzzyTags(obs)
+      }
+      return output.map((item) => inst + item)
+  }
+
+  /*
+  termsOnly, fuzzy:
+    getFuzzyTags(objectlist)
+    compose using instance
+    VALUES = exact list
+    
+  termsOnly, veryFuzzy:
+
+
+    pagesOnly, fuzzy:
+      VALUES > CONTAINS
+
+    
+
+
+  */
+
+  // Filter objects by rdf:type 
   const objectTypes = {
     termsOnly: '?o rdf:type <octo:Term> .',
     pagesOnly: '?o rdf:type <octo:Page> .',
     all: ''
-  };
+  }
 
   ////////// FILTERS //////////
 
@@ -169,7 +251,8 @@ export const buildQueryFromMultiPass = ({
   // Limit
 
   let limitStatement = ""
-  if (limitResults != "0" && limitResults != "no-limit" && !isNaN(parseInt(limitResults))) {
+  // TKTK not sure if this is the best place to worry about filter mode or if 
+  if (limitResults != "0" && limitResults != "no-limit" && !isNaN(parseInt(limitResults)) && resultMode != "blobjects") {
     limitStatement = `LIMIT ${limitResults}`
   }
   
@@ -183,9 +266,9 @@ export const buildQueryFromMultiPass = ({
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
-    ${subjectStatements[subjectMode]}
+    ${subjectStatement}
 
-    ${objectStatements[objectMode]}
+    ${objectStatement}
 
     ?s octo:indexed ?date .
     ${dateFilter}
