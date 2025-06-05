@@ -91,23 +91,15 @@ export const getBlobjectFromResponse = async (response) => {
     let output = {}
     let s = ["?s"]
     let o = ["?o"]
-
-    // TODO actually set params for smode and object type from params
-    const returnFormat = params.as? params.as : "json"
-
-    // default to ask for objects objects as rdf:type octo:Term  
-    const matchByParams = params.by ? params.by : "termsOnly"
-    let objectType = "all"
-
-    
-    // assign query terms from request params
+  
+    // assign query terms from request params default to empty vars
     const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
     const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
 
     // TKTK NOT-OBJECTS. remember those will have to be cleaned and set too
 
-    // TKTK add validation on filters
     // assign filters from request params
+    // TKTK add validation on filters
 
     const limitParams = searchParams.get('limit') ? searchParams.get('limit') : `100`
     const offsetParams = searchParams.get('offset') ? searchParams.get('offset') : `0`
@@ -115,10 +107,17 @@ export const getBlobjectFromResponse = async (response) => {
     const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `exact`
     const resultParams = params.what ? params.what : "blobjects"
   
-    let subjectMode = "exact"
-    let objectMode = "exact"
+    
 
     ////////// ?S and ?O //////////
+
+    // default to ask for objects as rdf:type octo:Term  
+    const matchByParams = params.by ? params.by : "termsOnly"
+    let objectType = "all"
+
+    // default to exact matches
+    let subjectMode = "exact"
+    let objectMode = "exact"
 
     // Set objectType and clean object inputs
     switch (matchByParams) {
@@ -207,7 +206,6 @@ export const getBlobjectFromResponse = async (response) => {
         }
       }
 
-    
     // Set MultiPass.resultMode
       let resultMode = "blobjects"
       switch (resultParams) {
@@ -234,20 +232,20 @@ export const getBlobjectFromResponse = async (response) => {
       }
 
 
-  ////////// ?WHEN //////////
-    
+    // set dateFilter from ?when
     const dateFilter = parseDateStrings(whenParam)
-    
-    output = {
-      subjectList: s,
-      objectList: o,
-      subjectMode: subjectMode,
-      objectMode: objectMode,
-      objectType: objectType,
-      limitResults: limitParams,
-      offsetResults: offsetParams,
-      dateRange: dateFilter
-    }
+
+    // legacy multipass format
+    // output = {
+    //   subjectList: s,
+    //   objectList: o,
+    //   subjectMode: subjectMode,
+    //   objectMode: objectMode,
+    //   objectType: objectType,
+    //   limitResults: limitParams,
+    //   offsetResults: offsetParams,
+    //   dateRange: dateFilter
+    // }
 
     const MultiPass = {
         meta: {
@@ -275,7 +273,7 @@ export const getBlobjectFromResponse = async (response) => {
             dateRange: dateFilter
         }
     }
-    
+
     return MultiPass
 }
 
