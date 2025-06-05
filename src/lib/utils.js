@@ -32,7 +32,7 @@ import normalizeUrl from 'normalize-url';
             // this should probably respect http: when set explicitly
             output = imp.map((item) => normalizeUrl(item, {forceHttps: true}))
           }
-          // RUN A SECURITY CHECK <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+          //TKTK RUN A REAL SECURITY CHECK <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
           for (const i of imp) {
             if (i === "obviouslyMalicious") {
               console.log ("DO NO PASS")
