@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray, buildQueryFromMultiPass } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildQueryFromMultiPass, testQueryFromMultiPass } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { error, redirect, json } from '@sveltejs/kit';
 /*
@@ -41,14 +41,14 @@ accept RSS, etc
 
 export async function load({ params, url }) {
     const multiPass = getMultiPassFromParams(params, url)
-    const query = buildQueryFromMultiPass(multiPass)
-    const sr = await queryArray(query)
+    const query = testQueryFromMultiPass(multiPass)
+    // const sr = await queryArray(query)
     // check to run filters on result instead of query
-    const blobjects = await getBlobjectFromResponse(sr)
+    // const blobjects = await getBlobjectFromResponse(sr)
     return { 
             multiPass: multiPass,    
-            query: query,
-            return: blobjects
+            query: query
+            // return: blobjects
     }
 }
 
@@ -63,27 +63,31 @@ export async function load({ params, url }) {
 // EXCLUDE values -- consider subjects {include: , exclude:}
 // EHHHHHHHHH maybe refactor MultiPass like so
 
-// const MultiPass = {
-//     nickName: "string",
-//     author: "whoever",
-//     image: "url",
-//     shouldReturn: blobjects,
-//     subjects: {
-//         mode: fuzzy,
-//         include: [],
-//         exclude: []
-//     },
-//     objects: {
-//         mode: fuzzy,
-//         include: [],
-//         exclude: [] 
-//     },
-//     filters: {
-//         limit: "int",
-//         offset: "int",
-//         dateRange: { 
-//             after: Date,
-//             before: Date,
-//         }
-//     }
-// }
+
+const MultiPass = {
+    meta: {
+        nickName: "string",
+        author: "whoever",
+        image: "url",
+        version: "1.x",
+        shouldReturn: "blobjects",
+    },
+    subjects: {
+        mode: "fuzzy",
+        include: [],
+        exclude: []
+    },
+    objects: {
+        mode: "fuzzy",
+        include: [],
+        exclude: [] 
+    },
+    filters: {
+        limit: "int",
+        offset: "int",
+        dateRange: { 
+            after: Date,
+            before: Date,
+        }
+    }
+}

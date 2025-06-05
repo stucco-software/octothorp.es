@@ -96,27 +96,38 @@ ${nquads}
   * @throws {Error} If neither subjectList nor objectList is provided
  */
 
-////////// UTILITIES //////////
- // Format URIs as SPARQL records
+////////// SPARQL-SPECIFIC UTILITIES //////////
+
+
+  // const thorpePath = instance+"~/"
+const thorpePath = "https://octothorp.es/~/"
+
+
+ // Formats URIs as SPARQL records
   const formatUris = uris => uris.map(uri => 
     uri.startsWith('<') ? uri : `<${uri}>`
   ).join(' ')
 
 
-// Assuming formatUris is available in scope
-function buildSubjectStatement(type, subjectList) {
-  if (!subjectList?.length) return null
+// Builds the appropriate subject statement according to subject mode
+function buildSubjectStatement(blob) {
+  const includeList = blob.include
+  const excludeList = blob.exclude
+  const mode = blob.mode
+  console.log (includeList, excludeList)
+  // TKTK review the empty subject problem here
+  if (!includeList?.length && !excludeList?.length) return ''
 
-  switch (type) {
+  switch (mode) {
     case 'fuzzy':
-      return `VALUES ?subList { ${subjectList.map(s => `"${s}"`).join(' ')} }
+      return `VALUES ?subList { ${includeList.map(s => `"${s}"`).join(' ')} }
              FILTER(CONTAINS(STR(?s), ?subList))`
     
     case 'exact':
-      return `VALUES ?s { ${formatUris(subjectList)} }`
+      return `VALUES ?s { ${formatUris(includeList)} }`
     
     case 'byParent':
-      return `VALUES ?parents { ${formatUris(subjectList)} }
+      return `VALUES ?parents { ${formatUris(includeList)} }
              ?parents octo:hasPart ?s .`
     
     default:
@@ -124,85 +135,34 @@ function buildSubjectStatement(type, subjectList) {
   }
 }
 
-function buildObjectStatement(type, objectList) {
-  if (!objectList?.length) return null
-  
-  switch (type) {
-    case 'fuzzy':
-      return `VALUES ?objList { ${objectList.map(o => `"${o}"`).join(' ')} }
-             FILTER(CONTAINS(STR(?o), ?objList))`
-    
+// Builds the appropriate object statement according to object mode
+
+function buildObjectStatement(blob) {
+  const includeList = blob.include
+  const excludeList = blob.exclude
+  const mode = blob.mode
+  // TKTK revisit null object probs
+  // if (!objectList?.length && !objectList?.length) return null
+
+  switch (mode) {
+
     case 'exact':
-      return `VALUES ?o { ${formatUris(objectList)} }`
-    
+      return `VALUES ?o { ${formatUris(includeList)} }`
+    case 'fuzzy':
+      const processedInclude = processTermObjects(includeList, "fuzzy")
+      const processedExclude = processTermObjects(excludeList)
+      return `VALUES ?o { ${formatUris(processedInclude)} }`
+    case 'very-fuzzy':
+      return `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
+             FILTER(CONTAINS(STR(?o), ?objList))`
     default:
       return ''
   }
+
+  // TKTK add exclude statement
+
 }
-
-////////// MultiPass > Query //////////
-
-export const buildQueryFromMultiPass = ({
-  resultMode,
-  subjectList,
-  objectList,
-  subjectMode = 'exact',
-  objectMode = 'exact',
-  objectType = 'all',
-  limitResults = 100,
-  offsetResults = "",
-  dateRange = ""
-  // TKTK if we need multiple query formats, add param to specify. or break this out into a utility
-  }) => {
-  // Confirm at least one filter exists
-  if (!subjectList?.length && !objectList?.length) {
-    throw new Error('Must provide at least subjectList or objectList');
-  }
-
- 
-
-  // TKTK CHECK THE refactor of statement builders to be functions <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-  // TKTK ADD EXCLUDE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-  const subjectStatement = buildSubjectStatement(subjectMode, subjectList)
-  // console.log(subjectStatement  )
-  // // Subject statement builders
-  // const subjectStatements = {
-  //   fuzzy: subjectList?.length ? 
-  //     `VALUES ?subList { ${subjectList.map(s => `"${s}"`).join(' ')} }
-  //      FILTER(CONTAINS(STR(?s), ?subList))` : '',
-    
-  //   exact: subjectList?.length ? 
-  //     `VALUES ?s { ${formatUris(subjectList)} }` : '',
-    
-  //   byParent: subjectList?.length ?
-  //     `VALUES ?parents { ${formatUris(subjectList)} }
-  //      ?parents octo:hasPart ?s .` : ''
-  // }
-
-  // Object statement builders
-  const objectStatement = buildObjectStatement(objectMode, objectList)
-  // console.log(objectStatement)
-
-  // const objectStatements = {
-  //   fuzzy: objectList?.length ?
-  //     `VALUES ?objList { ${objectList.map(o => `"${o}"`).join(' ')} }
-  //      FILTER(CONTAINS(STR(?o), ?objList))` : '',
-    
-  //   exact: objectList?.length ? 
-  //     `VALUES ?o { ${formatUris(objectList)} }` : ''
-  // }
-
-  // const thorpePath = instance+"~/"
-const thorpePath = "https://octothorp.es/~/"
-  function processObjects (obs, mode) {
-      let inst = thorpePath
-      let output = obs
-      if (mode === "fuzzy") {
-        output = getFuzzyTags(obs)
-      }
-      return output.map((item) => inst + item)
-  }
+////////// IS THIS IMPORTANT
 
   /*
   termsOnly, fuzzy:
@@ -216,24 +176,30 @@ const thorpePath = "https://octothorp.es/~/"
     pagesOnly, fuzzy:
       VALUES > CONTAINS
 
-    
-
-
   */
 
+
+  // Converts terms to URIs and will getFuzzyTags when mode is fuzzy
+  function processTermObjects (terms, mode="exact") {
+      let output = terms
+      if (mode === "fuzzy") {
+        output = getFuzzyTags(terms)
+      }
+      return output.map((item) => thorpePath + item)
+  }
+
+    ////////// FILTERS //////////
   // Filter objects by rdf:type 
+  // use as objectTypes[objects.type]
   const objectTypes = {
     termsOnly: '?o rdf:type <octo:Term> .',
     pagesOnly: '?o rdf:type <octo:Page> .',
     all: ''
   }
 
-  ////////// FILTERS //////////
-
   // Date 
-  let dateFilter = ""
 
-  function createSPARQLFilter(dR) {  
+  function createDateFilter(dR) {  
     const filters = [];
     if (dR.after) {
       filters.push(`?date >= ${dR.after}`);
@@ -244,8 +210,56 @@ const thorpePath = "https://octothorp.es/~/"
     return filters.length ? `FILTER (${filters.join(' && ')})` : '';
   }
 
+  
+  ////////// TEST TEST TEST //////////
+
+  export const testQueryFromMultiPass = ({
+    meta, subjects, objects, filters
+    }) => {
+      var processedObjs = processTermObjects(objects.include)
+      return {
+        subjectStatement: buildSubjectStatement(subjects),
+        objectStatement: buildObjectStatement(objects),
+        processedObjs: processedObjs,
+        dateFilter: createDateFilter(filters.dateRange),
+        objectTypes: objectTypes[objects.type]
+    }
+  }
+
+
+
+////////// MultiPass > Query //////////
+  // TKTK decide if we need multiple query formats, add param to specify. or break this out into a utility
+
+export const buildQueryFromMultiPass = ({
+  meta, subjects, objects, filters
+  }) => {
+  // Confirm at least one filter exists
+  if (!subjectList?.length && !objectList?.length) {
+    throw new Error('Must provide at least subjectList or objectList');
+  }
+ 
+
+  // TKTK ADD EXCLUDE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+  const subjectStatement = buildSubjectStatement(subjects)
+
+  // Object statement builders
+  const objectStatement = buildObjectStatement(objectList)
+
+
+
+
+
+
+
+
+
+
+  let dateFilter = ""
+
   if (dateRange != "") {
-    dateFilter = createSPARQLFilter(dateRange)
+    dateFilter = createDateFilter(filters.dateRange)
   }
 
   // Limit
@@ -275,7 +289,7 @@ const thorpePath = "https://octothorp.es/~/"
     ?s rdf:type ?pageType .
     ?s octo:octothorpes ?o .
 
-    ${objectTypes[objectType]}
+    ${objectTypes[objects.type]}
 
     OPTIONAL {
       ?o ?blankNodePred ?blankNode .

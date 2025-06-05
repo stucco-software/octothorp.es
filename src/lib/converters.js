@@ -1,7 +1,6 @@
 import { instance } from '$env/static/private'
-import normalizeUrl from 'normalize-url';
 import { error, json } from '@sveltejs/kit';
-import { getUnixDateFromString } from '$lib/utils';
+import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } from '$lib/utils';
 
 // const thorpePath = instance+"~/"
 const thorpePath = "https://octothorp.es/~/"
@@ -86,25 +85,26 @@ export const getBlobjectFromResponse = async (response) => {
     url,
     sMode = '') => {
 
-    
-    // defaults
-    let s = ["?s"]
-    let o = ["?o"]
+
 
     const searchParams = url.searchParams;
     let output = {}
+    let s = ["?s"]
+    let o = ["?o"]
 
     // TODO actually set params for smode and object type from params
-    console.log(params.by)
-    console.log(params)
+    const returnFormat = params.as? params.as : "json"
 
     // default to ask for objects objects as rdf:type octo:Term  
-    const objectTypeParams = params.by ? params.by : "termsOnly"
+    const matchByParams = params.by ? params.by : "termsOnly"
     let objectType = "all"
 
+    
     // assign query terms from request params
     const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
     const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
+
+    // TKTK NOT-OBJECTS. remember those will have to be cleaned and set too
 
     // TKTK add validation on filters
     // assign filters from request params
@@ -112,196 +112,133 @@ export const getBlobjectFromResponse = async (response) => {
     const limitParams = searchParams.get('limit') ? searchParams.get('limit') : `100`
     const offsetParams = searchParams.get('offset') ? searchParams.get('offset') : `0`
     const whenParam = searchParams.get('when') ? searchParams.get('when') : `default`
-    const matchParam = searchParams.get('match') ? searchParams.get('match') : `exact`
+    const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `exact`
     const resultParams = params.what ? params.what : "blobjects"
+  
+    let subjectMode = "exact"
+    let objectMode = "exact"
+
     ////////// ?S and ?O //////////
 
-    // utility to normalize input into either valid urls or valid octothorpe terms
-    function processUrls (urls, mod = "norm") {
-        if (urls === s || urls === o ) {
-          return urls
-        }
-        else {
-          let output = []
-          if (mod === "norm") {
-            // this should probably respect http: when set explicitly
-            output = urls.map((item) => normalizeUrl(item, {forceHttps: true}))
-          }
-          else if (mod === "pre") {
-            let inst = thorpePath
-            output = urls.map((item) => inst + item)
-          }
-          // 
-          return output
-        }
-      }
-
-    // normalize subjects.
-    s = processUrls(subjects)
-
-    let resultMode = "blobjects"
-    switch (resultParams) {
-      case "everything":
-      case "blobjects":
-      case "whatever":
-        resultMode = "blobjects"
-        break;
-      case "links":
-      case "mentions":
-      case "backlinks":
-      case "citations":
-      case "bookmarks":
-        resultMode = "links"
-        break;
-      case "thorpes":
-      case "octothorpes":
-      case "tags":
-      case "terms":
-        resultMode = "octothorpes"
-        break;
-      default:
-        break;
-    }
-  // The [what]/terms route should accept ?o as strings (ie "octothorpe") rather than full urls
-  // and prepend them with the local server's octothorpe path and filter objects to rdf:type octo:Term
-  // all other modes should treat ?o as it is given
-
-  // TKTK -- processUrls shouldn't ever handle thorpes. thorpes should go multipass raw and get processed there.
-    switch (objectTypeParams) {
+    // Set objectType and clean object inputs
+    switch (matchByParams) {
       case "thorped":
       case "octothorped":
       case "tagged":
       case "termed":
       case "termsOnly":
         objectType = "termsOnly"
-        o = objects
+        o = cleanInputs(objects)
         break    
       case "linked":
       case "mentioned":
       case "backlinked":
       case "cited":
       case "bookmarked":
-        o = processUrls(objects)
+        o = cleanInputs(objects)
+        objectType = "pagesOnly"
+        break
+      case "posted":
+      case "all":
+        // this route by definition does not filter on objects
+        // so we stick with the default [o?] value      
+        objectType = "all"
+        break
+      case "in-webring":
+      case "webring":
+        // webrings are a special case. they override subjecMode because the subject must always be
+        // the URI of a webring index, and objects can be either terms or pages
+        subjectMode = "byParent"
+        objectType = "all"
+        o = cleanInputs(objects)
+        break
         default:
-          console.error(`Invalid parent route "${objectTypeParams}":`, error.message);
-          throw new Error(`Invalid parent route. You must specify a valid link or term type"`);
+          console.error(`Invalid "match by" route "${matchByParams}":`, error.message);
+          throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
       break
     }
+  
+    ////////// SET S and process ?MATCH //////////
+    // set subjectMode from ?match or default to exact
+    // set s and clean subject inputs if necessary
+    // skip if matching BY parent
+    // also set objectMode since we're looking at the matchFilterParam
 
-
-    ////////// ?MATCH //////////
-    // set subjectMode from route or request params or default to exact
-
-
-    // sMode comes from [mode] and can override params.match 
-    // in certain cases, such as WEBRING
-
-    let subjectMode = "exact"
-    let objectMode = "exact"
-
-      if (sMode != "") {
-        switch (sMode) {
-          case "webring":
-            subjectMode = "byParent"
-            break;
-          case "domain":
-            subjectMode = "byParent"
-          default:
-              console.error(`Invalid parent route "${sMode}":`, error.message);
-              throw new Error(`Invalid parent route. Either omit or use "webring" or "domain"`);
-        }
-      }
-      else {
-        switch (matchParam) {
+      if (subjectMode != "byParent") {
+        switch (matchFilterParam) {
           case "exact":
-            subjectMode = "exact"
+            s = cleanInputs(subjects, "exact")
             break;
           case "fuzzy":
             subjectMode = "fuzzy"
             objectMode = "fuzzy"
+            s = cleanInputs(subjects)
             break;
           case "fuzzy-s":
           case "fuzzy-subject":
-            subjectMode = "fuzzy"    
+            subjectMode = "fuzzy"
+            s = cleanInputs(subjects)
             break;
-            // figure out extra-fuzzy
           case "fuzzy-o":
           case "fuzzy-object":
             objectMode = "fuzzy"    
+            s = cleanInputs(subjects, "exact")
             break;
- 
+          case "very-fuzzy-o":
+          case "very-fuzzy-object":
+            objectMode = "very-fuzzy"
+            s = cleanInputs(subjects, "exact")    
+            break;
+          case "very-fuzzy":
+            objectMode = "very-fuzzy"
+            subjectMode = "fuzzy"
+            s = cleanInputs(subjects)    
+            break;
           default:
-              console.error(`Invalid match type "${matchParam}":`, error.message)
+              console.error(`Invalid match type "${matchFilterParam}":`, error.message)
               throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
             break;
         }
+        // override default mode if inexact urls were provided
+        if (subjectMode != "fuzzy") {
+          if ( areUrlsFuzzy(subjects) === true ) {
+            subjectMode = "fuzzy"
+          } 
+        }
       }
 
-      // check if they provided inexact URLs
-      function isFuzzy (uris) { 
-        let output = false 
-          uris.forEach((string) => {
-            try {
-              new URL(string);
-            } catch (_) {
-                output = true
-            }
-          })
-          return output
-      }
-
-      // override default mode if inexact urls were provided
-      if (subjectMode != "fuzzy" && subjectMode != "byParent") {
-        if ( isFuzzy(subjects) === true ) {
-          subjectMode = "fuzzy"
-        } 
+    
+    // Set MultiPass.resultMode
+      let resultMode = "blobjects"
+      switch (resultParams) {
+        case "everything":
+        case "blobjects":
+        case "whatever":
+          resultMode = "blobjects"
+          break;
+        case "links":
+        case "mentions":
+        case "backlinks":
+        case "citations":
+        case "bookmarks":
+          resultMode = "links"
+          break;
+        case "thorpes":
+        case "octothorpes":
+        case "tags":
+        case "terms":
+          resultMode = "octothorpes"
+          break;
+        default:
+          break;
       }
 
 
   ////////// ?WHEN //////////
-    let dateFilter = {};
-
-
-    if (whenParam != "default") {
-      if (whenParam === 'recent') {
-        const now = Math.floor(Date.now() / 1000);
-        const twoWeeksAgo = now - (14 * 24 * 60 * 60);
-        dateFilter["after"] = twoWeeksAgo
-      }
-      else {
-      const [command, ...dateParts] = whenParam.split('-');
-          const dateString = dateParts.join('-');
-
-          try {
-            switch (command) {
-              case 'after':
-                dateFilter.after = getUnixDateFromString(dateString);
-                break;
-              case 'before':
-                dateFilter.before = getUnixDateFromString(dateString);
-                break;
-              case 'between': {
-                const [start, end] = dateString.split('-and-');
-                if (!start || !end) {
-                  throw new Error('Between filter requires both start and end dates');
-                }
-                dateFilter.after = getUnixDateFromString(start);
-                dateFilter.before = getUnixDateFromString(end);
-                break;
-              }
-              default:
-                throw new Error(`Unknown date filter type: ${command}`);
-            }
-            } catch (error) {
-            console.error(`Date parsing failed for "${whenParam}":`, error.message);
-            throw new Error(`Invalid time filter. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE`);
-          }
-      }
-
-    } 
+    
+    const dateFilter = parseDateStrings(whenParam)
     
     output = {
-      resultMode: resultMode,
       subjectList: s,
       objectList: o,
       subjectMode: subjectMode,
@@ -312,7 +249,34 @@ export const getBlobjectFromResponse = async (response) => {
       dateRange: dateFilter
     }
 
-    return output
+    const MultiPass = {
+        meta: {
+            title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${returnFormat}`,
+            description: `MultiPass auto generated from a GET request to the ${instance} API`,
+            author: "Octothorpes Protocol",
+            image: "url",
+            version: "1",
+            resultMode: resultMode,
+        },
+        subjects: {
+            mode: subjectMode,
+            include: s,
+            exclude: []
+        },
+        objects: {
+            type: objectType,
+            mode: objectMode,
+            include: o,
+            exclude: [] 
+        },
+        filters: {
+            limitResults: limitParams,
+            offsetResults: offsetParams,
+            dateRange: dateFilter
+        }
+    }
+    
+    return MultiPass
 }
 
 
