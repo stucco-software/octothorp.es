@@ -15,15 +15,62 @@ import normalizeUrl from 'normalize-url';
     return Math.floor(date.getTime() / 1000);
   }
 
+  ////////// Parse Date Inputs //////////
+  // higher order than getUnixDateFromString
+  // can take human readable strings and keywords
+  // and return MultiPass compatible dateRange objects
+
+  export function parseDateStrings(datestring="") {
+
+    let dateFilter = {};
+    
+        if (datestring != "")  {
+          if (datestring === 'recent') {
+            const now = Math.floor(Date.now() / 1000);
+            const twoWeeksAgo = now - (14 * 24 * 60 * 60);
+            dateFilter["after"] = twoWeeksAgo
+          }
+          else {
+          const [command, ...dateParts] = datestring.split('-');
+              const newdatestring = dateParts.join('-');
+    
+              try {
+                switch (command) {
+                  case 'after':
+                    dateFilter.after = getUnixDateFromString(newdatestring);
+                    break;
+                  case 'before':
+                    dateFilter.before = getUnixDateFromString(newdatestring);
+                    break;
+                  case 'between': {
+                    const [start, end] = newdatestring.split('-and-');
+                    if (!start || !end) {
+                      throw new Error('Between filter requires both start and end dates');
+                    }
+                    dateFilter.after = getUnixDateFromString(start);
+                    dateFilter.before = getUnixDateFromString(end);
+                    break;
+                  }
+                  default:
+                    throw new Error(`Unknown date filter type: ${command}`);
+                }
+                } catch (error) {
+                console.error(`Date parsing failed for "${datestring}":`, error.message);
+                throw new Error(`Invalid time filter. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE`);
+              }
+          }
+        } 
+        return dateFilter
+  }
   // utility to check for malicious input and optionally
   // normalize urls into either valid urls
 
     export function cleanInputs (imp, mod = "fuzzy") {
+
       // defaults
-        let s = ["?s"]
-        let o = ["?o"]
+
         // skip if none provided
-        if (imp === s || imp === o ) {
+        if (imp === "" ) {
           return imp
         }
         else {
@@ -124,47 +171,4 @@ import normalizeUrl from 'normalize-url';
     return Array.from(allVariations).filter(v => v.length > 0);
   }
 
-  ////////// Parse Date Inputs //////////
-
-  export function parseDateStrings(datestring="default") {
-
-    let dateFilter = {};
-    
-        if (datestring != "")  {
-          if (datestring === 'recent') {
-            const now = Math.floor(Date.now() / 1000);
-            const twoWeeksAgo = now - (14 * 24 * 60 * 60);
-            dateFilter["after"] = twoWeeksAgo
-          }
-          else {
-          const [command, ...dateParts] = datestring.split('-');
-              const newdatestring = dateParts.join('-');
-    
-              try {
-                switch (command) {
-                  case 'after':
-                    dateFilter.after = getUnixDateFromString(newdatestring);
-                    break;
-                  case 'before':
-                    dateFilter.before = getUnixDateFromString(newdatestring);
-                    break;
-                  case 'between': {
-                    const [start, end] = newdatestring.split('-and-');
-                    if (!start || !end) {
-                      throw new Error('Between filter requires both start and end dates');
-                    }
-                    dateFilter.after = getUnixDateFromString(start);
-                    dateFilter.before = getUnixDateFromString(end);
-                    break;
-                  }
-                  default:
-                    throw new Error(`Unknown date filter type: ${command}`);
-                }
-                } catch (error) {
-                console.error(`Date parsing failed for "${datestring}":`, error.message);
-                throw new Error(`Invalid time filter. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE`);
-              }
-          }
-        } 
-        return dateFilter
-  }
+  

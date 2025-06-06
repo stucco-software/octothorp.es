@@ -79,23 +79,6 @@ ${nquads}
 )
 
 
-/**
-  * Builds a SPARQL query from a valid MultiPass object.
-  * Empty defaults are set as empty strings
-  * so they can be included in output even if not set
-  * @param {Object} params - Configuration options
-  * @param {string[]} [params.subjectList] - Array of subject URIs or strings
-  * @param {string[]} [params.objectList] - Array of object URIs or strings
-  * @param {'fuzzy'|'exact'|'byParent'} [params.subjectMode='exact'] - Subject matching strategy
-  * @param {'fuzzy'|'exact'} [params.objectMode='exact'] - Object matching strategy
-  * @param {'termsOnly'|'pagesOnly'|'all'} [params.objectType='all'] - Type filter for objects
-  * @param {'fuzzy'|'exact'} [params.objectMode='exact'] - Object matching strategy
-  * @param {int} [params.limitResults=100] - Value for LIMIT statement
-  * @param {int} [params.offsetResults=""] - Value for OFFSET statement
-  * @returns {<string>} Complete SPARQL query string
-  * @throws {Error} If neither subjectList nor objectList is provided
- */
-
 ////////// SPARQL-SPECIFIC UTILITIES //////////
 
 
@@ -138,20 +121,31 @@ function buildSubjectStatement(blob) {
 // Builds the appropriate object statement according to object mode
 
 function buildObjectStatement(blob) {
+   // TKTK add exclude statement
+
   const includeList = blob.include
   const excludeList = blob.exclude
   const mode = blob.mode
+  const type = blob.type
   // TKTK revisit null object probs
-  // if (!objectList?.length && !objectList?.length) return null
+  if (!includeList?.length && !excludeList?.length) {
+    console.log("No objects provided")
+    return null
+  }
 
   switch (mode) {
-
     case 'exact':
-      return `VALUES ?o { ${formatUris(includeList)} }`
+      return `VALUES ?o { ${processTermObjects(includeList)} }`
     case 'fuzzy':
-      const processedInclude = processTermObjects(includeList, "fuzzy")
-      const processedExclude = processTermObjects(excludeList)
-      return `VALUES ?o { ${formatUris(processedInclude)} }`
+      if (type === "termsOnly") {
+        const processedInclude = processTermObjects(includeList, "fuzzy")
+        const processedExclude = processTermObjects(excludeList)
+        return `VALUES ?o { ${formatUris(processedInclude)} }`
+      }
+      else {
+      return `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
+             FILTER(CONTAINS(STR(?o), ?objList))`
+      }
     case 'very-fuzzy':
       return `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
              FILTER(CONTAINS(STR(?o), ?objList))`
@@ -159,24 +153,8 @@ function buildObjectStatement(blob) {
       return ''
   }
 
-  // TKTK add exclude statement
 
 }
-////////// IS THIS IMPORTANT
-
-  /*
-  termsOnly, fuzzy:
-    getFuzzyTags(objectlist)
-    compose using instance
-    VALUES = exact list
-    
-  termsOnly, veryFuzzy:
-
-
-    pagesOnly, fuzzy:
-      VALUES > CONTAINS
-
-  */
 
 
   // Converts terms to URIs and will getFuzzyTags when mode is fuzzy
@@ -185,10 +163,11 @@ function buildObjectStatement(blob) {
       if (mode === "fuzzy") {
         output = getFuzzyTags(terms)
       }
-      return output.map((item) => thorpePath + item)
+      output = output.map((item) => thorpePath + item)
+      return formatUris(output)
   }
 
-    ////////// FILTERS //////////
+
   // Filter objects by rdf:type 
   // use as objectTypes[objects.type]
   const objectTypes = {
@@ -197,7 +176,7 @@ function buildObjectStatement(blob) {
     all: ''
   }
 
-  // Date 
+  // Date filter 
 
   function createDateFilter(dR) {  
     const filters = [];
@@ -209,6 +188,7 @@ function buildObjectStatement(blob) {
     }
     return filters.length ? `FILTER (${filters.join(' && ')})` : '';
   }
+
 
   
   ////////// TEST TEST TEST //////////
@@ -227,65 +207,75 @@ function buildObjectStatement(blob) {
   }
 
 
-
+///////////////////////////////////////
 ////////// MultiPass > Query //////////
-  // TKTK decide if we need multiple query formats, add param to specify. or break this out into a utility
+///////////////////////////////////////
 
-export const buildQueryFromMultiPass = ({
-  meta, subjects, objects, filters
-  }) => {
-  // Confirm at least one filter exists
-  if (!subjectList?.length && !objectList?.length) {
-    throw new Error('Must provide at least subjectList or objectList');
-  }
- 
+////////// MultiPass > Statements utility //////////
 
-  // TKTK ADD EXCLUDE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+/**
+  * Builds a SPARQL query from a valid MultiPass object.
+  * Empty defaults are set as empty strings
+  * so they can be included in output even if not set
+ */
+
+
+function getStatements (subjects, objects, filters, resultMode) {
+  // Confirm at least one subject or object exists
+  // even if they added filters for now we're not allow filtering the whole graph
+
+  // TKTK ADD EXCLUDE 
+  if (!subjects.include.length && !objects.include.length) {
+        console.log ("not it")
+            throw new Error('Must provide at least subjects or objects');
+      }
 
   const subjectStatement = buildSubjectStatement(subjects)
+  const objectStatement = buildObjectStatement(objects)
+  const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange) : ""
 
-  // Object statement builders
-  const objectStatement = buildObjectStatement(objectList)
-
-
-
-
-
-
-
-
-
-
-  let dateFilter = ""
-
-  if (dateRange != "") {
-    dateFilter = createDateFilter(filters.dateRange)
+  let limitFilter = filters.limitResults
+  if (limitFilter != "0" && limitFilter != "no-limit" && !isNaN(parseInt(limitFilter)) && resultMode != "blobjects") {
+    limitFilter = `LIMIT ${limitFilter}`
   }
-
-  // Limit
-
-  let limitStatement = ""
-  // TKTK not sure if this is the best place to worry about filter mode or if 
-  if (limitResults != "0" && limitResults != "no-limit" && !isNaN(parseInt(limitResults)) && resultMode != "blobjects") {
-    limitStatement = `LIMIT ${limitResults}`
+  else {
+    // TKTK eventually make smarter decisions about limits on blobjects mode
+    limitFilter = ""
   }
   
   // Offset
-  let offsetStatement = ""
-  if (offsetResults != "" && !isNaN(parseInt(offsetResults))) {
-    offsetStatement = `OFFSET ${offsetResults}`
+  let offsetFilter = filters.offsetResults
+  if (offsetFilter != "" && !isNaN(parseInt(offsetFilter)) && resultMode != "blobjects" ) {
+    offsetFilter = `OFFSET ${offsetFilter}`
   }
+  else {
+    offsetFilter = ""
+  }
+  return {
+    subjectStatement: subjectStatement,
+    objectStatement: objectStatement,
+    dateFilter: dateFilter,
+    limitFilter: limitFilter,
+    offsetFilter: offsetFilter
+  }
+}
 
-  ////////// SPARQL //////////
+////////// /get/everything //////////
+
+export const buildEverythingQuery = ({
+  meta, subjects, objects, filters
+  }) => {
+
+  const statements = getStatements(subjects, objects, filters, meta.resultMode)
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
-    ${subjectStatement}
+    ${statements.subjectStatement}
 
-    ${objectStatement}
+    ${statements.objectStatement}
 
     ?s octo:indexed ?date .
-    ${dateFilter}
+    ${statements.dateFilter}
     ?s rdf:type ?pageType .
     ?s octo:octothorpes ?o .
 
@@ -299,18 +289,44 @@ export const buildQueryFromMultiPass = ({
         FILTER(!isBlank(?blankNodeObj))
       }
     }
-
-    ${subjectList?.length ? `
     OPTIONAL { ?s octo:title ?title . }
     OPTIONAL { ?s octo:image ?image . }
-    OPTIONAL { ?s octo:description ?description . }` : ''}
+    OPTIONAL { ?s octo:description ?description . }
     OPTIONAL { ?o octo:title ?ot . }
     OPTIONAL { ?o octo:description ?od . }
     OPTIONAL { ?o octo:image ?oimg . }
   }
     ORDER BY ?date
-  ${limitStatement}
-  ${offsetStatement}  
   `
   return query.replace(/[\r\n]+/gm, '')
 }
+
+export const buildSimpleQuery = ({
+  meta, subjects, objects, filters
+  }) => {
+const statements = getStatements(subjects, objects, filters, meta.resultMode)
+
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType
+  WHERE {
+    ${statements.subjectStatement}
+
+    ${statements.objectStatement}
+
+    ?s octo:indexed ?date .
+    ${statements.dateFilter}
+    ?s rdf:type ?pageType .
+    ?s octo:octothorpes ?o .
+
+    ${objectTypes[objects.type]}
+
+
+    OPTIONAL { ?s octo:title ?title . }
+    OPTIONAL { ?s octo:image ?image . }
+    OPTIONAL { ?s octo:description ?description . }
+  }
+    ORDER BY ?date
+    ${statements.limitFilter}
+    ${statements.offsetFilter}
+  `
+  return query.replace(/[\r\n]+/gm, '')
+  }

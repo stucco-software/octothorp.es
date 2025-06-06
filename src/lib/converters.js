@@ -89,13 +89,14 @@ export const getBlobjectFromResponse = async (response) => {
 
     const searchParams = url.searchParams;
     let output = {}
-    let s = ["?s"]
-    let o = ["?o"]
+    let s = []
+    let o = []
   
     // assign query terms from request params default to empty vars
     const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
     const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
 
+    console.log (subjects, objects)
     // TKTK NOT-OBJECTS. remember those will have to be cleaned and set too
 
     // assign filters from request params
@@ -103,8 +104,8 @@ export const getBlobjectFromResponse = async (response) => {
 
     const limitParams = searchParams.get('limit') ? searchParams.get('limit') : `100`
     const offsetParams = searchParams.get('offset') ? searchParams.get('offset') : `0`
-    const whenParam = searchParams.get('when') ? searchParams.get('when') : `default`
-    const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `exact`
+    const whenParam = searchParams.get('when') ? searchParams.get('when') : []
+    const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `unset`
     const resultParams = params.what ? params.what : "blobjects"
   
     
@@ -165,8 +166,34 @@ export const getBlobjectFromResponse = async (response) => {
 
       if (subjectMode != "byParent") {
         switch (matchFilterParam) {
+          case "unset":
+            // defaults work like this:
+            // providing well formed URl(s) will run as EXACT
+            // otherwise FUZZY
+            // since objects can be terms or URLs
+            // we don't check for fuzzy URLs if terms only
+            // and default to EXACT for objects as terms
+            // objects as pages are subject to the same check
+            console.log("UNSET")
+            if ( areUrlsFuzzy(subjects) === true ) {
+              subjectMode = "fuzzy"
+            }
+            else {
+              subjectMode = "exact"
+            }
+            if ( objectType === "termsOnly") {
+              objectMode = "exact"
+            }
+            else if ( areUrlsFuzzy(objects) === true ) {
+              objectMode = "fuzzy"
+            }
+            else {
+              objectMode = "exact"
+            }
+            break
           case "exact":
             s = cleanInputs(subjects, "exact")
+            subjectMode = "exact"
             break;
           case "fuzzy":
             subjectMode = "fuzzy"
@@ -199,10 +226,8 @@ export const getBlobjectFromResponse = async (response) => {
             break;
         }
         // override default mode if inexact urls were provided
-        if (subjectMode != "fuzzy") {
-          if ( areUrlsFuzzy(subjects) === true ) {
-            subjectMode = "fuzzy"
-          } 
+        if (subjectMode != "fuzzy" && subjectMode !="exact") {
+
         }
       }
 
@@ -249,8 +274,8 @@ export const getBlobjectFromResponse = async (response) => {
 
     const MultiPass = {
         meta: {
-            title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${returnFormat}`,
-            description: `MultiPass auto generated from a GET request to the ${instance} API`,
+            title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${resultMode}`,
+            description: `MultiPass auto generated from a request to the ${instance}/get API`,
             author: "Octothorpes Protocol",
             image: "url",
             version: "1",

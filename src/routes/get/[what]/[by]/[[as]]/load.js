@@ -1,6 +1,7 @@
-import { queryBoolean, queryArray, buildQueryFromMultiPass, testQueryFromMultiPass } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuery, testQueryFromMultiPass, buildSimpleQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { error, redirect, json } from '@sveltejs/kit';
+import { buildSimpleQuery } from '../../../../../lib/sparql';
 /*
 
 get
@@ -41,14 +42,24 @@ accept RSS, etc
 
 export async function load({ params, url }) {
     const multiPass = getMultiPassFromParams(params, url)
-    const query = testQueryFromMultiPass(multiPass)
-    // const sr = await queryArray(query)
+    let query = ""
+
+    switch (params.what) {
+        case "links":
+            query = buildSimpleQuery(multiPass)
+            break;
+        case "everything":
+            query = buildEverythingQuery(multiPass)
+        default:
+            break;
+    }
+    const sr = await queryArray(query)
     // check to run filters on result instead of query
-    // const blobjects = await getBlobjectFromResponse(sr)
+    // const blobjects = "await getBlobjectFromResponse(sr)"
     return { 
             multiPass: multiPass,    
-            query: query
-            // return: blobjects
+            query: query,
+            sr: sr
     }
 }
 
