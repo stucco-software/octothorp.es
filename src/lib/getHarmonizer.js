@@ -103,7 +103,7 @@ const localHarmonizers = {
               "s": "source",
               "o": [
                 {
-                  "selector": `[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
+                  "selector": `a[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
                   "attribute": "href"
                 }
               ]
