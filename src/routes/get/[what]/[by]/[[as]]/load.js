@@ -45,7 +45,7 @@ export async function load({ params, url }) {
     let query = ""
 
     switch (params.what) {
-        case "links":
+        case "pages":
             query = buildSimpleQuery(multiPass)
             break;
         case "everything":

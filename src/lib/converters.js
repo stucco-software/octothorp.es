@@ -5,10 +5,7 @@ import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } fr
 // const thorpePath = instance+"~/"
 const thorpePath = "https://octothorp.es/~/"
 
-// naming convention is nameOfthing (processed) To nameOfThing
-
-
-
+// naming convention is get nameOfthing (processed) from nameOfThing
 
 export const getBlobjectFromResponse = async (response) => {
 
