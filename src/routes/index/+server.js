@@ -142,7 +142,7 @@ const recordCreation = async (o) => {
   } else {
     return await insert(`
       <${instance}~/${o}> octo:created ${now} .
-      <${instance}~/${o}> rdf:type <octo:Page> .
+      <${o}> rdf:type <octo:Page> .
     `)
   }
 }
