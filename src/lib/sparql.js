@@ -140,7 +140,7 @@ function buildObjectStatement(blob) {
       if (type === "termsOnly") {
         const processedInclude = processTermObjects(includeList, "fuzzy")
         const processedExclude = processTermObjects(excludeList)
-        return `VALUES ?o { ${formatUris(processedInclude)} }`
+        return `VALUES ?o { ${processedInclude} }`
       }
       else {
       return `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
@@ -159,6 +159,9 @@ function buildObjectStatement(blob) {
 
   // Converts terms to URIs and will getFuzzyTags when mode is fuzzy
   function processTermObjects (terms, mode="exact") {
+      if (typeof terms === 'string') {
+          terms = [terms]
+        }
       let output = terms
       if (mode === "fuzzy") {
         output = getFuzzyTags(terms)
@@ -304,7 +307,7 @@ export const buildEverythingQuery = ({
 export const buildSimpleQuery = ({
   meta, subjects, objects, filters
   }) => {
-const statements = getStatements(subjects, objects, filters, meta.resultMode)
+  const statements = getStatements(subjects, objects, filters, meta.resultMode)
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType
   WHERE {
