@@ -114,6 +114,7 @@ const createOctothorpe = async ({s, p, o}) => {
     <${url.origin}> octo:hasPart <${s}> .
     <${url.origin}> octo:verified "true" .
     <${url.origin}> rdf:type <octo:Origin> .
+    <${s}> rdf:type <octo:Page> .
   `)
 }
 
