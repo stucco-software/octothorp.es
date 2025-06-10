@@ -147,7 +147,8 @@ function buildObjectStatement(blob) {
              FILTER(CONTAINS(STR(?o), ?objList))`
       }
     case 'very-fuzzy':
-      return `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
+      const veryFuzzyInclude = processTermObjects(includeList, "very-fuzzy")
+      return `VALUES ?objList { ${veryFuzzyInclude.map(o => `"${o}"`).join(' ')} }
              FILTER(CONTAINS(STR(?o), ?objList))`
     default:
       return ''
@@ -166,8 +167,15 @@ function buildObjectStatement(blob) {
       if (mode === "fuzzy") {
         output = getFuzzyTags(terms)
       }
+      if (mode === "very-fuzzy") {
+        output = getFuzzyTags(terms)
+        return output
+      }
+      else {
       output = output.map((item) => thorpePath + item)
       return formatUris(output)
+      }
+
   }
 
 
