@@ -138,7 +138,8 @@ export const getBlobjectFromResponse = async (response) => {
       case "posted":
       case "all":
         // this route by definition does not filter on objects
-        // so we stick with the default [o?] value      
+        // so we stick with the default [o?] value     
+        // TKTK could throw more specific error when no subject provided 
         objectType = "all"
         break
       case "in-webring":
