@@ -263,8 +263,23 @@ function getStatements (subjects, objects, filters, resultMode) {
   }
 }
 
-////////// /get/everything //////////
-
+/**
+ * Builds a comprehensive SPARQL query for retrieving all related data
+ * @param {Object} config - Query configuration
+ * @param {Object} config.meta - Metadata about the query
+ * @param {Object} config.subjects - Subject configuration
+ * @param {Object} config.objects - Object configuration
+ * @param {Object} config.filters - Filter configuration
+ * @returns {string} Generated SPARQL query
+ * @example
+ * // Example usage
+ * const query = buildEverythingQuery({
+ *   meta: { resultMode: 'blobjects' },
+ *   subjects: { mode: 'exact', include: ['https://example.com'] },
+ *   objects: { type: 'termsOnly', mode: 'exact' },
+ *   filters: { limitResults: '100' }
+ * });
+ */
 export const buildEverythingQuery = ({
   meta, subjects, objects, filters
   }) => {
@@ -304,6 +319,23 @@ export const buildEverythingQuery = ({
   return query.replace(/[\r\n]+/gm, '')
 }
 
+/**
+ * Builds a simplified SPARQL query for basic data retrieval
+ * @param {Object} config - Query configuration
+ * @param {Object} config.meta - Metadata about the query
+ * @param {Object} config.subjects - Subject configuration
+ * @param {Object} config.objects - Object configuration
+ * @param {Object} config.filters - Filter configuration
+ * @returns {string} Generated SPARQL query
+ * @example
+ * // Example usage
+ * const query = buildSimpleQuery({
+ *   meta: { resultMode: 'blobjects' },
+ *   subjects: { mode: 'exact', include: ['https://example.com'] },
+ *   objects: { type: 'termsOnly', mode: 'exact' },
+ *   filters: { limitResults: '100' }
+ * });
+ */
 export const buildSimpleQuery = ({
   meta, subjects, objects, filters
   }) => {

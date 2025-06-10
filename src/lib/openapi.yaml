@@ -1,0 +1,172 @@
+openapi: 3.0.0
+info:
+  title: Octothorpes API
+  description: API for querying and managing octothorpes, webrings, and page relationships
+  version: 1.0.0
+  contact:
+    name: Octothorpes Protocol
+    url: https://octothorp.es
+
+servers:
+  - url: https://octothorp.es
+    description: Production server
+
+paths:
+  /get/{what}/{by}/{as}:
+    get:
+      summary: Query octothorpes data
+      description: Retrieve data based on specified parameters and filters
+      parameters:
+        - name: what
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [pages, everything, terms, thorpes, octothorpes, links, backlinks, bookmarks, all]
+          description: Type of data to retrieve
+        - name: by
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [termsOnly, thorped, octothorped, tagged, termed, linked, mentioned, backlinked, cited, bookmarked, posted, all, in-webring, webring]
+          description: Query mode or filter type
+        - name: as
+          in: path
+          required: false
+          schema:
+            type: string
+            enum: [json, rss]
+          description: Response format
+        - name: s
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of subjects to include
+        - name: o
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of objects to include
+        - name: match
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [exact, fuzzy, fuzzy-s, fuzzy-subject, fuzzy-o, fuzzy-object, very-fuzzy-o, very-fuzzy-object, very-fuzzy]
+          description: Match type for filtering
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+          description: Maximum number of results
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Pagination offset
+        - name: when
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Date filter parameters
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid request parameters
+        '401':
+          description: Unauthorized - Origin not registered
+        '429':
+          description: Too many requests - Page recently indexed
+
+components:
+  schemas:
+    QueryResponse:
+      type: object
+      properties:
+        multiPass:
+          $ref: '#/components/schemas/MultiPass'
+        query:
+          type: string
+          description: Generated SPARQL query
+        sr:
+          type: object
+          description: SPARQL query results
+    MultiPass:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+            author:
+              type: string
+            image:
+              type: string
+            version:
+              type: string
+            resultMode:
+              type: string
+              enum: [blobjects, links, octothorpes]
+        subjects:
+          type: object
+          properties:
+            mode:
+              type: string
+              enum: [exact, fuzzy, byParent]
+            include:
+              type: array
+              items:
+                type: string
+            exclude:
+              type: array
+              items:
+                type: string
+        objects:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [termsOnly, pagesOnly, all]
+            mode:
+              type: string
+              enum: [exact, fuzzy, very-fuzzy]
+            include:
+              type: array
+              items:
+                type: string
+            exclude:
+              type: array
+              items:
+                type: string
+        filters:
+          type: object
+          properties:
+            limitResults:
+              type: string
+            offsetResults:
+              type: string
+            dateRange:
+              type: object
+              properties:
+                after:
+                  type: string
+                  format: date-time
+                before:
+                  type: string
+                  format: date-time 

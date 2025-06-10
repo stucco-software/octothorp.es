@@ -7,6 +7,21 @@ const thorpePath = "https://octothorp.es/~/"
 
 // naming convention is get nameOfthing (processed) from nameOfThing
 
+/**
+ * Converts SPARQL query results into a standardized blobject format
+ * @param {Object} response - SPARQL query response object
+ * @param {Object} response.results - Query results
+ * @param {Array} response.results.bindings - Array of result bindings
+ * @returns {Array<Object>} Array of blobjects with standardized format
+ * @example
+ * // Example response format
+ * {
+ *   '@id': 'https://example.com',
+ *   title: 'Example Page',
+ *   description: 'A test page',
+ *   octothorpes: ['test']
+ * }
+ */
 export const getBlobjectFromResponse = async (response) => {
 
     const urlMap = {};
@@ -77,6 +92,44 @@ export const getBlobjectFromResponse = async (response) => {
     return Object.values(urlMap);
   }
 
+  /**
+   * Converts URL parameters into a standardized MultiPass query configuration
+   * @param {Object} params - Route parameters
+   * @param {string} params.what - Type of data to retrieve (pages, everything, etc.)
+   * @param {string} params.by - Query mode or filter type
+   * @param {URL} url - URL object containing search parameters
+   * @param {string} [sMode=''] - Optional subject mode override
+   * @returns {Object} MultiPass configuration object
+   * @throws {Error} If invalid match type or by parameter is provided
+   * @example
+   * // Example MultiPass output
+   * {
+   *   meta: {
+   *     title: 'Get blobjects matched by termsOnly (termsOnly) as blobjects',
+   *     description: 'MultiPass auto generated from a request to the API',
+   *     author: 'Octothorpes Protocol',
+   *     image: 'url',
+   *     version: '1',
+   *     resultMode: 'blobjects'
+   *   },
+   *   subjects: {
+   *     mode: 'exact',
+   *     include: [],
+   *     exclude: []
+   *   },
+   *   objects: {
+   *     type: 'termsOnly',
+   *     mode: 'exact',
+   *     include: [],
+   *     exclude: []
+   *   },
+   *   filters: {
+   *     limitResults: '100',
+   *     offsetResults: '0',
+   *     dateRange: {}
+   *   }
+   * }
+   */
   export const getMultiPassFromParams  = (
     params, 
     url,
