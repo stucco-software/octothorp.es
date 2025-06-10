@@ -7,7 +7,7 @@
 
     onMount(async () => {
         const response = await fetch('/api-docs');
-        const spec = await response.text();
+        const spec = await response.json();
         
         SwaggerUI({
             spec: spec,
