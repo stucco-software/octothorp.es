@@ -43,23 +43,27 @@ accept RSS, etc
 export async function load({ params, url }) {
     const multiPass = getMultiPassFromParams(params, url)
     let query = ""
+    let actualResults = ""
 
     switch (params.what) {
         case "pages":
             query = buildSimpleQuery(multiPass)
+            const sr = await queryArray(query)
+            actualResults = await sr.results.bindings
             break;
         case "everything":
             query = buildEverythingQuery(multiPass)
+            const bj = await queryArray(query)
+            actualResults = await getBlobjectFromResponse(bj)
+            // TKTK check to run filters on result instead of query
+            break;
         default:
             break;
     }
-    const sr = await queryArray(query)
-    // check to run filters on result instead of query
-    // const blobjects = "await getBlobjectFromResponse(sr)"
     return { 
             multiPass: multiPass,    
             query: query,
-            sr: sr
+            actualResults: actualResults
     }
 }
 

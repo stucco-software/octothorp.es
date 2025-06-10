@@ -129,8 +129,9 @@ function buildObjectStatement(blob) {
   const type = blob.type
   // TKTK revisit null object probs
   if (!includeList?.length && !excludeList?.length) {
-    console.log("No objects provided")
-    return null
+    // console.log("No objects provided")
+    let o = []
+    return o
   }
 
   switch (mode) {
