@@ -79,225 +79,213 @@ export const getBlobjectFromResponse = async (response) => {
 
   export const getMultiPassFromParams  = (
     params, 
-    url,
-    sMode = '') => {
+    url) => {
 
-
-
-    const searchParams = url.searchParams;
-    let output = {}
-    let s = []
-    let o = []
-  
-    // assign query terms from request params default to empty vars
-    const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
-    const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
-
-    console.log (subjects, objects)
-    // TKTK NOT-OBJECTS. remember those will have to be cleaned and set too
-
-    // assign filters from request params
-    // TKTK add validation on filters
-
-    const limitParams = searchParams.get('limit') ? searchParams.get('limit') : `100`
-    const offsetParams = searchParams.get('offset') ? searchParams.get('offset') : `0`
-    const whenParam = searchParams.get('when') ? searchParams.get('when') : []
-    const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `unset`
-    const resultParams = params.what ? params.what : "blobjects"
-  
+      const searchParams = url.searchParams;
+      let output = {}
+      let s = []
+      let o = []
     
+      // assign query terms from request params default to empty vars
+      const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
+      const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
 
-    ////////// ?S and ?O //////////
+      console.log (subjects, objects)
 
-    // default to ask for objects as rdf:type octo:Term  
-    const matchByParams = params.by ? params.by : "termsOnly"
-    let objectType = "all"
+      // assign filters from request params
+      // TKTK add validation on filters
 
-    // default to exact matches
-    let subjectMode = "exact"
-    let objectMode = "exact"
+      const limitParams = searchParams.get('limit') ? searchParams.get('limit') : `100`
+      const offsetParams = searchParams.get('offset') ? searchParams.get('offset') : `0`
+      const whenParam = searchParams.get('when') ? searchParams.get('when') : []
+      const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `unset`
+      const resultParams = params.what ? params.what : "blobjects"
+      // TKTK for v1.0 NOT-OBJECTS. remember those will have to be cleaned and set too
+    
+      
 
-    // Set objectType and clean object inputs
-    switch (matchByParams) {
-      case "thorped":
-      case "octothorped":
-      case "tagged":
-      case "termed":
-      case "termsOnly":
-        objectType = "termsOnly"
-        o = cleanInputs(objects)
-        break    
-      case "linked":
-      case "mentioned":
-      case "backlinked":
-      case "cited":
-      case "bookmarked":
-        o = cleanInputs(objects)
-        objectType = "pagesOnly"
-        break
-      case "posted":
-      case "all":
-        // this route by definition does not filter on objects
-        // so we stick with the default [o?] value     
-        // TKTK could throw more specific error when no subject provided 
-        objectType = "all"
-        break
-      case "in-webring":
-      case "webring":
-        // webrings are a special case. they override subjecMode because the subject must always be
-        // the URI of a webring index, and objects can be either terms or pages
-        subjectMode = "byParent"
-        objectType = "all"
-        o = cleanInputs(objects)
-        break
-        default:
-          console.error(`Invalid "match by" route "${matchByParams}":`, error.message);
-          throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
-      break
-    }
-  
-    ////////// SET S and process ?MATCH //////////
-    // set subjectMode from ?match or default to exact
-    // set s and clean subject inputs if necessary
-    // skip if matching BY parent
-    // also set objectMode since we're looking at the matchFilterParam
+      ////////// ?S and ?O //////////
 
-      if (subjectMode != "byParent") {
-        switch (matchFilterParam) {
-          case "unset":
-            // defaults work like this:
-            // providing well formed URl(s) will run as EXACT
-            // otherwise FUZZY
-            // since objects can be terms or URLs
-            // we don't check for fuzzy URLs if terms only
-            // and default to EXACT for objects as terms
-            // objects as pages are subject to the same check
-            console.log("UNSET")
-            if ( areUrlsFuzzy(subjects) === true ) {
-              subjectMode = "fuzzy"
-            }
-            else {
-              subjectMode = "exact"
-            }
-            if ( objectType === "termsOnly") {
-              objectMode = "exact"
-            }
-            else if ( areUrlsFuzzy(objects) === true ) {
-              objectMode = "fuzzy"
-            }
-            else {
-              objectMode = "exact"
-            }
-            break
-          case "exact":
-            s = cleanInputs(subjects, "exact")
-            subjectMode = "exact"
-            break;
-          case "fuzzy":
-            subjectMode = "fuzzy"
-            objectMode = "fuzzy"
-            s = cleanInputs(subjects)
-            break;
-          case "fuzzy-s":
-          case "fuzzy-subject":
-            subjectMode = "fuzzy"
-            s = cleanInputs(subjects)
-            break;
-          case "fuzzy-o":
-          case "fuzzy-object":
-            objectMode = "fuzzy"    
-            s = cleanInputs(subjects, "exact")
-            break;
-          case "very-fuzzy-o":
-          case "very-fuzzy-object":
-            objectMode = "very-fuzzy"
-            s = cleanInputs(subjects, "exact")    
-            break;
-          case "very-fuzzy":
-            objectMode = "very-fuzzy"
-            subjectMode = "fuzzy"
-            s = cleanInputs(subjects)    
-            break;
+      // default to ask for objects as rdf:type octo:Term  
+      const matchByParams = params.by ? params.by : "termsOnly"
+      let objectType = "all"
+      // TKTK for V1.0 compisite objectType handling hashtaggedBookmark
+
+      // default to exact matches
+      let subjectMode = "exact"
+      let objectMode = "exact"
+
+      // Set objectType and clean object inputs
+      switch (matchByParams) {
+        case "thorped":
+        case "octothorped":
+        case "tagged":
+        case "termed":
+        case "termsOnly":
+          objectType = "termsOnly"
+          o = cleanInputs(objects)
+          break    
+        case "linked":
+        case "mentioned":
+        case "backlinked":
+        case "cited":
+        case "bookmarked":
+          o = cleanInputs(objects)
+          objectType = "pagesOnly"
+          break
+        case "posted":
+        case "all":
+          // this route by definition does not filter on objects
+          // so we stick with the default [o?] value     
+          // TKTK could throw more specific error when no subject provided 
+          objectType = "all"
+          break
+        case "in-webring":
+        case "webring":
+          // webrings are a special case. they override subjecMode because the subject must always be
+          // the URI of a webring index, and objects can be either terms or pages
+          subjectMode = "byParent"
+          objectType = "all"
+          o = cleanInputs(objects)
+          break
           default:
-              console.error(`Invalid match type "${matchFilterParam}":`, error.message)
-              throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
+            console.error(`Invalid "match by" route "${matchByParams}":`, error.message);
+            throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
+        break
+      }
+    
+      ////////// SET S and process ?MATCH //////////
+      // set subjectMode from ?match or default to exact
+      // set s and clean subject inputs if necessary
+      // skip if matching BY parent
+      // also set objectMode since we're looking at the matchFilterParam
+
+        if (subjectMode != "byParent") {
+          switch (matchFilterParam) {
+            case "unset":
+              // defaults work like this:
+              // providing well formed URl(s) will run as EXACT
+              // otherwise FUZZY
+              // since objects can be terms or URLs
+              // we don't check for fuzzy URLs if terms only
+              // and default to EXACT for objects as terms
+              // objects as pages are subject to the same check
+              console.log("UNSET")
+              if ( areUrlsFuzzy(subjects) === true ) {
+                subjectMode = "fuzzy"
+              }
+              else {
+                subjectMode = "exact"
+              }
+              if ( objectType === "termsOnly") {
+                objectMode = "exact"
+              }
+              else if ( areUrlsFuzzy(objects) === true ) {
+                objectMode = "fuzzy"
+              }
+              else {
+                objectMode = "exact"
+              }
+              break
+            case "exact":
+              s = cleanInputs(subjects, "exact")
+              subjectMode = "exact"
+              break;
+            case "fuzzy":
+              subjectMode = "fuzzy"
+              objectMode = "fuzzy"
+              s = cleanInputs(subjects)
+              break;
+            case "fuzzy-s":
+            case "fuzzy-subject":
+              subjectMode = "fuzzy"
+              s = cleanInputs(subjects)
+              break;
+            case "fuzzy-o":
+            case "fuzzy-object":
+              objectMode = "fuzzy"    
+              s = cleanInputs(subjects, "exact")
+              break;
+            case "very-fuzzy-o":
+            case "very-fuzzy-object":
+              objectMode = "very-fuzzy"
+              s = cleanInputs(subjects, "exact")    
+              break;
+            case "very-fuzzy":
+              objectMode = "very-fuzzy"
+              subjectMode = "fuzzy"
+              s = cleanInputs(subjects)    
+              break;
+            default:
+                console.error(`Invalid match type "${matchFilterParam}":`, error.message)
+                throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
+              break;
+          }
+          // override default mode if inexact urls were provided
+          if (subjectMode != "fuzzy" && subjectMode !="exact") {
+
+          }
+        }
+
+      // Set MultiPass.resultMode
+      // TKTK update this
+        let resultMode = "blobjects"
+        switch (resultParams) {
+          case "everything":
+          case "blobjects":
+          case "whatever":
+            resultMode = "blobjects"
+            break;
+          case "links":
+          case "mentions":
+          case "backlinks":
+          case "citations":
+          case "bookmarks":
+            resultMode = "links"
+            break;
+          case "thorpes":
+          case "octothorpes":
+          case "tags":
+          case "terms":
+            resultMode = "octothorpes"
+            break;
+          
+          default:
             break;
         }
-        // override default mode if inexact urls were provided
-        if (subjectMode != "fuzzy" && subjectMode !="exact") {
 
-        }
+
+      // set dateFilter from ?when
+      const dateFilter = parseDateStrings(whenParam)
+
+      const MultiPass = {
+          meta: {
+              title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${resultMode}`,
+              description: `MultiPass auto generated from a request to the ${instance}/get API`,
+              author: "Octothorpes Protocol",
+              image: "url",
+              version: "1",
+              resultMode: resultMode,
+          },
+          subjects: {
+              mode: subjectMode,
+              include: s,
+              exclude: []
+          },
+          objects: {
+              type: objectType,
+              mode: objectMode,
+              include: o,
+              exclude: [] 
+          },
+          filters: {
+              limitResults: limitParams,
+              offsetResults: offsetParams,
+              dateRange: dateFilter
+          }
       }
 
-    // Set MultiPass.resultMode
-      let resultMode = "blobjects"
-      switch (resultParams) {
-        case "everything":
-        case "blobjects":
-        case "whatever":
-          resultMode = "blobjects"
-          break;
-        case "links":
-        case "mentions":
-        case "backlinks":
-        case "citations":
-        case "bookmarks":
-          resultMode = "links"
-          break;
-        case "thorpes":
-        case "octothorpes":
-        case "tags":
-        case "terms":
-          resultMode = "octothorpes"
-          break;
-        default:
-          break;
-      }
-
-
-    // set dateFilter from ?when
-    const dateFilter = parseDateStrings(whenParam)
-
-    // legacy multipass format
-    // output = {
-    //   subjectList: s,
-    //   objectList: o,
-    //   subjectMode: subjectMode,
-    //   objectMode: objectMode,
-    //   objectType: objectType,
-    //   limitResults: limitParams,
-    //   offsetResults: offsetParams,
-    //   dateRange: dateFilter
-    // }
-
-    const MultiPass = {
-        meta: {
-            title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${resultMode}`,
-            description: `MultiPass auto generated from a request to the ${instance}/get API`,
-            author: "Octothorpes Protocol",
-            image: "url",
-            version: "1",
-            resultMode: resultMode,
-        },
-        subjects: {
-            mode: subjectMode,
-            include: s,
-            exclude: []
-        },
-        objects: {
-            type: objectType,
-            mode: objectMode,
-            include: o,
-            exclude: [] 
-        },
-        filters: {
-            limitResults: limitParams,
-            offsetResults: offsetParams,
-            dateRange: dateFilter
-        }
-    }
-
-    return MultiPass
+      return MultiPass
 }
 
 

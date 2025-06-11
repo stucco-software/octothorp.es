@@ -99,6 +99,9 @@ function buildSubjectStatement(blob) {
   const mode = blob.mode
   console.log (includeList, excludeList)
   // TKTK review the empty subject problem here
+  if (!includeList?.length && !excludeList?.length && mode === "byParent") throw new Error('Must provide a subject in current mode');
+
+
   if (!includeList?.length && !excludeList?.length) return ''
 
   switch (mode) {

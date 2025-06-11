@@ -15,6 +15,20 @@ import normalizeUrl from 'normalize-url';
     return Math.floor(date.getTime() / 1000);
   }
 
+  ////////// Clean up raw db return for simple queries //////////
+
+  export function parseBindings(bindings) {
+    const output = bindings.map(b => {
+                return {
+                    uri: b.s.value,
+                    title: b.title ? b.title.value : null,
+                    description: b.description ? b.description.value : null,
+                    image: b.image ? b.image.value : null,
+                }
+                })
+    return output
+  }
+
   ////////// Parse Date Inputs //////////
   // higher order than getUnixDateFromString
   // can take human readable strings and keywords
