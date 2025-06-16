@@ -151,7 +151,6 @@ export const getBlobjectFromResponse = async (response) => {
           default:
             console.error(`Invalid "match by" route "${matchByParams}":`, error.message);
             throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
-        break
       }
     
       ////////// SET S and process ?MATCH //////////
@@ -164,10 +163,10 @@ export const getBlobjectFromResponse = async (response) => {
           switch (matchFilterParam) {
             case "unset":
               // defaults work like this:
-              // providing well formed URl(s) will run as EXACT
-              // otherwise FUZZY
+              // providing well-formed URL(s) will run as EXACT
+              // otherwise mode is FUZZY.
               // since objects can be terms or URLs
-              // we don't check for fuzzy URLs if terms only
+              // we don't check for fuzzy URLs if running as terms only
               // and default to EXACT for objects as terms
               // objects as pages are subject to the same check
               console.log("UNSET")
