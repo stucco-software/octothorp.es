@@ -15,7 +15,7 @@ get
     	/in-ring
 	/linked(etc)
 	/posted
-     
+
 get/[what]/[by]/[[as]]??
 
 terms
@@ -39,35 +39,40 @@ default json
 accept RSS, etc
 */
 
-
 export async function load({ params, url }) {
-    const multiPass = getMultiPassFromParams(params, url)
-    let query = ""
-    let actualResults = ""
+  const multiPass = getMultiPassFromParams(params, url);
+  let query = "";
+  let actualResults = "";
 
-    switch (params.what) {
-        case "pages":
-        
-            query = buildSimpleQuery(multiPass)
-            const sr = await queryArray(query)
-            actualResults = parseBindings(sr.results.bindings)
+  switch (params.what) {
+    case "pages":
+    case "backlinks":
+      query = buildSimpleQuery(multiPass);
+      const sr = await queryArray(query);
+      actualResults = parseBindings(sr.results.bindings);
+      break;
 
-            break;
-        case "everything":
-            query = buildEverythingQuery(multiPass)
-            const bj = await queryArray(query)
-            actualResults = await getBlobjectFromResponse(bj)
-            // TKTK check to run filters on result instead of query
-            break;
-        default:
-            break;
-    }
-    return { 
-            multiPass: multiPass,    
-            query: query,
-            actualResults: actualResults
-    }
+    case "everything":
+      query = buildEverythingQuery(multiPass);
+      const bj = await queryArray(query);
+      // Pass filters when returning blobjects, because blobjects are composite objects
+      // and we want to filter the set of blobjects, not response entries
+      actualResults = await getBlobjectFromResponse(bj, multiPass.filters);
+      // TKTK check to run filters on result instead of query
+      break;
+    case "thorpes":
+    // TKTK after v0.5
+      break;
+    case "domains":
+      break;
+    case "webrings":
+      break;
+    default:
+      break;
+  }
+  return {
+    multiPass: multiPass,
+    query: query,
+    actualResults: actualResults,
+  };
 }
-
-
-

@@ -5,7 +5,10 @@ const MultiPass = {
         author: string, anything
         image: "url",
         version: "1.x",
-        shouldReturn: string (blobjects, triples )
+        shouldReturn: string (blobjects, triples ),
+        instance: string, url to server,
+        format: optional, RSS, WebMention, raw?
+
     },
     subjects: {
         mode: string (exact, fuzzy, byParent)

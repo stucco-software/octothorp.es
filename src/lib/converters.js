@@ -7,13 +7,13 @@ const thorpePath = "https://octothorp.es/~/"
 
 // naming convention is get nameOfthing (processed) from nameOfThing
 
-export const getBlobjectFromResponse = async (response) => {
-
+export const getBlobjectFromResponse = async (response, filters = { "limitResults": 100}) => {
+    const limit = filters.limitResults
     const urlMap = {};
-  
+
     response.results.bindings.forEach(binding => {
       const url = binding.s.value;
-      
+
       if (!urlMap[url]) {
         urlMap[url] = {
           '@id': url,
@@ -22,9 +22,9 @@ export const getBlobjectFromResponse = async (response) => {
           octothorpes: []
         };
       }
-  
+
       const current = urlMap[url];
-  
+
       // Set title and description at top level if they exist
       if (binding.title?.value && !current.title) {
         current.title = binding.title.value;
@@ -32,12 +32,12 @@ export const getBlobjectFromResponse = async (response) => {
       if (binding.description?.value && !current.description) {
         current.description = binding.description.value;
       }
-  
+
       // Process octothorpe links
       if (binding.o?.value) {
         const targetUrl = binding.o.value;
         const isTerm = binding.type?.value === 'Term';
-  
+
         if (isTerm) {
           // For Terms, only include if starts with instance
           if (targetUrl.startsWith(instance)) {
@@ -53,7 +53,7 @@ export const getBlobjectFromResponse = async (response) => {
           if (binding.blankNodeObj?.value?.startsWith('octo:')) {
             pageType = binding.blankNodeObj.value.substring(5); // Remove 'octo:' prefix
           }
-  
+
           // Check if this target already exists in the array
           const existingIndex = current.octothorpes.findIndex(
             item => typeof item === 'object' && item.target === targetUrl
@@ -73,19 +73,23 @@ export const getBlobjectFromResponse = async (response) => {
         }
       }
     });
-  
-    return Object.values(urlMap);
+    // TKTK get date range from filters, process appropriately
+
+    // Apply limit if specified (0 means no limit)
+    const output = limit === 0 ? urlMap :     Object.fromEntries( Object.entries(urlMap).slice(0, limit) );
+
+    return Object.values(output);
   }
 
   export const getMultiPassFromParams  = (
-    params, 
+    params,
     url) => {
 
       const searchParams = url.searchParams;
       let output = {}
       let s = []
       let o = []
-    
+
       // assign query terms from request params default to empty vars
       const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
       const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
@@ -100,13 +104,15 @@ export const getBlobjectFromResponse = async (response) => {
       const whenParam = searchParams.get('when') ? searchParams.get('when') : []
       const matchFilterParam = searchParams.get('match') ? searchParams.get('match') : `unset`
       const resultParams = params.what ? params.what : "blobjects"
+      let subtype = ""
+
       // TKTK for v1.0 NOT-OBJECTS. remember those will have to be cleaned and set too
-    
-      
+
+
 
       ////////// ?S and ?O //////////
 
-      // default to ask for objects as rdf:type octo:Term  
+      // default to ask for objects as rdf:type octo:Term
       const matchByParams = params.by ? params.by : "termsOnly"
       let objectType = "all"
       // TKTK for V1.0 compisite objectType handling hashtaggedBookmark
@@ -124,20 +130,32 @@ export const getBlobjectFromResponse = async (response) => {
         case "termsOnly":
           objectType = "termsOnly"
           o = cleanInputs(objects)
-          break    
+          break
         case "linked":
         case "mentioned":
+          o = cleanInputs(objects)
+          objectType = "pagesOnly"
+          break
         case "backlinked":
+          subtype = "Backlink"
+          o = cleanInputs(objects)
+          objectType = "pagesOnly"
+          break
         case "cited":
+          subtype = "Cite"
+          o = cleanInputs(objects)
+          objectType = "pagesOnly"
+          break
         case "bookmarked":
+          subtype = "Bookmark"
           o = cleanInputs(objects)
           objectType = "pagesOnly"
           break
         case "posted":
         case "all":
           // this route by definition does not filter on objects
-          // so we stick with the default [o?] value     
-          // TKTK could throw more specific error when no subject provided 
+          // so we stick with the default [o?] value
+          // TKTK could throw more specific error when no subject provided
           objectType = "all"
           break
         case "in-webring":
@@ -152,7 +170,7 @@ export const getBlobjectFromResponse = async (response) => {
             console.error(`Invalid "match by" route "${matchByParams}":`, error.message);
             throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
       }
-    
+
       ////////// SET S and process ?MATCH //////////
       // set subjectMode from ?match or default to exact
       // set s and clean subject inputs if necessary
@@ -202,18 +220,18 @@ export const getBlobjectFromResponse = async (response) => {
               break;
             case "fuzzy-o":
             case "fuzzy-object":
-              objectMode = "fuzzy"    
+              objectMode = "fuzzy"
               s = cleanInputs(subjects, "exact")
               break;
             case "very-fuzzy-o":
             case "very-fuzzy-object":
               objectMode = "very-fuzzy"
-              s = cleanInputs(subjects, "exact")    
+              s = cleanInputs(subjects, "exact")
               break;
             case "very-fuzzy":
               objectMode = "very-fuzzy"
               subjectMode = "fuzzy"
-              s = cleanInputs(subjects)    
+              s = cleanInputs(subjects)
               break;
             default:
                 console.error(`Invalid match type "${matchFilterParam}":`, error.message)
@@ -248,7 +266,7 @@ export const getBlobjectFromResponse = async (response) => {
           case "terms":
             resultMode = "octothorpes"
             break;
-          
+
           default:
             break;
         }
@@ -275,9 +293,10 @@ export const getBlobjectFromResponse = async (response) => {
               type: objectType,
               mode: objectMode,
               include: o,
-              exclude: [] 
+              exclude: []
           },
           filters: {
+              subtype: subtype,
               limitResults: limitParams,
               offsetResults: offsetParams,
               dateRange: dateFilter
@@ -286,7 +305,3 @@ export const getBlobjectFromResponse = async (response) => {
 
       return MultiPass
 }
-
-
-
-  

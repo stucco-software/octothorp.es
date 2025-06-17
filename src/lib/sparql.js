@@ -87,7 +87,7 @@ const thorpePath = "https://octothorp.es/~/"
 
 
  // Formats URIs as SPARQL records
-  const formatUris = uris => uris.map(uri => 
+  const formatUris = uris => uris.map(uri =>
     uri.startsWith('<') ? uri : `<${uri}>`
   ).join(' ')
 
@@ -108,14 +108,14 @@ function buildSubjectStatement(blob) {
     case 'fuzzy':
       return `VALUES ?subList { ${includeList.map(s => `"${s}"`).join(' ')} }
              FILTER(CONTAINS(STR(?s), ?subList))`
-    
+
     case 'exact':
       return `VALUES ?s { ${formatUris(includeList)} }`
-    
+
     case 'byParent':
       return `VALUES ?parents { ${formatUris(includeList)} }
              ?parents octo:hasPart ?s .`
-    
+
     default:
       return '';
   }
@@ -183,7 +183,7 @@ function buildObjectStatement(blob) {
   }
 
 
-  // Filter objects by rdf:type 
+  // Filter objects by rdf:type
   // use as objectTypes[objects.type]
   const objectTypes = {
     termsOnly: '?o rdf:type <octo:Term> .',
@@ -191,9 +191,9 @@ function buildObjectStatement(blob) {
     all: ''
   }
 
-  // Date filter 
+  // Date filter
 
-  function createDateFilter(dR) {  
+  function createDateFilter(dR) {
     const filters = [];
     if (dR.after) {
       filters.push(`?date >= ${dR.after}`);
@@ -205,7 +205,7 @@ function buildObjectStatement(blob) {
   }
 
 
-  
+
   ////////// TEST TEST TEST //////////
 
   export const testQueryFromMultiPass = ({
@@ -239,7 +239,7 @@ function getStatements (subjects, objects, filters, resultMode) {
   // Confirm at least one subject or object exists
   // even if they added filters for now we're not allow filtering the whole graph
 
-  // TKTK ADD EXCLUDE 
+  // TKTK ADD EXCLUDE
   if (!subjects.include.length && !objects.include.length) {
         console.log ("not it")
             throw new Error('Must provide at least subjects or objects');
@@ -248,6 +248,17 @@ function getStatements (subjects, objects, filters, resultMode) {
   const subjectStatement = buildSubjectStatement(subjects)
   const objectStatement = buildObjectStatement(objects)
   const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange) : ""
+  let subtypeFilter = ""
+  if (filters.subtype ) {
+     subtypeFilter = `FILTER EXISTS {
+      ?o ?blankNodePred ?blankNode .
+      FILTER(isBlank(?blankNode))
+      ?blankNode ?bnp ?blankNodeObj .
+      FILTER(!isBlank(?blankNodeObj) && ?blankNodeObj = <octo:${filters.subtype}>)
+    }`
+    console.log(subtypeFilter)
+  }
+
 
   let limitFilter = filters.limitResults
   if (limitFilter != "0" && limitFilter != "no-limit" && !isNaN(parseInt(limitFilter)) && resultMode != "blobjects") {
@@ -257,7 +268,7 @@ function getStatements (subjects, objects, filters, resultMode) {
     // TKTK eventually make smarter decisions about limits on blobjects mode
     limitFilter = ""
   }
-  
+
   // Offset
   let offsetFilter = filters.offsetResults
   if (offsetFilter != "" && !isNaN(parseInt(offsetFilter)) && resultMode != "blobjects" ) {
@@ -269,6 +280,7 @@ function getStatements (subjects, objects, filters, resultMode) {
   return {
     subjectStatement: subjectStatement,
     objectStatement: objectStatement,
+    subtypeFilter: subtypeFilter,
     dateFilter: dateFilter,
     limitFilter: limitFilter,
     offsetFilter: offsetFilter
@@ -286,6 +298,8 @@ export const buildEverythingQuery = ({
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
     ${statements.subjectStatement}
+
+    ${statements.subtypeFilter}
 
     ${statements.objectStatement}
 
@@ -321,9 +335,11 @@ export const buildSimpleQuery = ({
   }) => {
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
 
-  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg
   WHERE {
     ${statements.subjectStatement}
+
+    ${statements.subtypeFilter}
 
     ${statements.objectStatement}
 
@@ -338,6 +354,9 @@ export const buildSimpleQuery = ({
     OPTIONAL { ?s octo:title ?title . }
     OPTIONAL { ?s octo:image ?image . }
     OPTIONAL { ?s octo:description ?description . }
+    OPTIONAL { ?o octo:title ?ot . }
+    OPTIONAL { ?o octo:description ?od . }
+    OPTIONAL { ?o octo:image ?oimg . }
   }
     ORDER BY ?date
     ${statements.limitFilter}
@@ -345,3 +364,38 @@ export const buildSimpleQuery = ({
   `
   return query.replace(/[\r\n]+/gm, '')
   }
+
+
+/*
+
+Basic backlink query
+
+SELECT DISTINCT ?s ?o ?title ?description ?ot ?od ?type
+WHERE {
+  ?s octo:octothorpes ?o .
+
+  # Ensure at least one blank node matches the criteria (but don't return its data)
+  FILTER EXISTS {
+    ?o ?blankNodePred ?blankNode .
+    FILTER(isBlank(?blankNode))
+    ?blankNode ?bnp ?blankNodeObj .
+    FILTER(!isBlank(?blankNodeObj) && ?blankNodeObj = <octo:Backlink>)
+  }
+
+  {
+    ?o rdf:type <octo:Page> .
+    BIND("Backlink" AS ?type)
+  }
+  UNION
+  {
+    ?o rdf:type <octo:Term> .
+    BIND("Term" AS ?type)
+  }
+
+  OPTIONAL { ?s octo:title ?title . }
+  OPTIONAL { ?s octo:description ?description . }
+  OPTIONAL { ?o octo:title ?ot . }
+  OPTIONAL { ?o octo:description ?od . }
+}
+
+*/
