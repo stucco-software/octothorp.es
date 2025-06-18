@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray, buildEverythingQuery, testQueryFromMultiPass, buildSimpleQuery } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuery, testQueryFromMultiPass, buildSimpleQuery, buildThorpeQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { error, redirect, json } from '@sveltejs/kit';
@@ -61,11 +61,11 @@ export async function load({ params, url }) {
       // TKTK check to run filters on result instead of query
       break;
     case "thorpes":
-    // TKTK after v0.5
+    query = buildThorpeQuery(multiPass);
+    const tr = await queryArray(query);
+      actualResults = parseBindings(tr.results.bindings, "terms")
       break;
     case "domains":
-      break;
-    case "webrings":
       break;
     default:
       break;

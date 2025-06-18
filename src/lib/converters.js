@@ -191,8 +191,9 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           objectType = "all"
           break
         case "in-webring":
-        case "webring":
-          // webrings are a special case. they override subjecMode because the subject must always be
+        case "members":
+        case "member-of":
+        // webrings are a special case. they override subjecMode because the subject must always be
           // the URI of a webring index, and objects can be either terms or pages
           subjectMode = "byParent"
           objectType = "all"

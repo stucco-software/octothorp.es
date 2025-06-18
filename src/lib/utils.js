@@ -29,20 +29,35 @@ export const getUnixDateFromString = (datestring) => {
 
 ////////// Clean up raw db return for simple queries //////////
 
-export function parseBindings(bindings) {
-  let output = bindings.map((b) => {
-    return {
-      uri: b.s.value,
-      title: b.title ? b.title.value : null,
-      description: b.description ? b.description.value : null,
-      date: parseInt(b.date ? b.date.value : null),
-      image: b.image ? b.image.value : null,
-    };
-  });
-  // deduplicate output
-  output = output.filter((item, index, self) =>
-    index === self.findIndex((t) => t.uri === item.uri)
-  );
+export function parseBindings(bindings, mode="pages") {
+  let output = {}
+  switch (mode) {
+    case "pages":
+     output = bindings.map((b) => {
+      return {
+        uri: b.s.value,
+        title: b.title ? b.title.value : null,
+        description: b.description ? b.description.value : null,
+        date: parseInt(b.date ? b.date.value : null),
+        image: b.image ? b.image.value : null
+      };
+    });
+     // deduplicate output
+     output = output.filter((item, index, self) =>
+       index === self.findIndex((t) => t.uri === item.uri)
+     );
+      break
+    case "thorpes":
+    case "terms":
+      output = bindings.map((b) => {
+      return {
+        term: b.o.value.substring(b.o.value.lastIndexOf('/') + 1),
+        date: parseInt(b.date ? b.date.value : null)
+      };
+    });
+     break
+  }
+
   return output;
 }
 

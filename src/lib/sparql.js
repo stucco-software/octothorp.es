@@ -261,6 +261,9 @@ function buildObjectStatement(blob) {
     return filters.length ? `FILTER (${filters.join(' && ')})` : '';
   }
 
+  function cleanQuery(q) {
+    return q.replace(/[\r\n]+/gm, '')
+  }
 
 
   ////////// TEST TEST TEST //////////
@@ -384,7 +387,7 @@ export const buildEverythingQuery = ({
   }
     ORDER BY ?date
   `
-  return query.replace(/[\r\n]+/gm, '')
+  return cleanQuery(query)
 }
 
 export const buildSimpleQuery = ({
@@ -419,40 +422,28 @@ export const buildSimpleQuery = ({
     ${statements.limitFilter}
     ${statements.offsetFilter}
   `
-  return query.replace(/[\r\n]+/gm, '')
+  return cleanQuery(query)
   }
 
+export const buildThorpeQuery = ({
+  meta, subjects, objects, filters
+  }) => {
+  const statements = getStatements(subjects, objects, filters, meta.resultMode)
+  // const query = `SELECT DISTINCT ?s ?o ?date WHERE {    VALUES ?subList { "demo.ideastore.dev" }               FILTER(CONTAINS(STR(?s), ?subList))   ?o rdf:type <octo:Term> .         ?s ?o ?date .    ?s octo:octothorpes ?o   }    ORDER BY ?date `
+  const query = `SELECT DISTINCT ?o ?date
+  WHERE {
+    ${statements.subjectStatement}
+    ${statements.objectStatement}
 
-/*
+       ?o rdf:type <octo:Term> .
+       ?s ?o ?date .
+       ?s octo:octothorpes ?o
+       }
+    ORDER BY ?date
+    ${statements.limitFilter}
+    ${statements.offsetFilter}
+  `
+  return cleanQuery(query)
 
-Basic backlink query
 
-SELECT DISTINCT ?s ?o ?title ?description ?ot ?od ?type
-WHERE {
-  ?s octo:octothorpes ?o .
-
-  # Ensure at least one blank node matches the criteria (but don't return its data)
-  FILTER EXISTS {
-    ?o ?blankNodePred ?blankNode .
-    FILTER(isBlank(?blankNode))
-    ?blankNode ?bnp ?blankNodeObj .
-    FILTER(!isBlank(?blankNodeObj) && ?blankNodeObj = <octo:Backlink>)
   }
-
-  {
-    ?o rdf:type <octo:Page> .
-    BIND("Backlink" AS ?type)
-  }
-  UNION
-  {
-    ?o rdf:type <octo:Term> .
-    BIND("Term" AS ?type)
-  }
-
-  OPTIONAL { ?s octo:title ?title . }
-  OPTIONAL { ?s octo:description ?description . }
-  OPTIONAL { ?o octo:title ?ot . }
-  OPTIONAL { ?o octo:description ?od . }
-}
-
-*/
