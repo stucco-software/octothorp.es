@@ -89,10 +89,14 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
       let output = {}
       let s = []
       let o = []
+      let notS = []
+      let notO = []
 
       // assign query terms from request params default to empty vars
       const subjects = searchParams.get('s') ? searchParams.get('s').split(',') : s
       const objects = searchParams.get('o') ? searchParams.get('o').split(',') : o
+      const notSubjects = searchParams.get('not-s') ? searchParams.get('not-s').split(',') : notS
+      const notObjects = searchParams.get('not-o') ? searchParams.get('not-o').split(',') : notO
 
       console.log (subjects, objects)
 
@@ -130,25 +134,30 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
         case "termsOnly":
           objectType = "termsOnly"
           o = cleanInputs(objects)
+          notO = cleanInputs(notObjects)
           break
         case "linked":
         case "mentioned":
           o = cleanInputs(objects)
+          notO = cleanInputs(notObjects)
           objectType = "pagesOnly"
           break
         case "backlinked":
           subtype = "Backlink"
           o = cleanInputs(objects)
+          notO = cleanInputs(notObjects)
           objectType = "pagesOnly"
           break
         case "cited":
           subtype = "Cite"
           o = cleanInputs(objects)
+          notO = cleanInputs(notObjects)
           objectType = "pagesOnly"
           break
         case "bookmarked":
           subtype = "Bookmark"
           o = cleanInputs(objects)
+          notO = cleanInputs(notObjects)
           objectType = "pagesOnly"
           break
         case "posted":
@@ -165,6 +174,7 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
           subjectMode = "byParent"
           objectType = "all"
           o = cleanInputs(objects)
+          notO = cleanInputs(notObjects)
           break
           default:
             console.error(`Invalid "match by" route "${matchByParams}":`, error.message);
@@ -187,11 +197,13 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
               // we don't check for fuzzy URLs if running as terms only
               // and default to EXACT for objects as terms
               // objects as pages are subject to the same check
-              console.log("UNSET")
-              if ( areUrlsFuzzy(subjects) === true ) {
+              if ( areUrlsFuzzy(subjects) === true || areUrlsFuzzy(notS)) {
+                s = cleanInputs(subjects)
+                notS = cleanInputs(notSubjects)
                 subjectMode = "fuzzy"
               }
               else {
+                s = cleanInputs(subjects, "exact")
                 subjectMode = "exact"
               }
               if ( objectType === "termsOnly") {
@@ -212,35 +224,36 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
               subjectMode = "fuzzy"
               objectMode = "fuzzy"
               s = cleanInputs(subjects)
+              notS = cleanInputs(notSubjects)
               break;
             case "fuzzy-s":
             case "fuzzy-subject":
               subjectMode = "fuzzy"
               s = cleanInputs(subjects)
+              notS = cleanInputs(notSubjects)
               break;
             case "fuzzy-o":
             case "fuzzy-object":
               objectMode = "fuzzy"
               s = cleanInputs(subjects, "exact")
+              notS = cleanInputs(notSubjects, "exact")
               break;
             case "very-fuzzy-o":
             case "very-fuzzy-object":
               objectMode = "very-fuzzy"
               s = cleanInputs(subjects, "exact")
+              notS = cleanInputs(notSubjects, "exact")
               break;
             case "very-fuzzy":
               objectMode = "very-fuzzy"
               subjectMode = "fuzzy"
               s = cleanInputs(subjects)
+              notS = cleanInputs(notSubjects)
               break;
             default:
                 console.error(`Invalid match type "${matchFilterParam}":`, error.message)
                 throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
               break;
-          }
-          // override default mode if inexact urls were provided
-          if (subjectMode != "fuzzy" && subjectMode !="exact") {
-
           }
         }
 
@@ -287,13 +300,13 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
           subjects: {
               mode: subjectMode,
               include: s,
-              exclude: []
+              exclude: notS
           },
           objects: {
               type: objectType,
               mode: objectMode,
               include: o,
-              exclude: []
+              exclude: notO
           },
           filters: {
               subtype: subtype,

@@ -104,28 +104,52 @@ function buildSubjectStatement(blob) {
 
   if (!includeList?.length && !excludeList?.length) return ''
 
-  switch (mode) {
-    case 'fuzzy':
-      return `VALUES ?subList { ${includeList.map(s => `"${s}"`).join(' ')} }
-             FILTER(CONTAINS(STR(?s), ?subList))`
+  let includeStatement = ''
+  let excludeStatement = ''
 
-    case 'exact':
-      return `VALUES ?s { ${formatUris(includeList)} }`
-
-    case 'byParent':
-      return `VALUES ?parents { ${formatUris(includeList)} }
-             ?parents octo:hasPart ?s .`
-
-    default:
-      return '';
+  if (includeList?.length){
+    switch (mode) {
+      case 'fuzzy':
+        includeStatement = `VALUES ?subList { ${includeList.map(s => `"${s}"`).join(' ')} }
+               FILTER(CONTAINS(STR(?s), ?subList))`
+        break
+      case 'exact':
+        includeStatement = `VALUES ?s { ${formatUris(includeList)} }`
+        break
+      case 'byParent':
+        includeStatement = `VALUES ?parents { ${formatUris(includeList)} }
+               ?parents octo:hasPart ?s .`
+        break
+      default:
+    }
   }
+
+  if (excludeList?.length){
+    switch (mode) {
+      case 'fuzzy':
+        excludeStatement = `VALUES ?excludedSubjects { ${excludeList.map(s => `"${s}"`).join(' ')} }
+               FILTER(!CONTAINS(STR(?s), ?excludedSubjects))`
+        break
+      case 'exact':
+        excludeStatement = `VALUES ?excludedSubjects { ${formatUris(excludeList)} } FILTER(?s NOT IN (?excludedSubjects))`
+        break
+      case 'byParent':
+        excludeStatement = `  FILTER NOT EXISTS {
+          VALUES ?unwantedParents { ${formatUris(excludeList)} }
+          ?unwantedParents octo:hasPart ?s .
+        }`
+        break       
+      default:
+    }
+  }
+
+  return `${includeStatement}${excludeStatement}`
+
 }
 
 // Builds the appropriate object statement according to object mode
 
 function buildObjectStatement(blob) {
-   // TKTK add exclude statement
-
   const includeList = blob.include
   const excludeList = blob.exclude
   const mode = blob.mode
@@ -137,28 +161,61 @@ function buildObjectStatement(blob) {
     return o
   }
 
-  switch (mode) {
-    case 'exact':
-      return `VALUES ?o { ${processTermObjects(includeList)} }`
-    case 'fuzzy':
-      if (type === "termsOnly") {
-        const processedInclude = processTermObjects(includeList, "fuzzy")
-        const processedExclude = processTermObjects(excludeList)
-        return `VALUES ?o { ${processedInclude} }`
-      }
-      else {
-      return `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
-             FILTER(CONTAINS(STR(?o), ?objList))`
-      }
-    case 'very-fuzzy':
-      const veryFuzzyInclude = processTermObjects(includeList, "very-fuzzy")
-      return `VALUES ?objList { ${veryFuzzyInclude.map(o => `"${o}"`).join(' ')} }
-             FILTER(CONTAINS(STR(?o), ?objList))`
-    default:
-      return ''
+  let includeStatement = ''
+  let excludeStatement = ''
+
+  if (includeList?.length) {
+    switch (mode) {
+      case 'exact':
+        includeStatement = `VALUES ?o { ${processTermObjects(includeList)} }`
+        break
+      case 'fuzzy':
+        if (type === "termsOnly") {
+          const processedInclude = processTermObjects(includeList, "fuzzy")
+          includeStatement = `VALUES ?o { ${processedInclude} }`
+        }
+        else {
+          includeStatement = `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
+                 FILTER(CONTAINS(STR(?o), ?objList))`
+        }
+        break
+      case 'very-fuzzy':
+        const veryFuzzyInclude = processTermObjects(includeList, "very-fuzzy")
+        includeStatement = `VALUES ?objList { ${veryFuzzyInclude.map(o => `"${o}"`).join(' ')} }
+                 FILTER(CONTAINS(STR(?o), ?objList))`
+        break
+      default:
+        includeStatement = ''
+    }
   }
 
+  if (excludeList?.length) {
+    switch (mode) {
+      case 'exact':
+        excludeStatement = `VALUES ?excludedObjects { ${processTermObjects(excludeList)} } FILTER(?o NOT IN (?excludedObjects))`
+        break
+      case 'fuzzy':
+        if (type === "termsOnly") {
+          const processedExclude = processTermObjects(excludeList, "fuzzy")
+          excludeStatement = `VALUES ?excludedObjList { ${processedExclude.map(o => `"${o}"`).join(' ')} }
+                 FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+        }
+        else {
+          excludeStatement = `VALUES ?excludedObjList { ${excludeList.map(o => `"${o}"`).join(' ')} }
+                 FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+        }
+        break
+      case 'very-fuzzy':
+        const veryFuzzyExclude = processTermObjects(excludeList, "very-fuzzy")
+        excludeStatement = `VALUES ?excludedObjList { ${veryFuzzyExclude.map(o => `"${o}"`).join(' ')} }
+                 FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+        break
+      default:
+        excludeStatement = ''
+    }
+  }
 
+  return `${includeStatement}${excludeStatement}`
 }
 
 
@@ -240,7 +297,9 @@ function getStatements (subjects, objects, filters, resultMode) {
   // even if they added filters for now we're not allow filtering the whole graph
 
   // TKTK ADD EXCLUDE
-  if (!subjects.include.length && !objects.include.length) {
+
+
+  if (!subjects.include.length > 0 && !objects.include.length > 0) {
         console.log ("not it")
             throw new Error('Must provide at least subjects or objects');
       }
