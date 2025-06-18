@@ -5,26 +5,44 @@ export const getUnixDateFromString = (datestring) => {
   // a human readable date but want to send a UNIX date because
   // they're faster in SPARQL queries. Also functions as a format validator
 
+  // Handle Unix timestamp directly
   if (/^\d+$/.test(datestring)) return parseInt(datestring);
 
-  const date = new Date(datestring);
+  // Try parsing as ISO date first
+  let date = new Date(datestring);
+
+  // If that fails, try parsing as YYYY-MM-DD
+  if (isNaN(date.getTime())) {
+    const [year, month, day] = datestring.split('-').map(Number);
+    if (year && month && day) {
+      date = new Date(year, month - 1, day);
+    }
+  }
+
+  // If still invalid, throw error
   if (isNaN(date.getTime())) {
     throw new Error(`Invalid date: ${datestring}`);
   }
+
   return Math.floor(date.getTime() / 1000);
 };
 
 ////////// Clean up raw db return for simple queries //////////
 
 export function parseBindings(bindings) {
-  const output = bindings.map((b) => {
+  let output = bindings.map((b) => {
     return {
       uri: b.s.value,
       title: b.title ? b.title.value : null,
       description: b.description ? b.description.value : null,
+      date: parseInt(b.date ? b.date.value : null),
       image: b.image ? b.image.value : null,
     };
   });
+  // deduplicate output
+  output = output.filter((item, index, self) =>
+    index === self.findIndex((t) => t.uri === item.uri)
+  );
   return output;
 }
 
@@ -36,29 +54,35 @@ export function parseBindings(bindings) {
 export function parseDateStrings(datestring = "") {
   let dateFilter = {};
 
-  if (datestring != "") {
+  // Return empty filter if no date string provided
+
+  if (datestring && datestring.toString() !== "") {
     if (datestring === "recent") {
-      const now = Math.floor(Date.now() / 1000);
-      const twoWeeksAgo = now - 14 * 24 * 60 * 60;
-      dateFilter["after"] = twoWeeksAgo;
+      const now = Math.floor(Date.now());
+      const twoWeeksAgo = now - 1209600000;
+      dateFilter.after = twoWeeksAgo;
     } else {
-      const [command, ...dateParts] = datestring.split("-");
-      const newdatestring = dateParts.join("-");
+      // Split on first hyphen to separate command from date
+      const firstHyphen = datestring.indexOf('-');
+      if (firstHyphen === -1) {
+        throw new Error('Invalid date filter format. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE');
+      }
+
+      const command = datestring.substring(0, firstHyphen);
+      const datePart = datestring.substring(firstHyphen + 1);
 
       try {
         switch (command) {
           case "after":
-            dateFilter.after = getUnixDateFromString(newdatestring);
+            dateFilter.after = getUnixDateFromString(datePart);
             break;
           case "before":
-            dateFilter.before = getUnixDateFromString(newdatestring);
+            dateFilter.before = getUnixDateFromString(datePart);
             break;
           case "between": {
-            const [start, end] = newdatestring.split("-and-");
+            const [start, end] = datePart.split("-and-");
             if (!start || !end) {
-              throw new Error(
-                "Between filter requires both start and end dates",
-              );
+              throw new Error("Between filter requires both start and end dates");
             }
             dateFilter.after = getUnixDateFromString(start);
             dateFilter.before = getUnixDateFromString(end);
@@ -68,13 +92,8 @@ export function parseDateStrings(datestring = "") {
             throw new Error(`Unknown date filter type: ${command}`);
         }
       } catch (error) {
-        console.error(
-          `Date parsing failed for "${datestring}":`,
-          error.message,
-        );
-        throw new Error(
-          `Invalid time filter. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE`,
-        );
+        console.error(`Date parsing failed for "${datestring}":`, error.message);
+        throw new Error(`Invalid time filter. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE`);
       }
     }
   }
@@ -201,8 +220,9 @@ export const getFuzzyTags = (tags) => {
 
     // Convert all separators to spaces first for consistent processing
     const withSpaces = trimmedTag
-      .replace(/[-_]/g, " ") // Convert hyphens and underscores to spaces
-      .replace(/([a-z])([A-Z])/g, "$1 $2"); // Split camelCase
+    // TKTK fix this -- errors when run
+      // .replace(/[-_]/g, " ") // Convert hyphens and underscores to spaces
+      // .replace(/([a-z])([A-Z])/g, "$1 $2"); // Split camelCase
 
     // Generate base forms
     const base = withSpaces.toLowerCase().trim();

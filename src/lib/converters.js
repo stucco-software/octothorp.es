@@ -7,8 +7,10 @@ const thorpePath = "https://octothorp.es/~/"
 
 // naming convention is get nameOfthing (processed) from nameOfThing
 
-export const getBlobjectFromResponse = async (response, filters = { "limitResults": 100}) => {
+export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null  }) => {
     const limit = filters.limitResults
+    const offset = filters.offsetResults
+
     const urlMap = {};
 
     response.results.bindings.forEach(binding => {
@@ -19,6 +21,8 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
           '@id': url,
           title: null,
           description: null,
+          image: null,
+          date: null,
           octothorpes: []
         };
       }
@@ -32,7 +36,12 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
       if (binding.description?.value && !current.description) {
         current.description = binding.description.value;
       }
-
+      if (binding.image?.value && !current.image) {
+        current.image = binding.image.value;
+      }
+      if (binding.date?.value && !current.date) {
+        current.date = parseInt(binding.date.value);
+      }
       // Process octothorpe links
       if (binding.o?.value) {
         const targetUrl = binding.o.value;
@@ -75,8 +84,23 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
     });
     // TKTK get date range from filters, process appropriately
 
+    // Filter by date range if specified
+    let filteredMap = urlMap;
+    if (filters.dateRange) {
+      const { after, before } = filters.dateRange;
+      filteredMap = Object.fromEntries(
+        Object.entries(urlMap).filter(([_, item]) => {
+          if (!item.date) return false;
+          if (after && item.date < after) return false;
+          if (before && item.date > before) return false;
+          return true;
+        })
+      );
+    }
+
     // Apply limit if specified (0 means no limit)
-    const output = limit === 0 ? urlMap :     Object.fromEntries( Object.entries(urlMap).slice(0, limit) );
+
+    const output = limit === 0 ? filteredMap : Object.fromEntries(Object.entries(filteredMap).slice(offset, limit));
 
     return Object.values(output);
   }
@@ -86,7 +110,6 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
     url) => {
 
       const searchParams = url.searchParams;
-      let output = {}
       let s = []
       let o = []
       let notS = []
@@ -292,8 +315,9 @@ export const getBlobjectFromResponse = async (response, filters = { "limitResult
           meta: {
               title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${resultMode}`,
               description: `MultiPass auto generated from a request to the ${instance}/get API`,
+              server: `${instance}`,
               author: "Octothorpes Protocol",
-              image: "url",
+              image: `${instance}badge.png`,
               version: "1",
               resultMode: resultMode,
           },

@@ -138,7 +138,7 @@ function buildSubjectStatement(blob) {
           VALUES ?unwantedParents { ${formatUris(excludeList)} }
           ?unwantedParents octo:hasPart ?s .
         }`
-        break       
+        break
       default:
     }
   }
@@ -351,7 +351,6 @@ function getStatements (subjects, objects, filters, resultMode) {
 export const buildEverythingQuery = ({
   meta, subjects, objects, filters
   }) => {
-
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
@@ -363,26 +362,25 @@ export const buildEverythingQuery = ({
     ${statements.objectStatement}
 
     ?s octo:indexed ?date .
-    ${statements.dateFilter}
     ?s rdf:type ?pageType .
     ?s octo:octothorpes ?o .
 
     ${objectTypes[objects.type]}
-
     OPTIONAL {
-      ?o ?blankNodePred ?blankNode .
-      FILTER(isBlank(?blankNode))
-      OPTIONAL {
-        ?blankNode ?bnp ?blankNodeObj .
-        FILTER(!isBlank(?blankNodeObj))
+        ?o ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        OPTIONAL {
+          ?blankNode ?bnp ?blankNodeObj .
+          FILTER(!isBlank(?blankNodeObj))
+        }
       }
-    }
-    OPTIONAL { ?s octo:title ?title . }
-    OPTIONAL { ?s octo:image ?image . }
-    OPTIONAL { ?s octo:description ?description . }
-    OPTIONAL { ?o octo:title ?ot . }
-    OPTIONAL { ?o octo:description ?od . }
-    OPTIONAL { ?o octo:image ?oimg . }
+
+        OPTIONAL { ?s octo:title ?title }
+        OPTIONAL { ?s octo:image ?image }
+        OPTIONAL { ?s octo:description ?description }
+        OPTIONAL { ?o octo:title ?ot }
+        OPTIONAL { ?o octo:description ?od }
+        OPTIONAL { ?o octo:image ?oimg }
   }
     ORDER BY ?date
   `
