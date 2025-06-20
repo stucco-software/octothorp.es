@@ -485,7 +485,7 @@ export const buildDomainQuery = ({
      OPTIONAL { ?s octo:description ?description }
      }
       ${limitFilter}
-     OFFSET ${offsetFilter}
+      ${offsetFilter}
      `
     }
     else {
