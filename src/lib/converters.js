@@ -193,9 +193,19 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         case "in-webring":
         case "members":
         case "member-of":
+
         // webrings are a special case. they override subjecMode because the subject must always be
           // the URI of a webring index, and objects can be either terms or pages
           subjectMode = "byParent"
+          s = cleanInputs(subjects, "exact")
+          notS = cleanInputs(notSubjects)
+
+          if ( areUrlsFuzzy(objects) === true ) {
+            objectMode = "fuzzy"
+          }
+          else {
+            objectMode = "exact"
+          }
           objectType = "all"
           o = cleanInputs(objects)
           notO = cleanInputs(notObjects)

@@ -118,7 +118,8 @@ function buildSubjectStatement(blob) {
         break
       case 'byParent':
         includeStatement = `VALUES ?parents { ${formatUris(includeList)} }
-               ?parents octo:hasPart ?s .`
+               ?parents octo:hasPart ?sdomain .
+               ?sdomain octo:hasPart ?s.`
         break
       default:
     }
@@ -134,9 +135,11 @@ function buildSubjectStatement(blob) {
         excludeStatement = `VALUES ?excludedSubjects { ${formatUris(excludeList)} } FILTER(?s NOT IN (?excludedSubjects))`
         break
       case 'byParent':
+      // TKTK no idea if this works until we have multiple webrings
         excludeStatement = `  FILTER NOT EXISTS {
           VALUES ?unwantedParents { ${formatUris(excludeList)} }
-          ?unwantedParents octo:hasPart ?s .
+          ?unwantedParents octo:hasPart ?sdomain .
+          ?sdomain octo:hasPart ?s.
         }`
         break
       default:
@@ -447,3 +450,86 @@ export const buildThorpeQuery = ({
 
 
   }
+
+export const buildDomainQuery = ({
+  meta, subjects, objects, filters
+}) => {
+  // TKTK do domains have dates?
+  // as is apparent this is doing very little filtering rn
+
+  let limitFilter = filters.limitResults
+  if (limitFilter != "0" && limitFilter != "no-limit" && !isNaN(parseInt(limitFilter))) {
+    limitFilter = `LIMIT ${limitFilter}`
+  }
+  else {
+    // TKTK eventually make smarter decisions about limits on blobjects mode
+    limitFilter = ""
+  }
+
+  // Offset
+  let offsetFilter = filters.offsetResults
+  if (offsetFilter != "" && !isNaN(parseInt(offsetFilter)) ) {
+    offsetFilter = `OFFSET ${offsetFilter}`
+  }
+  else {
+    offsetFilter = ""
+  }
+  let query = ""
+  const subjectList = subjects.include.toString()
+  if (subjects.mode === "byParent") {
+    query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date WHERE {
+      VALUES ?parents { <${subjectList}> }
+      ?parents octo:hasPart ?s .
+     OPTIONAL { ?s octo:title ?title }
+     OPTIONAL { ?s octo:image ?image }
+     OPTIONAL { ?s octo:description ?description }
+     }
+      ${limitFilter}
+     OFFSET ${offsetFilter}
+     `
+    }
+    else {
+      query = `select * {
+        ?s rdf:type <octo:Origin> .
+        ?s octo:verified "true" .
+        optional { ?s octo:banned ?b . }
+      }
+      ${limitFilter}
+      ${offsetFilter}
+      `
+
+    }
+  console.log(query)
+  return cleanQuery(query)
+
+}
+
+/*
+WEBRINGS HO!
+
+PREFIX oc: <http://opencoinage.org/rdf/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX octo: <https://vocab.octothorp.es#>
+
+SELECT DISTINCT ?domain ?page ?o ?domainTitle ?pageTitle ?description ?image ?date ?pageType
+WHERE {
+  # Get all domains in the webring
+  <https://demo.ideastore.dev/rad-webring> octo:hasPart ?domain .
+
+  # Get all pages that belong to these domains
+  ?domain octo:hasPart ?page .
+
+  # Get domain metadata
+  OPTIONAL { ?domain octo:title ?domainTitle }
+
+  # Get page metadata
+  ?page rdf:type ?pageType ;
+        octo:indexed ?date ;
+        octo:octothorpes ?o <<<< unexpected doubling
+  OPTIONAL { ?page octo:title ?pageTitle }
+  OPTIONAL { ?page octo:description ?description }
+  OPTIONAL { ?page octo:image ?image }
+}
+ORDER BY ?date
+*/

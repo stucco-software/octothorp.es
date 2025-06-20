@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray, buildEverythingQuery, testQueryFromMultiPass, buildSimpleQuery, buildThorpeQuery } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { error, redirect, json } from '@sveltejs/kit';
@@ -46,6 +46,7 @@ export async function load({ params, url }) {
 
   switch (params.what) {
     case "pages":
+    case "links":
     case "backlinks":
       query = buildSimpleQuery(multiPass);
       const sr = await queryArray(query);
@@ -61,14 +62,19 @@ export async function load({ params, url }) {
       // TKTK check to run filters on result instead of query
       break;
     case "thorpes":
-    query = buildThorpeQuery(multiPass);
-    const tr = await queryArray(query);
+      query = buildThorpeQuery(multiPass);
+      const tr = await queryArray(query);
       actualResults = parseBindings(tr.results.bindings, "terms")
       break;
     case "domains":
+      query = buildDomainQuery(multiPass);
+      const dr = await queryArray(query);
+      actualResults = parseBindings(dr.results.bindings)
+
       break;
     default:
-      break;
+    throw new Error(`Invalid route.`)
+      break
   }
   return {
     multiPass: multiPass,

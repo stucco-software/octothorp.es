@@ -169,7 +169,7 @@ export const isSparqlSafe = (inputs, options = {}) => {
       if (/^(javascript|data|file|ftp):/i.test(trimmed)) {
         return {
           valid: false,
-          error: "Dangerous URL scheme detected",
+          error: "Dangerous URL scheme detected. Why would you do that?",
         };
       }
     }
