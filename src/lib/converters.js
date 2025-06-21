@@ -331,6 +331,9 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
               image: `${instance}badge.png`,
               version: "1",
               resultMode: resultMode,
+              what: params.what,
+              by: params.by,
+              match: matchFilterParam
           },
           subjects: {
               mode: subjectMode,
