@@ -276,7 +276,7 @@ const checkEndorsement = async ({s, o}) => {
   // Webrings are specific pages that endorse or link to origins
   // so a third check, typed to webringIndex should also check
   // checkReciprocalMention({s, oOrigin})
-  
+
 }
 
 const handleMention = async (s, p, o) => {
@@ -310,7 +310,7 @@ const handleHTML = async (response, uri) => {
   harmed.octothorpes.forEach(async octothorpe => {
     console.log(octothorpe)
     switch(true) {
-      case octothorpe.type === 'mention':
+      case octothorpe.type === 'link':
         await handleMention(s, p, octothorpe.uri)
         break;
       case octothorpe.type === 'hashtag':
@@ -322,10 +322,6 @@ const handleHTML = async (response, uri) => {
         break;
       case octothorpe.type === 'bookmark':
         console.log(`handle bookmark?`, octothorpe.uri)
-        // await handleThorpe(s, p, octothorpe.uri)
-        break;
-      case octothorpe.type === 'link':
-        console.log(`handle link?`, octothorpe.uri)
         // await handleThorpe(s, p, octothorpe.uri)
         break;
       default:
