@@ -76,9 +76,17 @@ export async function load({ params, url }) {
     throw new Error(`Invalid route.`)
       break
   }
-  return {
-    multiPass: multiPass,
-    query: query,
-    actualResults: actualResults,
-  };
+
+  switch (params.as) {
+    case "debug":
+    return {
+      multiPass: multiPass,
+      query: query,
+      actualResults: actualResults,
+    }
+    default:
+    return { results: actualResults }
+    break
+  }
+
 }
