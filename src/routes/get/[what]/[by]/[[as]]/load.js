@@ -1,6 +1,7 @@
 import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
+import { rss } from '$lib/rssify.js'
 import { error, redirect, json } from '@sveltejs/kit';
 /*
 
@@ -84,6 +85,21 @@ export async function load({ params, url }) {
       query: query,
       actualResults: actualResults,
     }
+    case "rss":
+      // Create RSS feed structure
+      const rssTree = {
+        channel: {
+          title: multiPass.meta.title,
+          description: multiPass.meta.description,
+          link: url.href,
+          pubDate: new Date().toUTCString(),
+          items: actualResults
+        }
+      };
+      
+      return {
+        rss: rss(rssTree, params.what)
+      };
     default:
     return { results: actualResults }
     break

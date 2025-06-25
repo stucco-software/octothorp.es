@@ -8,6 +8,7 @@ const rssLink = l => l ? `<link>${l}</link>` : ``
 const rssCategory = c => c ? `<category>${c}</category>` : ``
 const rssPubDate = d => d ? `<pubDate>${(new Date(d)).toUTCString()}</pubDate>` : ``
 const rssAuthor = a => a && a.guid ? `<author>${a.guid}</author>` : ``
+const rssImage = i => i ? `<enclosure url="${i}" type="image/jpeg" />` : ``
 const atomLink = l => l ? `<atom:link href="${l}" rel="self" type="application/rss+xml" />` : ``
 
 if (import.meta.vitest) {
@@ -66,6 +67,7 @@ const rssItem = item => (new Date(item.pubDate)).toUTCString() != "Invalid Date"
   ${rssPubDate(item.pubDate)}
   ${rssLink(item.link)}
   ${rssCategory(item.category)}
+  ${rssImage(item.image)}
 </item>` : ''
 
 if (import.meta.vitest) {
@@ -76,7 +78,45 @@ if (import.meta.vitest) {
       .toStrictEqual(`some xml bullshit I guess?`)
   })
 }
-export const rss = tree => `
+
+// Convert parseBindings results to RSS items
+const convertParseBindingsToRssItems = (results) => {
+  return results.map(item => {
+    const rssItem = {
+      title: item.title || item.term || item.uri,
+      description: item.description,
+      guid: item.uri || item.term,
+      link: item.uri,
+      pubDate: item.date ? new Date(item.date).toUTCString() : new Date().toUTCString(),
+      image: item.image
+    };
+    return rssItem;
+  });
+};
+
+// Convert getBlobjectFromResponse results to RSS items
+const convertBlobjectToRssItems = (results) => {
+  return results.map(item => {
+    const rssItem = {
+      title: item.title || item['@id'],
+      description: item.description,
+      guid: item['@id'],
+      link: item['@id'],
+      pubDate: item.date ? new Date(item.date).toUTCString() : new Date().toUTCString(),
+      image: item.image
+    };
+    return rssItem;
+  });
+};
+
+export const rss = (tree, what = "pages") => {
+  // Determine if we're dealing with blobjects or parseBindings results
+  const isBlobject = what === "everything";
+  
+  // Convert results to RSS items based on the flag
+  const items = isBlobject ? convertBlobjectToRssItems(tree.channel.items) : convertParseBindingsToRssItems(tree.channel.items);
+  
+  return `
   <rss
     xmlns:atom="http://www.w3.org/2005/Atom"
     version="2.0">
@@ -87,7 +127,8 @@ export const rss = tree => `
       ${rssDescription(tree.channel.description)}
       ${rssPubDate(tree.channel.pubDate)}
       <lastBuildDate>${(new Date).toUTCString()}</lastBuildDate>
-      ${tree.channel.items.map(rssItem).join('')}
+      ${items.map(item => rssItem(item)).join('')}
     </channel>
   </rss>
 `
+}
