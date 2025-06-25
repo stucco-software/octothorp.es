@@ -9,7 +9,7 @@ const localHarmonizers = {
   "default": {
         "@context": context,
         "@id": `${baseId}default`,
-        "@type": "harmonizer", 
+        "@type": "harmonizer",
         "title": "Default Octothorpe Harmonizer",
         // mode:html expects css selectors
         // mode:json expects json dot notation
@@ -18,7 +18,7 @@ const localHarmonizers = {
         "schema" : {
           // one subject per blobject
           "subject": {
-            // s can be defined in the same way as o but also 
+            // s can be defined in the same way as o but also
             // accepts the string "source" for the source of the request
             // TKTK support for non-source uris
             "s": "source",
@@ -32,8 +32,12 @@ const localHarmonizers = {
                 "selector": "meta[name='description']",
                 "attribute": "content"
               }],
-            "image" : 
+            "image" :
               [
+                {
+                  "selector": "meta[property='og:image']",
+                  "attribute": "content"
+                },
                 {
                   "selector": "link[rel='octo:image']",
                   "attribute": "href"
@@ -49,7 +53,7 @@ const localHarmonizers = {
             ],
             "contact":
               [{
-                "selector": "meta[name='octo:contact']",
+                "selector": "meta[property='octo:contact']",
                 "attribute": "content"
               }],
               // Pages can have multiple types
@@ -61,11 +65,11 @@ const localHarmonizers = {
               }]
             },
 
-          // definition keys become type labels in the 
+          // definition keys become type labels in the
           // blobject.octothorpes, hence are singular
 
           "hashtag": {
-              "s": "source", 
+              "s": "source",
               "o": [
                 // criteria is additive, so this harmonizer will return
                 // results for EVERY condition listed here
@@ -88,15 +92,7 @@ const localHarmonizers = {
                 {
                   "selector": "link[rel='octo:octothorpes']",
                   "attribute": "href"
-                },
-                // {
-                //   "selector": "meta[name='keywords']",
-                //   "attribute": "content",
-                //   "postProcess": {
-                //     "method": "split",
-                //     "params": `,`
-                //   }
-                // },
+                }
               ]
             },
           "link": {
@@ -135,12 +131,12 @@ const localHarmonizers = {
                 }
               ]
             }
-          }     
+          }
     },
     "openGraph": {
       "@context": context,
       "@id": `${baseId}openGraph`,
-      "@type": "harmonizer", 
+      "@type": "harmonizer",
       "title": "Opengraph Protocol Harmonizer",
       "mode": "html",
       "schema" : {
@@ -162,7 +158,27 @@ const localHarmonizers = {
           }]
       }
     }
+  },
+  "keywords": {
+    "@context": context,
+    "@id": `${baseId}keywords`,
+    "@type": "harmonizer",
+    "title": "Meta Kewords to Octothorpes Harmonizer",
+    "mode": "html",
+    "schema" : {
+      "hashtag": {
+        "s": "source",
+        "o": [{
+          "selector": "meta[name='keywords']",
+          "attribute": "content",
+          "postProcess": {
+            "method": "split",
+            "params": `,`
+          }
+        }]
+    }
   }
+}
 };
 
 /**

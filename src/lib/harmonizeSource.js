@@ -143,15 +143,15 @@ export async function remoteHarmonizer(url) {
 
 export async function harmonizeSource(html, harmonizer = "default") {
 
-  
-    
+
+
 
   let schema = {}
   const d = await getHarmonizer("default")
 
   if (harmonizer != "default") {
     // TKTK might need other checks if you want to accept a json blob directly
-    // but on the other hand, when are you going to get one except from a remote harmonizer? 
+    // but on the other hand, when are you going to get one except from a remote harmonizer?
       if (harmonizer.startsWith("http")){
           let h = await remoteHarmonizer(harmonizer)
           console.log("remote harmonizer", h.title)
@@ -172,10 +172,7 @@ export async function harmonizeSource(html, harmonizer = "default") {
     schema = d.schema
   }
 
-  
-  // const schema = harm
-  console.log('SCHEEEEEMA')
-  // console.log(schema)
+
 
   let output = {}
 
@@ -191,19 +188,19 @@ async function getObjectVals(obj) {
           console.log("filtering")
           values = filterValues(values, rule.filterResults)
         }
-        // If the rule has a "name", use it to reconstruct the nested structure. 
+        // If the rule has a "name", use it to reconstruct the nested structure.
         // Unless the API spec changes, this will never run, but since we have it on DocumentRecord, might as well account for it here.
         if (rule.name) {
           setNestedProperty(oValues, rule.name, values)
         } else {
           if (rule.postProcess) {
             let pVals = []
-            values.forEach((val) =>{ 
+            values.forEach((val) =>{
                let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
                if (pv) {
-                pVals.push(pv) 
+                pVals.push(pv)
                }
-              values = pVals
+              values = pVals[0]
             })
             // console.log(rule.postProcess.method)
             // console.log(pVals)
@@ -216,12 +213,12 @@ async function getObjectVals(obj) {
     }
 
 
-  for (const key in schema) {  
+  for (const key in schema) {
     typedOutput[key] = []
     const thisObj = schema.key
     console.log( schema[key].title )
     const s = schema[key].s
-    const o = schema[key].o 
+    const o = schema[key].o
     // TKTK think about how to handle multiple sources one day
     const sValues = extractValues(html, s) // Extract all s values
 
@@ -248,13 +245,13 @@ async function getObjectVals(obj) {
               // Use the "key" property to reconstruct the nested structure
               if (key == "subject") {
                   // set source properties on output directly
-                setNestedProperty(output, prop, values.toString())       
+                setNestedProperty(output, prop, values.toString())
                 }
                 else {
                 // TKTK documentRecords
                 setNestedProperty(output[key], prop, values)
                 }
-              } 
+              }
             }
         }
     // end subject/doc record
@@ -273,7 +270,7 @@ async function getObjectVals(obj) {
     ...(typedOutput.hashtag || []),
     ...Object.entries(typedOutput)
       .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
-      .flatMap(([key, uris]) => 
+      .flatMap(([key, uris]) =>
         uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
       )
   ]
