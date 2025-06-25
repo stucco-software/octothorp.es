@@ -301,6 +301,7 @@ const handleMention = async (s, p, o) => {
 // Accept a response
 const handleHTML = async (response, uri) => {
   const src = await response.text()
+  // TKTK parse the "as" param and use non-default harmonizers
   const harmed = await harmonizeSource(src)
 
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
