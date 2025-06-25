@@ -72,13 +72,30 @@ const extantTerm = async (o) => {
   `)
 }
 
-const extantPage = async (o) => {
-  await queryBoolean(`
+const extantPage = async (o, type="Page") => {
+  return await queryBoolean(`
     ask {
-      <${o}> rdf:type <octo:Page> .
+      <${o}> rdf:type <octo:${type}> .
     }
   `)
 }
+
+const extantMember = async (s, o) => {
+  return await queryBoolean(`
+    ask {
+      <${s}> rdf:hasPart <${o}> .
+    }
+  `)
+}
+
+const getWebringMembers = async (s) => {
+  return await queryArray(`
+    select distinct ?o {
+      <${s}> rdf:hasPart ?o .
+    }
+  `)
+}
+
 
 const extantThorpe = async ({s, p, o}) => {
   return await queryBoolean(`
@@ -115,6 +132,28 @@ const createOctothorpe = async ({s, p, o}) => {
     <${url.origin}> octo:verified "true" .
     <${url.origin}> rdf:type <octo:Origin> .
     <${s}> rdf:type <octo:Page> .
+  `)
+}
+
+const createWebring = async ({s}) => {
+  return await insert(`
+    <${s}> rdf:type <octo:Webring> .
+  `)
+}
+
+const createWebringMember = async ({s, o}) => {
+  return await insert(`
+    <${s}> rdf:hasPart <${o}> .
+  `)
+}
+
+const deleteWebringMember = async ({s, o}) => {
+  return await insert(`
+    delete {
+      <${s}> rdf:hasPart <${o}> .
+    } where {
+      <${s}> rdf:hasPart <${o}> .
+    }
   `)
 }
 
@@ -304,20 +343,26 @@ const handleHTML = async (response, uri) => {
   // TKTK parse the "as" param and use non-default harmonizers
   const harmed = await harmonizeSource(src)
 
+
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
 
   console.log(`HARMED`)
   console.log(harmed)
-  harmed.octothorpes.forEach(async octothorpe => {
+  let friends = { endorsed:[], linked:[]}
+  
+  // Replace forEach with async functions with proper async loop
+  for (const octothorpe of harmed.octothorpes) {
     console.log(octothorpe)
     switch(true) {
       case octothorpe.type === 'link':
+        friends.linked.push(octothorpe.uri)
         await handleMention(s, p, octothorpe.uri)
         break;
       case octothorpe.type === 'hashtag':
         await handleThorpe(s, p, octothorpe.uri)
         break;
       case octothorpe.type === 'endorse':
+        friends.endorsed.push(octothorpe.uri)
         console.log(`handle endorsement?`, octothorpe.uri)
         // await handleThorpe(s, p, octothorpe.uri)
         break;
@@ -329,11 +374,58 @@ const handleHTML = async (response, uri) => {
         await handleThorpe(s, p, octothorpe)
         break;
     }
-  })
+  }
 
   // TKTK Delete thorpes no longer present here.
+  // TKTK insert other record level metadata like image, etc more programatically
   await recordTitle({s, title: harmed.title})
   await recordDescription({s, description: harmed.description})
+  const isExtantWebring = await extantPage(s, "Webring")
+  // create webring if this page type is webring and it doesn't exist yet
+  if (harmed.type === "Webring") {
+    if (!isExtantWebring) {
+    console.log("I SHOULD CREATE THIS AS A WEBRING")
+    createWebring({s})
+  }
+  console.log("I SHOULD NOT CREATE THIS AS A WEBRING")
+  const allMembers = [...friends.endorsed, ...friends.linked]
+  // get all domains from allMembers
+  const domainsOnPage = allMembers.map(member => new URL(member).origin)
+  const extantMembers = await getWebringMembers(s)
+
+  // Extract domains from extantMembers (SPARQL results)
+  const extantMemberDomains = extantMembers.results.bindings.map(binding => {
+    const memberUrl = binding.o.value
+    return new URL(memberUrl).origin
+  })
+
+  // Find new domains that are not in extantMembers
+  const newDomains = domainsOnPage.filter(domain => !extantMemberDomains.includes(domain))
+  
+  // Find domains to be deleted (in extantMembers but not on page)
+  // they should already be domains, but this is a sanity check
+  const domainsToDelete = extantMemberDomains.filter(domain => !domainsOnPage.includes(domain))
+  
+  // Log domains to be deleted
+  if (domainsToDelete.length > 0) {
+    console.log("domains to be deleted:", domainsToDelete)
+  }
+
+  // For new domains, check if they endorse this URL
+  for (const domain of newDomains) {
+    const domainEndorsesThis = await originEndorsesOrigin({s: s, o: domain})
+    if (domainEndorsesThis) {
+      console.log(`Domain ${domain} endorses this URL, can be added to webring`)
+      // TODO: Add logic to create webring member here
+    } else {
+      console.log(`Domain ${domain} does not endorse this URL, cannot be added to webring`)
+    }
+  }
+
+  }
+
+  console.log("webring: ")
+  console.log(isExtantWebring)
   // TK: Web of Trust Verification
   //  1. Grab `[rel="octo:endorses"]`
   //  2. Create term <s> octo:endorses <o> .
