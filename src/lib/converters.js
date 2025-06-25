@@ -45,39 +45,44 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
       // Process octothorpe links
       if (binding.o?.value) {
         const targetUrl = binding.o.value;
-        const isTerm = binding.type?.value === 'Term';
-
-        if (isTerm) {
+        let oType = binding.oType.value
+        // deal with Terms
+        if (oType.startsWith('octo:')) {
+          oType = oType.substring(5); // Remove 'octo:' prefix
+        }
+        if (oType === "Term" ) {
           // For Terms, only include if starts with instance
-          if (targetUrl.startsWith(instance)) {
             // Trim to value after last /
-            const termValue = targetUrl.substring(targetUrl.lastIndexOf('/') + 1);
+            const termValue = targetUrl.substring(targetUrl.lastIndexOf('~/') + 2);
             if (!current.octothorpes.includes(termValue)) {
               current.octothorpes.push(termValue);
             }
-          }
-        } else {
+        }
+       if (oType === "Page") {
           // For Pages, determine type
-          let pageType = 'link';
+          // blank nodes are only set when there is a more specific object type
+          // so if they have a value we use that
+          oType = "link"
           if (binding.blankNodeObj?.value?.startsWith('octo:')) {
-            pageType = binding.blankNodeObj.value.substring(5); // Remove 'octo:' prefix
+            oType = binding.blankNodeObj.value.substring(5); // Remove 'octo:' prefix
           }
 
           // Check if this target already exists in the array
           const existingIndex = current.octothorpes.findIndex(
-            item => typeof item === 'object' && item.target === targetUrl
+            item => typeof item === 'object' && (item.target === targetUrl || item.uri === targetUrl)
           );
+
 
           // TKTK handle blank nodes, incl terms on triples like hashtagged bookmarks
 
           if (existingIndex === -1) {
             current.octothorpes.push({
               uri: targetUrl,
-              type: pageType
+              type: oType
             });
-          } else if (pageType !== 'link') {
+          } else if (oType !== 'link') {
             // Update existing entry if we have a more specific type
-            current.octothorpes[existingIndex].type = pageType;
+            current.octothorpes[existingIndex].type = oType;
           }
         }
       }

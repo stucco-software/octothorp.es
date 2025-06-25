@@ -359,7 +359,7 @@ export const buildEverythingQuery = ({
   }) => {
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
 
-  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?blankNode ?blankNodePred ?blankNodeObj
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
     ${statements.subjectStatement}
 
@@ -370,6 +370,7 @@ export const buildEverythingQuery = ({
     ?s octo:indexed ?date .
     ?s rdf:type ?pageType .
     ?s octo:octothorpes ?o .
+    ?o rdf:type ?oType.
 
     ${objectTypes[objects.type]}
     OPTIONAL {
