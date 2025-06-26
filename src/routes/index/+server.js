@@ -388,18 +388,14 @@ const handleWebring = async ({s, friends, alreadyRing, p}) => {
       console.log("No new domains to process");
       return;
     }
-    
+
     console.log(`Processing ${newDomains.length} domains:`, newDomains);
-    console.log(`Current page (s): ${s}`);
-    console.log(`Predicate (p): ${p}`);
-    
+
+
     const promises = newDomains.map(async (domain) => {
-      console.log("Processing domain:", domain);
       try {
         // Check if the domain mentions the current page (reciprocal mention)
-        console.log(`Calling extantMention with s=${domain}, p=${p}, o=${s}`);
         let isBacklinked = await extantMention({ s: domain, p, o: s });
-        console.log(`isBacklinked: ${isBacklinked}`)
         if (isBacklinked) {
           console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
           await createWebringMember({ s: s, o: domain });
@@ -484,6 +480,7 @@ const handleHTML = async (response, uri) => {
   //  1. Grab `[rel="octo:endorses"]`
   //  2. Create term <s> octo:endorses <o> .
   //  3. Create term <o.origin> octo:verified "true" .
+  console.log("done")
   return new Response(200)
 }
 
