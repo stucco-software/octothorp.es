@@ -116,7 +116,7 @@ const extantMention = async ({s, p, o}) => {
 const extantBacklink = async ({s, o}) => {
   return await queryBoolean(`
     ask {
-      <${s}> <${o}> _:backlink .
+      <${s}> <${p}> _:backlink .
         _:backlink octo:url <${s}> .
     }
   `)
@@ -382,17 +382,25 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
   }
 
   // For new domains, check if they endorse this URL
-  for (const domain of newDomains) {
-    const isBacklinked = await extantMention({s: s, p, o: domain})
 
-    // const domainEndorsesThis = await checkEndorsement({s: s, o: domain, flag: "Webring"})
-    if (isBacklinked) {
-      console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`)
-      createWebringMember({s: s, o: domain})
-    } else {
-      console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`)
-    }
-  }
+  const processDomains = async (newDomains, s) => {
+    const promises = newDomains.map(async (domain) => {
+      let isBacklinked = await extantMention({ s: domain, p, o: s });
+      console.log(`isBacklinked: ${isBacklinked}`)
+      if (isBacklinked) {
+        console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
+        await createWebringMember({ s: s, o: domain });
+      } else {
+        console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
+      }
+    });
+
+    await Promise.all(promises);
+  };
+
+  // Usage:
+  await processDomains(newDomains, s);
+
   }
 
 
