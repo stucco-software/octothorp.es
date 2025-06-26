@@ -151,7 +151,7 @@ const createWebringMember = async ({s, o}) => {
 const deleteWebringMember = async ({s, o}) => {
   return await insert(`
     delete {
-      <${s}> rdf:hasPart <${o}> .
+      <${s}> octo:hasPart <${o}> .
     } where {
       <${s}> rdf:hasPart <${o}> .
     }
