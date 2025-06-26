@@ -88,7 +88,7 @@ const extantMember = async (s, o) => {
   `)
 }
 
-const getWebringMembers = async (s) => {
+const webringMembers = async (s) => {
   return await queryArray(`
     select distinct ?o {
       <${s}> rdf:hasPart ?o .
@@ -346,13 +346,13 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
     console.log("I SHOULD CREATE THIS AS A WEBRING")
     createWebring({ s })
   }
-  console.log("I SHOULD NOT CREATE THIS AS A WEBRING")
   const allMembers = [...friends.endorsed, ...friends.linked]
   // get all domains from allMembers
   const domainsOnPage = allMembers.map(member => new URL(member).origin)
-  const extantMembers = await getWebringMembers(s)
+  const extantMembers = await webringMembers(s)
 
   // Extract domains from extantMembers (SPARQL results)
+  // they should already be domains, but this is a sanity check
   const extantMemberDomains = extantMembers.results.bindings.map(binding => {
     const memberUrl = binding.o.value
     return new URL(memberUrl).origin
@@ -360,10 +360,11 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
 
   // Find new domains that are not in extantMembers
   const newDomains = domainsOnPage.filter(domain => !extantMemberDomains.includes(domain))
-
+  console.log(`New Domains: ${newDomains}`)
   // Find domains to be deleted (in extantMembers but not on page)
-  // they should already be domains, but this is a sanity check
+
   const domainsToDelete = extantMemberDomains.filter(domain => !domainsOnPage.includes(domain))
+  console.log(`Domains to Delete: ${domainsToDelete}`)
 
   // Log domains to be deleted
   if (domainsToDelete.length > 0) {
@@ -372,7 +373,7 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
 
   // For new domains, check if they endorse this URL
   for (const domain of newDomains) {
-    const domainEndorsesThis = await originEndorsesOrigin({s: s, o: domain})
+    const domainEndorsesThis = await checkEndorsement({s: s, o: domain, flag: "Webring"})
     if (domainEndorsesThis) {
       console.log(`Domain ${domain} endorses this URL, can be added to webring`)
       // TODO: Add logic to create webring member here
