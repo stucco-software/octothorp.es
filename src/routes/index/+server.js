@@ -113,7 +113,7 @@ const extantMention = async ({s, p, o}) => {
   `)
 }
 
-const extantBacklink = async ({s, o}) => {
+const extantBacklink = async ({s, o, p}) => {
   return await queryBoolean(`
     ask {
       <${s}> <${p}> _:backlink .
@@ -216,7 +216,7 @@ const createPage = async (o) => {
 //   `)
 // }
 
-const createBacklink = async ({s, o}) => {
+const createBacklink = async ({s, o, p}) => {
   console.log(`create backlink…`)
   let now = Date.now()
   return await insert(`
@@ -290,7 +290,7 @@ const originEndorsesOrigin = async ({s, o}) => {
 
 
 
-const checkReciprocalMention = async ({s, o}) => {
+const checkReciprocalMention = async ({s, o, p}) => {
   return await queryBoolean(`
     ask {
       <${o}> ${p} <${s}> .
@@ -318,7 +318,7 @@ const checkEndorsement = async ({s, o, flag }) => {
     return true
   }
   // if o mentions s
-  let isMentioned = await checkReciprocalMention({s, o})
+  let isMentioned = await checkReciprocalMention({s, o, p})
   if (isMentioned) {
     return true
   }
@@ -341,14 +341,14 @@ const handleMention = async (s, p, o) => {
     await createMention({s, p, o})
   }
   let isEndorsed = await checkEndorsement({s, o})
-  let isExtantbacklink = await extantBacklink({s, o})
+  let isExtantbacklink = await extantBacklink({s, o, p})
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink({s, o})
+    await createBacklink({s, o, p})
   }
 }
 
-const handleWebring = async ({s, friends, alreadyRing}) => {
+const handleWebring = async ({s, friends, alreadyRing, p}) => {
   if (!alreadyRing) {
     console.log("I SHOULD CREATE THIS AS A WEBRING")
     createWebring({ s })
@@ -383,23 +383,46 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
 
   // For new domains, check if they endorse this URL
 
-  const processDomains = async (newDomains, s) => {
+  const processDomains = async (newDomains, s, p) => {
+    if (newDomains.length === 0) {
+      console.log("No new domains to process");
+      return;
+    }
+    
+    console.log(`Processing ${newDomains.length} domains:`, newDomains);
+    console.log(`Current page (s): ${s}`);
+    console.log(`Predicate (p): ${p}`);
+    
     const promises = newDomains.map(async (domain) => {
-      let isBacklinked = await extantMention({ s: domain, p, o: s });
-      console.log(`isBacklinked: ${isBacklinked}`)
-      if (isBacklinked) {
-        console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
-        await createWebringMember({ s: s, o: domain });
-      } else {
-        console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
+      console.log("Processing domain:", domain);
+      try {
+        // Check if the domain mentions the current page (reciprocal mention)
+        console.log(`Calling extantMention with s=${domain}, p=${p}, o=${s}`);
+        let isBacklinked = await extantMention({ s: domain, p, o: s });
+        console.log(`isBacklinked: ${isBacklinked}`)
+        if (isBacklinked) {
+          console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
+          await createWebringMember({ s: s, o: domain });
+        } else {
+          console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
+        }
+      } catch (error) {
+        console.error(`Error processing domain ${domain}:`, error);
+        // Continue processing other domains even if one fails
       }
     });
 
-    await Promise.all(promises);
+    try {
+      console.log("Starting Promise.all...");
+      await Promise.all(promises);
+      console.log("Promise.all completed successfully");
+    } catch (error) {
+      console.error("Error in Promise.all:", error);
+    }
   };
 
   // Usage:
-  await processDomains(newDomains, s);
+  await processDomains(newDomains, s, p);
 
   }
 
@@ -450,7 +473,7 @@ const handleHTML = async (response, uri) => {
   // create webring if this page type is webring and it doesn't exist yet
   if (harmed.type === "Webring") {
     const isExtantWebring = await extantPage(s, "Webring")
-    await handleWebring({s, friends, isExtantWebring})
+    await handleWebring({s, friends, isExtantWebring, p})
   }
   // TKTK Delete thorpes no longer present here.
   // TKTK insert other record level metadata like image, etc more programatically
