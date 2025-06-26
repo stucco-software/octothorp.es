@@ -83,7 +83,7 @@ const extantPage = async (o, type="Page") => {
 const extantMember = async (s, o) => {
   return await queryBoolean(`
     ask {
-      <${s}> rdf:hasPart <${o}> .
+      <${s}> octo:hasPart <${o}> .
     }
   `)
 }
@@ -91,7 +91,7 @@ const extantMember = async (s, o) => {
 const webringMembers = async (s) => {
   return await queryArray(`
     select distinct ?o {
-      <${s}> rdf:hasPart ?o .
+      <${s}> octo:hasPart ?o .
     }
   `)
 }
@@ -144,7 +144,7 @@ const createWebring = async ({ s }) => {
 const createWebringMember = async ({s, o}) => {
   console.log(`member added for domain ${o}`)
   return await insert(`
-    <${s}> rdf:hasPart <${o}> .
+    <${s}> octo:hasPart <${o}> .
   `)
 }
 
@@ -153,7 +153,7 @@ const deleteWebringMember = async ({s, o}) => {
     delete {
       <${s}> octo:hasPart <${o}> .
     } where {
-      <${s}> rdf:hasPart <${o}> .
+      <${s}> octo:hasPart <${o}> .
     }
   `)
 }
