@@ -116,7 +116,7 @@ const extantMention = async ({s, p, o}) => {
 const extantBacklink = async ({s, o}) => {
   return await queryBoolean(`
     ask {
-      <${o}> ${p} _:backlink .
+      <${s}> <${o}> _:backlink .
         _:backlink octo:url <${s}> .
     }
   `)
@@ -135,11 +135,15 @@ const createOctothorpe = async ({s, p, o}) => {
   `)
 }
 
+
+
 const createWebring = async ({ s }) => {
   return await insert(`
     <${s}> rdf:type <octo:Webring> .
   `)
 }
+
+
 
 const createWebringMember = async ({s, o}) => {
   console.log(`member added for domain ${o}`)
@@ -275,6 +279,7 @@ const handleThorpe = async (s, p, o) => {
   }
 }
 
+
 const originEndorsesOrigin = async ({s, o}) => {
   return await queryBoolean(`
     ask {
@@ -298,8 +303,9 @@ const checkEndorsement = async ({s, o, flag }) => {
   let sURL = new URL(s)
   let oOrigin = oURL.origin
   let sOrigin = sURL.origin
-  if (flag === "Webrings") {
+  if (flag === "Webring") {
     sOrigin = sURL
+    console.log(`webring mode: ${sOrigin}`)
   }
 
   // if origins are the same, assume endorsement
@@ -347,9 +353,10 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
     console.log("I SHOULD CREATE THIS AS A WEBRING")
     createWebring({ s })
   }
-  const allMembers = [...friends.endorsed, ...friends.linked]
-  // get all domains from allMembers
-  const domainsOnPage = allMembers.map(member => new URL(member).origin)
+ // TKTK for now we're not using friends.endorsed at all
+ // but when endorsement handling matures, it's available
+
+  const domainsOnPage = friends.linked.map(member => new URL(member).origin)
   const extantMembers = await webringMembers(s)
 
   // Extract domains from extantMembers (SPARQL results)
@@ -358,6 +365,8 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
     const memberUrl = binding.o.value
     return new URL(memberUrl).origin
   })
+
+  console.log(extantMemberDomains)
 
   // Find new domains that are not in extantMembers
   const newDomains = domainsOnPage.filter(domain => !extantMemberDomains.includes(domain))
@@ -374,12 +383,14 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
 
   // For new domains, check if they endorse this URL
   for (const domain of newDomains) {
-    const domainEndorsesThis = await checkEndorsement({s: s, o: domain, flag: "Webring"})
-    if (domainEndorsesThis) {
-      console.log(`Domain ${domain} endorses this URL, can be added to webring`)
+    const isBacklinked = await extantMention({s: s, p, o: domain})
+
+    // const domainEndorsesThis = await checkEndorsement({s: s, o: domain, flag: "Webring"})
+    if (isBacklinked) {
+      console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`)
       createWebringMember({s: s, o: domain})
     } else {
-      console.log(`Domain ${domain} does not endorse this URL, cannot be added to webring`)
+      console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`)
     }
   }
   }
@@ -415,8 +426,8 @@ const handleHTML = async (response, uri) => {
         break;
       case octothorpe.type === 'endorse':
         friends.endorsed.push(octothorpe.uri)
-        console.log(`handle endorsement?`, octothorpe.uri)
-        // await handleThorpe(s, p, octothorpe.uri)
+        // that doesn't work
+        // await handleMention(s, "octo:endorses", octothorpe.uri)
         break;
       case octothorpe.type === 'bookmark':
         console.log(`handle bookmark?`, octothorpe.uri)
