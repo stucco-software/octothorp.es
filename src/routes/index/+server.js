@@ -350,30 +350,31 @@ const handleMention = async (s, p, o) => {
 
 const handleWebring = async ({s, friends, alreadyRing, p}) => {
   if (!alreadyRing) {
-    console.log("I SHOULD CREATE THIS AS A WEBRING")
+    console.log(`Create new Webring for ${s}`)
     createWebring({ s })
   }
  // TKTK for now we're not using friends.endorsed at all
  // but when endorsement handling matures, it's available
 
-  const domainsOnPage = friends.linked.map(member => new URL(member).origin)
-  const extantMembers = await webringMembers(s)
+  const domainsOnPage = friends.linked.map(member => new URL(member))
+  let extantMembers = await webringMembers(s)
 
   // Extract domains from extantMembers (SPARQL results)
   // they should already be domains, but this is a sanity check
-  const extantMemberDomains = extantMembers.results.bindings.map(binding => {
+ extantMembers = extantMembers.results.bindings.map(binding => {
     const memberUrl = binding.o.value
     return new URL(memberUrl).origin
   })
 
-  console.log(extantMemberDomains)
+
+  console.log(extantMembers)
 
   // Find new domains that are not in extantMembers
-  const newDomains = domainsOnPage.filter(domain => !extantMemberDomains.includes(domain))
+  const newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
   console.log(`New Domains: ${newDomains}`)
   // Find domains to be deleted (in extantMembers but not on page)
 
-  const domainsToDelete = extantMemberDomains.filter(domain => !domainsOnPage.includes(domain))
+  const domainsToDelete = extantMembers.filter(domain => !domainsOnPage.includes(domain))
   console.log(`Domains to Delete: ${domainsToDelete}`)
 
   // Log domains to be deleted
