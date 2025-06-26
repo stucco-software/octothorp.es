@@ -198,9 +198,9 @@ async function getObjectVals(obj) {
             values.forEach((val) =>{
                let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
                if (pv) {
-                pVals.push(pv)
+                pVals.push(pv[0])
                }
-              values = pVals[0]
+              values = pVals
             })
             // console.log(rule.postProcess.method)
             // console.log(pVals)
