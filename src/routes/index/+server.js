@@ -135,13 +135,14 @@ const createOctothorpe = async ({s, p, o}) => {
   `)
 }
 
-const createWebring = async ({s}) => {
+const createWebring = async ({ s }) => {
   return await insert(`
     <${s}> rdf:type <octo:Webring> .
   `)
 }
 
 const createWebringMember = async ({s, o}) => {
+  console.log(`member added for domain ${o}`)
   return await insert(`
     <${s}> rdf:hasPart <${o}> .
   `)
@@ -376,13 +377,11 @@ const handleWebring = async ({s, friends, alreadyRing}) => {
     const domainEndorsesThis = await checkEndorsement({s: s, o: domain, flag: "Webring"})
     if (domainEndorsesThis) {
       console.log(`Domain ${domain} endorses this URL, can be added to webring`)
-      // TODO: Add logic to create webring member here
+      createWebringMember({s: s, o: domain})
     } else {
       console.log(`Domain ${domain} does not endorse this URL, cannot be added to webring`)
     }
   }
-  console.log("webring: ")
-  console.log(alreadyRing)
   }
 
 
@@ -405,9 +404,12 @@ const handleHTML = async (response, uri) => {
     console.log(octothorpe)
     switch(true) {
       case octothorpe.type === 'link':
+      case octothorpe.type === 'mention':
         friends.linked.push(octothorpe.uri)
         await handleMention(s, p, octothorpe.uri)
         break;
+      case octothorpe.type === 'Backlink':
+          friends.linked.push(octothorpe.uri)
       case octothorpe.type === 'hashtag':
         await handleThorpe(s, p, octothorpe.uri)
         break;
