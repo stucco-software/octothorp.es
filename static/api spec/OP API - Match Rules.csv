@@ -1,0 +1,8 @@
+WHAT,AS,s or not-s,o or not-o,implied match,notes,match,limit,offset,Status,Release
+ANYTHING,Anything Not Webrings,Well-formed URL,Term,exact,Assumes a query that takes a term as an object,exact,,,,
+ANYTHING,Anything Not Webrings,String,Term,fuzzy-s,,,,,,
+ANYTHING,Anything Not Webrings,Well-formed URL,String,fuzzy-o,Assumes a query that doesn't take a term as an object,,,,,
+ANYTHING,Anything Not Webrings,Well-formed URL,Well-formed URL,exact,(same),,,,,
+ANYTHING,Anything Not Webrings,String,String,fuzzy,,,,,,
+ANYTHING,Webrings ,Well-formed URL,Term,exact,,,,,,
+ANYTHING,Webrings ,String,Term,exact,"Webrings are often sub-pages of domains, so fuzzy matching is not very useful",,,,,

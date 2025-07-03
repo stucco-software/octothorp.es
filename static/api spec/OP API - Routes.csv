@@ -1,0 +1,18 @@
+WHAT,BY,Subject matches:,Object matches:,Returns,Status,Release,AS (OPTIONAL),Output Format
+EVERYTHING,THORPED,Originating Page,Term,Blobjects,Hooked Up,0.5,rss,RSS 2.0 feed
+EVERYTHING,LINKED,Originating Page,Page,Blobjects,Hooked Up,0.5,debug,"results: { multiPass, query, actual results }"
+EVERYTHING,BACKLINKED,Originating Page,Page,Blobjects,Hooked Up,0.5,webmention,TKTK
+EVERYTHING,"BOOKMARKED, etc",Originating Page,Page,Blobjects,Hooked Up,0.5,,
+EVERYTHING,POSTED,Originating Page,N/A,Blobjects,Hooked Up,0.5,,
+EVERYTHING,IN-WEBRING,Parent Webring,Term,Blobjects,Hooked Up,0.5,,
+THORPES,POSTED,Originating Page,N/A,Terms List,Hooked Up,0.5,,
+THORPES,IN-WEBRING,Parent Webring,N/A,Terms List,Hooked Up,1,,
+PAGES,THORPED,N/A,Term,Pages List,Hooked Up,0.5,,
+PAGES,"BOOKMARKED, etc",Originating Page,Page,Pages List,TKTK,1,,
+PAGES,IN-WEBRING,Parent Webring,Term,Pages List,Hooked Up,0.5,,
+DOMAINS,IN-WEBRING,Parent Webring,Term,Pages List,Hooked Up,0.5,,
+DOMAINS,POSTED,N/A,N/A,Pages List,Hooked Up,0.5,,
+PAGES,LINKED,Originating Page,Page,Pages List,Hooked Up,0.5,,
+"BOOKMARKS, etc",POSTED,Originating Page,N/A,Pages List,TKTK,1,,
+"BOOKMARKS, etc",THORPED,Originating Page,Term on Link,Pages List,TKTK,1,,
+"BOOKMARKS, etc",IN_WEBRING,Parent Webring,Page,Pages List,TKTK,1,,

@@ -1,0 +1,9 @@
+WHAT,AS,s,o,not-s,not-o,match,when,limit
+DEFAULT,Anything Not Webrings,no default but at least s or o required,no default but at least s or o required,null,null,exact,null,100
+DEFAULT,Webrings ,Well-formed URL,Term,Well-formed URL,Term,exact,null,100
+,,Well-formed URL,String (as Term),Well-formed URL,Term,exact,recent,Integer
+,,String,String,String,Term,fuzzy-s,after-[unix time or YYYY-MM-DD],0 = no limit
+,,Well-formed URL,Well-formed URL,Well-formed URL,String,fuzzy-o,before-[unix time or YYYY-MM-DD],
+,,Well-formed URL,,Well-formed URL,Well-formed URL,fuzzy,between-[ unix time or YYYY-MM-DD]-and-[same ],
+,,String,String,String,String,very-fuzzy-o,,
+,,String,Term,String,Term,,,
