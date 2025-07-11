@@ -4,6 +4,7 @@
 // add support for type=xpath
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
+import normalizeUrl from 'normalize-url'
 
 // import { json } from '@sveltejs/kit'
 import { getHarmonizer } from "$lib/getHarmonizer"
@@ -64,7 +65,10 @@ function filterValues(values, filterResults) {
   }
 }
 
-
+function removeTrailingSlash(url) {
+  // Check if the URL ends with a slash (or slash followed by query/hash)
+  return url.replace(/\/+$/g, '');
+}
 
 
 // Helper function to extract values based on a schema rule
@@ -79,6 +83,8 @@ const extractValues = (html, rule) => {
   const values = elements
     .map((element) => {
       let value = element[attribute]
+      value = removeTrailingSlash(value)
+      console.log("HOW ABOUT HERE",value )
       return value
     })
   return values
