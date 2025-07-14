@@ -97,7 +97,7 @@ const webringMembers = async (s) => {
 }
 
 
-const extantThorpe = async ({s, p, o}) => {
+const extantThorpe = async (s, o) => {
   return await queryBoolean(`
     ask {
       <${s}> ${p} <${instance}~/${o}> .
@@ -105,7 +105,7 @@ const extantThorpe = async ({s, p, o}) => {
   `)
 }
 
-const extantMention = async ({s, p, o}) => {
+const extantMention = async (s, o) => {
   return await queryBoolean(`
     ask {
       <${s}> ${p} <${o}> .
@@ -113,7 +113,7 @@ const extantMention = async ({s, p, o}) => {
   `)
 }
 
-const extantBacklink = async ({s, o, p}) => {
+const extantBacklink = async (s, o) => {
   return await queryBoolean(`
     ask {
       <${s}> <${p}> _:backlink .
@@ -122,7 +122,7 @@ const extantBacklink = async ({s, o, p}) => {
   `)
 }
 
-const createOctothorpe = async ({s, p, o}) => {
+const createOctothorpe = async (s, p, o) => {
   let now = Date.now()
   let url = new URL(s)
   return await insert(`
@@ -137,7 +137,7 @@ const createOctothorpe = async ({s, p, o}) => {
 
 
 
-const createWebring = async ({ s }) => {
+const createWebring = async (s) => {
   return await insert(`
     <${s}> rdf:type <octo:Webring> .
   `)
@@ -145,14 +145,14 @@ const createWebring = async ({ s }) => {
 
 
 
-const createWebringMember = async ({s, o}) => {
+const createWebringMember = async (s, o) => {
   console.log(`member added for domain ${o}`)
   return await insert(`
     <${s}> octo:hasPart <${o}> .
   `)
 }
 
-const deleteWebringMember = async ({s, o}) => {
+const deleteWebringMember = async (s, o) => {
   return await insert(`
     delete {
       <${s}> octo:hasPart <${o}> .
@@ -162,7 +162,7 @@ const deleteWebringMember = async ({s, o}) => {
   `)
 }
 
-const createMention = async ({s, p, o}) => {
+const createMention = async (s, p, o) => {
   console.log(`create mention…`)
   let now = Date.now()
   let url = new URL(s)
@@ -216,7 +216,7 @@ const createPage = async (o) => {
 //   `)
 // }
 
-const createBacklink = async ({s, o, p}) => {
+const createBacklink = async (s, o, p) => {
   console.log(`create backlink…`)
   let now = Date.now()
   return await insert(`
@@ -228,14 +228,14 @@ const createBacklink = async ({s, o, p}) => {
 }
 
 
-const recordUsage = async ({s, o}) => {
+const recordUsage = async (s, o) => {
   let now = Date.now()
   return await insert(`
     <${instance}~/${o}> octo:used ${now} .
   `)
 }
 
-const recordTitle = async ({s, title}) => {
+const recordTitle = async (s, title) => {
   let text = title.trim()
   await query(`
     delete {
@@ -249,7 +249,7 @@ const recordTitle = async ({s, title}) => {
   `)
 }
 
-const recordDescription = async ({s, description}) => {
+const recordDescription = async (s, description) => {
   if (!description) {
     return
   }
@@ -272,15 +272,15 @@ const handleThorpe = async (s, p, o) => {
   if (!isExtantTerm) {
     await createTerm(o)
   }
-  let isExtantThorpe = await extantThorpe({s, p, o})
+  let isExtantThorpe = await extantThorpe(s, p, o)
   if (!isExtantThorpe) {
-    await createOctothorpe({s, p, o})
-    await recordUsage({s, o})
+    await createOctothorpe(s, p, o)
+    await recordUsage(s, o)
   }
 }
 
 
-const originEndorsesOrigin = async ({s, o}) => {
+const originEndorsesOrigin = async (s, o) => {
   return await queryBoolean(`
     ask {
       <${o}> octo:endorses <${s}> .
@@ -290,7 +290,7 @@ const originEndorsesOrigin = async ({s, o}) => {
 
 
 
-const checkReciprocalMention = async ({s, o, p}) => {
+const checkReciprocalMention = async (s, o, p) => {
   return await queryBoolean(`
     ask {
       <${o}> ${p} <${s}> .
@@ -298,7 +298,7 @@ const checkReciprocalMention = async ({s, o, p}) => {
   `)
 }
 
-const checkEndorsement = async ({s, o, flag }) => {
+const checkEndorsement = async (s, o, flag) => {
   let oURL = new URL(o)
   let sURL = new URL(s)
   let oOrigin = oURL.origin
@@ -313,14 +313,16 @@ const checkEndorsement = async ({s, o, flag }) => {
     return true
   }
   // if oOrigin endorses sOrigin…
-  let originEndorsed = await originEndorsesOrigin({sOrigin, oOrigin})
+  let originEndorsed = await originEndorsesOrigin(sOrigin, oOrigin)
   if (originEndorsed) {
     return true
   }
-  // if o mentions s
-  let isMentioned = await checkReciprocalMention({s, o, p})
-  if (isMentioned) {
-    return true
+  // if o mentions s and p is provided
+  if (flag && flag !== "Webring") {
+    let isMentioned = await checkReciprocalMention(s, o, flag)
+    if (isMentioned) {
+      return true
+    }
   }
 
   // Webrings are specific pages that endorse or link to origins
@@ -335,23 +337,23 @@ const handleMention = async (s, p, o) => {
   if (!isExtantPage) {
     await createPage(o)
   }
-  let isExtantMention= await extantMention({s, p, o})
+  let isExtantMention= await extantMention(s, p, o)
   console.log(`isExtantMention?`, isExtantMention)
   if (!isExtantMention) {
-    await createMention({s, p, o})
+    await createMention(s, p, o)
   }
-  let isEndorsed = await checkEndorsement({s, o})
-  let isExtantbacklink = await extantBacklink({s, o, p})
+  let isEndorsed = await checkEndorsement(s, o)
+  let isExtantbacklink = await extantBacklink(s, o, p)
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink({s, o, p})
+    await createBacklink(s, o, p)
   }
 }
 
-const handleWebring = async ({s, friends, alreadyRing, p}) => {
+const handleWebring = async (s, friends, alreadyRing, p) => {
   if (!alreadyRing) {
     console.log(`Create new Webring for ${s}`)
-    createWebring({ s })
+    createWebring(s)
   }
  // TKTK for now we're not using friends.endorsed at all
  // but when endorsement handling matures, it's available
@@ -396,10 +398,10 @@ const handleWebring = async ({s, friends, alreadyRing, p}) => {
     const promises = newDomains.map(async (domain) => {
       try {
         // Check if the domain mentions the current page (reciprocal mention)
-        let isBacklinked = await extantMention({ s: domain, p, o: s });
+        let isBacklinked = await extantMention(domain, p, s);
         if (isBacklinked) {
           console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
-          await createWebringMember({ s: s, o: domain });
+          await createWebringMember(s, domain);
         } else {
           console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
         }
@@ -470,12 +472,12 @@ const handleHTML = async (response, uri) => {
   // create webring if this page type is webring and it doesn't exist yet
   if (harmed.type === "Webring") {
     const isExtantWebring = await extantPage(s, "Webring")
-    await handleWebring({s, friends, isExtantWebring, p})
+    await handleWebring(s, friends, isExtantWebring, p)
   }
   // TKTK Delete thorpes no longer present here.
   // TKTK insert other record level metadata like image, etc more programatically
-  await recordTitle({s, title: harmed.title})
-  await recordDescription({s, description: harmed.description})
+  await recordTitle(s, harmed.title)
+  await recordDescription(s, harmed.description)
 
   // TK: Web of Trust Verification
   //  1. Grab `[rel="octo:endorses"]`
