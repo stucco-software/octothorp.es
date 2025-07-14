@@ -84,7 +84,6 @@ const extractValues = (html, rule) => {
     .map((element) => {
       let value = element[attribute]
       value = removeTrailingSlash(value)
-      console.log("HOW ABOUT HERE",value )
       return value
     })
   return values
