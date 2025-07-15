@@ -117,8 +117,8 @@ function buildSubjectStatement(blob) {
         break
       case 'byParent':
         includeStatement = `VALUES ?parents { ${formatUris(includeList)} }
-               ?parents octo:hasPart ?sdomain .
-               ?sdomain octo:hasPart ?s.`
+               ?parents octo:hasMember ?sdomain .
+               ?sdomain octo:hasMember ?s.`
         break
       default:
     }
@@ -137,8 +137,8 @@ function buildSubjectStatement(blob) {
       // TKTK no idea if this works until we have multiple webrings
         excludeStatement = `  FILTER NOT EXISTS {
           VALUES ?unwantedParents { ${formatUris(excludeList)} }
-          ?unwantedParents octo:hasPart ?sdomain .
-          ?sdomain octo:hasPart ?s.
+          ?unwantedParents octo:hasMember ?sdomain .
+          ?sdomain octo:hasMember ?s.
         }`
         break
       default:
@@ -169,7 +169,13 @@ function buildObjectStatement(blob) {
   if (includeList?.length) {
     switch (mode) {
       case 'exact':
+      if (type === "termsOnly") {
         includeStatement = `VALUES ?o { ${processTermObjects(includeList)} }`
+      }
+          else {
+           includeStatement = `VALUES ?o { ${formatUris(includeList)} }`
+        }
+
         break
       case 'fuzzy':
         if (type === "termsOnly") {
@@ -479,7 +485,7 @@ export const buildDomainQuery = ({
   if (subjects.mode === "byParent") {
     query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date WHERE {
       VALUES ?parents { <${subjectList}> }
-      ?parents octo:hasPart ?s .
+      ?parents octo:hasMember ?s .
      OPTIONAL { ?s octo:title ?title }
      OPTIONAL { ?s octo:image ?image }
      OPTIONAL { ?s octo:description ?description }
@@ -515,10 +521,10 @@ PREFIX octo: <https://vocab.octothorp.es#>
 SELECT DISTINCT ?domain ?page ?o ?domainTitle ?pageTitle ?description ?image ?date ?pageType
 WHERE {
   # Get all domains in the webring
-  <https://demo.ideastore.dev/rad-webring> octo:hasPart ?domain .
+  <https://demo.ideastore.dev/rad-webring> octo:hasMember ?domain .
 
   # Get all pages that belong to these domains
-  ?domain octo:hasPart ?page .
+  ?domain octo:hasMember ?page .
 
   # Get domain metadata
   OPTIONAL { ?domain octo:title ?domainTitle }
