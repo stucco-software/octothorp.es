@@ -27,6 +27,52 @@ const isURL = (term) => {
   return bool
 }
 
+
+
+/**
+ * Returns all URLs that mention a given URL using octo:octothorpes.
+ * @param {string} url - The URL to check
+ * @returns {Promise<string[]>} - Array of subject URLs that mention the given URL
+ */
+const getAllMentioningUrls = async (url) => {
+  const result = await queryArray(`
+    SELECT DISTINCT ?s WHERE {
+      ?s octo:octothorpes <${url}> .
+    }
+  `);
+  if (result.results && result.results.bindings.length > 0) {
+    return result.results.bindings.map(binding => binding.s.value);
+  }
+  return [];
+};
+
+/**
+ * Gets the domain for a given URL.
+ * First checks the data store for a domain that has the relationship <domain> octo:hasPart <url>.
+ * If none is found, returns the URL.origin.
+ * @param {string} url - The URL to check
+ * @returns {Promise<string>} - The domain as a string
+ */
+const getDomainForUrl = async (url) => {
+  // Query for a domain that has octo:hasPart <url>
+  const result = await queryArray(`
+    SELECT ?domain WHERE {
+      ?domain octo:hasPart <${url}> .
+    } LIMIT 1
+  `);
+  if (result.results && result.results.bindings.length > 0) {
+    return result.results.bindings[0].domain.value;
+  }
+  // Fallback to URL.origin
+  try {
+    return new URL(url).origin;
+  } catch (e) {
+    return url; // fallback: return the input if not a valid URL
+  }
+}
+
+
+
 const recentlyIndexed = async (s) => {
   let now = Date.now()
 
@@ -83,7 +129,7 @@ const extantPage = async (o, type="Page") => {
 const extantMember = async (s, o) => {
   return await queryBoolean(`
     ask {
-      <${s}> octo:hasPart <${o}> .
+      <${s}> octo:hasMember <${o}> .
     }
   `)
 }
@@ -91,7 +137,7 @@ const extantMember = async (s, o) => {
 const webringMembers = async (s) => {
   return await queryArray(`
     select distinct ?o {
-      <${s}> octo:hasPart ?o .
+      <${s}> octo:hasMember ?o .
     }
   `)
 }
@@ -116,12 +162,6 @@ const extantMention = async (s, o) => {
 }
 
 const extantBacklink = async (s, o) => {
-  const isWebring = await extantPage(o, "Webring")
-  if (isWebring) {
-    console.log("OCTO:HASPART")
-    // One would imagine we could add the membership here but it's worth caution first
-  }
-   console.log("DOES IT MENTION A WEBRING", isWebring)
   return await queryBoolean(`
     ask {
       <${o}> <${p}> _:backlink .
@@ -156,16 +196,16 @@ const createWebring = async (s) => {
 const createWebringMember = async (s, o) => {
   console.log(`member added for domain ${o}`)
   return await insert(`
-    <${s}> octo:hasPart <${o}> .
+    <${s}> octo:hasMember <${o}> .
   `)
 }
 
 const deleteWebringMember = async (s, o) => {
   return await insert(`
     delete {
-      <${s}> octo:hasPart <${o}> .
+      <${s}> octo:hasMember <${o}> .
     } where {
-      <${s}> octo:hasPart <${o}> .
+      <${s}> octo:hasMember <${o}> .
     }
   `)
 }
@@ -340,6 +380,20 @@ const checkEndorsement = async (s, o, flag) => {
 }
 
 const handleMention = async (s, o) => {
+
+  const isWebring = await extantPage(o, "Webring")
+
+  if (isWebring) {
+    const domain = await getDomainForUrl(s);
+    const hasLinked = await queryBoolean(`
+      ask {
+        <${o}> octo:octothorpes <${domain}> .
+      }
+    `);
+    await createWebringMember(s, domain);
+    console.log(`Webring ${o} has linked to the domain for this page`, hasLinked);
+  }
+
   let isExtantPage = await extantPage(o)
   console.log(`isExtantPage?`, isExtantPage)
   if (!isExtantPage) {
@@ -359,6 +413,7 @@ const handleMention = async (s, o) => {
 }
 
 const handleWebring = async (s, friends, alreadyRing) => {
+
   if (!alreadyRing) {
     console.log(`Create new Webring for ${s}`)
     createWebring(s)
@@ -399,6 +454,8 @@ const handleWebring = async (s, friends, alreadyRing) => {
       console.log("No new domains to process");
       return;
     }
+    const mentioningUrls = await getAllMentioningUrls(s);
+
 
     console.log(`Processing ${newDomains.length} domains:`, newDomains);
 
@@ -406,13 +463,25 @@ const handleWebring = async (s, friends, alreadyRing) => {
     const promises = newDomains.map(async (domain) => {
       try {
         // Check if the domain mentions the current page (reciprocal mention)
-        let isBacklinked = await extantMention(domain, s);
-        if (isBacklinked) {
-          console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
+        // this isn't right. it needs to check if _any_ page on that domain mentions it
+        //
+        
+        // check to see if any of the new domains are part of the mentinioning urls
+        const isMentioned = mentioningUrls.some(url => url.includes(domain));
+        if (isMentioned) {
+          console.log(`Domain ${domain} is mentioned in the mentioning urls, can be added to webring`);
           await createWebringMember(s, domain);
         } else {
-          console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
+          console.log(`Domain ${domain} is not mentioned in the mentioning urls, cannot be added to webring`);
         }
+
+        // let isBacklinked = await extantMention(domain, s);
+        // if (isBacklinked) {
+        //   console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
+        //   await createWebringMember(s, domain);
+        // } else {
+        //   console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
+        // }
       } catch (error) {
         console.error(`Error processing domain ${domain}:`, error);
         // Continue processing other domains even if one fails
@@ -536,3 +605,4 @@ export async function POST({request}) {
   let harmonizer = data.get('harmonizer')
   return new Response(200)
 }
+
