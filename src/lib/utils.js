@@ -1,5 +1,11 @@
 import normalizeUrl from "normalize-url";
 import { arrayify } from "./arrayify";
+
+export const deslash = (urlstring) => {
+  if (typeof urlstring !== 'string') return '';
+  if (!urlstring) return '';
+  return urlstring.replace(/\/$/, '')
+}
 export const getUnixDateFromString = (datestring) => {
   // Utility function for the various places we might want to accept
   // a human readable date but want to send a UNIX date because

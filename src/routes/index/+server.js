@@ -6,15 +6,20 @@ import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { verifiedOrigin } from '$lib/origin.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js';
+import { deslash } from '$lib/utils.js'
 
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 import normalizeUrl from 'normalize-url'
+
+////////// globals
 
 let p = 'octo:octothorpes'
 // let indexCooldown = 300000 //5min
 let indexCooldown = 0
 
 console.log('INDEX RUNNING');
+
+////////// workers //////////
 
 const isURL = (term) => {
   let bool
@@ -28,12 +33,6 @@ const isURL = (term) => {
 }
 
 
-
-/**
- * Returns all URLs that mention a given URL using octo:octothorpes.
- * @param {string} url - The URL to check
- * @returns {Promise<string[]>} - Array of subject URLs that mention the given URL
- */
 const getAllMentioningUrls = async (url) => {
   const result = await queryArray(`
     SELECT DISTINCT ?s WHERE {
@@ -46,13 +45,6 @@ const getAllMentioningUrls = async (url) => {
   return [];
 };
 
-/**
- * Gets the domain for a given URL.
- * First checks the data store for a domain that has the relationship <domain> octo:hasPart <url>.
- * If none is found, returns the URL.origin.
- * @param {string} url - The URL to check
- * @returns {Promise<string>} - The domain as a string
- */
 const getDomainForUrl = async (url) => {
   // Query for a domain that has octo:hasPart <url>
   const result = await queryArray(`
@@ -77,8 +69,6 @@ const recentlyIndexed = async (s) => {
   let now = Date.now()
 
   let url = new URL(s)
-
-  let origin = `${url.origin}/`
   let r = await queryArray(`
     select distinct ?t {
       <${s}> octo:indexed ?t .
@@ -93,6 +83,8 @@ const recentlyIndexed = async (s) => {
   }
   return now - indexCooldown < mostRecent
 }
+
+// TKTK could start using parseBindings to return cleaner results from the workers
 
 const recordIndexing = async (s) => {
   let now = Date.now()
@@ -152,8 +144,6 @@ const extantThorpe = async (s, o) => {
 }
 
 const extantMention = async (s, o) => {
-
-
   return await queryBoolean(`
     ask {
       <${s}> ${p} <${o}> .
@@ -336,8 +326,6 @@ const originEndorsesOrigin = async (s, o) => {
   `)
 }
 
-
-
 const checkReciprocalMention = async (s, o, p) => {
   return await queryBoolean(`
     ask {
@@ -346,9 +334,11 @@ const checkReciprocalMention = async (s, o, p) => {
   `)
 }
 
+
 const checkEndorsement = async (s, o, flag) => {
   let oURL = new URL(o)
   let sURL = new URL(s)
+
   let oOrigin = oURL.origin
   let sOrigin = sURL.origin
   if (flag === "Webring") {
@@ -373,100 +363,81 @@ const checkEndorsement = async (s, o, flag) => {
     }
   }
 
-  // Webrings are specific pages that endorse or link to origins
-  // so a third check, typed to webringIndex should also check
-  // checkReciprocalMention({s, oOrigin})
-
 }
 
+
+////////// handlers //////////
+
 const handleMention = async (s, o) => {
+  const subj = deslash(s)
+  const obj = deslash(o)
+  const isObjWebring = await extantPage(obj, "Webring")
 
-  const isWebring = await extantPage(o, "Webring")
-
-  if (isWebring) {
-    const domain = await getDomainForUrl(s);
+  if (isObjWebring) {
+    const domain = await getDomainForUrl(subj);
     const hasLinked = await queryBoolean(`
       ask {
-        <${o}> octo:octothorpes <${domain}> .
+        <${obj}> octo:octothorpes <${domain}> .
       }
     `);
-    await createWebringMember(s, domain);
-    console.log(`Webring ${o} has linked to the domain for this page`, hasLinked);
+    if (hasLinked) {
+      await createWebringMember(obj, domain)
+    }
+    console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked);
   }
 
-  let isExtantPage = await extantPage(o)
+  let isExtantPage = await extantPage(obj)
   console.log(`isExtantPage?`, isExtantPage)
   if (!isExtantPage) {
-    await createPage(o)
+    await createPage(obj)
   }
-  let isExtantMention= await extantMention(s, o)
+  let isExtantMention= await extantMention(subj, obj)
   console.log(`isExtantMention?`, isExtantMention)
   if (!isExtantMention) {
-    await createMention(s, o)
+    await createMention(subj, obj)
   }
-  let isEndorsed = await checkEndorsement(s, o)
-  let isExtantbacklink = await extantBacklink(s, o)
+  let isEndorsed = await checkEndorsement(subj, obj)
+  let isExtantbacklink = await extantBacklink(subj, obj)
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink(s, o)
+    await createBacklink(subj, obj)
   }
 }
 
 const handleWebring = async (s, friends, alreadyRing) => {
-
   if (!alreadyRing) {
     console.log(`Create new Webring for ${s}`)
     createWebring(s)
   }
- // TKTK for now we're not using friends.endorsed at all
- // but when endorsement handling matures, it's available
 
-  const domainsOnPage = friends.linked.map(member => new URL(member))
-  let extantMembers = await webringMembers(s)
+  // find new domains to check for membership
+  // by comparing domains on the page to existing Members
 
-  // Extract domains from extantMembers (SPARQL results)
-  // they should already be domains, but this is a sanity check
- extantMembers = extantMembers.results.bindings.map(binding => {
-    const memberUrl = binding.o.value
-    return new URL(memberUrl).origin
-  })
-
-
-  console.log(extantMembers)
-
-  // Find new domains that are not in extantMembers
-  const newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
+  let domainsOnPage = friends.linked.map(member => deslash(member))
+  let extantMembers = [await webringMembers(s)]
+  extantMembers = extantMembers.map(member => deslash(member))
+  let newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
+  console.log("Extant Members:", extantMembers)
   console.log(`New Domains: ${newDomains}`)
-  // Find domains to be deleted (in extantMembers but not on page)
 
-  const domainsToDelete = extantMembers.filter(domain => !domainsOnPage.includes(domain))
-  console.log(`Domains to Delete: ${domainsToDelete}`)
-
-  // Log domains to be deleted
-  if (domainsToDelete.length > 0) {
-    console.log("domains to be deleted:", domainsToDelete)
-  }
+  // TKTK endorsement
+  // for now we're not using friends.endorsed at all
+  // but when endorsement handling matures, it's available
 
   // For new domains, check if they endorse this URL
-
   const processDomains = async (newDomains, s) => {
     if (newDomains.length === 0) {
       console.log("No new domains to process");
       return;
     }
     const mentioningUrls = await getAllMentioningUrls(s);
-
-
+    console.log("MentioningURLS", mentioningUrls)
     console.log(`Processing ${newDomains.length} domains:`, newDomains);
-
 
     const promises = newDomains.map(async (domain) => {
       try {
-        // Check if the domain mentions the current page (reciprocal mention)
-        // this isn't right. it needs to check if _any_ page on that domain mentions it
-        //
-        
-        // check to see if any of the new domains are part of the mentinioning urls
+
+        // check to see if any of the urls that have linked to this Webring contain the given domain
         const isMentioned = mentioningUrls.some(url => url.includes(domain));
         if (isMentioned) {
           console.log(`Domain ${domain} is mentioned in the mentioning urls, can be added to webring`);
@@ -474,14 +445,6 @@ const handleWebring = async (s, friends, alreadyRing) => {
         } else {
           console.log(`Domain ${domain} is not mentioned in the mentioning urls, cannot be added to webring`);
         }
-
-        // let isBacklinked = await extantMention(domain, s);
-        // if (isBacklinked) {
-        //   console.log(`Domain ${domain} is backlinked to this URL, can be added to webring`);
-        //   await createWebringMember(s, domain);
-        // } else {
-        //   console.log(`Domain ${domain} is not linked to this URL, cannot be added to webring`);
-        // }
       } catch (error) {
         console.error(`Error processing domain ${domain}:`, error);
         // Continue processing other domains even if one fails
@@ -489,59 +452,61 @@ const handleWebring = async (s, friends, alreadyRing) => {
     });
 
     try {
-      console.log("Starting Promise.all...");
+      console.log("Starting processDomains...");
       await Promise.all(promises);
-      console.log("Promise.all completed successfully");
+      console.log("processDomains completed successfully");
     } catch (error) {
       console.error("Error in Promise.all:", error);
     }
   };
-
-  // Usage:
   await processDomains(newDomains, s);
-
   }
 
 
 
 // Accept a response
 const handleHTML = async (response, uri) => {
+  // TIME TO DESLASH EVERYTHING HERE
   const src = await response.text()
   // TKTK parse the "as" param and use non-default harmonizers
   const harmed = await harmonizeSource(src)
-
-
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
 
   console.log(`HARMED`)
   console.log(harmed)
   let friends = { endorsed:[], linked:[]}
-
-  // Replace forEach with async functions with proper async loop
+  // clean this up
   for (const octothorpe of harmed.octothorpes) {
     console.log(octothorpe)
-    switch(true) {
-      case octothorpe.type === 'link':
-      case octothorpe.type === 'mention':
-        friends.linked.push(octothorpe.uri)
-        await handleMention(s, octothorpe.uri)
+    let octoURI = deslash(octothorpe.uri)
+    switch(octothorpe.type) {
+      case 'link':
+      case 'mention':
+      case 'Link':
+      case 'Mention':
+      case 'Backlink':
+      case 'backlink':
+        friends.linked.push(octoURI)
+        await handleMention(s, octoURI)
         break;
-      case octothorpe.type === 'Backlink':
-          friends.linked.push(octothorpe.uri)
-      case octothorpe.type === 'hashtag':
-        await handleThorpe(s, octothorpe.uri)
+      case 'hashtag':
+        await handleThorpe(s, octoURI)
         break;
-      case octothorpe.type === 'endorse':
-        friends.endorsed.push(octothorpe.uri)
-        // that doesn't work
-        // await handleMention(s, "octo:endorses", octothorpe.uri)
+      case 'endorse':
+        friends.endorsed.push(octoURI)
+        // TKTK handle endorsement
+        // TK: Web of Trust Verification
+        //  1. Grab `[rel="octo:endorses"]`
+        //  2. Create term <s> octo:endorses <o> .
+        //  3. Create term <o.origin> octo:verified "true" .
         break;
-      case octothorpe.type === 'bookmark':
-        console.log(`handle bookmark?`, octothorpe.uri)
-        // await handleThorpe(s, p, octothorpe.uri)
+      case 'bookmark':
+        console.log(`handle bookmark?`, octoURI)
+        // TKTK handle bookmark uniquely
+        await handleMention(s, octoURI)
         break;
       default:
-        await handleThorpe(s, octothorpe)
+        await handleThorpe(s, octoURI)
         break;
     }
   }
@@ -556,10 +521,7 @@ const handleHTML = async (response, uri) => {
   await recordTitle(s, harmed.title)
   await recordDescription(s, harmed.description)
 
-  // TK: Web of Trust Verification
-  //  1. Grab `[rel="octo:endorses"]`
-  //  2. Create term <s> octo:endorses <o> .
-  //  3. Create term <o.origin> octo:verified "true" .
+
   console.log("done")
   return new Response(200)
 }
@@ -605,4 +567,3 @@ export async function POST({request}) {
   let harmonizer = data.get('harmonizer')
   return new Response(200)
 }
-

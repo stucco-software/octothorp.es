@@ -118,7 +118,7 @@ function buildSubjectStatement(blob) {
       case 'byParent':
         includeStatement = `VALUES ?parents { ${formatUris(includeList)} }
                ?parents octo:hasMember ?sdomain .
-               ?sdomain octo:hasMember ?s.`
+               ?sdomain octo:hasPart ?s.`
         break
       default:
     }
@@ -138,7 +138,7 @@ function buildSubjectStatement(blob) {
         excludeStatement = `  FILTER NOT EXISTS {
           VALUES ?unwantedParents { ${formatUris(excludeList)} }
           ?unwantedParents octo:hasMember ?sdomain .
-          ?sdomain octo:hasMember ?s.
+          ?sdomain octo:hasPart ?s.
         }`
         break
       default:
@@ -482,10 +482,13 @@ export const buildDomainQuery = ({
   }
   let query = ""
   const subjectList = subjects.include.toString()
+  // TKTK not sure if using both hasPart and hasMember will
+  // cause any problems at any point
   if (subjects.mode === "byParent") {
     query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date WHERE {
       VALUES ?parents { <${subjectList}> }
       ?parents octo:hasMember ?s .
+      ?parents octo:hasPart ?s .
      OPTIONAL { ?s octo:title ?title }
      OPTIONAL { ?s octo:image ?image }
      OPTIONAL { ?s octo:description ?description }
