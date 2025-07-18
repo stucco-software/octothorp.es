@@ -37,8 +37,6 @@ export const queryArray = async query => {
 }
 
 export const queryBoolean = async query => {
-  console.log(`query bool`)
-  console.log(query)
   let triples = await getTriples('application/sparql-results+json')(query)
   let json = await triples.json()
   return json.boolean
@@ -81,8 +79,8 @@ ${nquads}
 ////////// SPARQL-SPECIFIC UTILITIES //////////
 
 
-  // const thorpePath = instance+"~/"
-const thorpePath = "https://octothorp.es/~/"
+  const thorpePath = `${instance}~/"`
+// const thorpePath = "https://octothorp.es/~/"
 
 
  // Formats URIs as SPARQL records
@@ -96,7 +94,7 @@ function buildSubjectStatement(blob) {
   const includeList = blob.include
   const excludeList = blob.exclude
   const mode = blob.mode
-  console.log (includeList, excludeList)
+  console.log(includeList, excludeList)
   // TKTK review the empty subject problem here
   if (!includeList?.length && !excludeList?.length && mode === "byParent") throw new Error('Must provide a subject in current mode');
 

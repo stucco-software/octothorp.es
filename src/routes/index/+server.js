@@ -17,8 +17,6 @@ let p = 'octo:octothorpes'
 // let indexCooldown = 300000 //5min
 let indexCooldown = 0
 
-console.log('INDEX RUNNING');
-
 ////////// workers //////////
 
 const isURL = (term) => {
@@ -305,7 +303,7 @@ const recordDescription = async (s, description) => {
 }
 
 const handleThorpe = async (s, o) => {
-  console.log(s, p, o)
+  console.log(`#`, s, o)
   let isExtantTerm = await extantTerm(o)
   if (!isExtantTerm) {
     await createTerm(o)
@@ -474,10 +472,12 @@ const handleHTML = async (response, uri) => {
 
   console.log(`HARMED`)
   console.log(harmed)
+
   let friends = { endorsed:[], linked:[]}
   // clean this up
+  console.log(`VVVVVVVVVVVVVVVV`)
+  console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
-    console.log(octothorpe)
     let octoURI = deslash(octothorpe.uri)
     switch(octothorpe.type) {
       case 'link':
@@ -506,7 +506,7 @@ const handleHTML = async (response, uri) => {
         await handleMention(s, octoURI)
         break;
       default:
-        await handleThorpe(s, octoURI)
+        await handleThorpe(s, octothorpe)
         break;
     }
   }
@@ -527,8 +527,6 @@ const handleHTML = async (response, uri) => {
 }
 
 const handler = async (s) => {
-  console.log(`handle fn…`, s)
-
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')

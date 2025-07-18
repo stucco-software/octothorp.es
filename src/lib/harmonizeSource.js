@@ -147,10 +147,6 @@ export async function remoteHarmonizer(url) {
 }
 
 export async function harmonizeSource(html, harmonizer = "default") {
-
-
-
-
   let schema = {}
   const d = await getHarmonizer("default")
 
@@ -178,19 +174,16 @@ export async function harmonizeSource(html, harmonizer = "default") {
   }
 
 
-
   let output = {}
 
   // Process each top-level object in the schema
   let typedOutput = {}
-async function getObjectVals(obj) {
-  const oValues = []
+  async function getObjectVals(obj) {
+    const oValues = []
       // Process each rule in the "o" array
       obj.forEach((rule) => {
         let values = extractValues(html, rule)
-
         if (rule.filterResults) {
-          console.log("filtering")
           values = filterValues(values, rule.filterResults)
         }
         // If the rule has a "name", use it to reconstruct the nested structure.
@@ -203,7 +196,7 @@ async function getObjectVals(obj) {
             values.forEach((val) =>{
                let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
                if (pv) {
-                pVals.push(pv[0])
+                pVals.push(pv)
                }
               values = pVals
             })
@@ -221,12 +214,10 @@ async function getObjectVals(obj) {
   for (const key in schema) {
     typedOutput[key] = []
     const thisObj = schema.key
-    console.log( schema[key].title )
     const s = schema[key].s
     const o = schema[key].o
     // TKTK think about how to handle multiple sources one day
     const sValues = extractValues(html, s) // Extract all s values
-
   // Special handling for schema.subject and schema.documentRecord
     if (key === "subject" || key === "documentRecord") {
       // props for subject go in the top level of the blobject
@@ -245,7 +236,6 @@ async function getObjectVals(obj) {
               // skip source because it's already in the subject array
               let values = []
               if (prop != "s") {
-                console.log(val)
                   values = await getObjectVals(val)
               // Use the "key" property to reconstruct the nested structure
               if (key == "subject") {
@@ -263,7 +253,6 @@ async function getObjectVals(obj) {
     else {
       // Default handling for other top-level objects
       typedOutput[key] = await getObjectVals(schema[key].o)
-      console.log("PROBS")
       // console.log(schema[key].o)
       // console.log(typedOutput[key].o)
     }
@@ -271,6 +260,7 @@ async function getObjectVals(obj) {
   }
 
   // end process key
+
   output["octothorpes"] = [
     ...(typedOutput.hashtag || []),
     ...Object.entries(typedOutput)
@@ -279,7 +269,5 @@ async function getObjectVals(obj) {
         uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
       )
   ]
-  console.log(`-----`)
-  console.log(output)
   return output
 }
