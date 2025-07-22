@@ -7,7 +7,7 @@
   export let data
 </script>
 
-<pushbroom url={$page.url.pathname} />
+<push-broom url={$page.url.pathname} />
 
 <Header host={data.host} />
 
