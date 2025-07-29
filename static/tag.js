@@ -87,13 +87,24 @@ if (plugins === "linkfill") {
   console.log("do link fill");
   const preloadLink = document.querySelector('link[rel="preload"][as="fetch"]');
   const baseUrl = script.dataset.register+"?uri=";
-  const currentUrl = window.location.href;
-  const preloadHref = baseUrl + encodeURI(currentUrl)
+  const currentUrl = encodeURI(window.location.href);
 
-if (preloadLink) {
-    preloadLink.setAttribute('href', preloadHref);
-}
-else 
+  if (preloadLink) {
+  const preloadLinks = document.querySelectorAll('link[rel="preload"][as="fetch"]');
+        preloadLinks.forEach(preloadLink => {
+
+            let existingHref = preloadLink.getAttribute('href');
+            if (existingHref && existingHref.trim() !== '') {
+                preloadLink.setAttribute('href', existingHref + currentUrl);
+            } else {
+                preloadLink.setAttribute('href', baseUrl + currentUrl);
+            }
+        });
+      } else {
+          preloadLink.setAttribute('href', baseUrl + currentUrl);
+      }
+  }
+else
 {
   let link = document.createElementNS('http://www.w3.org/1999/XHTML/V10', 'link');
   link.setAttribute("rel", 'preload');
@@ -101,7 +112,7 @@ else
   link.setAttribute("href", preloadHref);
   document.head.appendChild(link);
 }
-}
+
 
 const webhooks = script
       .dataset
