@@ -83,11 +83,14 @@ const script = document.querySelector('script[src*="tag.js"]')
 
 const plugins = script.dataset.plugins
 
+const preloadLink = document.querySelector('link[rel="preload"][as="fetch"]');
+const baseUrl = script.dataset.register+"?uri=";
+const currentUrl = encodeURI(window.location.href);
+const preloadHref = preloadLink.getAttribute('href');
+
 if (plugins === "linkfill") {
   console.log("do link fill");
-  const preloadLink = document.querySelector('link[rel="preload"][as="fetch"]');
-  const baseUrl = script.dataset.register+"?uri=";
-  const currentUrl = encodeURI(window.location.href);
+
 
   if (preloadLink) {
   const preloadLinks = document.querySelectorAll('link[rel="preload"][as="fetch"]');
