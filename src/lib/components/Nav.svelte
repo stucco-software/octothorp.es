@@ -7,7 +7,7 @@
       <a href="/about">about</a>
     </li>
     <li>
-      <a href="/docs">docs</a>
+      <a href="https://docs.octothorp.es">docs</a>
     </li>
     <li>
       <a href="/register">register</a>
@@ -19,8 +19,8 @@
       <a href="/backlinks">backlinks</a>
     </li>
     <li>
-      <a href="/report">report</a>  
-    </li>    
+      <a href="/report">report</a>
+    </li>
   </ul>
   </nav>
 
