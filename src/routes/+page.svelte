@@ -30,28 +30,27 @@
   </p>
 </section>
 
-  
+
   {#if data.server_name === 'Bear Blog'}
   <section>
     <BearblogCard></BearblogCard>
   </section>
   {:else}
   <section>
-    <em>News from the Ring</em>
+    <em>OP News</em>
     <p># # # # # # # # # # # </p>
     <!-- <p>Please stand by while we resolve resolve technical difficulties.</p> -->
-    <p>Registrations are open again for <a href="/ratbike">Project Ratbike</a></p>
-    <p># # # # # # # # # # # </p>
-    <a href="https://bearblog.octothorp.es/">Welcome Bear Bloggers!</a> <p>All Blogs on Bear can now octothorpe on their own server!</p>
+    <p><mark>Version 0.5 released</mark></p>
+    <p>Take a journey through what <a href="https://docs.octothorp.es/pitch">Octothorpes has to offer</a> on our <a href="https://docs.octothorp.es/">New documentation site.</a></p>
   </section>
   <section class="testimonial">
-  
+
     <p>The latest web nerd feature.</p>
     <p class="attribution">-- Anil Dash</p>
-  
+
     <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
     <p class="attribution">-- <a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">Ludic</a></p>
-  
+
     <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
     <p class="attribution">-- <a href="https://news.ycombinator.com/item?id=41761873">Some dude on hackernews</a></p>
   </section>
@@ -90,7 +89,7 @@
   section.testimonial p a {
     color: var(--bios-gray);
   }
-  
+
   section.testimonial p {
     line-height: 1rem;
     margin-block-end: 1rem;
