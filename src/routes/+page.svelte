@@ -12,9 +12,21 @@
   title={data.instance}
   href={rss}>
 
+<div class="title-card">
+  <h1>Enjoy the World <br><em>Wide</em> Web</h1>
+  <p>
+    Octothorpes are hashtags and backlinks that can be used on regular websites, connecting pages across the open internet regardless of where they're hosted.
+  </p>
 
+  <p>
+    This Server is a network of <mark>{data.thorpes}</mark> <a href="/~">Tags</a> across <mark>{data.domains}</mark> <a href="/domains">Websites.</a>
+   </p>
+</div>
 
 <div class="dashboard dotgrid">
+
+
+
 <section>
   {#if data.server_name === 'Octothorpes'}
     <p>Welcome to the first Octothorpes Server.</p>
@@ -58,9 +70,22 @@
 </div>
 
 <style type="text/css">
+
   h1 {
-    word-break: break-all;
+    text-align: center;
+    font-family: var(--serif-stack);
+    font-weight: 400;
+    font-size: var(--txt-4);
+    line-height: 1.1;
   }
+  .title-card p {
+    font-size: var(--txt-1);
+    line-height: 1.1;
+    max-width: 18em;
+    margin: auto;
+    margin-block-end: var(--lead-2);
+  }
+
   .dashboard {
     display: grid;
     grid-template-columns: repeat(auto-fill, 24ch);

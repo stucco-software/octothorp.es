@@ -13,14 +13,14 @@
 <StaticNav /> 
 
 
-
-
 <style type="text/css">
   header {
     border-bottom: 2px dotted var(--dark-blue);
     padding-block: calc(var(--baseline) * .5);
     padding-inline: 2ch;
     background-color: var(--bg-color);
+    display: flex;
+    justify-content: center;
   }
   a, li a {
     text-decoration-skip-ink: auto;

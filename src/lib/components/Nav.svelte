@@ -3,51 +3,55 @@
     <li>
       <a href="/~">#</a>
     </li>
-    <li>
+    <!-- <li>
       <a href="/about">about</a>
-    </li>
+    </li> -->
     <li>
-      <a href="https://docs.octothorp.es">docs</a>
+      <a href="/domains">sites</a>
     </li>
     <li>
       <a href="/register">register</a>
     </li>
     <li>
-      <a href="/domains">sites</a>
+      <a href="https://docs.octothorp.es">docs</a>
     </li>
-    <li>
+
+
+    <!-- <li>
       <a href="/backlinks">backlinks</a>
-    </li>
-    <li>
+    </li> -->
+    <!-- <li>
       <a href="/report">report</a>
-    </li>
+    </li> -->
   </ul>
   </nav>
-
-
 <style>
 
 
   nav {
     border-bottom: 2px dotted var(--dark-blue);
-    /* font-family: "DOS"; */
-    padding-inline: 3ch;
-    font-size: var(--txt--2);
-    flex-grow: 999;
+    max-width: var(--grid-max-width);
+    font-size: var(--txt--1);
+    justify-content: center;
     display: flex;
     flex-direction: row;
     background-color: var(--bg-color);
   }
 	ul {
+    gap: var(--lead-1);
+    display: grid;
 		margin: 0;
 		padding: 0;
-    display: inline;
+    grid-template-columns: repeat(4, min-content);
+    /*display: inline;*/
 	}
 	li {
 		margin: 0;
 		padding: 0;
 		list-style-type: '';
     display: inline;
+    font-family: var(--sans-stack);
+    font-weight: 500;
 	}
   li a {
     text-decoration: none;
