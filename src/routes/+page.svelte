@@ -93,6 +93,12 @@
     gap: 4ch;
     grid-auto-rows: max-content
   }
+  @media (max-width: 800px) {
+    .dashboard {
+      grid-template-columns: repeat(1, 1fr);
+    }
+
+  }
 
 
   .dashboard section, .dashboard p span {
