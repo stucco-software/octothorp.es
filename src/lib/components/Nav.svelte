@@ -1,7 +1,7 @@
 <nav>
   <ul>
     <li>
-      <a href="/~">#</a>
+      <a href="/~">#s</a>
     </li>
     <!-- <li>
       <a href="/about">about</a>
