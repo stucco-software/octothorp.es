@@ -61,7 +61,7 @@
       <!-- <p>Please stand by while we resolve resolve technical difficulties.</p> -->
       <img
         class="launch"
-        src="https://docs.octothorp.es/img/duplo-VhqQHkGxOq-__482__.webp">
+        src="/duplu_plane.avif">
       <date>August 1st, 2025</date>
       <h3><mark>Version 0.5 released</mark></h3>
       <p>Take a journey through what <a href="https://docs.octothorp.es/pitch">Octothorpes has to offer</a> on our <a href="https://docs.octothorp.es/">New documentation site.</a></p>
