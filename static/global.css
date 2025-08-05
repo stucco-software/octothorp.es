@@ -78,7 +78,7 @@ h5 { font-size: var(--txt--1); }
 
 a,
 a:visited {
-  display: inline-block;
+  display: inline;
   color: var(--light-blue);
 }
 a:focus,
@@ -180,10 +180,10 @@ button:active {
   padding-inline: 3ch 0;
 }
 
-.dotgrid {
+/*.dotgrid {
   min-height: 80vh;
   padding: 3ch;
-}
+}*/
 
 .dotgrid span {
   background-color: var(--bg-color);
