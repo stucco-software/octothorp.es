@@ -178,6 +178,22 @@ const localHarmonizers = {
         }]
     }
   }
+},
+"ghost": {
+  "@context": context,
+  "@id": `${baseId}ghost`,
+  "@type": "harmonizer",
+  "title": "Ghost Tags to Octothorpes Harmonizer",
+  "mode": "html",
+  "schema" : {
+    "hashtag": {
+      "s": "source",
+      "o": [{
+        "selector": `a.gh-article-tag`,
+        "attribute": "textContent"
+      }]
+  }
+}
 }
 };
 
