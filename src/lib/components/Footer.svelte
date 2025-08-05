@@ -5,7 +5,10 @@
 	<nav>
   	<a href="/terms">Terms</a>
   	<a href="/privacy">Privacy</a>
-    <a href="/about">Demo</a>
+    <a href="https://docs.octothorp.es/about/">About</a>
+    <a href="https://opencollective.com/stucco-software/projects/octothorpes/donate?interval=oneTime&amount=20&contributeAs=me">
+      Support
+    </a>
 	</nav>
 
   <div class="center">

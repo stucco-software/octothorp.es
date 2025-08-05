@@ -1,5 +1,6 @@
 <script type="text/javascript">
   import BearblogCard from '$lib/components/bearblogCard.svelte'
+  import Contribute from '$lib/components/Contribute.svelte'
   export let data
   export let server_name
   import { assets } from '$app/paths';
@@ -21,21 +22,26 @@
   <p>
     This Server is a network of <mark>{data.thorpes}</mark> <a href="/~">Tags</a> across <mark>{data.domains}</mark> <a href="/domains">Websites.</a>
    </p>
+
 </div>
 
-<div class="dashboard dotgrid">
-  <section class="testimonial">
-    <p>The latest web nerd feature.</p>
-    <p class="attribution">—&nbsp;Anil Dash</p>
-  </section>
-  <section class="testimonial">
-    <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
-    <p class="attribution"><a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">—&nbsp;Ludic</a></p>
-  </section>
-  <section class="testimonial">
-    <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
-    <p class="attribution"><a href="https://news.ycombinator.com/item?id=41761873">—&nbsp;Some dude on hackernews</a></p>
-  </section>
+<div class="dotgrid">
+  <div class="dashboard">
+    <section class="testimonial">
+      <p>The latest web nerd feature.</p>
+      <p class="attribution">—&nbsp;Anil Dash</p>
+    </section>
+    <section class="testimonial">
+      <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
+      <p class="attribution"><a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">—&nbsp;Ludic</a></p>
+    </section>
+    <section class="testimonial">
+      <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
+      <p class="attribution"><a href="https://news.ycombinator.com/item?id=41761873">—&nbsp;Some dude on hackernews</a></p>
+    </section>
+  </div>
+
+  <Contribute />
 </div>
 
 

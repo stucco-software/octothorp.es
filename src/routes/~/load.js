@@ -15,8 +15,7 @@ export async function load(req) {
     `)
     console.log(sr.results.bindings)
     thorpes = new Set(sr.results.bindings
-      .map(b => b.t.value)
-      .filter(t => t.includes(instance)))
+      .map(b => b.t.value))
     let usage = new Map([...thorpes].map(term => [term, {
       term,
       latest: 0,
@@ -25,7 +24,6 @@ export async function load(req) {
       count: 0
     }]))
     sr.results.bindings
-      .filter(binding => binding.t.value.includes(instance))
       .forEach(binding => {
         let term = usage.get(binding.t.value)
         let page = {
@@ -45,18 +43,18 @@ export async function load(req) {
 
   // get all the relevant thorpes
   let links = []
-  try {
-    const sr = await queryArray(`
-      SELECT DISTINCT ?t {
-        ?t rdf:type <octo:Page> .
-      }
-    `)
-    links = new Set(sr.results.bindings
-      .map(b => b.t.value)
-      .filter(t => t.includes(instance)))
-  } catch (e) {
-    console.log(e)
-  }
+  // try {
+  //   const sr = await queryArray(`
+  //     SELECT DISTINCT ?t {
+  //       ?t rdf:type <octo:Page> .
+  //     }
+  //   `)
+  //   links = new Set(sr.results.bindings
+  //     .map(b => b.t.value)
+  //     .filter(t => t.includes(instance)))
+  // } catch (e) {
+  //   console.log(e)
+  // }
 
   return {
     uri: instance,

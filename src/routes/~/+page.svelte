@@ -1,17 +1,24 @@
 <script type="text/javascript">
+  import { onMount } from 'svelte'
   export let data
 
   let thorpes = [...data.thorpes]
-  let tags = data.tags.sort((a, b) => b.count - a.count)
+  let tags = data.tags.sort((a, b) => b.domains.length - a.domains.length)
   let value
   $: {
     console.log(value)
     tags = value
-      ? [...data.tags.sort((a, b) => b.count - a.count)].filter(n => n.term.includes(value))
-      : [...data.tags.sort((a, b) => b.count - a.count)]
+      ? [...data.tags.sort((a, b) => b.domains.length - a.domains.length)].filter(n => n.term.includes(value))
+      : [...data.tags.sort((a, b) => b.domains.length - a.domains.length)]
   }
 
   console.log(data.tags)
+
+  onMount(async () => {
+    let response = await fetch('/get/everything')
+    let blob = await response.json()
+    console.log(blob)
+  })
 </script>
 
 <form>
