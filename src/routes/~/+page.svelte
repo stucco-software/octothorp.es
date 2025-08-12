@@ -155,7 +155,8 @@ a.thorpe {
   }
 
   .grid-header {
-      position: sticky;
+      font-weight: bold;
+      font-size: 1.2rem;
   }
 
   summary {
