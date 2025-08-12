@@ -71,7 +71,6 @@ export async function load({ params, url }) {
       query = buildDomainQuery(multiPass);
       const dr = await queryArray(query);
       actualResults = parseBindings(dr.results.bindings)
-
       break;
     default:
     throw new Error(`Invalid route.`)
@@ -96,7 +95,7 @@ export async function load({ params, url }) {
           items: actualResults
         }
       };
-      
+
       return {
         rss: rss(rssTree, params.what)
       };

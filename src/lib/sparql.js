@@ -30,10 +30,19 @@ const getTriples = (accept) => async (query) => await fetch(`${sparql_endpoint}/
 
 export const queryArray = async query => {
   let triples = await getTriples('application/sparql-results+json')(query)
-      .then(result => {
-        return result.json()
+      .then(async result => {
+        if (!result.ok) {
+          const text = await result.text();
+          console.error('SPARQL Error:', text);
+          throw new Error(`SPARQL query failed: ${text}`);
+        }
+        return result.json();
       })
-  return triples
+      .catch(error => {
+        console.error('JSON Parse Error:', error);
+        throw error;
+      });
+  return triples;
 }
 
 export const queryBoolean = async query => {
@@ -79,7 +88,7 @@ ${nquads}
 ////////// SPARQL-SPECIFIC UTILITIES //////////
 
 
-  const thorpePath = `${instance}~/"`
+  const thorpePath = `${instance}~/`
 // const thorpePath = "https://octothorp.es/~/"
 
 
@@ -96,7 +105,10 @@ function buildSubjectStatement(blob) {
   const mode = blob.mode
   console.log(includeList, excludeList)
   // TKTK review the empty subject problem here
-  if (!includeList?.length && !excludeList?.length && mode === "byParent") throw new Error('Must provide a subject in current mode');
+  if (mode === "byParent" && !includeList?.length && !excludeList?.length) {
+    console.error('Missing required subject for mode:', mode);
+    throw new Error('Must provide a subject in current mode');
+  }
 
 
   if (!includeList?.length && !excludeList?.length) return ''
@@ -299,7 +311,6 @@ function buildObjectStatement(blob) {
   * Empty defaults are set as empty strings
   * so they can be included in output even if not set
  */
-
 
 function getStatements (subjects, objects, filters, resultMode) {
   // Confirm at least one subject or object exists
