@@ -1,23 +1,30 @@
 <script type="text/javascript">
   import { onMount } from 'svelte'
-  export let data
 
-  let thorpes = [...data.thorpes]
-  let tags = data.tags.sort((a, b) => b.domains.length - a.domains.length)
+
+  let loading = true
+  let thorpes = []
+  let tags = []
   let value
+  let blob = {
+    tags: []
+  }
+
   $: {
     console.log(value)
     tags = value
-      ? [...data.tags.sort((a, b) => b.domains.length - a.domains.length)].filter(n => n.term.includes(value))
-      : [...data.tags.sort((a, b) => b.domains.length - a.domains.length)]
+      ? [...blob.tags.sort((a, b) => b.domains.length - a.domains.length)].filter(n => n.term.includes(value))
+      : [...blob.tags.sort((a, b) => b.domains.length - a.domains.length)]
   }
 
-  console.log(data.tags)
 
   onMount(async () => {
-    let response = await fetch('/get/everything')
-    let blob = await response.json()
+    console.log(`fetch on page load?`)
+    let response = await fetch('/~')
+    blob = await response.json()
     console.log(blob)
+    tags = blob.tags.sort((a, b) => b.domains.length - a.domains.length)
+    loading = false
   })
 </script>
 
@@ -34,65 +41,63 @@
 </form>
 
 <section class="dotgrid">
-    <div class="thorpe-grid grid-header">
-        <div class="column">
-            Octothorpe
-        </div>
-        <div class="column">
-            Last Updated
-        </div>
-        <div class="column">
-            Domains
-        </div>
-        <div class="column">
-            Pages
-        </div>
-
-
-    </div>
-  {#each tags as tag}
+  <!-- <div class="thorpe-grid grid-header"> -->
   <div class="thorpe-grid">
-      <div class="column">
-          <a class="thorpe" href="{tag.term}">#{tag.term.split('/~/')[1]}</a>
-      </div>
-      <div class="column">
-          <p>{new Date(Number(tag.latest)).getFullYear()}/{new Date(Number(tag.latest)).getMonth()  + 1}/{new Date(Number(tag.latest)).getDate()}</p>
-      </div>
-      <div class="column">
-
-        <details>
-        <summary>{tag.domains.length}</summary>
-        <ul>
-            {#each tag.domains as domain}
-            <li>
-                <!-- <a href="/domains/{encodeURIComponent(domain)}">{domain}</a> -->
-                <a href="{domain}">{domain}</a>
-            </li>
-            {/each}
-        </ul>
-        </details>
-      </div>
-      <div class="column">
-          <details>
-            <summary>{tag.count}</summary>
-            <ul>
-              {#each tag.pages as page}
-              <li>
-                <a href="{page.url}">{page.url}</a>
-              </li>
-              {/each}
-            </ul>
-          </details>
-      </div>
-
+    <div class="column grid-header">
+        Octothorpe
+    </div>
+    <div class="column grid-header">
+        Last Updated
+    </div>
+    <div class="column grid-header">
+        Domains
+    </div>
+    <div class="column grid-header">
+        Pages
     </div>
 
+    {#if loading}
+      <div class="loading">loading tags…</div>
+    {/if}
+
+  {#each tags as tag}
+    <div class="column">
+      <a
+        class="thorpe"
+        href="{tag.term}">
+        #{tag.term.split('/~/')[1]}
+      </a>
+    </div>
+    <div class="column">
+      <p>
+        {new Date(Number(tag.latest)).getFullYear()}/{new Date(Number(tag.latest)).getMonth()  + 1}/{new Date(Number(tag.latest)).getDate()}
+      </p>
+    </div>
+    <div class="column">
+      <details>
+        <summary>{tag.domains.length} <span class="label">Domains</span></summary>
+        <ul>
+          {#each tag.domains as domain}
+            <li>
+              <a href="{domain}">{domain}</a>
+            </li>
+          {/each}
+        </ul>
+      </details>
+    </div>
+    <div class="column">
+      <details>
+        <summary>{tag.count} <span class="label">Pages</span></summary>
+        <ul>
+          {#each tag.pages as page}
+            <li>
+              <a href="{page.url}">{page.url}</a>
+            </li>
+          {/each}
+          </ul>
+      </details>
+    </div>
   {/each}
-  <!-- {#each thorpes as thorpe}
-    <span>
-      <a class="thorpe" href="{thorpe}">#{thorpe.split('/~/')[1]}</a>
-    </span>
-  {/each} -->
 </section>
 
 <style type="text/css">
@@ -126,7 +131,7 @@ a.thorpe {
     display: grid;
     width: 100%;
     /*border-bottom: 1px solid #333;*/
-    grid-template-columns: 2fr 1fr 1fr 3fr; /* Default: 4 columns */
+    grid-template-columns: max-content 1fr 1fr 1fr; /* Default: 4 columns */
     gap: .5rem; /* Adds spacing between columns */
     font-family: 'Courier New', Courier, monospace;
   }
@@ -139,6 +144,23 @@ a.thorpe {
     padding: .3rem 0rem;
     font-size: .7rem;
   }
+  .loading {
+    grid-column: 1 / 5;
+    background-color: var(--light-gray);
+    padding: var(--lead-2);
+    text-align: center;
+
+  }
+  .column:has(details[open]) {
+    grid-column: 1 / 5;
+  }
+  details .label {
+    display: none;
+  }
+  details[open] .label {
+    display: inline;
+  }
+
   details {
       cursor: pointer;
       height: auto;
@@ -155,8 +177,8 @@ a.thorpe {
   }
 
   .grid-header {
-      font-weight: bold;
-      font-size: 1.2rem;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
   }
 
   summary {
