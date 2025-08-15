@@ -384,11 +384,7 @@ const handleMention = async (s, o) => {
     console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked);
   }
 
-  let isExtantPage = await extantPage(obj)
-  console.log(`isExtantPage?`, isExtantPage)
-  if (!isExtantPage) {
-    await createPage(obj)
-  }
+
   let isExtantMention= await extantMention(subj, obj)
   console.log(`isExtantMention?`, isExtantMention)
   if (!isExtantMention) {
@@ -473,9 +469,15 @@ const handleHTML = async (response, uri) => {
   console.log(`HARMED`)
   console.log(harmed)
 
+  let isExtantPage = await extantPage(s)
+  console.log(`isExtantPage?`, isExtantPage)
+  if (!isExtantPage) {
+    await createPage(s)
+  }
+
   let friends = { endorsed:[], linked:[]}
   // clean this up
-  console.log(`VVVVVVVVVVVVVVVV`)
+  // console.log(`VVVVVVVVVVVVVVVV`)
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
     let octoURI = deslash(octothorpe.uri)
