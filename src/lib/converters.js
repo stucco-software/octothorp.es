@@ -159,7 +159,6 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         case "octothorped":
         case "tagged":
         case "termed":
-        case "termsOnly":
           objectType = "termsOnly"
           o = cleanInputs(objects)
           notO = cleanInputs(notObjects)
@@ -168,7 +167,7 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         case "mentioned":
           o = cleanInputs(objects)
           notO = cleanInputs(notObjects)
-          objectType = "pagesOnly"
+          objectType = "notTerms"
           break
         case "backlinked":
           subtype = "Backlink"
@@ -180,13 +179,13 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           subtype = "Cite"
           o = cleanInputs(objects)
           notO = cleanInputs(notObjects)
-          objectType = "pagesOnly"
+          objectType = "notTerms"
           break
         case "bookmarked":
           subtype = "Bookmark"
           o = cleanInputs(objects)
           notO = cleanInputs(notObjects)
-          objectType = "pagesOnly"
+          objectType = "notTerms"
           break
         case "posted":
         case "all":

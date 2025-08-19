@@ -39,19 +39,39 @@ export function parseBindings(bindings, mode="pages") {
   let output = {}
   switch (mode) {
     case "pages":
-     output = bindings.map((b) => {
-      return {
-        uri: b.s.value,
-        title: b.title ? b.title.value : null,
-        description: b.description ? b.description.value : null,
-        date: parseInt(b.date ? b.date.value : null),
-        image: b.image ? b.image.value : null
-      };
-    });
-     // deduplicate output
-     output = output.filter((item, index, self) =>
-       index === self.findIndex((t) => t.uri === item.uri)
-     );
+     // Create a flat list with type property
+     const result = [];
+     const seenUris = new Set();
+
+     bindings.forEach((b) => {
+       // Add subject if not already seen
+       if (!seenUris.has(b.s.value)) {
+         seenUris.add(b.s.value);
+         result.push({
+           role: 'subject',
+           uri: b.s.value,
+           title: b.title ? b.title.value : null,
+           description: b.description ? b.description.value : null,
+           date: parseInt(b.date ? b.date.value : null),
+           image: b.image ? b.image.value : null
+         });
+       }
+
+       // Add object if not already seen
+       if (!seenUris.has(b.o.value)) {
+         seenUris.add(b.o.value);
+         result.push({
+           role: 'object',
+           uri: b.o.value,
+           title: b.ot ? b.ot.value : null,
+           description: b.od ? b.od.value : null,
+           // tktk think about object dates more
+           image: b.omg ? b.omg.value : null
+         });
+       }
+     });
+
+     output = result;
       break
     case "thorpes":
     case "terms":
@@ -170,7 +190,15 @@ export const isSparqlSafe = (inputs, options = {}) => {
       };
     }
 
-    // 4. URL Scheme Check (only if enabled and string looks like a URL)
+    // 4. Path Traversal Attack Protection
+    if (/\.\.\/|\.\.\\|\/\.\.|\\\.\.|\.\.%2f|%2e%2e%2f|%2e%2e\/|\.\.%5c|%2e%2e%5c/i.test(trimmed)) {
+      return {
+        valid: false,
+        error: "Path traversal attack pattern detected",
+      };
+    }
+
+    // 5. URL Scheme Check (only if enabled and string looks like a URL)
     if (checkUrlSchemes && /^[a-z]+:/i.test(trimmed)) {
       if (/^(javascript|data|file|ftp):/i.test(trimmed)) {
         return {

@@ -263,6 +263,7 @@ function buildObjectStatement(blob) {
   const objectTypes = {
     termsOnly: '?o rdf:type <octo:Term> .',
     pagesOnly: '?o rdf:type <octo:Page> .',
+    notTerms: 'MINUS { ?o rdf:type <octo:Term> }',
     all: ''
   }
 
