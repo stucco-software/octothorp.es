@@ -208,6 +208,8 @@ const createMention = async (s, o) => {
     <${url.origin}> octo:hasPart <${s}> .
     <${url.origin}> octo:verified "true" .
     <${url.origin}> rdf:type <octo:Origin> .
+    <${o}> rdf:type <octo:Page>.
+
   `)
 }
 

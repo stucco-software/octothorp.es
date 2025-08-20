@@ -297,7 +297,11 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
 
       // Set MultiPass.resultMode
       // TKTK update this
-        let resultMode = "blobjects"
+
+      let resultMode = resultParams
+
+
+
         switch (resultParams) {
           case "everything":
           case "blobjects":
@@ -322,13 +326,40 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
             break;
         }
 
+        // Create human-readable title from subjects and objects
+        const formatTitlePart = (include, exclude, prefix) => {
+            if (include.length === 0 && exclude.length === 0) {
+                return '';
+            }
+
+            let parts = [];
+            if (include.length > 0) {
+                parts.push(include.join(', '));
+            }
+            if (exclude.length > 0) {
+                parts.push(`not ${exclude.join(', ')}`);
+            }
+
+            return `${prefix} ${parts.join(' and ')}`;
+        };
+
+        const subjectPart = formatTitlePart(s, notS, 'from');
+        const objectPart = formatTitlePart(o, notO, 'to');
+
+        let titleParts = [`Get ${resultMode} ${params.by}`];
+        if (subjectPart) titleParts.push(subjectPart);
+        if (objectPart) titleParts.push(objectPart);
+
+        const defaultTitle = titleParts.join(' ');
+        const feedTitle = searchParams.get('feedtitle') ? searchParams.get('feedtitle') : defaultTitle
+
 
       // set dateFilter from ?when
       const dateFilter = parseDateStrings(whenParam)
 
       const MultiPass = {
           meta: {
-              title: `Get ${resultMode} matched by ${objectType} (${params.by}) as ${resultMode}`,
+              title: `${feedTitle}`,
               description: `MultiPass auto generated from a request to the ${instance}/get API`,
               server: `${instance}`,
               author: "Octothorpes Protocol",
