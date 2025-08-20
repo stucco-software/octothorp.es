@@ -489,10 +489,10 @@ const handleHTML = async (response, uri) => {
       case 'Backlink':
       case 'backlink':
         friends.linked.push(octoURI)
-        await handleMention(s, octoURI)
+        handleMention(s, octoURI)
         break;
       case 'hashtag':
-        await handleThorpe(s, octoURI)
+        handleThorpe(s, octoURI)
         break;
       case 'endorse':
         friends.endorsed.push(octoURI)
@@ -505,10 +505,10 @@ const handleHTML = async (response, uri) => {
       case 'bookmark':
         console.log(`handle bookmark?`, octoURI)
         // TKTK handle bookmark uniquely
-        await handleMention(s, octoURI)
+        handleMention(s, octoURI)
         break;
       default:
-        await handleThorpe(s, octothorpe)
+        handleThorpe(s, octothorpe)
         break;
     }
   }
