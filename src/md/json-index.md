@@ -1,5 +1,0 @@
----
-type: Documentation
----
-
-# JSON-LD
