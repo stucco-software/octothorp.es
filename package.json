@@ -7,6 +7,10 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "vitest",
+		"test:run": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"test:api": "node test-runner.js",
+		"test:simple": "vitest run src/lib/simple.test.js",
 		"demo": "sirv demo --cors --port 8888"
 	},
 	"devDependencies": {

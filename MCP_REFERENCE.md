@@ -282,7 +282,91 @@ npm test
 npm test -- src/lib/utils.test.js
 ```
 
-### 3. Debugging
+### 3. API Testing
+```bash
+# Run all API function tests
+npm run test:api
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test
+```
+
+## Testing Strategy
+
+### Core Functions Tested
+- **Utility Functions** (`src/lib/utils.test.js`)
+  - `deslash()` - URL trailing slash removal
+  - `getUnixDateFromString()` - Date conversion
+  - `parseBindings()` - SPARQL result parsing
+  - `parseDateStrings()` - Date filter parsing
+  - `isSparqlSafe()` - Input validation
+  - `cleanInputs()` - Input sanitization
+  - `areUrlsFuzzy()` - URL validation
+  - `getFuzzyTags()` - Tag variation generation
+
+- **Harmonization Engine** (`src/lib/harmonizeSource.test.js`)
+  - `processValue()` - Value post-processing
+  - `filterValues()` - Value filtering
+  - `harmonizeSource()` - Main harmonization
+  - `bookmarkWithTerms` harmonizer support
+
+- **SPARQL Query Builders** (`src/lib/sparql.test.js`)
+  - `buildEverythingQuery()` - Complete blobject queries
+  - `buildSimpleQuery()` - Basic page queries
+  - `buildThorpeQuery()` - Hashtag queries
+  - `buildDomainQuery()` - Domain queries
+  - `buildBookmarksWithTermsQuery()` - Bookmark queries
+
+- **Data Converters** (`src/lib/converters.test.js`)
+  - `getMultiPassFromParams()` - URL parameter parsing
+  - `getBlobjectFromResponse()` - SPARQL response conversion
+
+- **Indexing Engine** (`src/routes/index/+server.test.js`)
+  - `createBookmarkWithTerms()` - Bookmark creation with terms
+
+### Test Patterns
+```javascript
+// Unit test structure
+describe('functionName', () => {
+  it('should handle normal case', () => {
+    const result = functionName(input)
+    expect(result).toBe(expected)
+  })
+
+  it('should handle edge cases', () => {
+    const result = functionName(edgeCaseInput)
+    expect(result).toBe(expected)
+  })
+
+  it('should throw error for invalid input', () => {
+    expect(() => functionName(invalidInput)).toThrow()
+  })
+})
+```
+
+### Mocking Strategy
+```javascript
+// Mock external dependencies
+vi.mock('./dependency.js', () => ({
+  dependencyFunction: vi.fn()
+}))
+
+// Mock environment variables
+vi.mock('$env/static/private', () => ({
+  instance: 'https://octothorp.es/'
+}))
+```
+
+### Test Data
+- Use realistic HTML samples for harmonization tests
+- Mock SPARQL responses for query builder tests
+- Test both success and failure scenarios
+- Include edge cases and error conditions
+
+### 4. Debugging
 - Use `&as=debug` on any API endpoint
 - Check browser dev tools for client-side errors
 - Monitor Oxigraph UI at http://localhost:7878/
