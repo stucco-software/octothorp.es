@@ -509,6 +509,11 @@ const handleHTML = async (response, uri) => {
         // TKTK handle bookmark uniquely
         handleMention(s, octoURI)
         break;
+      case 'bookmarkWithTerms':
+        console.log(`handle bookmarkWithTerms?`, octoURI)
+        const terms = octothorpe.associatedTerms || []
+        await createBookmarkWithTerms(s, octoURI, terms)
+        break;
       default:
         handleThorpe(s, octothorpe)
         break;
@@ -568,4 +573,35 @@ export async function POST({request}) {
   let uri = data.get('uri')
   let harmonizer = data.get('harmonizer')
   return new Response(200)
+}
+
+const createBookmarkWithTerms = async (s, o, terms) => {
+  console.log(`create bookmark with terms…`, s, o, terms)
+  let now = Date.now()
+  let url = new URL(s)
+  let blankNodeId = `_:bookmark_${now}_${Math.random().toString(36).substr(2, 9)}`
+  
+  // Create the main bookmark relationship
+  let triples = `
+    <${s}> octo:octothorpes ${blankNodeId} .
+    ${blankNodeId} rdf:type <octo:Bookmark> .
+    ${blankNodeId} octo:url <${o}> .
+    ${blankNodeId} octo:created ${now} .
+    <${url.origin}> octo:hasPart <${s}> .
+    <${url.origin}> octo:verified "true" .
+    <${url.origin}> rdf:type <octo:Origin> .
+    <${o}> rdf:type <octo:Page> .
+  `
+  
+  // Add associated terms to the blank node
+  if (terms && terms.length > 0) {
+    for (const term of terms) {
+      let termURI = term.startsWith('http') ? term : `${instance}~/${term}`
+      triples += `
+        ${blankNodeId} octo:octothorpes <${termURI}> .
+      `
+    }
+  }
+  
+  return await insert(triples)
 }

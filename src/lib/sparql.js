@@ -614,6 +614,46 @@ export const buildDomainQuery = ({
 
 }
 
+/**
+ * Builds a SPARQL query for retrieving bookmarks with associated terms
+ * @param {Object} params - MultiPass configuration object
+ * @param {Object} params.meta - Query metadata including result mode
+ * @param {Object} params.subjects - Subject filtering configuration
+ * @param {Object} params.objects - Object filtering configuration
+ * @param {Object} params.filters - Additional filters (date range, subtype, etc.)
+ * @returns {string} SPARQL SELECT query for bookmarks with terms
+ * @example
+ * const query = buildBookmarksWithTermsQuery(multiPass)
+ * const results = await queryArray(query)
+ */
+export const buildBookmarksWithTermsQuery = ({
+  meta, subjects, objects, filters
+  }) => {
+  const statements = getStatements(subjects, objects, filters, meta.resultMode)
+
+  const query = `SELECT DISTINCT ?s ?bookmarkNode ?bookmarkUrl ?bookmarkDate ?term ?termType ?termTitle ?termDescription
+  WHERE {
+    ${statements.subjectStatement}
+
+    ${statements.objectStatement}
+
+    ?s octo:octothorpes ?bookmarkNode .
+    FILTER(isBlank(?bookmarkNode))
+    ?bookmarkNode rdf:type <octo:Bookmark> .
+    ?bookmarkNode octo:url ?bookmarkUrl .
+    ?bookmarkNode octo:created ?bookmarkDate .
+    
+    ?bookmarkNode octo:octothorpes ?term .
+    ?term rdf:type ?termType .
+    
+    OPTIONAL { ?term octo:title ?termTitle }
+    OPTIONAL { ?term octo:description ?termDescription }
+  }
+    ORDER BY ?bookmarkDate DESC
+  `
+  return cleanQuery(query)
+}
+
 /*
 WEBRINGS HO!
 

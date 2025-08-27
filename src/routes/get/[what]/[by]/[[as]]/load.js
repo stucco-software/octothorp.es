@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, buildBookmarksWithTermsQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
@@ -71,6 +71,15 @@ export async function load({ params, url }) {
       query = buildDomainQuery(multiPass);
       const dr = await queryArray(query);
       actualResults = parseBindings(dr.results.bindings)
+      break;
+    case "bookmarked":
+      query = buildEverythingQuery(multiPass);
+      break;
+    case "bookmarksWithTerms":
+      query = buildBookmarksWithTermsQuery(multiPass);
+      break;
+    case "in-webring":
+      query = buildEverythingQuery(multiPass);
       break;
     default:
     throw new Error(`Invalid route.`)

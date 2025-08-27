@@ -86,6 +86,7 @@ GET /get/[what]/[by]/[[as]]?s=SUBJECTS&o=OBJECTS&limit=N&offset=N&when=DATERANGE
 - `linked`/`mentioned` - Filter by page links
 - `backlinked` - Mutual links only
 - `bookmarked` - Bookmark subtype
+- `bookmarksWithTerms` - Bookmarks with associated terms
 - `in-webring` - Webring membership
 - `posted` - All content (no object filtering)
 
@@ -124,6 +125,9 @@ GET /get/everything/in-webring?o=tech&s=https://webring.example/
 
 # Get content from specific domain
 GET /get/everything/posted?s=example.com
+
+# Get bookmarks with associated terms
+GET /get/bookmarksWithTerms/bookmarked?s=example.com
 ```
 
 ## API Response Examples
@@ -171,6 +175,7 @@ GET /get/everything/posted?s=example.com
 - `keywords` - Meta keywords → hashtags
 - `openGraph` - OpenGraph metadata
 - `ghost` - Ghost CMS tags
+- `bookmarkWithTerms` - Bookmarks with associated hashtags
 
 **Usage**: Add `&as=harmonizerName` to use non-default harmonizer
 
@@ -223,6 +228,35 @@ octo:verified     # Domain verification status
 octo:title        # Page title
 octo:description  # Page description
 octo:image        # Page image
+octo:url          # Bookmark target URL (blank node property)
+```
+
+### Bookmark with Terms Structure
+```sparql
+# Bookmark with associated terms using blank nodes
+<source-page> octo:octothorpes _:bookmark123 .
+_:bookmark123 rdf:type octo:Bookmark .
+_:bookmark123 octo:url <target-url> .
+_:bookmark123 octo:created 1703123456789 .
+_:bookmark123 octo:octothorpes <server/~/term1> .
+_:bookmark123 octo:octothorpes <server/~/term2> .
+```
+
+## Example Usage
+
+### HTML with Bookmark and Terms
+```html
+<!-- Basic bookmark -->
+<a href="https://example.com/article" rel="octo:bookmarks">Interesting Article</a>
+
+<!-- Bookmark with associated terms -->
+<a href="https://example.com/article" rel="octo:bookmarks">Interesting Article</a>
+<div data-octo-terms="tech,programming,ai">Tech Article</div>
+
+<!-- Or using the harmonizer parameter -->
+<meta name="octo:harmonizer" content="bookmarkWithTerms">
+<a href="https://example.com/article" rel="octo:bookmarks">Interesting Article</a>
+<span data-octo-terms="tech,programming,ai">Tech Article</span>
 ```
 
 ## Development Workflow
@@ -294,6 +328,32 @@ docker compose up
         "selector": ".custom-tags",
         "attribute": "textContent",
         "postProcess": { "method": "split", "params": "," }
+      }]
+    }
+  }
+}
+```
+
+### 1.1. Add Bookmark with Terms Harmonizer
+```javascript
+// In src/lib/getHarmonizer.js - localHarmonizers object
+"bookmarkWithTerms": {
+  "@context": "https://octothorp.es/context.json",
+  "@id": "https://octothorp.es/harmonizer/bookmarkWithTerms",
+  "@type": "harmonizer",
+  "title": "Bookmark with Terms Harmonizer",
+  "mode": "html",
+  "schema": {
+    "bookmarkWithTerms": {
+      "s": "source",
+      "o": [{
+        "selector": "[rel='octo:bookmarks']",
+        "attribute": "href",
+        "associatedTerms": {
+          "selector": "[data-octo-terms]",
+          "attribute": "data-octo-terms",
+          "postProcess": { "method": "split", "params": "," }
+        }
       }]
     }
   }

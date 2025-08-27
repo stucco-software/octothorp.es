@@ -131,6 +131,23 @@ const localHarmonizers = {
                 }
               ]
             },
+            "bookmarkWithTerms": {
+              "s": "source",
+              "o": [
+                {
+                  "selector": `[rel='octo:bookmarks']:not([href*='${instance}~/'])`,
+                  "attribute": "href",
+                  "associatedTerms": {
+                    "selector": "[data-octo-terms]",
+                    "attribute": "data-octo-terms",
+                    "postProcess": {
+                      "method": "split",
+                      "params": ","
+                    }
+                  }
+                }
+              ]
+            },
             "cite": {
               "s": "source",
               "o": [

@@ -101,20 +101,40 @@ function removeTrailingSlash(url) {
  * @param {string} [rule.selector] - CSS selector for elements
  * @param {string} [rule.attribute] - Element attribute to extract
  * @param {Object} [rule.postProcess] - Post-processing configuration
- * @returns {Array} Array of extracted values
+ * @param {Object} [rule.associatedTerms] - Associated terms extraction rule
+ * @returns {Array} Array of extracted values with associated terms
  */
 const extractValues = (html, rule) => {
   if (typeof rule === "string") {
     // If the rule is a string, return it as-is
     return [rule]
   }
-  const { selector, attribute, postProcess } = rule
+  const { selector, attribute, postProcess, associatedTerms } = rule
   let tempContainer = parser.parseFromString(html, "text/html")
   const elements = [...tempContainer.querySelectorAll(selector)]
   const values = elements
     .map((element) => {
       let value = element[attribute]
       value = removeTrailingSlash(value)
+      
+      // Handle associated terms if present
+      if (associatedTerms) {
+        const termElements = [...tempContainer.querySelectorAll(associatedTerms.selector)]
+        const terms = termElements
+          .map(termEl => termEl[associatedTerms.attribute])
+          .filter(term => term) // Remove empty values
+        
+        let processedTerms = terms
+        if (associatedTerms.postProcess) {
+          processedTerms = processValue(terms.join(','), associatedTerms.postProcess.method, associatedTerms.postProcess.params)
+        }
+        
+        return {
+          uri: value,
+          associatedTerms: processedTerms || []
+        }
+      }
+      
       return value
     })
   return values
@@ -336,7 +356,18 @@ export async function harmonizeSource(html, harmonizer = "default") {
     ...Object.entries(typedOutput)
       .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
       .flatMap(([key, uris]) =>
-        uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
+        uris.map(uri => {
+          // Handle bookmarkWithTerms that have associated terms
+          if (key === 'bookmarkWithTerms' && typeof uri === 'object' && uri.uri) {
+            return { 
+              type: 'bookmarkWithTerms', 
+              uri: uri.uri,
+              associatedTerms: uri.associatedTerms || []
+            }
+          }
+          // Handle regular bookmarks and other types
+          return { type: key, uri }
+        })
       )
   ]
   return output
