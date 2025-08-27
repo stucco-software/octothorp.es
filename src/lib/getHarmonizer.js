@@ -1,10 +1,19 @@
 import { instance } from '$env/static/private';
 
-// Shared context and base ID
+/** @constant {string} context - JSON-LD context URL for harmonizer schemas */
 const context = `${instance}context.json`;
+
+/** @constant {string} baseId - Base URL for harmonizer resource identifiers */
 const baseId = `${instance}harmonizer/`;
 
-// Predefined harmonizer schemas (can be loaded from a file or database)
+/**
+ * Predefined harmonizer schemas for extracting metadata from web content
+ * @constant {Object} localHarmonizers
+ * @property {Object} default - Default Octothorpe harmonizer for HTML content
+ * @property {Object} openGraph - OpenGraph Protocol harmonizer
+ * @property {Object} keywords - Meta keywords to octothorpes harmonizer
+ * @property {Object} ghost - Ghost CMS tags to octothorpes harmonizer
+ */
 const localHarmonizers = {
   "default": {
         "@context": context,
@@ -198,9 +207,20 @@ const localHarmonizers = {
 };
 
 /**
- * Fetches a harmonizer schema by ID.
- * @param {string} id - The harmonizer ID.
- * @returns {Promise<object|null>} - The harmonizer schema or null if not found.
+ * Fetches a harmonizer schema by ID from predefined local harmonizers
+ * @async
+ * @param {string} id - The harmonizer ID (e.g., "default", "openGraph", "keywords", "ghost")
+ * @returns {Promise<Object>} The harmonizer schema object
+ * @throws {Error} If ID is invalid or harmonizer not found
+ * @returns {Object} harmonizer - The harmonizer schema
+ * @returns {string} harmonizer['@context'] - JSON-LD context URL
+ * @returns {string} harmonizer['@id'] - Harmonizer resource identifier
+ * @returns {string} harmonizer['@type'] - Resource type ("harmonizer")
+ * @returns {string} harmonizer.title - Human-readable title
+ * @returns {string} harmonizer.mode - Extraction mode ("html", "json", or "xpath")
+ * @returns {Object} harmonizer.schema - Extraction schema configuration
+ * @returns {Object} harmonizer.schema.subject - Subject extraction configuration
+ * @returns {Object} harmonizer.schema.[objectType] - Object extraction configurations
  */
 export async function getHarmonizer(id) {
     // Validate the ID
@@ -222,8 +242,3 @@ export async function getHarmonizer(id) {
     // Return the harmonizer schema
     return harmonizer;
 }
-
-/*
-
-
-*/
