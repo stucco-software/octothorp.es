@@ -69,8 +69,39 @@ src/
 ```
 
 ## API Endpoint Structure
+
+### REST API Endpoints
 ```
 GET /get/[what]/[by]/[[as]]?s=SUBJECTS&o=OBJECTS&limit=N&offset=N&when=DATERANGE&match=TYPE
+```
+
+### Direct Query API
+```
+POST /api/query
+Content-Type: application/json
+
+{
+  "query": "SPARQL_QUERY_STRING",
+  "format": "json|rss|debug"
+}
+```
+
+**Response Format**:
+```json
+{
+  "success": true,
+  "results": [...],
+  "meta": {
+    "query": "SPARQL_QUERY",
+    "format": "json",
+    "count": 10
+  }
+}
+```
+
+**GET Support**:
+```
+GET /api/query?q=SPARQL_QUERY&format=json
 ```
 
 ### Core Parameters
@@ -396,7 +427,68 @@ docker compose up
 
 ## Common Development Tasks
 
-### 1. Add New Harmonizer
+### 1. ApiQuery Component
+**Location**: `src/lib/components/ApiQuery.svelte`
+
+A general-purpose web component that accepts a MultiPass object and returns API results.
+
+**Basic Usage**:
+```svelte
+<script>
+  import ApiQuery from '$lib/components/ApiQuery.svelte'
+  
+  const myMultiPass = {
+    meta: { resultMode: 'everything' },
+    subjects: { mode: 'all', include: [] },
+    objects: { type: 'all', mode: 'all', include: [] },
+    filters: { limitResults: 10, offsetResults: 0, dateRange: {} }
+  }
+  
+  function handleSuccess(event) {
+    console.log('Results:', event.detail.result)
+  }
+</script>
+
+<ApiQuery 
+  multiPass={myMultiPass}
+  queryType="everything"
+  queryMethod="posted"
+  on:success={handleSuccess}
+/>
+```
+
+**Props**:
+- `multiPass`: MultiPass object or null for auto-generation
+- `queryType`: 'everything', 'pages', 'thorpes', 'domains', 'bookmarksWithTerms'
+- `queryMethod`: 'posted', 'thorped', 'linked', 'bookmarked', 'backlinked'
+- `outputFormat`: 'json', 'rss', 'debug'
+- `autoExecute`: boolean, whether to execute on mount
+- `showLoading`, `showError`, `showDebug`: boolean flags
+
+**Events**:
+- `success`: Fired when query succeeds
+- `error`: Fired when query fails
+
+**Methods**:
+- `execute()`: Manually execute the query
+- `reset()`: Reset component state
+
+**Custom Result Display**:
+```svelte
+<ApiQuery {multiPass}>
+  <svelte:fragment slot="default" let:result let:queryString>
+    <div class="custom-display">
+      {#each result.results as item}
+        <div class="item">{item.title}</div>
+      {/each}
+    </div>
+  </svelte:fragment>
+</ApiQuery>
+```
+
+**Demo Page**: `/api-query-demo` - Interactive examples and documentation
+
+### 2. Add New Harmonizer
 ```javascript
 // In src/lib/getHarmonizer.js - localHarmonizers object
 "customHarmonizer": {
