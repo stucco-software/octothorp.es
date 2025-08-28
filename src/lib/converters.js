@@ -210,7 +210,6 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           else {
             objectMode = "exact"
           }
-          objectType = "all"
           o = cleanInputs(objects)
           notO = cleanInputs(notObjects)
           break
@@ -297,11 +296,9 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
 
       // Set MultiPass.resultMode
       // TKTK update this
+      // some cleanup could be done with the relationship between WHAT and AS filtering on object types
 
       let resultMode = resultParams
-
-
-
         switch (resultParams) {
           case "everything":
           case "blobjects":
@@ -313,7 +310,9 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           case "backlinks":
           case "citations":
           case "bookmarks":
+          case "pages":
             resultMode = "links"
+            objectType = "pagesOnly"
             break;
           case "thorpes":
           case "octothorpes":
