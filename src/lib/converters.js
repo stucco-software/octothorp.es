@@ -3,10 +3,33 @@ import { error, json } from '@sveltejs/kit';
 import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } from '$lib/utils';
 
 // const thorpePath = instance+"~/"
+/** @constant {string} thorpePath - Base URL path for octothorpes */
 const thorpePath = "https://octothorp.es/~/"
 
 // naming convention is get nameOfthing (processed) from nameOfThing
 
+/**
+ * Converts SPARQL query response into a structured blobject format
+ * @async
+ * @param {Object} response - The SPARQL query response object
+ * @param {Object} [filters={}] - Filter options for processing results
+ * @param {number} [filters.limitResults=100] - Maximum number of results to return
+ * @param {number} [filters.offsetResults=0] - Number of results to skip
+ * @param {Object|null} [filters.dateRange=null] - Date range filter object
+ * @param {number} [filters.dateRange.after] - Unix timestamp for earliest date
+ * @param {number} [filters.dateRange.before] - Unix timestamp for latest date
+ * @returns {Promise<Array>} Array of processed blobjects with metadata
+ * @returns {Array.<Object>} Array of blobject objects
+ * @returns {string} blobject['@id'] - The URL identifier of the blobject
+ * @returns {string|null} blobject.title - Title of the blobject
+ * @returns {string|null} blobject.description - Description of the blobject
+ * @returns {string|null} blobject.image - Image URL of the blobject
+ * @returns {number|null} blobject.date - Unix timestamp of the blobject
+ * @returns {Array} blobject.octothorpes - Array of octothorpes (tags/links)
+ * @returns {string|Object} octothorpes[] - Either a string (term) or object (link)
+ * @returns {string} octothorpes[].uri - URL of the linked object (for link objects)
+ * @returns {string} octothorpes[].type - Type of link (e.g., 'link', 'Cite', 'Bookmark')
+ */
 export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null  }) => {
     const limit = filters.limitResults
     const offset = filters.offsetResults
@@ -110,7 +133,37 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
     return Object.values(output);
   }
 
-  export const getMultiPassFromParams  = (
+/**
+ * Generates a MultiPass configuration object from URL parameters
+ * @param {Object} params - Route parameters object
+ * @param {string} [params.what] - Type of results to return (blobjects, links, octothorpes)
+ * @param {string} [params.by] - Matching method (termsOnly, linked, mentioned, backlinked, etc.)
+ * @param {URL} url - URL object containing search parameters
+ * @returns {Object} MultiPass configuration object with metadata, subjects, objects, and filters
+ * @returns {Object} MultiPass.meta - Metadata about the request
+ * @returns {string} MultiPass.meta.title - Human-readable title for the results
+ * @returns {string} MultiPass.meta.description - Description of the request
+ * @returns {string} MultiPass.meta.server - Server instance URL
+ * @returns {string} MultiPass.meta.author - Author information
+ * @returns {string} MultiPass.meta.image - Image URL for the request
+ * @returns {string} MultiPass.meta.version - API version
+ * @returns {string} MultiPass.meta.resultMode - Result mode (blobjects, links, octothorpes)
+ * @returns {Object} MultiPass.subjects - Subject configuration
+ * @returns {string} MultiPass.subjects.mode - Subject matching mode (exact, fuzzy, byParent)
+ * @returns {Array} MultiPass.subjects.include - Array of included subjects
+ * @returns {Array} MultiPass.subjects.exclude - Array of excluded subjects
+ * @returns {Object} MultiPass.objects - Object configuration
+ * @returns {string} MultiPass.objects.type - Object type filter (termsOnly, notTerms, pagesOnly, all)
+ * @returns {string} MultiPass.objects.mode - Object matching mode (exact, fuzzy, very-fuzzy)
+ * @returns {Array} MultiPass.objects.include - Array of included objects
+ * @returns {Array} MultiPass.objects.exclude - Array of excluded objects
+ * @returns {Object} MultiPass.filters - Additional filters
+ * @returns {string} MultiPass.filters.subtype - Specific subtype filter
+ * @returns {number} MultiPass.filters.limitResults - Maximum number of results
+ * @returns {number} MultiPass.filters.offsetResults - Number of results to skip
+ * @returns {Object|null} MultiPass.filters.dateRange - Date range filter
+ */
+export const getMultiPassFromParams  = (
     params,
     url) => {
 

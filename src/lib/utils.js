@@ -1,11 +1,22 @@
 import normalizeUrl from "normalize-url";
 import { arrayify } from "./arrayify";
 
+/**
+ * Removes trailing slashes from URLs
+ * @param {string} urlstring - The URL string to process
+ * @returns {string} URL without trailing slash, or empty string if invalid input
+ */
 export const deslash = (urlstring) => {
   if (typeof urlstring !== 'string') return '';
   if (!urlstring) return '';
   return urlstring.replace(/\/$/, '')
 }
+/**
+ * Converts various date formats to Unix timestamps
+ * @param {string} datestring - Date string to convert (ISO, YYYY-MM-DD, or Unix timestamp)
+ * @returns {number} Unix timestamp (seconds since epoch)
+ * @throws {Error} If the date string is invalid
+ */
 export const getUnixDateFromString = (datestring) => {
   // Utility function for the various places we might want to accept
   // a human readable date but want to send a UNIX date because
@@ -35,6 +46,12 @@ export const getUnixDateFromString = (datestring) => {
 
 ////////// Clean up raw db return for simple queries //////////
 
+/**
+ * Parses SPARQL bindings into structured objects based on mode
+ * @param {Array} bindings - SPARQL query result bindings
+ * @param {string} [mode="pages"] - Parsing mode: "pages" or "thorpes"/"terms"
+ * @returns {Array|Object} Parsed results based on mode
+ */
 export function parseBindings(bindings, mode="pages") {
   let output = {}
   switch (mode) {
@@ -92,6 +109,12 @@ export function parseBindings(bindings, mode="pages") {
 // can take human readable strings and keywords
 // and return MultiPass compatible dateRange objects
 
+/**
+ * Parses date filter strings into MultiPass-compatible date range objects
+ * @param {string} [datestring=""] - Date filter string (recent, after-DATE, before-DATE, between-DATE-and-DATE)
+ * @returns {Object} Date filter object with after/before properties
+ * @throws {Error} If date format is invalid
+ */
 export function parseDateStrings(datestring = "") {
   let dateFilter = {};
 
@@ -215,6 +238,13 @@ export const isSparqlSafe = (inputs, options = {}) => {
 // utility to check for malicious input and optionally
 // normalize urls into either valid urls
 
+/**
+ * Cleans and validates input strings for safe use in queries
+ * @param {string|Array} imp - Input string or array of strings to clean
+ * @param {string} [mod="fuzzy"] - Mode: "fuzzy" for validation only, "exact" for URL normalization
+ * @returns {Array} Cleaned and validated array of strings
+ * @throws {Error} If input fails SPARQL safety validation
+ */
 export function cleanInputs(imp, mod = "fuzzy") {
   // skip if none provided
   if (imp === "") {
@@ -232,6 +262,11 @@ export function cleanInputs(imp, mod = "fuzzy") {
 }
 
 // check if they provided inexact URLs
+/**
+ * Checks if provided URIs are fuzzy (not valid URLs)
+ * @param {Array} uris - Array of URI strings to check
+ * @returns {boolean} True if any URI is not a valid URL, false otherwise
+ */
 export function areUrlsFuzzy(uris) {
   let output = false;
   uris.forEach((string) => {
@@ -246,6 +281,11 @@ export function areUrlsFuzzy(uris) {
 
 // Returns common variations of tag when given a tag ie "tag name" becomes:
 //  "tagName, tag_name, tag-name, tagname, and #-prefixed versions of each
+/**
+ * Generates common variations of tags for fuzzy matching
+ * @param {string|Array} tags - Tag or array of tags to generate variations for
+ * @returns {Array} Array of tag variations including different cases and separators
+ */
 export const getFuzzyTags = (tags) => {
   // Handle single string input (convert to array)
   if (typeof tags === "string") {

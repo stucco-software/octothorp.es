@@ -28,6 +28,14 @@ const getTriples = (accept) => async (query) => await fetch(`${sparql_endpoint}/
   })
 })
 
+/**
+ * Executes a SPARQL SELECT query and returns results as an array of bindings
+ * @param {string} query - The SPARQL SELECT query to execute
+ * @returns {Promise<Object>} Promise resolving to SPARQL query results with bindings
+ * @throws {Error} If the SPARQL query fails or response is not valid JSON
+ * @example
+ * const results = await queryArray('SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10')
+ */
 export const queryArray = async query => {
   let triples = await getTriples('application/sparql-results+json')(query)
       .then(async result => {
@@ -45,12 +53,28 @@ export const queryArray = async query => {
   return triples;
 }
 
+/**
+ * Executes a SPARQL ASK query and returns a boolean result
+ * @param {string} query - The SPARQL ASK query to execute
+ * @returns {Promise<boolean>} Promise resolving to the boolean result of the ASK query
+ * @throws {Error} If the SPARQL query fails
+ * @example
+ * const exists = await queryBoolean('ASK { <http://example.com/> octo:verified "true" }')
+ */
 export const queryBoolean = async query => {
   let triples = await getTriples('application/sparql-results+json')(query)
   let json = await triples.json()
   return json.boolean
 }
 
+/**
+ * Inserts RDF data into the SPARQL database using INSERT DATA
+ * @param {string} nquads - The RDF data to insert in N-Quads format
+ * @returns {Promise<Response>} Promise resolving to the fetch response
+ * @throws {Error} If the insert operation fails
+ * @example
+ * await insert('<http://example.com/page> octo:title "Example Page" .')
+ */
 export const insert = async nquads => await fetch(`${sparql_endpoint}/update`, {
     method: 'POST',
     headers: {
@@ -68,6 +92,14 @@ ${nquads}
   }
 )
 
+/**
+ * Executes a SPARQL UPDATE query (INSERT, DELETE, etc.)
+ * @param {string} nquads - The SPARQL UPDATE query to execute
+ * @returns {Promise<Response>} Promise resolving to the fetch response
+ * @throws {Error} If the update operation fails
+ * @example
+ * await query('DELETE { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(?s = <http://example.com/>) }')
+ */
 export const query = async nquads => await fetch(`${sparql_endpoint}/update`, {
     method: 'POST',
     headers: {
@@ -287,6 +319,17 @@ function buildObjectStatement(blob) {
 
   ////////// TEST TEST TEST //////////
 
+  /**
+   * Test utility to debug MultiPass to SPARQL query conversion
+   * @param {Object} params - MultiPass parameters
+   * @param {Object} params.meta - Query metadata
+   * @param {Object} params.subjects - Subject configuration
+   * @param {Object} params.objects - Object configuration
+   * @param {Object} params.filters - Filter configuration
+   * @returns {Object} Debug information including generated SPARQL fragments
+   * @example
+   * const debugInfo = testQueryFromMultiPass(multiPassObject)
+   */
   export const testQueryFromMultiPass = ({
     meta, subjects, objects, filters
     }) => {
@@ -369,6 +412,18 @@ function getStatements (subjects, objects, filters, resultMode) {
 
 ////////// /get/everything //////////
 
+/**
+ * Builds a comprehensive SPARQL query for retrieving complete blobjects with metadata
+ * @param {Object} params - MultiPass configuration object
+ * @param {Object} params.meta - Query metadata including result mode
+ * @param {Object} params.subjects - Subject filtering configuration
+ * @param {Object} params.objects - Object filtering configuration
+ * @param {Object} params.filters - Additional filters (date range, subtype, etc.)
+ * @returns {string} Complete SPARQL SELECT query for retrieving blobjects
+ * @example
+ * const query = buildEverythingQuery(multiPass)
+ * const results = await queryArray(query)
+ */
 export const buildEverythingQuery = ({
   meta, subjects, objects, filters
   }) => {
@@ -409,6 +464,18 @@ export const buildEverythingQuery = ({
   return cleanQuery(query)
 }
 
+/**
+ * Builds a simple SPARQL query for basic page/listings retrieval
+ * @param {Object} params - MultiPass configuration object
+ * @param {Object} params.meta - Query metadata including result mode
+ * @param {Object} params.subjects - Subject filtering configuration
+ * @param {Object} params.objects - Object filtering configuration
+ * @param {Object} params.filters - Additional filters (date range, subtype, etc.)
+ * @returns {string} SPARQL SELECT query for simple page listings
+ * @example
+ * const query = buildSimpleQuery(multiPass)
+ * const results = await queryArray(query)
+ */
 export const buildSimpleQuery = ({
   meta, subjects, objects, filters
   }) => {
@@ -444,6 +511,18 @@ export const buildSimpleQuery = ({
   return cleanQuery(query)
   }
 
+/**
+ * Builds a SPARQL query specifically for retrieving hashtag/term listings
+ * @param {Object} params - MultiPass configuration object
+ * @param {Object} params.meta - Query metadata including result mode
+ * @param {Object} params.subjects - Subject filtering configuration
+ * @param {Object} params.objects - Object filtering configuration
+ * @param {Object} params.filters - Additional filters (date range, subtype, etc.)
+ * @returns {string} SPARQL SELECT query for term/hashtag listings
+ * @example
+ * const query = buildThorpeQuery(multiPass)
+ * const results = await queryArray(query)
+ */
 export const buildThorpeQuery = ({
   meta, subjects, objects, filters
   }) => {
@@ -467,6 +546,18 @@ export const buildThorpeQuery = ({
 
   }
 
+/**
+ * Builds a SPARQL query for retrieving domain/origin listings
+ * @param {Object} params - MultiPass configuration object
+ * @param {Object} params.meta - Query metadata including result mode
+ * @param {Object} params.subjects - Subject filtering configuration
+ * @param {Object} params.objects - Object filtering configuration
+ * @param {Object} params.filters - Additional filters (date range, subtype, etc.)
+ * @returns {string} SPARQL SELECT query for domain/origin listings
+ * @example
+ * const query = buildDomainQuery(multiPass)
+ * const results = await queryArray(query)
+ */
 export const buildDomainQuery = ({
   meta, subjects, objects, filters
 }) => {
