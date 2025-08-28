@@ -589,7 +589,6 @@ export const buildDomainQuery = ({
     query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date WHERE {
       VALUES ?parents { <${subjectList}> }
       ?parents octo:hasMember ?s .
-      ?parents octo:hasPart ?s .
      OPTIONAL { ?s octo:title ?title }
      OPTIONAL { ?s octo:image ?image }
      OPTIONAL { ?s octo:description ?description }
