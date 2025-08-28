@@ -1,7 +1,10 @@
-// TODO:
-// iterate over unique subjects and output one object per
-// add support for type=json
-// add support for type=xpath
+/**
+ * Harmonizes HTML source content using predefined schemas to extract structured data
+ * @module harmonizeSource
+ * @todo Iterate over unique subjects and output one object per
+ * @todo Add support for type=json
+ * @todo Add support for type=xpath
+ */
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import normalizeUrl from 'normalize-url'
@@ -13,6 +16,13 @@ import { getHarmonizer } from "$lib/getHarmonizer"
 const DOMParser = new JSDOM().window.DOMParser
 const parser = new DOMParser()
 
+/**
+ * Processes extracted values using various transformation methods
+ * @param {string|Array} value - The value(s) to process
+ * @param {string} flag - Processing method: "regex", "substring", or "split"
+ * @param {string|Array} p - Parameters for the processing method
+ * @returns {string|Array|null} Processed value(s) or null if regex doesn't match
+ */
 const processValue = (value, flag, p) => {
   // regex
   if ( flag === "regex") {
@@ -39,6 +49,14 @@ const processValue = (value, flag, p) => {
   }
 }
 
+/**
+ * Filters an array of values based on specified criteria
+ * @param {Array} values - Array of values to filter
+ * @param {Object} filterResults - Filter configuration object
+ * @param {string} filterResults.method - Filter method: "regex", "contains", "exclude", "startsWith", "endsWith"
+ * @param {string} filterResults.params - Parameters for the filter method
+ * @returns {Array} Filtered array of values
+ */
 function filterValues(values, filterResults) {
   console.log('VALUES', values)
   const { method, params } = filterResults;
@@ -65,13 +83,26 @@ function filterValues(values, filterResults) {
   }
 }
 
+/**
+ * Removes trailing slashes from URLs
+ * @param {string} url - URL string to process
+ * @returns {string} URL without trailing slashes
+ */
 function removeTrailingSlash(url) {
   // Check if the URL ends with a slash (or slash followed by query/hash)
   return url.replace(/\/+$/g, '');
 }
 
 
-// Helper function to extract values based on a schema rule
+/**
+ * Extracts values from HTML based on a schema rule using CSS selectors
+ * @param {string} html - HTML content to extract from
+ * @param {Object|string} rule - Extraction rule object or static string value
+ * @param {string} [rule.selector] - CSS selector for elements
+ * @param {string} [rule.attribute] - Element attribute to extract
+ * @param {Object} [rule.postProcess] - Post-processing configuration
+ * @returns {Array} Array of extracted values
+ */
 const extractValues = (html, rule) => {
   if (typeof rule === "string") {
     // If the rule is a string, return it as-is
@@ -89,7 +120,12 @@ const extractValues = (html, rule) => {
   return values
 }
 
-// Helper function to set a nested property in an object
+/**
+ * Sets a nested property in an object using dot notation path
+ * @param {Object} obj - Target object to modify
+ * @param {string} keyPath - Dot notation path (e.g., "nested.property")
+ * @param {*} value - Value to set at the nested path
+ */
 const setNestedProperty = (obj, keyPath, value) => {
   const keys = keyPath.split(".")
   let current = obj
@@ -103,7 +139,12 @@ const setNestedProperty = (obj, keyPath, value) => {
   current[keys[keys.length - 1]] = value
 }
 
-// helper function use one schema as a base and one as an override
+/**
+ * Merges two harmonizer schemas, with override values taking precedence
+ * @param {Object} baseSchema - Base schema to merge into
+ * @param {Object} override - Override schema with new values
+ * @returns {Object} Merged schema object
+ */
 function mergeSchemas(baseSchema, override) {
   // Create a copy of the default schema to avoid modifying the original
   const mergedSchema = { ...baseSchema };
@@ -121,6 +162,13 @@ function mergeSchemas(baseSchema, override) {
 
 // exporting in case anything else is gonna need to grab harmonizers remotely
 
+/**
+ * Fetches a harmonizer schema from a remote URL
+ * @async
+ * @param {string} url - URL to fetch harmonizer schema from
+ * @returns {Promise<Object|null>} Harmonizer schema object or null if fetch fails
+ * @throws {Error} If HTTP request fails or schema is invalid
+ */
 export async function remoteHarmonizer(url) {
   try {
       // Fetch the remote URL
@@ -146,6 +194,22 @@ export async function remoteHarmonizer(url) {
   }
 }
 
+/**
+ * Harmonizes HTML content using a specified harmonizer schema
+ * @async
+ * @param {string} html - HTML content to harmonize
+ * @param {string} [harmonizer="default"] - Harmonizer ID or URL ("default", "openGraph", "keywords", "ghost", or remote URL)
+ * @returns {Promise<Object>} Harmonized output object with extracted metadata
+ * @returns {string} output['@id'] - Source URL identifier
+ * @returns {string} [output.title] - Extracted title
+ * @returns {string} [output.description] - Extracted description
+ * @returns {string} [output.image] - Extracted image URL
+ * @returns {string} [output.contact] - Extracted contact information
+ * @returns {string} [output.type] - Extracted content type
+ * @returns {Array} output.octothorpes - Array of extracted octothorpes (tags/links)
+ * @returns {string|Object} octothorpes[] - Either string (hashtag) or object with type and uri properties
+ * @throws {Error} If harmonizer is invalid or processing fails
+ */
 export async function harmonizeSource(html, harmonizer = "default") {
   let schema = {}
   const d = await getHarmonizer("default")
@@ -178,6 +242,12 @@ export async function harmonizeSource(html, harmonizer = "default") {
 
   // Process each top-level object in the schema
   let typedOutput = {}
+  /**
+   * Processes object extraction rules and returns extracted values
+   * @async
+   * @param {Array} obj - Array of object extraction rules
+   * @returns {Promise<Array>} Array of extracted object values
+   */
   async function getObjectVals(obj) {
     const oValues = []
       // Process each rule in the "o" array
