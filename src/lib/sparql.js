@@ -586,7 +586,7 @@ export const buildDomainQuery = ({
   // TKTK not sure if using both hasPart and hasMember will
   // cause any problems at any point
   if (subjects.mode === "byParent") {
-    query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date WHERE {
+    query = `SELECT DISTINCT ?s ?title ?description ?image ?date WHERE {
       VALUES ?parents { <${subjectList}> }
       ?parents octo:hasMember ?s .
      OPTIONAL { ?s octo:title ?title }

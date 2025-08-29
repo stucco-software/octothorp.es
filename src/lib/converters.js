@@ -256,7 +256,9 @@ export const getMultiPassFromParams  = (
           subjectMode = "byParent"
           s = cleanInputs(subjects, "exact")
           notS = cleanInputs(notSubjects)
-
+          if (resultParams === "pages"){
+            objectType = "pagesOnly"
+          }
           if ( areUrlsFuzzy(objects) === true ) {
             objectMode = "fuzzy"
           }
@@ -365,7 +367,6 @@ export const getMultiPassFromParams  = (
           case "bookmarks":
           case "pages":
             resultMode = "links"
-            objectType = "pagesOnly"
             break;
           case "thorpes":
           case "octothorpes":

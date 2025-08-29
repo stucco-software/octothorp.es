@@ -48,42 +48,52 @@ export const getUnixDateFromString = (datestring) => {
 
 /**
  * Parses SPARQL bindings into structured objects based on mode
- * @param {Array} bindings - SPARQL query result bindings
+ * @param {Array|Object} bindings - SPARQL query result bindings (array or single binding object)
  * @param {string} [mode="pages"] - Parsing mode: "pages" or "thorpes"/"terms"
- * @returns {Array|Object} Parsed results based on mode
+ * @returns {Array} Parsed results based on mode
+ * @returns {Array} pages mode - Array of objects with role, uri, title, description, date, image
+ * @returns {Array} thorpes/terms mode - Array of objects with term and date
  */
 export function parseBindings(bindings, mode="pages") {
   let output = {}
+  
+  // Handle case where bindings might be a single object instead of array
+  const bindingArray = Array.isArray(bindings) ? bindings : [bindings];
+  
   switch (mode) {
     case "pages":
      // Create a flat list with type property
      const result = [];
      const seenUris = new Set();
 
-     bindings.forEach((b) => {
-       // Add subject if not already seen
-       if (!seenUris.has(b.s.value)) {
-         seenUris.add(b.s.value);
+     bindingArray.forEach((b) => {
+       // Check if s and o exist with values before accessing
+       const subjectUri = b.s?.value;
+       const objectUri = b.o?.value;
+
+       // Add subject if not already seen and subject exists
+       if (subjectUri && !seenUris.has(subjectUri)) {
+         seenUris.add(subjectUri);
          result.push({
            role: 'subject',
-           uri: b.s.value,
-           title: b.title ? b.title.value : null,
-           description: b.description ? b.description.value : null,
-           date: parseInt(b.date ? b.date.value : null),
-           image: b.image ? b.image.value : null
+           uri: subjectUri,
+           title: b.title?.value || null,
+           description: b.description?.value || null,
+           date: parseInt(b.date?.value || null),
+           image: b.image?.value || null
          });
        }
 
-       // Add object if not already seen
-       if (!seenUris.has(b.o.value)) {
-         seenUris.add(b.o.value);
+       // Add object if not already seen and object exists
+       if (objectUri && !seenUris.has(objectUri)) {
+         seenUris.add(objectUri);
          result.push({
            role: 'object',
-           uri: b.o.value,
-           title: b.ot ? b.ot.value : null,
-           description: b.od ? b.od.value : null,
+           uri: objectUri,
+           title: b.ot?.value || null,
+           description: b.od?.value || null,
            // tktk think about object dates more
-           image: b.omg ? b.omg.value : null
+           image: b.omg?.value || null
          });
        }
      });
@@ -92,10 +102,10 @@ export function parseBindings(bindings, mode="pages") {
       break
     case "thorpes":
     case "terms":
-      output = bindings.map((b) => {
+      output = bindingArray.map((b) => {
       return {
-        term: b.o.value.substring(b.o.value.lastIndexOf('/') + 1),
-        date: parseInt(b.date ? b.date.value : null)
+        term: b.o?.value ? b.o.value.substring(b.o.value.lastIndexOf('/') + 1) : null,
+        date: parseInt(b.date?.value || null)
       };
     });
      break
@@ -264,12 +274,22 @@ export function cleanInputs(imp, mod = "fuzzy") {
 // check if they provided inexact URLs
 /**
  * Checks if provided URIs are fuzzy (not valid URLs)
- * @param {Array} uris - Array of URI strings to check
+ * @param {Array|string} uris - Array of URI strings or single URI string to check
  * @returns {boolean} True if any URI is not a valid URL, false otherwise
  */
 export function areUrlsFuzzy(uris) {
   let output = false;
-  uris.forEach((string) => {
+  
+  // Handle case where uris might be a single string instead of array
+  const uriArray = Array.isArray(uris) ? uris : [uris];
+  
+  uriArray.forEach((string) => {
+    // Skip non-string values
+    if (typeof string !== 'string') {
+      output = true;
+      return;
+    }
+    
     try {
       new URL(string);
     } catch (_) {
