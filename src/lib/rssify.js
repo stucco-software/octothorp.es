@@ -1,15 +1,15 @@
 // Untested Private Functions
 // Tests get rolled into Public Functions
-const encodedStr = rawStr => rawStr.replace(/[\u00A0-\u9999<>\&]/g, i => '&#'+i.charCodeAt(0)+';')
+const encodedStr = rawStr => rawStr ? rawStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;') : ''
 const rssDescription = d => d ? `<description>${encodedStr(d)}</description>` : ``
-const rssID = l => l ? `<guid isPermaLink="true">${l}</guid>` : ``
+const rssID = l => l ? `<guid isPermaLink="true">${encodedStr(l)}</guid>` : ``
 const rssTitle = t => t ? `<title>${encodedStr(t)}</title>` : ``
-const rssLink = l => l ? `<link>${l}</link>` : ``
+const rssLink = l => l ? `<link>${encodedStr(l)}</link>` : ``
 const rssCategory = c => c ? `<category>${c}</category>` : ``
 const rssPubDate = d => d ? `<pubDate>${(new Date(d)).toUTCString()}</pubDate>` : ``
-const rssAuthor = a => a && a.guid ? `<author>${a.guid}</author>` : ``
-const rssImage = i => i ? `<enclosure url="${i}" type="image/jpeg" />` : ``
-const atomLink = l => l ? `<atom:link href="${l}" rel="self" type="application/rss+xml" />` : ``
+const rssAuthor = a => a && a.guid ? `<author>${encodedStr(a.guid)}</author>` : ``
+const rssImage = i => i ? `<enclosure url="${encodedStr(i)}" type="image/jpeg" />` : ``
+const atomLink = l => l ? `<atom:link href="${encodedStr(l)}" rel="self" type="application/rss+xml" />` : ``
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest
