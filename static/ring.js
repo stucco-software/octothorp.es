@@ -1,15 +1,10 @@
+// Web component for displaying a webring navigation or blogroll
+// Accepts server URL via server attribute and site URL via text content
 
-
-
-// TODO: 
-// - don't duplicate custom welcome messages with multiple components on a page
-
-const ring = (o) => {
+const ring = (serverUrl) => {
   return `
   <style>
-
 :host {
-  
   --ring-background: white;
   --ring-anchor: #3c7efb;
   --ring-text-color: #333;
@@ -18,6 +13,7 @@ const ring = (o) => {
   --ring-highlight: yellow;
   --ring-rule: 2px dashed var(--ring-text-color);
 }
+
 .octothorpe-webring {
   background-color: var(--ring-background);
   width: var(--ring-width);
@@ -30,18 +26,15 @@ const ring = (o) => {
 }
 
 .octothorpe-webring.expanded a {
-padding: 1em;
-font-family: var(--ring-font);
+  padding: 1em;
+  font-family: var(--ring-font);
   color: var(--ring-anchor);
 }
-
 
 .octothorpe-webring section {
   display: grid;
   grid-auto-flow: column;
-  }
-
-
+}
 
 .octothorpe-webring.expanded .ring-head {
   border-bottom: var(--ring-rule);
@@ -53,178 +46,276 @@ font-family: var(--ring-font);
   padding: 0px;
 }
 
-  .octothorpe-webring.expanded div.ring-button-container {
-    border-left: var(--ring-rule);
-    border-right: var(--ring-rule);
-    padding-top: 1rem;
-  }
+.octothorpe-webring.expanded div.ring-button-container {
+  border-left: var(--ring-rule);
+  border-right: var(--ring-rule);
+  padding-top: 1rem;
+}
 
-  .ring-button {
-    display: none;
-  }
+.ring-button {
+  display: none;
+}
 
-  img.ring-button {
-    margin: auto;
-  }
+img.ring-button {
+  margin: auto;
+}
 
-  .octothorpe-webring.expanded .ring-button {
-    overflow: auto;
-    display: block;
-    padding: .3rem;
-  }
+.octothorpe-webring.expanded .ring-button {
+  overflow: auto;
+  display: block;
+  padding: .3rem;
+}
 
-  .octothorpe-webring .ring-button a:hover {
-    background-color: var(--ring-background);
-  }
+.octothorpe-webring .ring-button a:hover {
+  background-color: var(--ring-background);
+}
+
 .octothorpe-webring a:hover {
   background-color: var(--ring-highlight);
   color: var(--ring-text-color);
   text-decoration-style: wavy;
   letter-spacing: 2px;
-
 }
 
+/* Blogroll specific styles */
+.octothorpe-webring.blogroll {
+  text-align: left;
+  padding: 1rem;
+}
 
+.octothorpe-webring.blogroll .blogroll-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 
+.octothorpe-webring.blogroll .blogroll-item {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.octothorpe-webring.blogroll .blogroll-item:last-child {
+  border-bottom: none;
+}
+
+.octothorpe-webring.blogroll .blogroll-link {
+  text-decoration: none;
+  color: var(--ring-anchor);
+  display: block;
+}
+
+.octothorpe-webring.blogroll .blogroll-link:hover {
+  background-color: var(--ring-highlight);
+  color: var(--ring-text-color);
+  text-decoration: underline;
+}
   </style>
-  <div class="ring-content" data-ring="${o}">
+  <div class="ring-content" data-server="${serverUrl}">
   </div>`
 }
 
-// while not strictly necessary to keep this as a separate template
-// doing so makes room to ship multiple templates that can be set by some param
-
-const ringTemplate = (n, o) => {
-  // hook up params to set labels
+const ringTemplate = (neighbors, bannerMessage, serverUrl) => {
   return `
-    <div class='ring-head'>${o}</div>
+    <div class='ring-head'>${bannerMessage}</div>
     <section>
-
-      <a href="${n.previous}">< Previous site</a>
-
-    <div class="ring-button-container">
-      <a href="${n.random}">Random Site</a>
-      <a class="ring-button" href="${webhooks}">
-      
-      <img class="ring-button" src="${webhooks}/badge.png" ></a>
-
-    </div>
-
-    <a href="${n.next}">Next site ></a>
-
-  </section>
-    `
+      <a href="${neighbors.previous}">< Previous site</a>
+      <div class="ring-button-container">
+        <a href="${neighbors.random}">Random Site</a>
+        <a class="ring-button" href="${serverUrl}">
+          <img class="ring-button" src="${serverUrl}/badge.png" alt="Webring badge">
+        </a>
+      </div>
+      <a href="${neighbors.next}">Next site ></a>
+    </section>
+  `
 }
 
-
-
-const webring = (parentDoc, links) => {
-  // Find the index of the current origin in the links array
-  const currentIndex = links.indexOf(parentDoc);
-  if (currentIndex === -1) {
-    return { previous: null, next: null };
+const blogrollTemplate = (results, bannerMessage, serverUrl) => {
+  if (!results || results.length === 0) {
+    return `<div class='ring-head'>${bannerMessage}</div><p>No sites found in the webring.</p>`;
   }
-    const previousIndex = currentIndex === 0 
-    ? links.length - 1 
-    : currentIndex - 1;
-  
-  const nextIndex = currentIndex === links.length - 1 
-    ? 0 
-    : currentIndex + 1;
+
+  const listItems = results.map(result => `
+    <li class="blogroll-item">
+      <a class="blogroll-link" href="${result.uri}" title="${result.title || result.uri}">
+        ${result.title || result.uri}
+      </a>
+      ${result.description ? `<p class="blogroll-description">${result.description}</p>` : ''}
+    </li>
+  `).join('');
+
+  return `
+    <div class='ring-head'>${bannerMessage}</div>
+    <ul class="blogroll-list">
+      ${listItems}
+    </ul>
+  `;
+}
+
+const webring = (currentSite, links) => {
+  const currentIndex = links.indexOf(currentSite);
+  if (currentIndex === -1) {
+    return { previous: null, next: null, random: null };
+  }
+
+  const previousIndex = currentIndex === 0 ? links.length - 1 : currentIndex - 1;
+  const nextIndex = currentIndex === links.length - 1 ? 0 : currentIndex + 1;
 
   const filteredLinks = links.filter((link, index) => {
     return index !== previousIndex && index !== currentIndex && index !== nextIndex;
   });
 
-  let randomIndex = Math.floor(Math.random() * filteredLinks.length);
+  const randomIndex = Math.floor(Math.random() * filteredLinks.length);
+  const randomEntry = filteredLinks[randomIndex];
 
-
-// Get a random entry from the array that does not match any of the values we want to exclude
-const randomEntry = filteredLinks[randomIndex];
   return {
     previous: links[previousIndex],
     next: links[nextIndex],
-    random: filteredLinks[randomIndex]
-  };    
+    random: randomEntry
+  };
 };
 
-const script = document.querySelector('script[data-register]')
-const webhooks = script
-      .dataset
-      .register
-      .replace(/\n/g, "")
-      .replace(/\t/g, "")
-      .replaceAll(" ", "")
-      .split(',')
-      .map(hook => hook.endsWith('/') ? hook.slice(0, -1) : hook)
-const hydrate = async (shadow, o) => {
-  console.log(o);
-  let responses = await Promise.allSettled(
-    webhooks.map(async webhook => 
-      await fetch(`${webhook}/domains`)
-    )
-  )
+const normalizeUrl = (url) => {
+  if (!url) return null;
 
-  let data = await Promise.allSettled(
-    responses
-      .filter(r => r.status === 'fulfilled')
-      .map(async r => r.value.json())
-  )
-  let links = data.map(d => d.value.domains)
-  console.log(links[0])
-  const parentOrigin = window.location.origin;
-  // console.log("Parent origin: " + parentOrigin)
-  const currentSite = `${parentOrigin}/`
-  const testSite = "https://www.mmmx.cloud/"
+  // Remove any whitespace
+  let normalized = url.replace(/\s/g, '');
 
-
-  let neighbors = webring(currentSite, links[0]);
-  let template = `${ringTemplate(neighbors, o)}`
-  
-  let nodes = [...shadow.querySelectorAll(`div.ring-content`)]
-  nodes.forEach(node => node.innerHTML = template)
-}
-let bannerMsg = "<h3>This site octothorpes on the "+ webhooks +" webring</h3>"
-const instantiate = (node) => {
-    
-  let o = node.getAttribute("title") || node.innerText.trim()
-
-  if (o){
-    bannerMsg = o
+  // Ensure it starts with http:// or https://
+  if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+    normalized = 'https://' + normalized;
   }
 
-  let appearance = node.dataset.appearance;
-
-  const wrapper = document.createElement('div')
-  wrapper.classList.add("octothorpe-webring")
-
-  if (appearance){
-    wrapper.classList.add(appearance)
+  // Remove trailing slash
+  if (normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
   }
-  wrapper.innerHTML = ring(webhooks)
-  const shadow = node.attachShadow({mode: 'open'})
-      // Add styles first
-  shadow.appendChild(wrapper)
-  hydrate(shadow, bannerMsg)
-}
 
-customElements.define('web-ring', class extends HTMLElement {
-  constructor () {
-    super()
-    document.addEventListener("DOMContentLoaded", (event) => {
-// turning off for now to avoid calling twice
+  return normalized;
+};
 
-      // let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-      // if (o) {
-        // instantiate(this)
-      // }
+const constructEndpointUrl = (serverUrl, siteUrl) => {
+  if (!serverUrl || !siteUrl) return null;
+
+  const encodedSite = encodeURIComponent(siteUrl);
+  return `${serverUrl}/get/domains/in-webring?s=${encodedSite}`;
+};
+
+const extractDomainsFromResults = (results) => {
+  if (!results || !Array.isArray(results)) {
+    return [];
+  }
+
+  // Extract URIs from results array, filtering out any null/undefined values
+  return results
+    .map(result => result?.uri)
+    .filter(uri => uri && typeof uri === 'string');
+};
+
+const hydrate = async (shadow, bannerMessage, serverUrl, siteUrl, mode) => {
+  try {
+    if (!serverUrl) {
+      throw new Error('No server URL provided');
+    }
+
+    if (!siteUrl) {
+      throw new Error('No site URL provided in component content');
+    }
+
+    const endpointUrl = constructEndpointUrl(serverUrl, siteUrl);
+    console.log('Fetching from endpoint:', endpointUrl);
+
+    const response = await fetch(endpointUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.results || !Array.isArray(data.results)) {
+      throw new Error('Invalid response format: expected results array');
+    }
+
+    let template;
+
+    if (mode === 'blogroll') {
+      // Use blogroll mode - display all results as a list
+      template = blogrollTemplate(data.results, bannerMessage, serverUrl);
+    } else {
+      // Use default navigation mode
+      const domains = extractDomainsFromResults(data.results);
+
+      if (domains.length === 0) {
+        throw new Error('No valid domains found in response');
+      }
+
+      const neighbors = webring(siteUrl, domains);
+      template = ringTemplate(neighbors, bannerMessage, serverUrl);
+    }
+
+    const contentNodes = [...shadow.querySelectorAll('div.ring-content')];
+    contentNodes.forEach(node => {
+      node.innerHTML = template;
+    });
+  } catch (error) {
+    console.error('Error loading webring data:', error);
+    const contentNodes = [...shadow.querySelectorAll('div.ring-content')];
+    contentNodes.forEach(node => {
+      node.innerHTML = `<div style="color: red; padding: 1rem;">Error loading webring: ${error.message}</div>`;
     });
   }
-  connectedCallback () {
-    // let o = encodeURIComponent(this.getAttribute("href") || this.innerText.trim())
-    // if (o.length > 0) {
-      instantiate(this)
+};
 
-    // }
+const instantiate = (node) => {
+  // Get server URL from server attribute
+  let serverUrl = node.getAttribute('server');
+  serverUrl = normalizeUrl(serverUrl);
+
+  // Get site URL from text content
+  console.log('Raw text content:', node.getAttribute('href'));
+  let siteUrl = node.getAttribute('href');
+  console.log('Trimmed site URL:', siteUrl);
+  siteUrl = normalizeUrl(siteUrl);
+  console.log('Normalized site URL:', siteUrl);
+
+  // Get banner message from title attribute or use default
+  const bannerMessage = node.getAttribute('title') || `This site is part of the webring`;
+
+  // Get mode from data-mode attribute (defaults to navigation mode)
+  const mode = node.getAttribute('data-mode') || 'navigation';
+  const appearance = node.dataset.appearance;
+
+  const wrapper = document.createElement('div');
+  wrapper.classList.add('octothorpe-webring');
+
+  if (appearance) {
+    wrapper.classList.add(appearance);
   }
-})
+
+  if (mode === 'blogroll') {
+    wrapper.classList.add('blogroll');
+  }
+
+  wrapper.innerHTML = ring(serverUrl);
+  const shadow = node.attachShadow({ mode: 'open' });
+  shadow.appendChild(wrapper);
+
+  if (!siteUrl) {
+    console.error('Site URL is empty after normalization');
+    const contentNodes = [...shadow.querySelectorAll('div.ring-content')];
+    contentNodes.forEach(node => {
+      node.innerHTML = `<div style="color: red; padding: 1rem;">Error: No site URL provided in component content. Make sure to include the URL between the web-ring tags.</div>`;
+    });
+    return;
+  }
+
+  hydrate(shadow, bannerMessage, serverUrl, siteUrl, mode);
+};
+
+customElements.define('web-ring', class extends HTMLElement {
+  connectedCallback() {
+    instantiate(this);
+  }
+});
