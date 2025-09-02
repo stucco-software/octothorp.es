@@ -441,3 +441,199 @@ export const getMultiPassFromParams  = (
 
       return MultiPass
 }
+
+/**
+ * Generates a MultiPass configuration object from form state parameters
+ * @param {Object} formState - Form state object
+ * @param {string} formState.what - Type of results to return (everything, pages, links, thorpes, domains)
+ * @param {string} formState.by - Matching method (thorped, tagged, linked, mentioned, backlinked, bookmarked, in-webring, posted, member-of)
+ * @param {Array} formState.s - Array of included subjects
+ * @param {Array} formState.o - Array of included objects
+ * @param {Array} formState.notS - Array of excluded subjects
+ * @param {Array} formState.notO - Array of excluded objects
+ * @param {string} formState.match - Match mode (unset, exact, fuzzy, fuzzy-s, fuzzy-o, very-fuzzy)
+ * @param {number} formState.limit - Maximum number of results
+ * @param {number} formState.offset - Number of results to skip
+ * @param {string} formState.whenAfter - Date after filter (YYYY-MM-DD)
+ * @param {string} formState.whenBefore - Date before filter (YYYY-MM-DD)
+ * @param {string} [serverInstance] - Server instance URL (defaults to environment instance)
+ * @returns {Object} MultiPass configuration object with metadata, subjects, objects, and filters
+ */
+export const getMultiPassFromFormState = (formState, serverInstance = instance) => {
+    const { what, by, s = [], o = [], notS = [], notO = [], match, limit, offset, whenAfter, whenBefore } = formState;
+
+    // Set result mode based on what parameter
+    let resultMode;
+    switch (what) {
+        case "everything":
+            resultMode = "blobjects";
+            break;
+        case "pages":
+        case "links":
+        case "backlinks":
+            resultMode = "links";
+            break;
+        case "thorpes":
+            resultMode = "octothorpes";
+            break;
+        case "domains":
+            resultMode = "domains";
+            break;
+        default:
+            resultMode = "blobjects";
+    }
+
+    // Set object type and subtype based on by parameter
+    let objectType = "all";
+    let subtype = "";
+
+    switch (by) {
+        case "thorped":
+        case "tagged":
+            objectType = "termsOnly";
+            break;
+        case "linked":
+        case "mentioned":
+            objectType = "notTerms";
+            break;
+        case "backlinked":
+            objectType = "pagesOnly";
+            subtype = "Backlink";
+            break;
+        case "bookmarked":
+            objectType = "notTerms";
+            subtype = "Bookmark";
+            break;
+        case "in-webring":
+        case "member-of":
+            objectType = "pagesOnly";
+            break;
+        case "posted":
+        case "all":
+            objectType = "all";
+            break;
+        default:
+            objectType = "all";
+    }
+
+    // Set subject and object modes based on match parameter
+    let subjectMode = "exact";
+    let objectMode = "exact";
+
+    switch (match) {
+        case "unset":
+            // Default behavior: fuzzy if URLs are not exact, exact otherwise
+            subjectMode = areUrlsFuzzy(s) || areUrlsFuzzy(notS) ? "fuzzy" : "exact";
+            objectMode = (objectType === "termsOnly") ? "exact" : (areUrlsFuzzy(o) ? "fuzzy" : "exact");
+            break;
+        case "exact":
+            subjectMode = "exact";
+            objectMode = "exact";
+            break;
+        case "fuzzy":
+            subjectMode = "fuzzy";
+            objectMode = "fuzzy";
+            break;
+        case "fuzzy-s":
+        case "fuzzy-subject":
+            subjectMode = "fuzzy";
+            objectMode = "exact";
+            break;
+        case "fuzzy-o":
+        case "fuzzy-object":
+            subjectMode = "exact";
+            objectMode = "fuzzy";
+            break;
+        case "very-fuzzy-o":
+        case "very-fuzzy-object":
+            subjectMode = "exact";
+            objectMode = "very-fuzzy";
+            break;
+        case "very-fuzzy":
+            subjectMode = "fuzzy";
+            objectMode = "very-fuzzy";
+            break;
+        default:
+            subjectMode = "exact";
+            objectMode = "exact";
+    }
+
+    // Handle special case for webrings
+    if (by === "in-webring" || by === "member-of") {
+        subjectMode = "byParent";
+    }
+
+    // Clean inputs based on modes
+    const cleanedS = cleanInputs(s, subjectMode === "exact" ? "exact" : "fuzzy");
+    const cleanedNotS = cleanInputs(notS, subjectMode === "exact" ? "exact" : "fuzzy");
+    const cleanedO = cleanInputs(o, objectMode === "exact" ? "exact" : "fuzzy");
+    const cleanedNotO = cleanInputs(notO, objectMode === "exact" ? "exact" : "fuzzy");
+
+    // Create date range filter
+    let dateFilter = {};
+    if (whenAfter || whenBefore) {
+        const whenParts = [];
+        if (whenAfter) whenParts.push(`after:${whenAfter}`);
+        if (whenBefore) whenParts.push(`before:${whenBefore}`);
+        dateFilter = parseDateStrings(whenParts.join(','));
+    }
+
+    // Create human-readable title
+    const formatTitlePart = (include, exclude, prefix) => {
+        if (include.length === 0 && exclude.length === 0) {
+            return '';
+        }
+
+        let parts = [];
+        if (include.length > 0) {
+            parts.push(include.join(', '));
+        }
+        if (exclude.length > 0) {
+            parts.push(`not ${exclude.join(', ')}`);
+        }
+
+        return `${prefix} ${parts.join(' and ')}`;
+    };
+
+    const subjectPart = formatTitlePart(cleanedS, cleanedNotS, 'from');
+    const objectPart = formatTitlePart(cleanedO, cleanedNotO, 'to');
+
+    let titleParts = [`Get ${resultMode} ${by}`];
+    if (subjectPart) titleParts.push(subjectPart);
+    if (objectPart) titleParts.push(objectPart);
+
+    const defaultTitle = titleParts.join(' ');
+
+    const MultiPass = {
+        meta: {
+            title: defaultTitle,
+            description: `MultiPass generated from form state`,
+            server: serverInstance,
+            author: "Octothorpes Protocol",
+            image: `${serverInstance}badge.png`,
+            version: "1",
+            resultMode: resultMode,
+        },
+        subjects: {
+            mode: subjectMode,
+            include: cleanedS,
+            exclude: cleanedNotS
+        },
+        objects: {
+            type: objectType,
+            mode: objectMode,
+            include: cleanedO,
+            exclude: cleanedNotO
+        },
+        filters: {
+            subtype: subtype,
+            limitResults: limit ? parseInt(limit) : 100,
+            offsetResults: offset ? parseInt(offset) : 0,
+            dateRange: dateFilter
+        }
+    };
+
+    return MultiPass;
+};
+
+
