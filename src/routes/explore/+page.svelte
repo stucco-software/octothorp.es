@@ -30,6 +30,8 @@
   let downloadUrl = '';
   let multiPassDownloadUrl = '';
   let isLoading = false;
+  let uploadMode = false;
+  let uploadedMultiPass = null;
 
   const whatOptions = ['everything', 'pages', 'links', 'backlinks', 'thorpes', 'domains'];
   const byOptions = [
@@ -47,6 +49,139 @@
       event.preventDefault();
       handleSubmit();
     }
+  }
+
+  function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        uploadedMultiPass = parsed;
+        error = null;
+        
+        // Auto-populate form fields if possible
+        if (parsed.meta) {
+          what = parsed.meta.resultMode === 'blobjects' ? 'everything' : 
+                 parsed.meta.resultMode === 'links' ? 'links' :
+                 parsed.meta.resultMode === 'octothorpes' ? 'thorpes' :
+                 parsed.meta.resultMode === 'domains' ? 'domains' : 'everything';
+        }
+        
+        if (parsed.subjects) {
+          sTokens = parsed.subjects.include || [];
+          notSTokens = parsed.subjects.exclude || [];
+        }
+        
+        if (parsed.objects) {
+          oTokens = parsed.objects.include || [];
+          notOTokens = parsed.objects.exclude || [];
+        }
+        
+        if (parsed.filters) {
+          limit = parsed.filters.limitResults || 10;
+          offset = parsed.filters.offsetResults || 0;
+        }
+      } catch (err) {
+        error = 'Invalid MultiPass JSON file: ' + err.message;
+        console.error('File upload error:', err);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function executeQuery() {
+    isLoading = true;
+    error = null;
+
+    try {
+      const response = await fetch(queryUrl);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      actualResults = data.results || data;
+
+      // Generate download URL for JSON
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      downloadUrl = URL.createObjectURL(blob);
+
+    } catch (err) {
+      error = err.message;
+      console.error('API request failed:', err);
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  function useUploadedMultiPass() {
+    if (!uploadedMultiPass) {
+      error = 'No MultiPass file uploaded';
+      return;
+    }
+    
+    multiPass = uploadedMultiPass;
+    
+    // Generate download URL for MultiPass JSON
+    const multiPassBlob = new Blob([JSON.stringify(multiPass, null, 2)], { type: 'application/json' });
+    multiPassDownloadUrl = URL.createObjectURL(multiPassBlob);
+    
+    // Extract query parameters from MultiPass
+    const params = new URLSearchParams();
+    
+    if (multiPass.subjects && multiPass.subjects.include && multiPass.subjects.include.length > 0) {
+      params.set('s', multiPass.subjects.include.join(','));
+    }
+    
+    if (multiPass.objects && multiPass.objects.include && multiPass.objects.include.length > 0) {
+      params.set('o', multiPass.objects.include.join(','));
+    }
+    
+    if (multiPass.subjects && multiPass.subjects.exclude && multiPass.subjects.exclude.length > 0) {
+      params.set('not-s', multiPass.subjects.exclude.join(','));
+    }
+    
+    if (multiPass.objects && multiPass.objects.exclude && multiPass.objects.exclude.length > 0) {
+      params.set('not-o', multiPass.objects.exclude.join(','));
+    }
+    
+    if (multiPass.filters) {
+      if (multiPass.filters.limitResults) params.set('limit', multiPass.filters.limitResults);
+      if (multiPass.filters.offsetResults) params.set('offset', multiPass.filters.offsetResults);
+      
+      if (multiPass.filters.dateRange) {
+        const whenParts = [];
+        if (multiPass.filters.dateRange.after) whenParts.push(`after:${multiPass.filters.dateRange.after}`);
+        if (multiPass.filters.dateRange.before) whenParts.push(`before:${multiPass.filters.dateRange.before}`);
+        if (whenParts.length > 0) params.set('when', whenParts.join(','));
+      }
+    }
+    
+    // Determine what and by from MultiPass
+    let multiPassWhat = 'everything';
+    let multiPassBy = 'thorped';
+    
+    if (multiPass.meta && multiPass.meta.resultMode) {
+      multiPassWhat = multiPass.meta.resultMode === 'blobjects' ? 'everything' :
+                     multiPass.meta.resultMode === 'links' ? 'links' :
+                     multiPass.meta.resultMode === 'octothorpes' ? 'thorpes' :
+                     multiPass.meta.resultMode === 'domains' ? 'domains' : 'everything';
+    }
+    
+    if (multiPass.objects && multiPass.objects.type) {
+      multiPassBy = multiPass.objects.type === 'termsOnly' ? 'tagged' :
+                   multiPass.objects.type === 'notTerms' ? 'mentioned' :
+                   multiPass.objects.type === 'pagesOnly' ? 'backlinked' : 'thorped';
+    }
+    
+    queryUrl = `/get/${multiPassWhat}/${multiPassBy}?${decodeURIComponent(params.toString())}`;
+    
+    // Execute the query
+    executeQuery();
   }
 
   // Add global keydown listener on mount
@@ -68,9 +203,6 @@
   });
 
   async function handleSubmit() {
-    isLoading = true;
-    error = null;
-
     const params = new URLSearchParams();
     if (s) params.set('s', s);
     if (o) params.set('o', o);
@@ -87,58 +219,40 @@
 
     queryUrl = `/get/${what}/${by}?${decodeURIComponent(params.toString())}`;
 
-    try {
-      const response = await fetch(queryUrl);
+    // Execute the query
+    await executeQuery();
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      actualResults = data.results || data;
-
-      // Generate MultiPass from server endpoint to avoid server-side imports
-      const multiPassResponse = await fetch('/explore', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          what,
-          by,
-          s: sTokens,
-          o: oTokens,
-          notS: notSTokens,
-          notO: notOTokens,
-          match,
-          limit,
-          offset,
-          whenAfter,
-          whenBefore
-        })
-      });
+    // Generate MultiPass from server endpoint to avoid server-side imports
+    const multiPassResponse = await fetch('/explore', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        what,
+        by,
+        s: sTokens,
+        o: oTokens,
+        notS: notSTokens,
+        notO: notOTokens,
+        match,
+        limit,
+        offset,
+        whenAfter,
+        whenBefore
+      })
+    });
+    
+    if (multiPassResponse.ok) {
+      const multiPassData = await multiPassResponse.json();
+      multiPass = multiPassData.multiPass;
       
-      if (multiPassResponse.ok) {
-        const multiPassData = await multiPassResponse.json();
-        multiPass = multiPassData.multiPass;
-      } else {
-        console.error('Failed to generate MultiPass:', await multiPassResponse.text());
-        multiPass = null;
-      }
-
-      // Generate download URL for JSON
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      downloadUrl = URL.createObjectURL(blob);
-
       // Generate download URL for MultiPass JSON
       const multiPassBlob = new Blob([JSON.stringify(multiPass, null, 2)], { type: 'application/json' });
       multiPassDownloadUrl = URL.createObjectURL(multiPassBlob);
-
-    } catch (err) {
-      error = err.message;
-      console.error('API request failed:', err);
-    } finally {
-      isLoading = false;
+    } else {
+      console.error('Failed to generate MultiPass:', await multiPassResponse.text());
+      multiPass = null;
     }
   }
 </script>
@@ -150,6 +264,27 @@
 <div class="page-layout">
   <div class="form-column">
     <h1>API Query Builder</h1>
+
+    <div class="upload-section" style="margin-bottom: 1rem; padding: 1rem; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9;">
+      <h3 style="margin-top: 0;">Upload MultiPass JSON</h3>
+      <input 
+        type="file" 
+        accept=".json,application/json" 
+        on:change={handleFileUpload}
+        style="margin-bottom: 0.5rem; width: 100%;"
+      />
+      {#if uploadedMultiPass}
+        <div style="margin: 0.5rem 0; padding: 0.5rem; background: #e8f5e8; border-radius: 4px;">
+          <strong>✓ MultiPass loaded successfully</strong>
+          <button 
+            on:click={useUploadedMultiPass} 
+            style="margin-top: 0.5rem; padding: 0.3rem 0.65rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          >
+            Use Uploaded MultiPass
+          </button>
+        </div>
+      {/if}
+    </div>
 
     <div class="form-container" role="region" aria-label="Search form">
       <form on:submit|preventDefault={handleSubmit}>
@@ -419,6 +554,13 @@
   .error {
     color: red;
     border: 1px solid red;
+  }
+
+  .upload-section input[type="file"] {
+    padding: 0.25rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.6rem;
   }
 
   .download-section {
