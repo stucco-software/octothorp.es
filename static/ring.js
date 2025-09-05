@@ -115,9 +115,19 @@ img.ring-button {
   </div>`
 }
 
-const ringTemplate = (neighbors, bannerMessage, serverUrl) => {
+const ringTemplate = (neighbors, bannerMessage, serverUrl, siteUrl) => {
+  // Check if current page is not in the webring (all neighbors are null)
+  if (neighbors.previous === null && neighbors.next === null && neighbors.random === null) {
+    return `
+       <div class='ring-head'><a rel="octo:octothorpes" href="${siteUrl}">${bannerMessage}</a></div>
+      <div style="color: red; padding: 1rem;">
+      Whoops, looks like this domain is not in that webring.
+      </div>
+    `;
+  }
+
   return `
-    <div class='ring-head'>${bannerMessage}</div>
+    <div class='ring-head'><a rel="octo:octothorpes" href="${siteUrl}">${bannerMessage}</a></div>
     <section>
       <a href="${neighbors.previous}">< Previous site</a>
       <div class="ring-button-container">
@@ -156,6 +166,7 @@ const blogrollTemplate = (results, bannerMessage, serverUrl) => {
 const webring = (currentSite, links) => {
   const currentIndex = links.indexOf(currentSite);
   if (currentIndex === -1) {
+
     return { previous: null, next: null, random: null };
   }
 
@@ -178,7 +189,6 @@ const webring = (currentSite, links) => {
 
 const normalizeUrl = (url) => {
   if (!url) return null;
-
   // Remove any whitespace
   let normalized = url.replace(/\s/g, '');
 
@@ -220,7 +230,7 @@ const hydrate = async (shadow, bannerMessage, serverUrl, siteUrl, mode) => {
     }
 
     if (!siteUrl) {
-      throw new Error('No site URL provided in component content');
+      throw new Error('No Webring URL provided in component content');
     }
 
     const endpointUrl = constructEndpointUrl(serverUrl, siteUrl);
@@ -242,7 +252,7 @@ const hydrate = async (shadow, bannerMessage, serverUrl, siteUrl, mode) => {
 
     if (mode === 'blogroll') {
       // Use blogroll mode - display all results as a list
-      template = blogrollTemplate(data.results, bannerMessage, serverUrl);
+      template = blogrollTemplate(data.results, bannerMessage, serverUrl, siteUrl);
     } else {
       // Use default navigation mode
       const domains = extractDomainsFromResults(data.results);
@@ -251,9 +261,13 @@ const hydrate = async (shadow, bannerMessage, serverUrl, siteUrl, mode) => {
         throw new Error('No valid domains found in response');
       }
 
-      const neighbors = webring(siteUrl, domains);
-      template = ringTemplate(neighbors, bannerMessage, serverUrl);
+      // Get current page domain without trailing slash
+      const currentDomain = window.location.origin.replace(/\/$/, '');
+      console.log(currentDomain)
+      const neighbors = webring(currentDomain, domains);
+      template = ringTemplate(neighbors, bannerMessage, serverUrl, siteUrl);
     }
+
 
     const contentNodes = [...shadow.querySelectorAll('div.ring-content')];
     contentNodes.forEach(node => {
