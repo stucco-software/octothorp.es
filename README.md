@@ -58,11 +58,3 @@ select * {
   ?d octo:challenge ?c .
 }
 ```
-
-## Check if the TXT header has been added
-
-```
-❯ dig -t txt example.com +short
-```
-
-
