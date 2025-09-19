@@ -1,3 +1,4 @@
+![release badge](https://img.shields.io/github/v/release/stucco-software/octothorp.es)
 # Octothorpe Protocol Server #️⃣♥️#️⃣
 
 A relay that connects independent websites with Octothorpe Protocol. Implements OP core features and includes a limited front-end UI.
