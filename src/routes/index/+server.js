@@ -152,7 +152,7 @@ const extantMention = async (s, o) => {
 const extantBacklink = async (s, o) => {
   return await queryBoolean(`
     ask {
-      <${o}> <${p}> _:backlink .
+      <${o}> ${p} _:backlink .
         _:backlink octo:url <${s}> .
     }
   `)
@@ -394,12 +394,7 @@ const handleMention = async (s, o) => {
   }
   let isEndorsed = await checkEndorsement(subj, obj)
   let isExtantbacklink = await extantBacklink(subj, obj)
-  console.log(`isExtantbacklink?`, `
-    ask {
-      <${obj}> <${p}> _:backlink .
-        _:backlink octo:url <${subj}> .
-    }
-  `, isExtantbacklink)
+  console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
     await createBacklink(subj, obj)
   }
