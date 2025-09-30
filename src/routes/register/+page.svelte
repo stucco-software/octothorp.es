@@ -86,14 +86,14 @@
   </form>
   <div>
     <h3><span>Once you're verified: </span></h3>
-    <p><span>Here's some flair to show off your membership in the first Octothorpes Ring.</span></p>
-    <p><a href="https://octothorp.es"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main ring" /></a></p>
-    
+    <p><span>Here's some flair to show off your membership in the first Octothorpes server.</span></p>
+    <p><a href="https://octothorp.es"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main server" /></a></p>
+
     <p>Copy this to put it on your site:</p>
     <code>{badgeCode}</code>
   </div>
 </section>
 {/if}
 <section>
-  
+
 </section>
