@@ -150,6 +150,7 @@ const extantMention = async (s, o) => {
 }
 
 const extantBacklink = async (s, o) => {
+  // ${p} != <${p}>
   return await queryBoolean(`
     ask {
       <${o}> ${p} _:backlink .
