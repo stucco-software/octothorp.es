@@ -394,7 +394,12 @@ const handleMention = async (s, o) => {
   }
   let isEndorsed = await checkEndorsement(subj, obj)
   let isExtantbacklink = await extantBacklink(subj, obj)
-  console.log(`isExtantbacklink?`, isExtantbacklink)
+  console.log(`isExtantbacklink?`, `
+    ask {
+      <${obj}> <${p}> _:backlink .
+        _:backlink octo:url <${subj}> .
+    }
+  `, isExtantbacklink)
   if (!isExtantbacklink) {
     await createBacklink(subj, obj)
   }
