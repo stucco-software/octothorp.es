@@ -6,7 +6,7 @@
 <main class="container">
   <h1>#{data.term}</h1>
  <div id="follow-links">
-     <p class="narrow gray" id="follow-links"> <a href="/get/pages/thorped/rss?o={data.term}" id="rss-link"><img src="/Rss_Shiny_Icon.svg" alt="RSS feed link" width="20" style="display: inline;"> RSS</a> • <a href="/get/pages/thorped?o={data.term}" id="json-link">JSON</a>
+     <p class="narrow gray" id="follow-links"> <a href="/~/{encodeURIComponent(data.term)}/rss"><img src="/Rss_Shiny_Icon.svg" alt="RSS feed link" width="20" style="display: inline;"> RSS</a> • <a href="/get/pages/thorped?o={data.term}" id="json-link">JSON</a>
      </p>
  </div>
   <ul>
