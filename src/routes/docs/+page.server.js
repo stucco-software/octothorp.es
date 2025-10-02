@@ -1,22 +1,5 @@
-import { getGraph, getFrame } from '$lib/ld/graph'
+import { redirect } from '@sveltejs/kit';
 
-export async function load({ params }){
-  const r = await getGraph()
-  let docTree = await getFrame({
-    id: "/docs",
-    body: {},
-    hasPart: {
-      prefLabel: {},
-      id: {},
-      type: {},
-      body: {},
-      draft: {},
-      hasPart: {
-        prefLabel: {},
-        draft: {},
-        body: {}
-      }
-    }
-  })
-  return docTree
+export function load() {
+  redirect(307, 'https://docs.octothorp.es')
 }

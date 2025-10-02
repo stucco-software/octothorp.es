@@ -5,7 +5,10 @@
 
 <main class="container">
   <h1>#{data.term}</h1>
-
+ <div id="follow-links">
+     <p class="narrow gray" id="follow-links"> <a href="/get/pages/thorped/rss?o={data.term}" id="rss-link"><img src="/Rss_Shiny_Icon.svg" alt="RSS feed link" width="20" style="display: inline;"> RSS</a> • <a href="/get/pages/thorped?o={data.term}" id="json-link">JSON</a>
+     </p>
+ </div>
   <ul>
     {#each data.thorpes as thorpe}
       <li>
@@ -49,24 +52,14 @@
     {/each}
   </ul>
 
-  <p>
-    Follow <code>#{data.term}</code> on <a href="/~/{encodeURIComponent(data.term)}/rss">RSS</a> or use the
-    <details>
-      <summary>
-        <code>JSON API</code>
-      </summary>
-      <pre><code>
-curl -X GET \
-  -H "Content-type: application/json" \
-  -H "Accept: application/json" \
-  "https://octothorp.es/~/{encodeURIComponent(data.term)}"
-      </code></pre>
-  </details>
-  </p>
+
 
 </main>
 
 <style type="text/css">
+    h1 {
+        margin-bottom: .2rem;
+    }
   ul {
     margin-block: var(--lead-4);
   }
@@ -86,4 +79,13 @@ curl -X GET \
     color: var(--dark-gray);
     font-size: .8rem;
   }
+  #follow-links {
+      width: 100%;
+      display: inline-block;
+      font-family: monospace;
+  }
+    #follow-links a {
+        text-decoration: none;
+    }
+
 </style>
