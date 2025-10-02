@@ -4,11 +4,11 @@
 <footer>
 	<nav>
   	<a href="/terms">Terms</a>
-  	<a href="/privacy">Privacy</a>
-    <a href="https://docs.octothorp.es/about/">About</a>
+    <a href="/about/">About</a>
     <a href="https://opencollective.com/stucco-software/projects/octothorpes/donate?interval=oneTime&amount=20&contributeAs=me">
       Support
     </a>
+   	<a href="/report">Report a Site</a>
 	</nav>
 
   <div class="center">
@@ -48,7 +48,7 @@
     text-decoration-skip-ink: auto;
     /*text-decoration: none;*/
     color: currentColor;
-  }  
+  }
   .center {
     display: grid;
     justify-content: center;
