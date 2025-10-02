@@ -50,6 +50,9 @@ const verifyApprovedDomain = async origin => {
       <${origin}> octo:verified "true" .
     }
   `)
+  console.log(`ask {
+      <${origin}> octo:verified "true" .
+    }`, originVerified)
   return originVerified
 }
 
