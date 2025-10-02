@@ -109,6 +109,50 @@ const convertBlobjectToRssItems = (results) => {
   });
 };
 
+// Convert parseBindings results to JSON Feed items
+const convertParseBindingsToJsonFeedItems = (results) => {
+  return results.map(item => {
+    const jsonFeedItem = {
+      id: item.uri || item.term || item.title || '',
+      title: item.title || item.term || item.uri,
+      url: item.uri,
+      date_published: item.date ? new Date(item.date).toISOString() : new Date().toISOString()
+    };
+    
+    if (item.description) {
+      jsonFeedItem.content_html = item.description;
+    }
+    
+    if (item.image) {
+      jsonFeedItem.image = item.image;
+    }
+    
+    return jsonFeedItem;
+  });
+};
+
+// Convert getBlobjectFromResponse results to JSON Feed items
+const convertBlobjectToJsonFeedItems = (results) => {
+  return results.map(item => {
+    const jsonFeedItem = {
+      id: item['@id'] || item.title || '',
+      title: item.title || item['@id'],
+      url: item['@id'],
+      date_published: item.date ? new Date(item.date).toISOString() : new Date().toISOString()
+    };
+    
+    if (item.description) {
+      jsonFeedItem.content_html = item.description;
+    }
+    
+    if (item.image) {
+      jsonFeedItem.image = item.image;
+    }
+    
+    return jsonFeedItem;
+  });
+};
+
 export const rss = (tree, what = "pages") => {
   // Determine if we're dealing with blobjects or parseBindings results
   const isBlobject = what === "everything";
@@ -131,4 +175,23 @@ export const rss = (tree, what = "pages") => {
     </channel>
   </rss>
 `
+}
+
+export const jsonFeed = (tree, what = "pages") => {
+  // Determine if we're dealing with blobjects or parseBindings results
+  const isBlobject = what === "everything";
+  
+  // Convert results to JSON Feed items based on the flag
+  const items = isBlobject ? convertBlobjectToJsonFeedItems(tree.channel.items) : convertParseBindingsToJsonFeedItems(tree.channel.items);
+  
+  const feed = {
+    version: "https://jsonfeed.org/version/1.1",
+    title: tree.channel.title,
+    feed_url: tree.channel.link,
+    home_page_url: tree.channel.link,
+    description: tree.channel.description,
+    items: items
+  };
+  
+  return JSON.stringify(feed);
 }

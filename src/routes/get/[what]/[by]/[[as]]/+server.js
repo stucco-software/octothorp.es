@@ -14,6 +14,16 @@ export async function GET(req) {
     })
   }
   
+  // Check if this is a JSON Feed response
+  if (response.jsonFeed) {
+    return new Response(response.jsonFeed, {
+      headers: {
+        'Content-Type': 'application/feed+json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    })
+  }
+  
   return json(response, {
     headers: { 'Access-Control-Allow-Origin': '*' }
   })
