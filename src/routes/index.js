@@ -8,10 +8,11 @@ import normalizeUrl from 'normalize-url'
 export const index = async (req) => {
   let reqOrigin = req.request.headers.get('referer')
   let origin = normalizeUrl(reqOrigin)
-  let isVerifiedOrigin = await verifiedOrigin(origin)
-  if (!isVerifiedOrigin) {
-    return error(401, 'Origin is not registered with this server.')
-  }
+  // I dont think we need this.
+  // let isVerifiedOrigin = await verifiedOrigin(origin)
+  // if (!isVerifiedOrigin) {
+  //   return error(401, 'Origin is not registered with this server.')
+  // }
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
