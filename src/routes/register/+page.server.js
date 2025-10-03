@@ -34,7 +34,7 @@ const alertAdmin = async ({domain, email}) => {
           New domain request:
         </p>
         <p>
-          <b>${domain}</b> is requesting verification
+          <a href="https://administration.octothorp.es/?url=${domain}"><b>${domain}</b></a> is requesting verification
         </p>
         <p>
           Contact <code>${email}</code> for more information.
