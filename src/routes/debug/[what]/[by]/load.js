@@ -100,7 +100,8 @@ export async function load({ params, url }) {
         rss: rss(rssTree, params.what)
       };
     default:
-    return { results: actualResults }
+    return {    multiPass: multiPass,
+    query: query }
     break
   }
 
