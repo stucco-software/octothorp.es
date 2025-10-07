@@ -27,7 +27,6 @@
 
 <style type="text/css">
   footer {
-    max-width: var(--grid-max-width);
     margin-top: calc(var(--baseline) * 2 - 2px);
     border-top: 2px dotted var(--dark-blue);
     padding-block: calc(var(--baseline) * 1);

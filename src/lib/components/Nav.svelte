@@ -30,7 +30,6 @@
 
   nav {
     border-bottom: 2px dotted var(--dark-blue);
-    max-width: var(--grid-max-width);
     font-size: var(--txt--1);
     justify-content: center;
     display: flex;
