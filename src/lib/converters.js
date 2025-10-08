@@ -245,7 +245,7 @@ export const getMultiPassFromParams  = (
           // this route by definition does not filter on objects
           // so we stick with the default [o?] value
           // TKTK could throw more specific error when no subject provided
-          objectType = "all"
+          objectType = "none"
           break
         case "in-webring":
         case "members":

@@ -463,7 +463,6 @@ export const buildEverythingQuery = ({
   `
   return cleanQuery(query)
 }
-
 /**
  * Builds a simple SPARQL query for basic page/listings retrieval
  * @param {Object} params - MultiPass configuration object
@@ -480,29 +479,35 @@ export const buildSimpleQuery = ({
   meta, subjects, objects, filters
   }) => {
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
+  const includeObjects = objects.type !== 'none'
 
-  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg
+  // Build SELECT clause conditionally
+  const selectClause = includeObjects
+    ? 'SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg'
+    : 'SELECT DISTINCT ?s ?title ?description ?image ?date ?pageType'
+
+  // Build object-related clauses conditionally
+  const objectClauses = includeObjects ? `
+    ${statements.subtypeFilter}
+    ${statements.objectStatement}
+    ?s octo:octothorpes ?o .
+    ${objectTypes[objects.type]}
+    OPTIONAL { ?o octo:title ?ot . }
+    OPTIONAL { ?o octo:description ?od . }
+    OPTIONAL { ?o octo:image ?oimg . }
+  ` : ''
+
+  const query = `${selectClause}
   WHERE {
     ${statements.subjectStatement}
-
-    ${statements.subtypeFilter}
-
-    ${statements.objectStatement}
-
+    ${objectClauses}
     ?s octo:indexed ?date .
     ${statements.dateFilter}
     ?s rdf:type ?pageType .
-    ?s octo:octothorpes ?o .
-
-    ${objectTypes[objects.type]}
-
 
     OPTIONAL { ?s octo:title ?title . }
     OPTIONAL { ?s octo:image ?image . }
     OPTIONAL { ?s octo:description ?description . }
-    OPTIONAL { ?o octo:title ?ot . }
-    OPTIONAL { ?o octo:description ?od . }
-    OPTIONAL { ?o octo:image ?oimg . }
   }
     ORDER BY ?date
     ${statements.limitFilter}
@@ -510,6 +515,7 @@ export const buildSimpleQuery = ({
   `
   return cleanQuery(query)
   }
+
 
 /**
  * Builds a SPARQL query specifically for retrieving hashtag/term listings
