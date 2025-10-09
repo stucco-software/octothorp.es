@@ -117,6 +117,8 @@ ${nquads}
 )
 
 
+
+
 ////////// SPARQL-SPECIFIC UTILITIES //////////
 
 
@@ -412,6 +414,36 @@ function getStatements (subjects, objects, filters, resultMode) {
 
 ////////// /get/everything //////////
 
+
+/**
+ * Executes a two-phase query for everything endpoint to avoid timeouts
+ * @param {Object} multiPass - The multiPass object containing query parameters
+ * @returns {Promise<Object>} Promise resolving to SPARQL query results with bindings
+ * @throws {Error} If the SPARQL query fails
+ */
+export const prepEverything = async ({
+  meta, subjects, objects, filters
+  }) => {
+  // Phase 1: Use buildSimpleQuery to get list of subject URLs with limits and offsets
+  const subjectQuery = buildSimpleQuery({
+    meta, subjects, objects, filters
+    });
+  const subjectResults = await queryArray(subjectQuery);
+  console.log(subjectResults)
+  // Extract subject URIs from first query
+  const incls = {} = subjectResults.results.bindings
+    .filter(binding => binding.s && binding.s.type === 'uri')
+    .map(binding => binding.s.value);
+
+  let subjectUris = {}
+  subjectUris.include = incls
+  subjectUris.exclude = []
+  subjectUris.mode = "exact"
+
+  // console.log(subjectUris)
+  return subjectUris
+ }
+
 /**
  * Builds a comprehensive SPARQL query for retrieving complete blobjects with metadata
  * @param {Object} params - MultiPass configuration object
@@ -424,10 +456,17 @@ function getStatements (subjects, objects, filters, resultMode) {
  * const query = buildEverythingQuery(multiPass)
  * const results = await queryArray(query)
  */
-export const buildEverythingQuery = ({
+export const buildEverythingQuery = async ({
   meta, subjects, objects, filters
   }) => {
-  const statements = getStatements(subjects, objects, filters, meta.resultMode)
+
+
+  const subjectList = await prepEverything({
+    meta, subjects, objects, filters
+  });
+
+
+  const statements = getStatements(subjectList, objects, filters, meta.resultMode)
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
@@ -442,26 +481,69 @@ export const buildEverythingQuery = ({
     ?s octo:octothorpes ?o .
     ?o rdf:type ?oType.
 
-    ${objectTypes[objects.type]}
-    OPTIONAL {
-        ?o ?blankNodePred ?blankNode .
-        FILTER(isBlank(?blankNode))
-        OPTIONAL {
-          ?blankNode ?bnp ?blankNodeObj .
-          FILTER(!isBlank(?blankNodeObj))
-        }
-      }
+    OPTIONAL { ?s octo:title ?title }
+    OPTIONAL { ?s octo:image ?image }
+    OPTIONAL { ?s octo:description ?description }
 
-        OPTIONAL { ?s octo:title ?title }
-        OPTIONAL { ?s octo:image ?image }
-        OPTIONAL { ?s octo:description ?description }
-        OPTIONAL { ?o octo:title ?ot }
-        OPTIONAL { ?o octo:description ?od }
-        OPTIONAL { ?o octo:image ?oimg }
-  }
+    OPTIONAL { ?o octo:title ?ot }
+    OPTIONAL { ?o octo:description ?od }
+    OPTIONAL { ?o octo:image ?oimg }
+
+    OPTIONAL {
+      ?s ?blankNodePred ?blankNode .
+      FILTER(isBlank(?blankNode))
+      ?blankNode ?bnp ?blankNodeObj .
+      FILTER(!isBlank(?blankNodeObj))
+    }
+    }
     ORDER BY ?date
   `
   return cleanQuery(query)
+}
+
+// Alternative batching approach: run multiple smaller queries and combine results
+export const batchEverythingQuery = async ({
+  meta, subjects, objects, filters, batchSize = 20
+}) => {
+  const subjectList = await prepEverything({
+    meta, subjects, objects, filters
+  });
+
+  const subjectUris = subjectList.include;
+
+  if (subjectUris.length <= batchSize) {
+    // If we have few subjects, just use the normal query
+    return [await buildEverythingQuery({ meta, subjects, objects, filters })];
+  }
+
+  console.log(`Batching ${subjectUris.length} subjects into ${Math.ceil(subjectUris.length / batchSize)} queries`);
+
+  // Split subjects into batches
+  const batches = [];
+  for (let i = 0; i < subjectUris.length; i += batchSize) {
+    batches.push(subjectUris.slice(i, i + batchSize));
+  }
+
+  // Build queries for each batch
+  const queries = [];
+  for (const batch of batches) {
+    const batchSubjects = {
+      include: batch,
+      exclude: subjectList.exclude,
+      mode: subjectList.mode
+    };
+
+    const query = await buildEverythingQuery({
+      meta,
+      subjects: batchSubjects,
+      objects,
+      filters
+    });
+    queries.push(query);
+  }
+
+  // Return array of queries that can be executed separately
+  return queries;
 }
 /**
  * Builds a simple SPARQL query for basic page/listings retrieval

@@ -3,6 +3,7 @@ import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
 import { error, redirect, json } from '@sveltejs/kit';
+import { batchEverythingQuery } from '$lib/sparql.js'
 /*
 
 get
@@ -55,7 +56,7 @@ export async function load({ params, url }) {
       break;
 
     case "everything":
-      query = buildEverythingQuery(multiPass);
+      query = await buildEverythingQuery(multiPass);
       // const bj = await queryArray(query);
       // Pass filters when returning blobjects, because blobjects are composite objects
       // and we want to filter the set of blobjects, not response entries
