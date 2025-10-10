@@ -431,9 +431,10 @@ export const prepEverything = async ({
   const subjectResults = await queryArray(subjectQuery);
   console.log(subjectResults)
   // Extract subject URIs from first query
-  const incls = {} = subjectResults.results.bindings
+  const incls = subjectResults.results.bindings
     .filter(binding => binding.s && binding.s.type === 'uri')
-    .map(binding => binding.s.value);
+    .map(binding => binding.s.value)
+    .filter((value, index, array) => array.indexOf(value) === index); // Remove duplicates
 
   let subjectUris = {}
   subjectUris.include = incls
@@ -479,7 +480,7 @@ export const buildEverythingQuery = async ({
     ?s octo:indexed ?date .
     ?s rdf:type ?pageType .
     ?s octo:octothorpes ?o .
-    ?o rdf:type ?oType.
+    OPTIONAL { ?o rdf:type ?oType.}
 
     OPTIONAL { ?s octo:title ?title }
     OPTIONAL { ?s octo:image ?image }
