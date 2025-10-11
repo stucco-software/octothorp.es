@@ -1,8 +1,9 @@
-import { queryBoolean, queryArray, buildEverythingQuery, queryEverything, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuerySubquery, buildEverythingQuery, queryEverything, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
 import { error, redirect, json } from '@sveltejs/kit';
+import { buildEverythingQuerySubquery } from '../../../../../lib/sparql';
 /*
 
 get
@@ -62,6 +63,14 @@ export async function load({ params, url }) {
       actualResults = await getBlobjectFromResponse(bj, multiPass.filters);
       // TKTK check to run filters on result instead of query
       break;
+      case "subeverything":
+        query = await buildEverythingQuerySubquery(multiPass);
+        const subbj = await queryArray(query);
+        // Pass filters when returning blobjects, because blobjects are composite objects
+        // and we want to filter the set of blobjects, not response entries
+        actualResults = await getBlobjectFromResponse(subbj, multiPass.filters);
+        // TKTK check to run filters on result instead of query
+        break;
     case "thorpes":
       query = buildThorpeQuery(multiPass);
       const tr = await queryArray(query);

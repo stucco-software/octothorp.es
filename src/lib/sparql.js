@@ -471,33 +471,52 @@ export const buildEverythingQuery = async ({
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
-    ${statements.subjectStatement}
-
-    ${statements.subtypeFilter}
-
-    ${statements.objectStatement}
-
-    ?s octo:indexed ?date .
-    ?s rdf:type ?pageType .
-    ?s octo:octothorpes ?o .
-    OPTIONAL { ?o rdf:type ?oType.}
-
-    OPTIONAL { ?s octo:title ?title }
-    OPTIONAL { ?s octo:image ?image }
-    OPTIONAL { ?s octo:description ?description }
-
-    OPTIONAL { ?o octo:title ?ot }
-    OPTIONAL { ?o octo:description ?od }
-    OPTIONAL { ?o octo:image ?oimg }
-
-    OPTIONAL {
-      ?s ?blankNodePred ?blankNode .
-      FILTER(isBlank(?blankNode))
-      ?blankNode ?bnp ?blankNodeObj .
-      FILTER(!isBlank(?blankNodeObj))
+    {
+      ${statements.subjectStatement}
+      ${statements.subtypeFilter}
+      ${statements.objectStatement}
+      ?s octo:indexed ?date .
+      ?s rdf:type ?pageType .
+      ?s octo:octothorpes ?o .
+      OPTIONAL { ?o rdf:type ?oType. }
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL { ?o octo:title ?ot }
+      OPTIONAL { ?o octo:description ?od }
+      OPTIONAL { ?o octo:image ?oimg }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
     }
+    UNION
+    {
+      ${statements.subjectStatement}
+      ?s octo:indexed ?date .
+      ?s rdf:type ?pageType .
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
+      BIND("" AS ?o)
+      BIND("" AS ?oType)
+      BIND("" AS ?ot)
+      BIND("" AS ?od)
+      BIND("" AS ?oimg)
+      FILTER NOT EXISTS {
+        ?s octo:octothorpes ?anyObject .
+      }
     }
-    ORDER BY ?date
+  }
+  ORDER BY ?date
   `
   return cleanQuery(query)
 }
@@ -545,6 +564,75 @@ export const batchEverythingQuery = async ({
 
   // Return array of queries that can be executed separately
   return queries;
+}
+
+// Single-query approach using subquery for subject list
+// TKTK MUST REMOVE UNION ON NON POSTED QUERIES
+export const buildEverythingQuerySubquery = async ({
+  meta, subjects, objects, filters
+}) => {
+  const statements = getStatements(subjects, objects, filters, meta.resultMode);
+
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
+  WHERE {
+    {
+      {
+        SELECT ?s ?date ?pageType ?o
+        WHERE {
+          ${statements.subjectStatement}
+          ${statements.subtypeFilter}
+          ${statements.objectStatement}
+          ?s octo:indexed ?date .
+          ?s rdf:type ?pageType .
+          ?s octo:octothorpes ?o .
+        }
+      }
+      OPTIONAL { ?o rdf:type ?oType. }
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL { ?o octo:title ?ot }
+      OPTIONAL { ?o octo:description ?od }
+      OPTIONAL { ?o octo:image ?oimg }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
+    }
+    UNION
+    {
+      {
+        SELECT ?s ?date ?pageType
+        WHERE {
+          ${statements.subjectStatement}
+          ?s octo:indexed ?date .
+          ?s rdf:type ?pageType .
+          FILTER NOT EXISTS {
+            ?s octo:octothorpes ?anyObject .
+          }
+        }
+      }
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
+      BIND("" AS ?o)
+      BIND("" AS ?oType)
+      BIND("" AS ?ot)
+      BIND("" AS ?od)
+      BIND("" AS ?oimg)
+    }
+  }
+  ORDER BY ?date
+  `
+  return cleanQuery(query)
 }
 /**
  * Builds a simple SPARQL query for basic page/listings retrieval
