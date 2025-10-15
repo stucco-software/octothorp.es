@@ -3,8 +3,7 @@ import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
 import { error, redirect, json } from '@sveltejs/kit';
-import { batchEverythingQuery } from '$lib/sparql.js'
-import { buildEverythingQueryConstruct } from '../../../../lib/sparql';
+
 /*
 
 get
