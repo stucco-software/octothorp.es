@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray, buildEverythingQuery, buildEverythingQuerySubquery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
