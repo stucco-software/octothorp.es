@@ -19,7 +19,7 @@ const parser = new DOMParser()
 /**
  * Processes extracted values using various transformation methods
  * @param {string|Array} value - The value(s) to process
- * @param {string} flag - Processing method: "regex", "substring", or "split"
+ * @param {string} flag - Processing method: "regex", "substring", "split", or "trim"
  * @param {string|Array} p - Parameters for the processing method
  * @returns {string|Array|null} Processed value(s) or null if regex doesn't match
  */
@@ -46,6 +46,11 @@ const processValue = (value, flag, p) => {
   if (flag === "split") {
     // console.log(value.split(p))
     return value.split(p)
+  }
+
+  if (flag === "trim") {
+    // Remove whitespace and break characters from start and end
+    return value.trim()
   }
 }
 
