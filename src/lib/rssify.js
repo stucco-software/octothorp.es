@@ -13,7 +13,7 @@ const atomLink = l => l ? `<atom:link href="${encodedStr(l)}" rel="self" type="a
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest
-  
+
   let json_node = {
     title: "Some Node",
     description: "This is some sort of node.",
@@ -48,7 +48,7 @@ if (import.meta.vitest) {
   it('Returns an empty string if pubDate is invalid', async () => {
     expect(rssItem(invalid_date))
       .toStrictEqual(``)
-  })  
+  })
 
   let no_title_or_desc = {
     pubDate: "2024.06.21"
@@ -56,7 +56,7 @@ if (import.meta.vitest) {
   it('Returns an empty string if neither title nor description present', async () => {
     expect(rssItem(no_title_or_desc))
       .toStrictEqual(``)
-  })  
+  })
 }
 const rssItem = item => (new Date(item.pubDate)).toUTCString() != "Invalid Date" && (item.title || item.description) ? `
   <item>
@@ -109,13 +109,21 @@ const convertBlobjectToRssItems = (results) => {
   });
 };
 
-export const rss = (tree, what = "pages") => {
+export const rss = (tree, what = "default") => {
   // Determine if we're dealing with blobjects or parseBindings results
   const isBlobject = what === "everything";
-  
-  // Convert results to RSS items based on the flag
-  const items = isBlobject ? convertBlobjectToRssItems(tree.channel.items) : convertParseBindingsToRssItems(tree.channel.items);
-  
+
+  // Check if items already have RSS-compatible structure or need conversion
+  let items;
+  if (isBlobject) {
+    items = convertBlobjectToRssItems(tree.channel.items);
+  } else if (what === "default") {
+    // For "pages" type, use items directly as they already have RSS structure
+    items = tree.channel.items;
+  } else {
+    items = convertParseBindingsToRssItems(tree.channel.items);
+  }
+
   return `
   <rss
     xmlns:atom="http://www.w3.org/2005/Atom"
