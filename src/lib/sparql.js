@@ -467,6 +467,12 @@ export const buildEverythingQuery = async ({
   });
 
 
+  if (!subjectList.include.length > 0 && !subjectList.exclude.length > 0) {
+    return `SELECT ?s ?p ?o WHERE {
+      ?s ?p ?o .
+      FILTER(false)
+    }`;
+  }
   const statements = getStatements(subjectList, objects, filters, meta.resultMode)
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
