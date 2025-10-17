@@ -117,6 +117,8 @@ ${nquads}
 )
 
 
+
+
 ////////// SPARQL-SPECIFIC UTILITIES //////////
 
 
@@ -412,6 +414,37 @@ function getStatements (subjects, objects, filters, resultMode) {
 
 ////////// /get/everything //////////
 
+
+/**
+ * Executes a two-phase query for everything endpoint to avoid timeouts
+ * @param {Object} multiPass - The multiPass object containing query parameters
+ * @returns {Promise<Object>} Promise resolving to SPARQL query results with bindings
+ * @throws {Error} If the SPARQL query fails
+ */
+export const prepEverything = async ({
+  meta, subjects, objects, filters
+  }) => {
+  // Phase 1: Use buildSimpleQuery to get list of subject URLs with limits and offsets
+  const subjectQuery = buildSimpleQuery({
+    meta, subjects, objects, filters
+    });
+  const subjectResults = await queryArray(subjectQuery);
+  console.log(subjectResults)
+  // Extract subject URIs from first query
+  const incls = subjectResults.results.bindings
+    .filter(binding => binding.s && binding.s.type === 'uri')
+    .map(binding => binding.s.value)
+    .filter((value, index, array) => array.indexOf(value) === index); // Remove duplicates
+
+  let subjectUris = {}
+  subjectUris.include = incls
+  subjectUris.exclude = []
+  subjectUris.mode = "exact"
+
+  // console.log(subjectUris)
+  return subjectUris
+ }
+
 /**
  * Builds a comprehensive SPARQL query for retrieving complete blobjects with metadata
  * @param {Object} params - MultiPass configuration object
@@ -424,42 +457,66 @@ function getStatements (subjects, objects, filters, resultMode) {
  * const query = buildEverythingQuery(multiPass)
  * const results = await queryArray(query)
  */
-export const buildEverythingQuery = ({
+export const buildEverythingQuery = async ({
   meta, subjects, objects, filters
   }) => {
-  const statements = getStatements(subjects, objects, filters, meta.resultMode)
+
+
+  const subjectList = await prepEverything({
+    meta, subjects, objects, filters
+  });
+
+
+  const statements = getStatements(subjectList, objects, filters, meta.resultMode)
 
   const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
-    ${statements.subjectStatement}
-
-    ${statements.subtypeFilter}
-
-    ${statements.objectStatement}
-
-    ?s octo:indexed ?date .
-    ?s rdf:type ?pageType .
-    ?s octo:octothorpes ?o .
-    ?o rdf:type ?oType.
-
-    ${objectTypes[objects.type]}
-    OPTIONAL {
-        ?o ?blankNodePred ?blankNode .
+    {
+      ${statements.subjectStatement}
+      ${statements.subtypeFilter}
+      ${statements.objectStatement}
+      ?s octo:indexed ?date .
+      ?s rdf:type ?pageType .
+      ?s octo:octothorpes ?o .
+      OPTIONAL { ?o rdf:type ?oType. }
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL { ?o octo:title ?ot }
+      OPTIONAL { ?o octo:description ?od }
+      OPTIONAL { ?o octo:image ?oimg }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
         FILTER(isBlank(?blankNode))
-        OPTIONAL {
-          ?blankNode ?bnp ?blankNodeObj .
-          FILTER(!isBlank(?blankNodeObj))
-        }
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
       }
-
-        OPTIONAL { ?s octo:title ?title }
-        OPTIONAL { ?s octo:image ?image }
-        OPTIONAL { ?s octo:description ?description }
-        OPTIONAL { ?o octo:title ?ot }
-        OPTIONAL { ?o octo:description ?od }
-        OPTIONAL { ?o octo:image ?oimg }
+    }
+    UNION
+    {
+      ${statements.subjectStatement}
+      ?s octo:indexed ?date .
+      ?s rdf:type ?pageType .
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
+      BIND("" AS ?o)
+      BIND("" AS ?oType)
+      BIND("" AS ?ot)
+      BIND("" AS ?od)
+      BIND("" AS ?oimg)
+      FILTER NOT EXISTS {
+        ?s octo:octothorpes ?anyObject .
+      }
+    }
   }
-    ORDER BY ?date
+  ORDER BY DESC(?date)
   `
   return cleanQuery(query)
 }
@@ -480,36 +537,43 @@ export const buildSimpleQuery = ({
   meta, subjects, objects, filters
   }) => {
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
+  const includeObjects = objects.type !== 'none'
 
-  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg
+  // Build SELECT clause conditionally
+  const selectClause = includeObjects
+    ? 'SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg'
+    : 'SELECT DISTINCT ?s ?title ?description ?image ?date ?pageType'
+
+  // Build object-related clauses conditionally
+  const objectClauses = includeObjects ? `
+    ${statements.subtypeFilter}
+    ${statements.objectStatement}
+    ?s octo:octothorpes ?o .
+    ${objectTypes[objects.type]}
+    OPTIONAL { ?o octo:title ?ot . }
+    OPTIONAL { ?o octo:description ?od . }
+    OPTIONAL { ?o octo:image ?oimg . }
+  ` : ''
+
+  const query = `${selectClause}
   WHERE {
     ${statements.subjectStatement}
-
-    ${statements.subtypeFilter}
-
-    ${statements.objectStatement}
-
+    ${objectClauses}
     ?s octo:indexed ?date .
     ${statements.dateFilter}
     ?s rdf:type ?pageType .
-    ?s octo:octothorpes ?o .
-
-    ${objectTypes[objects.type]}
-
 
     OPTIONAL { ?s octo:title ?title . }
     OPTIONAL { ?s octo:image ?image . }
     OPTIONAL { ?s octo:description ?description . }
-    OPTIONAL { ?o octo:title ?ot . }
-    OPTIONAL { ?o octo:description ?od . }
-    OPTIONAL { ?o octo:image ?oimg . }
   }
-    ORDER BY ?date
+    ORDER BY DESC(?date)
     ${statements.limitFilter}
     ${statements.offsetFilter}
   `
   return cleanQuery(query)
   }
+
 
 /**
  * Builds a SPARQL query specifically for retrieving hashtag/term listings
@@ -527,7 +591,7 @@ export const buildThorpeQuery = ({
   meta, subjects, objects, filters
   }) => {
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
-  // const query = `SELECT DISTINCT ?s ?o ?date WHERE {    VALUES ?subList { "demo.ideastore.dev" }               FILTER(CONTAINS(STR(?s), ?subList))   ?o rdf:type <octo:Term> .         ?s ?o ?date .    ?s octo:octothorpes ?o   }    ORDER BY ?date `
+  // const query = `SELECT DISTINCT ?s ?o ?date WHERE {    VALUES ?subList { "demo.ideastore.dev" }               FILTER(CONTAINS(STR(?s), ?subList))   ?o rdf:type <octo:Term> .         ?s ?o ?date .    ?s octo:octothorpes ?o   }    ORDER BY DESC(?date) `
   const query = `SELECT DISTINCT ?o ?date
   WHERE {
     ${statements.subjectStatement}
@@ -537,7 +601,7 @@ export const buildThorpeQuery = ({
        ?s ?o ?date .
        ?s octo:octothorpes ?o
        }
-    ORDER BY ?date
+    ORDER BY DESC(?date)
     ${statements.limitFilter}
     ${statements.offsetFilter}
   `
@@ -608,37 +672,6 @@ export const buildDomainQuery = ({
       `
 
     }
-  console.log(query)
   return cleanQuery(query)
 
 }
-
-/*
-WEBRINGS HO!
-
-PREFIX oc: <http://opencoinage.org/rdf/>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX octo: <https://vocab.octothorp.es#>
-
-SELECT DISTINCT ?domain ?page ?o ?domainTitle ?pageTitle ?description ?image ?date ?pageType
-WHERE {
-  # Get all domains in the webring
-  <https://demo.ideastore.dev/rad-webring> octo:hasMember ?domain .
-
-  # Get all pages that belong to these domains
-  ?domain octo:hasMember ?page .
-
-  # Get domain metadata
-  OPTIONAL { ?domain octo:title ?domainTitle }
-
-  # Get page metadata
-  ?page rdf:type ?pageType ;
-        octo:indexed ?date ;
-        octo:octothorpes ?o <<<< unexpected doubling
-  OPTIONAL { ?page octo:title ?pageTitle }
-  OPTIONAL { ?page octo:description ?description }
-  OPTIONAL { ?page octo:image ?image }
-}
-ORDER BY ?date
-*/

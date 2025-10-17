@@ -55,8 +55,8 @@ export async function load({ params, url }) {
       break;
 
     case "everything":
-      query = buildEverythingQuery(multiPass);
-      const bj = await queryArray(multiPass);
+      query = await buildEverythingQuery(multiPass);
+      const bj = await queryArray(query);
       // Pass filters when returning blobjects, because blobjects are composite objects
       // and we want to filter the set of blobjects, not response entries
       actualResults = await getBlobjectFromResponse(bj, multiPass.filters);

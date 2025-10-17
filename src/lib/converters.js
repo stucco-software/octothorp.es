@@ -68,7 +68,10 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
       // Process octothorpe links
       if (binding.o?.value) {
         const targetUrl = binding.o.value;
-        let oType = binding.oType.value
+        let oType = "";
+        if (binding.oType?.value) {
+          oType = binding.oType.value
+        }
         // deal with Terms
         if (oType.startsWith('octo:')) {
           oType = oType.substring(5); // Remove 'octo:' prefix
@@ -81,7 +84,7 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
               current.octothorpes.push(termValue);
             }
         }
-       if (oType === "Page") {
+       else {
           // For Pages, determine type
           // blank nodes are only set when there is a more specific object type
           // so if they have a value we use that
@@ -105,8 +108,10 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
             });
           } else if (oType !== 'link') {
             // Update existing entry if we have a more specific type
+            // TKTK this over-assigns types like Backlinks
             current.octothorpes[existingIndex].type = oType;
           }
+
         }
       }
     });
@@ -245,7 +250,7 @@ export const getMultiPassFromParams  = (
           // this route by definition does not filter on objects
           // so we stick with the default [o?] value
           // TKTK could throw more specific error when no subject provided
-          objectType = "all"
+          objectType = "none"
           break
         case "in-webring":
         case "members":
