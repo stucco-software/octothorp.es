@@ -474,31 +474,10 @@ export const buildEverythingQuery = async ({
     }`;
   }
   const statements = getStatements(subjectList, objects, filters, meta.resultMode)
+  let noObjectHandler = ""
 
-  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
-  WHERE {
-    {
-      ${statements.subjectStatement}
-      ${statements.subtypeFilter}
-      ${statements.objectStatement}
-      ?s octo:indexed ?date .
-      ?s rdf:type ?pageType .
-      ?s octo:octothorpes ?o .
-      OPTIONAL { ?o rdf:type ?oType. }
-      OPTIONAL { ?s octo:title ?title }
-      OPTIONAL { ?s octo:image ?image }
-      OPTIONAL { ?s octo:description ?description }
-      OPTIONAL { ?o octo:title ?ot }
-      OPTIONAL { ?o octo:description ?od }
-      OPTIONAL { ?o octo:image ?oimg }
-      OPTIONAL {
-        ?s ?blankNodePred ?blankNode .
-        FILTER(isBlank(?blankNode))
-        ?blankNode ?bnp ?blankNodeObj .
-        FILTER(!isBlank(?blankNodeObj))
-      }
-    }
-    UNION
+  if (objects.type === 'none') {
+    noObjectHandler = `UNION
     {
       ${statements.subjectStatement}
       ?s octo:indexed ?date .
@@ -520,7 +499,31 @@ export const buildEverythingQuery = async ({
       FILTER NOT EXISTS {
         ?s octo:octothorpes ?anyObject .
       }
+    }`;
+  }
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
+  WHERE {
+    {
+      ${statements.subjectStatement}
+      ${statements.subtypeFilter}
+      ?s octo:indexed ?date .
+      ?s rdf:type ?pageType .
+      ?s octo:octothorpes ?o .
+      OPTIONAL { ?o rdf:type ?oType. }
+      OPTIONAL { ?s octo:title ?title }
+      OPTIONAL { ?s octo:image ?image }
+      OPTIONAL { ?s octo:description ?description }
+      OPTIONAL { ?o octo:title ?ot }
+      OPTIONAL { ?o octo:description ?od }
+      OPTIONAL { ?o octo:image ?oimg }
+      OPTIONAL {
+        ?s ?blankNodePred ?blankNode .
+        FILTER(isBlank(?blankNode))
+        ?blankNode ?bnp ?blankNodeObj .
+        FILTER(!isBlank(?blankNodeObj))
+      }
     }
+    ${noObjectHandler}
   }
   ORDER BY DESC(?date)
   `
