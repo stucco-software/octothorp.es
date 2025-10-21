@@ -12,15 +12,21 @@
   let format = 'json'
 
   // Query parameters
-  let subjects = ''
-  let objects = ''
-  let notSubjects = ''
-  let notObjects = ''
+  let subjects = []
+  let objects = []
+  let notSubjects = []
+  let notObjects = []
   let subjectMatch = 'auto'
   let objectMatch = 'auto'
   let limit = 20
   let offset = 0
   let when = ''
+
+  // Input values for tokenized fields
+  let subjectsInput = ''
+  let objectsInput = ''
+  let notSubjectsInput = ''
+  let notObjectsInput = ''
 
   // Results
   let results = null
@@ -37,10 +43,10 @@
     if (params.has('what')) what = params.get('what')
     if (params.has('by')) by = params.get('by')
     if (params.has('format')) format = params.get('format')
-    if (params.has('subjects')) subjects = params.get('subjects')
-    if (params.has('objects')) objects = params.get('objects')
-    if (params.has('notSubjects')) notSubjects = params.get('notSubjects')
-    if (params.has('notObjects')) notObjects = params.get('notObjects')
+    if (params.has('subjects')) subjects = params.get('subjects').split(',').filter(s => s.trim())
+    if (params.has('objects')) objects = params.get('objects').split(',').filter(s => s.trim())
+    if (params.has('notSubjects')) notSubjects = params.get('notSubjects').split(',').filter(s => s.trim())
+    if (params.has('notObjects')) notObjects = params.get('notObjects').split(',').filter(s => s.trim())
     if (params.has('subjectMatch')) subjectMatch = params.get('subjectMatch')
     if (params.has('objectMatch')) objectMatch = params.get('objectMatch')
     if (params.has('limit')) limit = parseInt(params.get('limit'))
@@ -61,10 +67,10 @@
       if (what !== 'everything') params.set('what', what)
       if (by !== 'thorped') params.set('by', by)
       if (format !== 'json') params.set('format', format)
-      if (subjects) params.set('subjects', subjects)
-      if (objects) params.set('objects', objects)
-      if (notSubjects) params.set('notSubjects', notSubjects)
-      if (notObjects) params.set('notObjects', notObjects)
+      if (subjects.length > 0) params.set('subjects', subjects.join(','))
+      if (objects.length > 0) params.set('objects', objects.join(','))
+      if (notSubjects.length > 0) params.set('notSubjects', notSubjects.join(','))
+      if (notObjects.length > 0) params.set('notObjects', notObjects.join(','))
       if (subjectMatch !== 'auto') params.set('subjectMatch', subjectMatch)
       if (objectMatch !== 'auto') params.set('objectMatch', objectMatch)
       if (limit !== 20) params.set('limit', limit.toString())
@@ -85,11 +91,11 @@
       let url = `${base}/get/${what}/${by}`
       if (format !== 'json') url += `/${format}`
 
-      const params = new URLSearchParams()
-      if (subjects) params.append('s', subjects)
-      if (objects) params.append('o', objects)
-      if (notSubjects) params.append('not-s', notSubjects)
-      if (notObjects) params.append('not-o', notObjects)
+      const params = []
+      if (subjects.length > 0) params.push('s=' + subjects.join(','))
+      if (objects.length > 0) params.push('o=' + objects.join(','))
+      if (notSubjects.length > 0) params.push('not-s=' + notSubjects.join(','))
+      if (notObjects.length > 0) params.push('not-o=' + notObjects.join(','))
       
       // Determine match strategy based on subject/object settings
       let match = 'auto'
@@ -103,12 +109,12 @@
         match = 'fuzzy'
       }
       
-      if (match !== 'auto') params.append('match', match)
-      if (limit) params.append('limit', limit)
-      if (offset) params.append('offset', offset)
-      if (when) params.append('when', when)
+      if (match !== 'auto') params.push('match=' + match)
+      if (limit) params.push('limit=' + limit)
+      if (offset) params.push('offset=' + offset)
+      if (when) params.push('when=' + when)
 
-      queryUrl = url + (params.toString() ? '?' + params : '')
+      queryUrl = url + (params.length > 0 ? '?' + params.join('&') : '')
     }
   }
 
@@ -150,30 +156,82 @@
       case 'wwo':
         what = 'everything'
         by = 'thorped'
-        objects = 'weirdweboctober'
+        objects = ['weirdweboctober']
         when = 'recent'
         limit = 50
         break
       case 'my-bookmarks':
         what = 'pages'
         by = 'bookmarked'
-        subjects = 'example.com'
+        subjects = ['example.com']
         break
       case 'backlinks':
         what = 'pages'
         by = 'backlinked'
-        objects = 'https://example.com/page'
+        objects = ['https://example.com/page']
         break
       case 'webring':
         what = 'everything'
         by = 'in-webring'
-        subjects = 'https://example.com/webring'
+        subjects = ['https://example.com/webring']
         break
     }
     // Wait for reactive statement to update queryUrl
     await new Promise(resolve => setTimeout(resolve, 0))
     // Execute query after loading preset
     executeQuery()
+  }
+
+  // Token handling functions
+  function addToken(arrayName, inputName) {
+    const arrays = { subjects, objects, notSubjects, notObjects }
+    const inputs = { subjectsInput, objectsInput, notSubjectsInput, notObjectsInput }
+    
+    const inputValue = inputs[inputName].trim()
+    if (!inputValue) return
+    
+    const currentArray = arrays[arrayName]
+    if (!currentArray.includes(inputValue)) {
+      if (arrayName === 'subjects') subjects = [...subjects, inputValue]
+      else if (arrayName === 'objects') objects = [...objects, inputValue]
+      else if (arrayName === 'notSubjects') notSubjects = [...notSubjects, inputValue]
+      else if (arrayName === 'notObjects') notObjects = [...notObjects, inputValue]
+    }
+    
+    if (inputName === 'subjectsInput') subjectsInput = ''
+    else if (inputName === 'objectsInput') objectsInput = ''
+    else if (inputName === 'notSubjectsInput') notSubjectsInput = ''
+    else if (inputName === 'notObjectsInput') notObjectsInput = ''
+  }
+
+  function removeToken(arrayName, value) {
+    if (arrayName === 'subjects') subjects = subjects.filter(v => v !== value)
+    else if (arrayName === 'objects') objects = objects.filter(v => v !== value)
+    else if (arrayName === 'notSubjects') notSubjects = notSubjects.filter(v => v !== value)
+    else if (arrayName === 'notObjects') notObjects = notObjects.filter(v => v !== value)
+  }
+
+  function handleTokenInput(e, arrayName, inputName) {
+    const inputs = { subjectsInput, objectsInput, notSubjectsInput, notObjectsInput }
+    const arrays = { subjects, objects, notSubjects, notObjects }
+    
+    // Comma adds token
+    if (e.key === ',') {
+      e.preventDefault()
+      addToken(arrayName, inputName)
+    }
+    // Backspace on empty input removes last token
+    else if (e.key === 'Backspace' && !inputs[inputName]) {
+      e.preventDefault()
+      const currentArray = arrays[arrayName]
+      if (currentArray.length > 0) {
+        if (arrayName === 'subjects') subjects = subjects.slice(0, -1)
+        else if (arrayName === 'objects') objects = objects.slice(0, -1)
+        else if (arrayName === 'notSubjects') notSubjects = notSubjects.slice(0, -1)
+        else if (arrayName === 'notObjects') notObjects = notObjects.slice(0, -1)
+      }
+    }
+    // Enter should NOT add token, let form submission handle it
   }
 </script>
 
@@ -232,10 +290,20 @@
         <div class="field-with-toggle">
           <label>
             Subjects
-            <input
-              type="text"
-              bind:value={subjects}
-              placeholder="example.com">
+            <div class="token-input">
+              {#each subjects as subject}
+                <span class="token">
+                  {subject}
+                  <button type="button" class="token-remove" on:click={() => removeToken('subjects', subject)}>×</button>
+                </span>
+              {/each}
+              <input
+                type="text"
+                bind:value={subjectsInput}
+                on:keydown={(e) => handleTokenInput(e, 'subjects', 'subjectsInput')}
+                on:blur={() => addToken('subjects', 'subjectsInput')}
+                placeholder={subjects.length === 0 ? 'example.com' : ''}>
+            </div>
           </label>
           <div class="toggle-buttons">
             <button 
@@ -255,10 +323,20 @@
         <div class="field-with-toggle">
           <label>
             Objects
-            <input
-              type="text"
-              bind:value={objects}
-              placeholder="demo">
+            <div class="token-input">
+              {#each objects as object}
+                <span class="token">
+                  {object}
+                  <button type="button" class="token-remove" on:click={() => removeToken('objects', object)}>×</button>
+                </span>
+              {/each}
+              <input
+                type="text"
+                bind:value={objectsInput}
+                on:keydown={(e) => handleTokenInput(e, 'objects', 'objectsInput')}
+                on:blur={() => addToken('objects', 'objectsInput')}
+                placeholder={objects.length === 0 ? 'demo' : ''}>
+            </div>
           </label>
           <div class="toggle-buttons">
             <button 
@@ -283,17 +361,37 @@
         </div>
         <label>
           Exclude Subjects
-          <input
-            type="text"
-            bind:value={notSubjects}
-            placeholder="spam.com">
+          <div class="token-input">
+            {#each notSubjects as subject}
+              <span class="token">
+                {subject}
+                <button type="button" class="token-remove" on:click={() => removeToken('notSubjects', subject)}>×</button>
+              </span>
+            {/each}
+            <input
+              type="text"
+              bind:value={notSubjectsInput}
+              on:keydown={(e) => handleTokenInput(e, 'notSubjects', 'notSubjectsInput')}
+              on:blur={() => addToken('notSubjects', 'notSubjectsInput')}
+              placeholder={notSubjects.length === 0 ? 'spam.com' : ''}>
+          </div>
         </label>
         <label>
           Exclude Objects
-          <input
-            type="text"
-            bind:value={notObjects}
-            placeholder="test">
+          <div class="token-input">
+            {#each notObjects as object}
+              <span class="token">
+                {object}
+                <button type="button" class="token-remove" on:click={() => removeToken('notObjects', object)}>×</button>
+              </span>
+            {/each}
+            <input
+              type="text"
+              bind:value={notObjectsInput}
+              on:keydown={(e) => handleTokenInput(e, 'notObjects', 'notObjectsInput')}
+              on:blur={() => addToken('notObjects', 'notObjectsInput')}
+              placeholder={notObjects.length === 0 ? 'test' : ''}>
+          </div>
         </label>
       </fieldset>
 
@@ -585,6 +683,62 @@
   select:focus {
     outline: 2px solid yellow;
     outline-offset: 2px;
+  }
+
+  /* Token input */
+  .token-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--txt-color);
+    background-color: var(--bg-color);
+    min-height: 2rem;
+    align-items: center;
+  }
+
+  .token-input:focus-within {
+    outline: 2px solid yellow;
+    outline-offset: 2px;
+  }
+
+  .token-input input {
+    flex: 1;
+    min-width: 80px;
+    border: none;
+    padding: 0.125rem;
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+    outline: none;
+  }
+
+  .token-input .token {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    background-color: lightgoldenrodyellow;
+    border: 1px solid var(--txt-color);
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+    line-height: 1.4;
+  }
+
+  .token-remove {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: var(--txt-0);
+    line-height: 1;
+    color: var(--txt-color);
+    font-weight: bold;
+  }
+
+  .token-remove:hover {
+    color: red;
+    background: none;
   }
 
   .quick-dates {
