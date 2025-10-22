@@ -483,6 +483,15 @@ const handleHTML = async (response, uri) => {
   // console.log(`VVVVVVVVVVVVVVVV`)
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
+    // Handle hashtags that come as plain strings
+    if (typeof octothorpe === 'string') {
+      if (octothorpe && octothorpe.trim()) {
+        handleThorpe(s, octothorpe)
+      }
+      continue;
+    }
+    
+    // Handle octothorpes that come as objects with type and uri
     let octoURI = deslash(octothorpe.uri)
     switch(octothorpe.type) {
       case 'link':
@@ -495,7 +504,9 @@ const handleHTML = async (response, uri) => {
         handleMention(s, octoURI)
         break;
       case 'hashtag':
-        handleThorpe(s, octoURI)
+        if (octoURI && octoURI.trim()) {
+          handleThorpe(s, octoURI)
+        }
         break;
       case 'endorse':
         friends.endorsed.push(octoURI)
@@ -511,7 +522,7 @@ const handleHTML = async (response, uri) => {
         handleMention(s, octoURI)
         break;
       default:
-        handleThorpe(s, octothorpe)
+        console.warn(`Unknown octothorpe type: ${octothorpe.type} for URI: ${octoURI}`)
         break;
     }
   }

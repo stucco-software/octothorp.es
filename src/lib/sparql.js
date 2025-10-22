@@ -505,17 +505,19 @@ export const buildEverythingQuery = async ({
   WHERE {
     {
       ${statements.subjectStatement}
-      ${statements.subtypeFilter}
       ?s octo:indexed ?date .
       ?s rdf:type ?pageType .
-      ?s octo:octothorpes ?o .
-      OPTIONAL { ?o rdf:type ?oType. }
       OPTIONAL { ?s octo:title ?title }
       OPTIONAL { ?s octo:image ?image }
       OPTIONAL { ?s octo:description ?description }
-      OPTIONAL { ?o octo:title ?ot }
-      OPTIONAL { ?o octo:description ?od }
-      OPTIONAL { ?o octo:image ?oimg }
+      OPTIONAL {
+        ?s octo:octothorpes ?o .
+        ${statements.subtypeFilter}
+        OPTIONAL { ?o rdf:type ?oType. }
+        OPTIONAL { ?o octo:title ?ot }
+        OPTIONAL { ?o octo:description ?od }
+        OPTIONAL { ?o octo:image ?oimg }
+      }
       OPTIONAL {
         ?s ?blankNodePred ?blankNode .
         FILTER(isBlank(?blankNode))
