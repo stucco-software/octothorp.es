@@ -159,6 +159,63 @@ describe('External Harmonizer Support', () => {
       
       expect(harmonizer).toBeNull()
     })
+
+    it('should use cached harmonizer on second fetch', async () => {
+      const remoteUrl = 'https://octothorp.es/harmonizer/default'
+      
+      // First fetch
+      const harmonizer1 = await remoteHarmonizer(remoteUrl)
+      expect(harmonizer1).toBeDefined()
+      
+      // Second fetch should use cache
+      const harmonizer2 = await remoteHarmonizer(remoteUrl)
+      expect(harmonizer2).toBeDefined()
+      expect(harmonizer2).toEqual(harmonizer1)
+    })
+  })
+
+  describe('Remote Harmonizer Security', () => {
+    it('should reject HTTP URLs (non-HTTPS)', async () => {
+      const httpUrl = 'http://octothorp.es/harmonizer/default'
+      const harmonizer = await remoteHarmonizer(httpUrl)
+      
+      expect(harmonizer).toBeNull()
+    })
+
+    it('should reject private IP addresses', async () => {
+      const privateIPs = [
+        'https://192.168.1.1/harmonizer.json',
+        'https://10.0.0.1/harmonizer.json',
+        'https://172.16.0.1/harmonizer.json',
+        'https://127.0.0.1/harmonizer.json'
+      ]
+      
+      for (const url of privateIPs) {
+        const harmonizer = await remoteHarmonizer(url)
+        expect(harmonizer).toBeNull()
+      }
+    })
+
+    it('should reject cloud metadata endpoint', async () => {
+      const metadataUrl = 'https://169.254.169.254/latest/meta-data/'
+      const harmonizer = await remoteHarmonizer(metadataUrl)
+      
+      expect(harmonizer).toBeNull()
+    })
+
+    it('should reject domains not in allowlist', async () => {
+      const disallowedUrl = 'https://evil.com/harmonizer.json'
+      const harmonizer = await remoteHarmonizer(disallowedUrl)
+      
+      expect(harmonizer).toBeNull()
+    })
+
+    it('should handle invalid URL format', async () => {
+      const invalidUrl = 'not-a-url'
+      const harmonizer = await remoteHarmonizer(invalidUrl)
+      
+      expect(harmonizer).toBeNull()
+    })
   })
 
   describe('Harmonizer Parameter Flow', () => {
