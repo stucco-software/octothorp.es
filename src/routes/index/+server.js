@@ -462,11 +462,10 @@ const handleWebring = async (s, friends, alreadyRing) => {
 
 
 // Accept a response
-const handleHTML = async (response, uri) => {
+const handleHTML = async (response, uri, harmonizer = "default") => {
   // TIME TO DESLASH EVERYTHING HERE
   const src = await response.text()
-  // TKTK parse the "as" param and use non-default harmonizers
-  const harmed = await harmonizeSource(src)
+  const harmed = await harmonizeSource(src, harmonizer)
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
 
   console.log(`HARMED`)
@@ -531,7 +530,7 @@ const handleHTML = async (response, uri) => {
   return new Response(200)
 }
 
-const handler = async (s) => {
+const handler = async (s, harmonizer = "default") => {
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')
@@ -541,13 +540,14 @@ const handler = async (s) => {
 
   if (subject.headers.get('content-type').includes('text/html')) {
     console.log("handle html…", s)
-    return await handleHTML(subject, s)
+    return await handleHTML(subject, s, harmonizer)
   }
 }
 
 export async function GET(req) {
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
+  let harmonizer = url.searchParams.get('as') ?? "default"
   let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
   let origin = normalizeUrl(uri.origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
@@ -557,7 +557,7 @@ export async function GET(req) {
   }
 
   if (s) {
-    return await handler(s, origin)
+    return await handler(s, harmonizer)
     // @TKTK
     // if it's JSON, pass to JSON handler
   }
