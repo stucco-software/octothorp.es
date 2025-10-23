@@ -2,6 +2,8 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
+  import Loading from '$lib/components/Loading.svelte'
+  import RSSFeed from '$lib/components/RSSFeed.svelte'
 
   // Initialize from URL params if available
   $: urlParams = browser ? new URLSearchParams($page.url.search) : new URLSearchParams()
@@ -39,20 +41,43 @@
   if (browser) {
     const params = new URLSearchParams(window.location.search)
     const hasParams = params.toString().length > 0
-    
+
     if (params.has('what')) what = params.get('what')
     if (params.has('by')) by = params.get('by')
     if (params.has('format')) format = params.get('format')
-    if (params.has('subjects')) subjects = params.get('subjects').split(',').filter(s => s.trim())
-    if (params.has('objects')) objects = params.get('objects').split(',').filter(s => s.trim())
-    if (params.has('notSubjects')) notSubjects = params.get('notSubjects').split(',').filter(s => s.trim())
-    if (params.has('notObjects')) notObjects = params.get('notObjects').split(',').filter(s => s.trim())
-    if (params.has('subjectMatch')) subjectMatch = params.get('subjectMatch')
-    if (params.has('objectMatch')) objectMatch = params.get('objectMatch')
+    // Support both old and new parameter names
+    if (params.has('s')) subjects = params.get('s').split(',').filter(s => s.trim())
+    else if (params.has('subjects')) subjects = params.get('subjects').split(',').filter(s => s.trim())
+    if (params.has('o')) objects = params.get('o').split(',').filter(s => s.trim())
+    else if (params.has('objects')) objects = params.get('objects').split(',').filter(s => s.trim())
+    if (params.has('not-s')) notSubjects = params.get('not-s').split(',').filter(s => s.trim())
+    else if (params.has('notSubjects')) notSubjects = params.get('notSubjects').split(',').filter(s => s.trim())
+    if (params.has('not-o')) notObjects = params.get('not-o').split(',').filter(s => s.trim())
+    else if (params.has('notObjects')) notObjects = params.get('notObjects').split(',').filter(s => s.trim())
+    // Handle match parameter - convert to subjectMatch/objectMatch
+    if (params.has('match')) {
+      const match = params.get('match')
+      if (match === 'fuzzy-s') {
+        subjectMatch = 'fuzzy'
+        objectMatch = 'auto'
+      } else if (match === 'fuzzy-o') {
+        subjectMatch = 'auto'
+        objectMatch = 'fuzzy'
+      } else if (match === 'very-fuzzy-o') {
+        subjectMatch = 'auto'
+        objectMatch = 'very-fuzzy'
+      } else if (match === 'fuzzy') {
+        subjectMatch = 'fuzzy'
+        objectMatch = 'fuzzy'
+      }
+    } else {
+      if (params.has('subjectMatch')) subjectMatch = params.get('subjectMatch')
+      if (params.has('objectMatch')) objectMatch = params.get('objectMatch')
+    }
     if (params.has('limit')) limit = parseInt(params.get('limit'))
     if (params.has('offset')) offset = parseInt(params.get('offset'))
     if (params.has('when')) when = params.get('when')
-    
+
     // If URL has params, execute query after a brief delay to ensure reactive statements run
     if (hasParams) {
       hasLoadedFromUrl = true
@@ -60,19 +85,31 @@
     }
   }
 
-  // Update URL params when form values change
+  // Update URL params when form values change (use API parameter names)
   $: {
     if (browser) {
       const params = new URLSearchParams()
       if (what !== 'everything') params.set('what', what)
       if (by !== 'thorped') params.set('by', by)
       if (format !== 'json') params.set('format', format)
-      if (subjects.length > 0) params.set('subjects', subjects.join(','))
-      if (objects.length > 0) params.set('objects', objects.join(','))
-      if (notSubjects.length > 0) params.set('notSubjects', notSubjects.join(','))
-      if (notObjects.length > 0) params.set('notObjects', notObjects.join(','))
-      if (subjectMatch !== 'auto') params.set('subjectMatch', subjectMatch)
-      if (objectMatch !== 'auto') params.set('objectMatch', objectMatch)
+      if (subjects.length > 0) params.set('s', subjects.join(','))
+      if (objects.length > 0) params.set('o', objects.join(','))
+      if (notSubjects.length > 0) params.set('not-s', notSubjects.join(','))
+      if (notObjects.length > 0) params.set('not-o', notObjects.join(','))
+
+      // Calculate match parameter from subjectMatch/objectMatch
+      let match = 'auto'
+      if (subjectMatch === 'fuzzy' && objectMatch === 'auto') {
+        match = 'fuzzy-s'
+      } else if (objectMatch === 'fuzzy' && subjectMatch === 'auto') {
+        match = 'fuzzy-o'
+      } else if (objectMatch === 'very-fuzzy') {
+        match = 'very-fuzzy-o'
+      } else if (subjectMatch === 'fuzzy' || objectMatch === 'fuzzy') {
+        match = 'fuzzy'
+      }
+      if (match !== 'auto') params.set('match', match)
+
       if (limit !== 20) params.set('limit', limit.toString())
       if (offset !== 0) params.set('offset', offset.toString())
       if (when) params.set('when', when)
@@ -96,7 +133,7 @@
       if (objects.length > 0) params.push('o=' + objects.join(','))
       if (notSubjects.length > 0) params.push('not-s=' + notSubjects.join(','))
       if (notObjects.length > 0) params.push('not-o=' + notObjects.join(','))
-      
+
       // Determine match strategy based on subject/object settings
       let match = 'auto'
       if (subjectMatch === 'fuzzy' && objectMatch === 'auto') {
@@ -108,7 +145,7 @@
       } else if (subjectMatch === 'fuzzy' || objectMatch === 'fuzzy') {
         match = 'fuzzy'
       }
-      
+
       if (match !== 'auto') params.push('match=' + match)
       if (limit) params.push('limit=' + limit)
       if (offset) params.push('offset=' + offset)
@@ -151,6 +188,28 @@
     }
   }
 
+  function clearForm() {
+    // Reset all form values to defaults
+    what = 'everything'
+    by = 'thorped'
+    format = 'json'
+    subjects = []
+    objects = []
+    notSubjects = []
+    notObjects = []
+    subjectMatch = 'auto'
+    objectMatch = 'auto'
+    limit = 20
+    offset = 0
+    when = ''
+    subjectsInput = ''
+    objectsInput = ''
+    notSubjectsInput = ''
+    notObjectsInput = ''
+    results = null
+    error = null
+  }
+
   async function loadPreset(preset) {
     switch(preset) {
       case 'wwo':
@@ -186,10 +245,10 @@
   function addToken(arrayName, inputName) {
     const arrays = { subjects, objects, notSubjects, notObjects }
     const inputs = { subjectsInput, objectsInput, notSubjectsInput, notObjectsInput }
-    
+
     const inputValue = inputs[inputName].trim()
     if (!inputValue) return
-    
+
     const currentArray = arrays[arrayName]
     if (!currentArray.includes(inputValue)) {
       if (arrayName === 'subjects') subjects = [...subjects, inputValue]
@@ -197,7 +256,7 @@
       else if (arrayName === 'notSubjects') notSubjects = [...notSubjects, inputValue]
       else if (arrayName === 'notObjects') notObjects = [...notObjects, inputValue]
     }
-    
+
     if (inputName === 'subjectsInput') subjectsInput = ''
     else if (inputName === 'objectsInput') objectsInput = ''
     else if (inputName === 'notSubjectsInput') notSubjectsInput = ''
@@ -214,7 +273,7 @@
   function handleTokenInput(e, arrayName, inputName) {
     const inputs = { subjectsInput, objectsInput, notSubjectsInput, notObjectsInput }
     const arrays = { subjects, objects, notSubjects, notObjects }
-    
+
     // Comma adds token
     if (e.key === ',') {
       e.preventDefault()
@@ -239,8 +298,9 @@
   <title>API Explorer - Octothorpes Protocol</title>
 </svelte:head>
 
-<h1>Octothorpe Explorer</h1>
+<h1>Explore with Octothorpes</h1>
 
+<RSSFeed />
 
 <div class="explorer-container">
   <!-- Sidebar with Form -->
@@ -248,18 +308,9 @@
     <form on:submit|preventDefault={executeQuery}>
       <!-- Quick Presets -->
       <fieldset class="compact">
-        <legend>Presets</legend>
+        <legend>Featured</legend>
         <button type="button" on:click={() => loadPreset('wwo')}>
           Recent #weirdweboctober
-        </button>
-        <button type="button" on:click={() => loadPreset('my-bookmarks')}>
-          My bookmarks
-        </button>
-        <button type="button" on:click={() => loadPreset('backlinks')}>
-          Backlinks
-        </button>
-        <button type="button" on:click={() => loadPreset('webring')}>
-          Webring
         </button>
       </fieldset>
 
@@ -274,9 +325,9 @@
       </fieldset>
 
       <fieldset class="compact">
-        <legend>Filter by</legend>
+        <legend>By</legend>
         <select bind:value={by}>
-          <option value="thorped">Thorped</option>
+          <option value="thorped">Tagged</option>
           <option value="linked">Linked</option>
           <option value="backlinked">Backlinked</option>
           <option value="bookmarked">Bookmarked</option>
@@ -306,14 +357,14 @@
             </div>
           </label>
           <div class="toggle-buttons">
-            <button 
-              type="button" 
+            <button
+              type="button"
               class:active={subjectMatch === 'auto'}
               on:click={() => subjectMatch = 'auto'}>
               Auto
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               class:active={subjectMatch === 'fuzzy'}
               on:click={() => subjectMatch = 'fuzzy'}>
               Fuzzy
@@ -339,20 +390,20 @@
             </div>
           </label>
           <div class="toggle-buttons">
-            <button 
-              type="button" 
+            <button
+              type="button"
               class:active={objectMatch === 'auto'}
               on:click={() => objectMatch = 'auto'}>
               Auto
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               class:active={objectMatch === 'fuzzy'}
               on:click={() => objectMatch = 'fuzzy'}>
               Fuzzy
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               class:active={objectMatch === 'very-fuzzy'}
               on:click={() => objectMatch = 'very-fuzzy'}>
               Very
@@ -437,25 +488,35 @@
 
       <div class="actions">
         <button type="submit" disabled={loading}>
-          Execute
+            EXPLORE
         </button>
-        <button type="button" on:click={copyUrl}>Copy URL</button>
       </div>
     </form>
 
     <!-- Generated URL -->
     <section class="url-section">
-      <h4>URL</h4>
+      <h4>API URL</h4>
       <code>{queryUrl}</code>
+      <div class="url-actions">
+        <button type="button" class="small-button" on:click={copyUrl}>Copy URL</button>
+        <a href={queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/debug')} target="_blank" rel="noopener noreferrer" class="debug-link">Debug</a>
+      </div>
     </section>
   </aside>
 
   <!-- Main Results Area -->
   <main class="results-area">
-    {#if loading}
-      <div class="loading-state">
-        <p>Loading...</p>
+    {#if results}
+      <div class="results-header">
+        <h3>Results</h3>
+        <p class="result-count">
+          {results.results?.length || 0} result{results.results?.length === 1 ? '' : 's'}
+        </p>
       </div>
+    {/if}
+
+    {#if loading}
+      <Loading message="Loading results..." />
     {:else if error}
       <section class="results error">
         <h3>Error</h3>
@@ -463,12 +524,6 @@
       </section>
     {:else if results}
       <section class="results">
-        <div class="results-header">
-          <h3>Results</h3>
-          <p class="result-count">
-            {results.results?.length || 0} result{results.results?.length === 1 ? '' : 's'}
-          </p>
-        </div>
         {#if format === 'rss'}
           <pre>{results}</pre>
         {:else if format === 'debug'}
@@ -556,7 +611,7 @@
       </section>
     {:else}
       <div class="empty-state">
-        <p>Configure your query and click Execute to see results</p>
+        <p>Set some query parameters and click "Explore" to discover sites connected to this OP relay.</p>
       </div>
     {/if}
   </main>
@@ -565,7 +620,11 @@
 <style type="text/css">
   h1 {
     font-family: var(--serif-stack);
-    margin-block-end: var(--baseline);
+    margin-block-end: 0.5rem;
+    font-size: var(--txt-1);
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 1rem;
   }
 
   .description {
@@ -575,8 +634,8 @@
 
   .explorer-container {
     display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 1.5rem;
+    grid-template-columns: 280px 1fr;
+    gap: 1rem;
     max-width: 1200px;
     margin-inline: auto;
     align-items: start;
@@ -585,6 +644,8 @@
   /* Sidebar */
   .sidebar {
     position: sticky;
+    padding-top: 1rem;
+    padding-right: .5rem;
     top: 1rem;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
@@ -593,13 +654,14 @@
   .sidebar form {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   /* Compact fieldsets */
   fieldset.compact {
-    border: 1px solid var(--txt-color);
-    padding: 0.5rem;
+      border: 0px;
+    border-top: 1px solid var(--txt-color);
+    padding: 0.375rem;
     margin: 0;
     background-color: var(--bg-color);
   }
@@ -608,7 +670,7 @@
     font-weight: bold;
     padding-inline: 0.25rem;
     font-family: var(--sans-stack);
-    font-size: var(--txt--1);
+    font-size: var(--txt--2);
   }
 
   /* Preset buttons */
@@ -617,7 +679,7 @@
     width: 100%;
     margin-block-end: 0.25rem;
     text-align: left;
-    padding: 0.375rem 0.5rem;
+    padding: 0.25rem 0.375rem;
     font-size: var(--txt--2);
   }
 
@@ -629,10 +691,10 @@
   label {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.125rem;
     font-family: var(--sans-stack);
     font-size: var(--txt--2);
-    margin-block-end: 0.5rem;
+    margin-block-end: 0.375rem;
   }
 
   label:last-child {
@@ -640,11 +702,11 @@
   }
 
   .field-with-toggle {
-    margin-block-end: 0.75rem;
+    margin-block-end: 0.5rem;
   }
 
   .field-with-toggle label {
-    margin-block-end: 0.25rem;
+    margin-block-end: 0.125rem;
   }
 
   .toggle-buttons {
@@ -654,7 +716,7 @@
   }
 
   .toggle-buttons button {
-    padding: 0.25rem 0.5rem;
+    padding: 0.125rem 0.375rem;
     font-size: var(--txt--2);
     background-color: var(--bg-color);
   }
@@ -671,8 +733,7 @@
   input[type="text"],
   input[type="number"],
   select {
-    padding: 0.375rem;
-    border: 1px solid var(--txt-color);
+    padding: 0.25rem;
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
     width: 100%;
@@ -681,8 +742,8 @@
   input[type="text"]:focus,
   input[type="number"]:focus,
   select:focus {
-    outline: 2px solid yellow;
-    outline-offset: 2px;
+    /*outline: 2px solid yellow;
+    outline-offset: 2px;*/
   }
 
   /* Token input */
@@ -691,7 +752,6 @@
     flex-wrap: wrap;
     gap: 0.25rem;
     padding: 0.25rem;
-    border: 1px solid var(--txt-color);
     background-color: var(--bg-color);
     min-height: 2rem;
     align-items: center;
@@ -699,7 +759,6 @@
 
   .token-input:focus-within {
     outline: 2px solid yellow;
-    outline-offset: 2px;
   }
 
   .token-input input {
@@ -718,7 +777,6 @@
     gap: 0.25rem;
     padding: 0.125rem 0.375rem;
     background-color: lightgoldenrodyellow;
-    border: 1px solid var(--txt-color);
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
     line-height: 1.4;
@@ -744,22 +802,24 @@
   .quick-dates {
     display: flex;
     gap: 0.25rem;
-    margin-block-start: 0.5rem;
+    margin-block-start: 0.25rem;
   }
 
   .quick-dates button {
     flex: 1;
-    padding: 0.375rem 0.5rem;
+    padding: 0.25rem 0.375rem;
     font-size: var(--txt--2);
   }
 
   button {
-    padding: 0.5rem 0.75rem;
+    padding: 0.25rem 0.5rem;
+    height: 2rem;
     background-color: var(--bg-color);
     border: 1px solid var(--txt-color);
     cursor: pointer;
     font-family: var(--sans-stack);
-    font-size: var(--txt--1);
+    font-size: var(--txt--2);
+    margin: 0.125rem;
   }
 
   button:hover {
@@ -774,18 +834,18 @@
   .actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
 
   .actions button {
     font-size: var(--txt--2);
-    padding: 0.5rem;
+    padding: 0.375rem;
   }
 
   .warning {
     background-color: yellow;
     border: 1px solid orange;
-    padding: 0.5rem;
+    padding: 0.375rem;
     font-size: var(--txt--2);
     font-weight: bold;
   }
@@ -793,61 +853,79 @@
   /* URL section in sidebar */
   .url-section {
     background-color: var(--bg-color);
-    border: 1px solid var(--txt-color);
-    padding: 0.5rem;
-    margin-block-start: 0.75rem;
+    border-top: 1px solid var(--txt-color);
+    padding: 0.375rem;
+    margin-block-start: 0.5rem;
   }
 
   .url-section h4 {
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.25rem 0;
     font-family: var(--sans-stack);
-    font-size: var(--txt--1);
+    font-size: var(--txt--2);
   }
 
   .url-section code {
     display: block;
     background-color: lightgoldenrodyellow;
-    padding: 0.375rem;
+    padding: 0.25rem;
     overflow-wrap: break-word;
     word-break: break-all;
+    color: var(--txt-0);
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
-    line-height: 1.3;
+    line-height: 1.2;
+  }
+
+  .url-actions {
+    display: flex;
+    gap: 0.25rem;
+    margin-block-start: 0.25rem;
+  }
+
+  .small-button {
+    padding: 0.125rem 0.375rem;
+    height: 1.5rem;
+    font-size: var(--txt--2);
+  }
+
+  .debug-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.375rem;
+    height: 1.5rem;
+    background-color: var(--bg-color);
+    border: 1px solid var(--txt-color);
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    text-decoration: none;
+    color: var(--txt-color);
+  }
+
+  .debug-link:hover {
+    background-color: yellow;
   }
 
   /* Main results area */
   .results-area {
-    min-height: 400px;
+    min-height: 300px;
   }
 
   .empty-state {
-    padding: 2rem;
+    padding: 1rem;
     text-align: center;
     color: #666;
     border: 2px dashed var(--txt-color);
-  }
-
-  .loading-state {
-    padding: 2rem;
-    text-align: center;
-    border: 2px solid var(--txt-color);
-    background-color: lightgoldenrodyellow;
-  }
-
-  .loading-state p {
-    margin: 0;
-    font-family: var(--sans-stack);
-    font-weight: bold;
+    font-size: var(--txt--1);
   }
 
   .results {
     background-color: var(--bg-color);
-    border: 2px solid var(--txt-color);
-    padding: 1rem;
+    padding: 0.5rem;
   }
 
   .results.error {
     background-color: #ffeeee;
+    background-image: none;
     border-color: red;
   }
 
@@ -855,20 +933,22 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-block-end: 1rem;
-    padding-block-end: 0.5rem;
+    margin-block-end: 0.5rem;
+    padding-block-end: 0.25rem;
+    padding-inline: 0.25rem;
     border-bottom: 1px solid var(--txt-color);
+    background-color: var(--bg-color);
   }
 
-  .results h3 {
+  .results-header h3 {
     margin: 0;
     font-family: var(--sans-stack);
-    font-size: var(--txt-0);
+    font-size: var(--txt--1);
   }
 
   .result-count {
     font-family: var(--mono-stack);
-    font-size: var(--txt--1);
+    font-size: var(--txt--2);
     color: #666;
     margin: 0;
   }
@@ -877,12 +957,12 @@
   .result-list {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.75rem;
   }
 
   .result-item {
     border-bottom: 1px solid #e0e0e0;
-    padding-block-end: 1rem;
+    padding-block-end: 0.5rem;
   }
 
   .result-item:last-child {
@@ -891,11 +971,12 @@
   }
 
   .result-title {
-    margin: 0 0 0.25rem 0;
+    margin: 0 0 0.125rem 0;
     font-family: var(--serif-stack);
-    font-size: var(--txt-1);
+    font-size: var(--txt-0);
     font-weight: normal;
-    line-height: 1.3;
+    line-height: 1.2;
+
   }
 
   .result-title a {
@@ -912,27 +993,28 @@
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
     color: #666;
-    margin-block-end: 0.5rem;
+    margin-block-end: 0.25rem;
     word-break: break-all;
+
   }
 
   .result-description {
-    margin: 0.5rem 0;
-    font-size: var(--txt--1);
-    line-height: 1.5;
+    margin: 0.25rem 0;
+    font-size: var(--txt--2);
+    line-height: 1.4;
     color: #333;
   }
 
   .result-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-block-start: 0.75rem;
+    gap: 0.25rem;
+    margin-block-start: 0.375rem;
   }
 
   .tag {
     display: inline-block;
-    padding: 0.25rem 0.5rem;
+    padding: 0.125rem 0.375rem;
     background-color: lightgoldenrodyellow;
     border: 1px solid var(--txt-color);
     font-family: var(--mono-stack);
@@ -948,7 +1030,7 @@
   }
 
   .tag-large {
-    padding: 0.5rem 0.75rem;
+    padding: 0.25rem 0.5rem;
     font-size: var(--txt--1);
   }
 
@@ -971,7 +1053,7 @@
   /* Thorpe and domain items */
   .thorpe-item,
   .domain-item {
-    padding: 0.5rem 0;
+    padding: 0.25rem 0;
     border-bottom: 1px solid #e0e0e0;
   }
 
@@ -982,7 +1064,7 @@
 
   .domain-item a {
     font-family: var(--mono-stack);
-    font-size: var(--txt-0);
+    font-size: var(--txt--1);
     color: var(--txt-color);
     text-decoration: none;
   }
@@ -994,7 +1076,7 @@
 
   pre {
     background-color: #f5f5f5;
-    padding: 1rem;
+    padding: 0.5rem;
     overflow-x: auto;
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
@@ -1003,7 +1085,7 @@
   }
 
   details {
-    margin-block-end: 1rem;
+    margin-block-end: 0.5rem;
   }
 
   details:last-child {
@@ -1013,7 +1095,7 @@
   summary {
     cursor: pointer;
     font-weight: bold;
-    padding: 0.5rem;
+    padding: 0.25rem;
     background-color: lightgoldenrodyellow;
   }
 

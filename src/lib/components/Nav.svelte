@@ -3,9 +3,9 @@
     <li>
       <a href="/~">#s</a>
     </li>
-    <!-- <li>
-      <a href="/about">about</a>
-    </li> -->
+    <li>
+      <a href="/explore">explore</a>
+    </li>
     <li>
       <a href="/domains">sites</a>
     </li>
@@ -15,6 +15,7 @@
     <li>
       <a href="https://docs.octothorp.es">docs</a>
     </li>
+
 
 
     <!-- <li>
@@ -41,7 +42,7 @@
     display: grid;
 		margin: 0;
 		padding: 0;
-    grid-template-columns: repeat(4, min-content);
+    grid-template-columns: repeat(5, min-content);
     /*display: inline;*/
 	}
 	li {
