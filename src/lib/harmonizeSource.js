@@ -17,6 +17,162 @@ const DOMParser = new JSDOM().window.DOMParser
 const parser = new DOMParser()
 
 /**
+ * Allowed domains for remote harmonizers
+ * @constant {string[]}
+ */
+const ALLOWED_HARMONIZER_DOMAINS = [
+  'octothorp.es',
+  'localhost' // Allow localhost only for development/testing
+]
+
+/**
+ * Maximum size for remote harmonizer files (1MB)
+ * @constant {number}
+ */
+const MAX_HARMONIZER_SIZE = 1024 * 1024
+
+/**
+ * Timeout for remote harmonizer fetches (5 seconds)
+ * @constant {number}
+ */
+const HARMONIZER_FETCH_TIMEOUT = 5000
+
+/**
+ * Cache for remote harmonizers to reduce repeated fetches
+ * @type {Map<string, {data: Object, timestamp: number}>}
+ */
+const harmonizerCache = new Map()
+
+/**
+ * Cache TTL (15 minutes)
+ * @constant {number}
+ */
+const CACHE_TTL = 15 * 60 * 1000
+
+/**
+ * Rate limiting map: tracks fetch counts per URL
+ * @type {Map<string, {count: number, resetTime: number}>}
+ */
+const rateLimitMap = new Map()
+
+/**
+ * Maximum fetches per URL per time window
+ * @constant {number}
+ */
+const MAX_FETCHES_PER_WINDOW = 10
+
+/**
+ * Rate limit time window (1 minute)
+ * @constant {number}
+ */
+const RATE_LIMIT_WINDOW = 60 * 1000
+
+/**
+ * Validates if a URL is allowed for remote harmonizer fetching
+ * @param {string} url - URL to validate
+ * @returns {boolean} True if URL is allowed, false otherwise
+ */
+const isAllowedHarmonizerUrl = (url) => {
+  try {
+    const parsed = new URL(url)
+    
+    // Only allow HTTPS (and HTTP for localhost in development)
+    if (parsed.protocol !== 'https:' && 
+        !(parsed.protocol === 'http:' && parsed.hostname === 'localhost')) {
+      console.warn('Harmonizer URL must use HTTPS')
+      return false
+    }
+    
+    // Block private/internal IPs (except localhost)
+    if (parsed.hostname !== 'localhost' && 
+        (parsed.hostname.startsWith('127.') ||
+         parsed.hostname.startsWith('192.168.') ||
+         parsed.hostname.startsWith('10.') ||
+         parsed.hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./))) {
+      console.warn('Harmonizer URL cannot point to private IP ranges')
+      return false
+    }
+    
+    // Block cloud metadata endpoints
+    if (parsed.hostname === '169.254.169.254') {
+      console.warn('Harmonizer URL cannot point to cloud metadata endpoint')
+      return false
+    }
+    
+    // Check domain allowlist
+    const isAllowed = ALLOWED_HARMONIZER_DOMAINS.some(domain => 
+      parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
+    )
+    
+    if (!isAllowed) {
+      console.warn(`Harmonizer domain ${parsed.hostname} not in allowlist`)
+    }
+    
+    return isAllowed
+  } catch (e) {
+    console.error('Invalid harmonizer URL:', e.message)
+    return false
+  }
+}
+
+/**
+ * Checks rate limit for a given URL
+ * @param {string} url - URL to check
+ * @returns {boolean} True if rate limit not exceeded, false otherwise
+ */
+const checkRateLimit = (url) => {
+  const now = Date.now()
+  const limit = rateLimitMap.get(url)
+  
+  if (!limit || now > limit.resetTime) {
+    // Reset or initialize
+    rateLimitMap.set(url, {
+      count: 1,
+      resetTime: now + RATE_LIMIT_WINDOW
+    })
+    return true
+  }
+  
+  if (limit.count >= MAX_FETCHES_PER_WINDOW) {
+    console.warn(`Rate limit exceeded for harmonizer URL: ${url}`)
+    return false
+  }
+  
+  limit.count++
+  return true
+}
+
+/**
+ * Gets cached harmonizer if available and not expired
+ * @param {string} url - Harmonizer URL
+ * @returns {Object|null} Cached harmonizer or null
+ */
+const getCachedHarmonizer = (url) => {
+  const cached = harmonizerCache.get(url)
+  if (!cached) return null
+  
+  const now = Date.now()
+  if (now - cached.timestamp > CACHE_TTL) {
+    harmonizerCache.delete(url)
+    return null
+  }
+  
+  return cached.data
+}
+
+/**
+ * Caches a harmonizer
+ * @param {string} url - Harmonizer URL
+ * @param {Object} data - Harmonizer data
+ */
+const cacheHarmonizer = (url, data) => {
+  harmonizerCache.set(url, {
+    data,
+    timestamp: Date.now()
+  })
+}
+
+/**
  * Processes extracted values using various transformation methods
  * @param {string|Array} value - The value(s) to process
  * @param {string} flag - Processing method: "regex", "substring", "split", or "trim"
@@ -168,34 +324,104 @@ function mergeSchemas(baseSchema, override) {
 // exporting in case anything else is gonna need to grab harmonizers remotely
 
 /**
- * Fetches a harmonizer schema from a remote URL
+ * Fetches a harmonizer schema from a remote URL with security validations
  * @async
  * @param {string} url - URL to fetch harmonizer schema from
  * @returns {Promise<Object|null>} Harmonizer schema object or null if fetch fails
  * @throws {Error} If HTTP request fails or schema is invalid
  */
 export async function remoteHarmonizer(url) {
+  // Check cache first
+  const cached = getCachedHarmonizer(url)
+  if (cached) {
+    console.log('Using cached harmonizer for:', url)
+    return cached
+  }
+  
+  // Validate URL is allowed
+  if (!isAllowedHarmonizerUrl(url)) {
+    console.error('Harmonizer URL not allowed:', url)
+    return null
+  }
+  
+  // Check rate limit
+  if (!checkRateLimit(url)) {
+    console.error('Rate limit exceeded for harmonizer URL:', url)
+    return null
+  }
+  
   try {
-      // Fetch the remote URL
-      const response = await fetch(url);
+    // Set up abort controller for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), HARMONIZER_FETCH_TIMEOUT)
+    
+    try {
+      // Fetch the remote URL with timeout and JSON headers
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 
+          'Accept': 'application/json',
+          'User-Agent': 'Octothorpes/1.0'
+        }
+      })
+      
+      clearTimeout(timeoutId)
 
       // Check if the response is OK (status code 200-299)
       if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+        throw new Error(`HTTP error! Status: ${response.status}`)
+      }
+      
+      // Validate Content-Type header
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Invalid content type: ${contentType}`)
+      }
+      
+      // Check Content-Length if available
+      const contentLength = response.headers.get('content-length')
+      if (contentLength && parseInt(contentLength) > MAX_HARMONIZER_SIZE) {
+        throw new Error(`Harmonizer too large: ${contentLength} bytes (max: ${MAX_HARMONIZER_SIZE})`)
       }
 
       // Parse the response as JSON
-      const data = await response.json();
+      const data = await response.json()
 
-      // Validate that the JSON has the required properties
-      if (!data.title || !data.schema) {
-          throw new Error("JSON is missing required properties: 'title' or 'schema'");
+      // Enhanced validation
+      if (!data || typeof data !== 'object') {
+        throw new Error("Harmonizer must be a JSON object")
       }
+      
+      if (!data.title || typeof data.title !== 'string') {
+        throw new Error("Harmonizer missing required 'title' string property")
+      }
+      
+      if (!data.schema || typeof data.schema !== 'object') {
+        throw new Error("Harmonizer missing required 'schema' object property")
+      }
+      
+      // Validate schema structure has required properties
+      if (!data.schema.subject || typeof data.schema.subject !== 'object') {
+        throw new Error("Harmonizer schema missing required 'subject' object")
+      }
+      
+      // Cache the successful result
+      cacheHarmonizer(url, data)
+      
       return data
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      
+      // Check if error was due to abort (timeout)
+      if (fetchError.name === 'AbortError') {
+        throw new Error(`Fetch timeout after ${HARMONIZER_FETCH_TIMEOUT}ms`)
+      }
+      throw fetchError
+    }
   } catch (error) {
-      // Handle any errors (e.g., network issues, invalid JSON, missing properties)
-      console.error("Error fetching or validating JSON:", error.message);
-      return null; // Return null or handle the error as needed
+    // Handle any errors (e.g., network issues, invalid JSON, missing properties)
+    console.error("Error fetching or validating harmonizer:", error.message)
+    return null
   }
 }
 

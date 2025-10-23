@@ -17,6 +17,73 @@ let p = 'octo:octothorpes'
 // let indexCooldown = 300000 //5min
 let indexCooldown = 0
 
+////////// rate limiting //////////
+
+/**
+ * Rate limiting for indexing requests per origin
+ * @type {Map<string, {count: number, resetTime: number}>}
+ */
+const indexingRateLimitMap = new Map()
+
+/**
+ * Maximum indexing requests per origin per time window
+ * @constant {number}
+ */
+const MAX_INDEXING_REQUESTS = 10
+
+/**
+ * Rate limit time window for indexing (1 minute)
+ * @constant {number}
+ */
+const INDEXING_RATE_LIMIT_WINDOW = 60 * 1000
+
+/**
+ * Checks rate limit for indexing requests from an origin
+ * @param {string} origin - Origin to check
+ * @returns {boolean} True if request allowed, false if rate limit exceeded
+ */
+const checkIndexingRateLimit = (origin) => {
+  const now = Date.now()
+  const limit = indexingRateLimitMap.get(origin)
+  
+  if (!limit || now > limit.resetTime) {
+    // Reset or initialize
+    indexingRateLimitMap.set(origin, {
+      count: 1,
+      resetTime: now + INDEXING_RATE_LIMIT_WINDOW
+    })
+    return true
+  }
+  
+  if (limit.count >= MAX_INDEXING_REQUESTS) {
+    console.warn(`Indexing rate limit exceeded for origin: ${origin}`)
+    return false
+  }
+  
+  limit.count++
+  return true
+}
+
+/**
+ * Parses request body supporting both JSON and form data
+ * @param {Request} request - SvelteKit request object
+ * @returns {Promise<Object>} Parsed request data
+ */
+const parseRequestBody = async (request) => {
+  const contentType = request.headers.get('content-type') || ''
+  
+  if (contentType.includes('application/json')) {
+    return await request.json()
+  } else {
+    // Default to form data
+    const formData = await request.formData()
+    return {
+      uri: formData.get('uri'),
+      harmonizer: formData.get('harmonizer')
+    }
+  }
+}
+
 ////////// workers //////////
 
 const isURL = (term) => {
@@ -462,11 +529,10 @@ const handleWebring = async (s, friends, alreadyRing) => {
 
 
 // Accept a response
-const handleHTML = async (response, uri) => {
+const handleHTML = async (response, uri, harmonizer = "default") => {
   // TIME TO DESLASH EVERYTHING HERE
   const src = await response.text()
-  // TKTK parse the "as" param and use non-default harmonizers
-  const harmed = await harmonizeSource(src)
+  const harmed = await harmonizeSource(src, harmonizer)
   let s = harmed['@id'] === 'source' ? uri :  harmed['@id']
 
   console.log(`HARMED`)
@@ -531,7 +597,7 @@ const handleHTML = async (response, uri) => {
   return new Response(200)
 }
 
-const handler = async (s) => {
+const handler = async (s, harmonizer = "default") => {
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')
@@ -541,13 +607,14 @@ const handler = async (s) => {
 
   if (subject.headers.get('content-type').includes('text/html')) {
     console.log("handle html…", s)
-    return await handleHTML(subject, s)
+    return await handleHTML(subject, s, harmonizer)
   }
 }
 
 export async function GET(req) {
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
+  let harmonizer = url.searchParams.get('as') ?? "default"
   let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
   let origin = normalizeUrl(uri.origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
@@ -557,7 +624,7 @@ export async function GET(req) {
   }
 
   if (s) {
-    return await handler(s, origin)
+    return await handler(s, harmonizer)
     // @TKTK
     // if it's JSON, pass to JSON handler
   }
@@ -565,8 +632,76 @@ export async function GET(req) {
 }
 
 export async function POST({request}) {
-  const data = await request.formData()
-  let uri = data.get('uri')
-  let harmonizer = data.get('harmonizer')
-  return new Response(200)
+  // 1. Extract origin from request headers
+  const requestOrigin = request.headers.get('origin') || request.headers.get('referer')
+  
+  if (!requestOrigin) {
+    return error(400, 'Origin or Referer header required.')
+  }
+  
+  // 2. Normalize and validate requesting origin is registered
+  let origin
+  try {
+    origin = normalizeUrl(requestOrigin)
+  } catch (e) {
+    return error(400, 'Invalid origin format.')
+  }
+  
+  const isVerifiedOrigin = await verifiedOrigin(origin)
+  if (!isVerifiedOrigin) {
+    return error(401, 'Origin is not registered with this server.')
+  }
+  
+  // 3. Check rate limit for origin
+  if (!checkIndexingRateLimit(origin)) {
+    return error(429, 'Rate limit exceeded. Please try again later.')
+  }
+  
+  // 4. Parse request body (support both JSON and form data)
+  let data
+  try {
+    data = await parseRequestBody(request)
+  } catch (e) {
+    return error(400, 'Invalid request body format.')
+  }
+  
+  const uri = data.uri
+  const harmonizer = data.harmonizer ?? "default"
+  
+  // 5. Validate URI is provided and is valid
+  if (!uri) {
+    return error(400, 'URI parameter is required.')
+  }
+  
+  let targetUrl
+  try {
+    targetUrl = new URL(uri)
+  } catch (e) {
+    return error(400, 'Invalid URI format.')
+  }
+  
+  // 6. Normalize and extract target origin
+  const targetOrigin = normalizeUrl(targetUrl.origin)
+  const normalizedUri = normalizeUrl(`${targetUrl.origin}${targetUrl.pathname}`)
+  
+  // 7. Verify requesting origin matches target URI origin
+  if (origin !== targetOrigin) {
+    return error(403, 'Cannot index pages from a different origin.')
+  }
+  
+  // 8. Process indexing request
+  try {
+    await handler(normalizedUri, harmonizer)
+    
+    // 9. Return success response
+    return json({
+      status: 'success',
+      message: 'Page indexed successfully',
+      uri: normalizedUri,
+      indexed_at: Date.now()
+    }, { status: 200 })
+  } catch (e) {
+    console.error('Indexing error:', e)
+    return error(500, 'Error processing indexing request.')
+  }
 }
