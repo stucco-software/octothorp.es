@@ -13,8 +13,7 @@
     const pathname = url.pathname
     const params = new URLSearchParams(url.search)
 
-    // If already on an RSS endpoint, return current URL
-    if (pathname.includes('/rss')) return window.location.href
+
 
     // For domain pages or other non-/get/ pages, construct RSS URL from params
     if (!pathname.includes('/get/')) {

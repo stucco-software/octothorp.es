@@ -36,6 +36,11 @@
   let queryUrl = ''
   let error = null
 
+  // Dynamic labels based on "by" value
+  $: subjectLabel = by === 'thorped' ? 'URLs' : by === 'in-webring' ? 'Full Webring URL' : 'From:'
+  $: objectLabel = by === 'thorped' ? '#s' : by === 'in-webring' ? '#s' : 'To:'
+  $: objectPlaceholder = objectLabel === '#s' ? 'demo' : 'Full or partial URL'
+
   // Load state from URL params on mount and execute query if params exist
   let hasLoadedFromUrl = false
   if (browser) {
@@ -185,6 +190,7 @@
   function copyUrl() {
     if (browser && navigator.clipboard) {
       navigator.clipboard.writeText(queryUrl)
+      // Optional: Could add a toast notification here
     }
   }
 
@@ -223,16 +229,6 @@
         what = 'pages'
         by = 'bookmarked'
         subjects = ['example.com']
-        break
-      case 'backlinks':
-        what = 'pages'
-        by = 'backlinked'
-        objects = ['https://example.com/page']
-        break
-      case 'webring':
-        what = 'everything'
-        by = 'in-webring'
-        subjects = ['https://example.com/webring']
         break
     }
     // Wait for reactive statement to update queryUrl
@@ -308,24 +304,23 @@
     <form on:submit|preventDefault={executeQuery}>
       <!-- Quick Presets -->
       <fieldset class="compact">
-        <legend>Featured</legend>
-        <button type="button" on:click={() => loadPreset('wwo')}>
+        <legend>Shortcuts</legend>
+        <button class="rainbow" type="button" on:click={() => loadPreset('wwo')}>
           Recent #weirdweboctober
+        </button>
+        <button type="button" on:click={clearForm}>
+          Clear Form
         </button>
       </fieldset>
 
       <fieldset class="compact">
-        <legend>What</legend>
+        <legend>Browse</legend>
         <select bind:value={what}>
           <option value="everything">Everything</option>
           <option value="pages">Pages</option>
           <option value="thorpes">Thorpes</option>
           <option value="domains">Domains</option>
         </select>
-      </fieldset>
-
-      <fieldset class="compact">
-        <legend>By</legend>
         <select bind:value={by}>
           <option value="thorped">Tagged</option>
           <option value="linked">Linked</option>
@@ -337,81 +332,47 @@
       </fieldset>
 
       <fieldset class="compact">
-        <legend>Filters</legend>
-        <div class="field-with-toggle">
-          <label>
-            Subjects
-            <div class="token-input">
-              {#each subjects as subject}
-                <span class="token">
-                  {subject}
-                  <button type="button" class="token-remove" on:click={() => removeToken('subjects', subject)}>×</button>
-                </span>
-              {/each}
-              <input
-                type="text"
-                bind:value={subjectsInput}
-                on:keydown={(e) => handleTokenInput(e, 'subjects', 'subjectsInput')}
-                on:blur={() => addToken('subjects', 'subjectsInput')}
-                placeholder={subjects.length === 0 ? 'example.com' : ''}>
-            </div>
-          </label>
-          <div class="toggle-buttons">
-            <button
-              type="button"
-              class:active={subjectMatch === 'auto'}
-              on:click={() => subjectMatch = 'auto'}>
-              Auto
-            </button>
-            <button
-              type="button"
-              class:active={subjectMatch === 'fuzzy'}
-              on:click={() => subjectMatch = 'fuzzy'}>
-              Fuzzy
-            </button>
-          </div>
-        </div>
-        <div class="field-with-toggle">
-          <label>
-            Objects
-            <div class="token-input">
-              {#each objects as object}
-                <span class="token">
-                  {object}
-                  <button type="button" class="token-remove" on:click={() => removeToken('objects', object)}>×</button>
-                </span>
-              {/each}
-              <input
-                type="text"
-                bind:value={objectsInput}
-                on:keydown={(e) => handleTokenInput(e, 'objects', 'objectsInput')}
-                on:blur={() => addToken('objects', 'objectsInput')}
-                placeholder={objects.length === 0 ? 'demo' : ''}>
-            </div>
-          </label>
-          <div class="toggle-buttons">
-            <button
-              type="button"
-              class:active={objectMatch === 'auto'}
-              on:click={() => objectMatch = 'auto'}>
-              Auto
-            </button>
-            <button
-              type="button"
-              class:active={objectMatch === 'fuzzy'}
-              on:click={() => objectMatch = 'fuzzy'}>
-              Fuzzy
-            </button>
-            <button
-              type="button"
-              class:active={objectMatch === 'very-fuzzy'}
-              on:click={() => objectMatch = 'very-fuzzy'}>
-              Very
-            </button>
-          </div>
-        </div>
+        <legend>Parameters</legend>
         <label>
-          Exclude Subjects
+          {subjectLabel}
+          <div class="token-input">
+            {#each subjects as subject}
+              <span class="token">
+                {subject}
+                <button type="button" class="token-remove" on:click={() => removeToken('subjects', subject)}>×</button>
+              </span>
+            {/each}
+            <input
+              type="text"
+              bind:value={subjectsInput}
+              on:keydown={(e) => handleTokenInput(e, 'subjects', 'subjectsInput')}
+              on:blur={() => addToken('subjects', 'subjectsInput')}
+              placeholder={subjects.length === 0 ? 'Full or partial URL' : ''}>
+          </div>
+        </label>
+        <label>
+          {objectLabel}
+          <div class="token-input">
+            {#each objects as object}
+              <span class="token">
+                {object}
+                <button type="button" class="token-remove" on:click={() => removeToken('objects', object)}>×</button>
+              </span>
+            {/each}
+            <input
+              type="text"
+              bind:value={objectsInput}
+              on:keydown={(e) => handleTokenInput(e, 'objects', 'objectsInput')}
+              on:blur={() => addToken('objects', 'objectsInput')}
+              placeholder={objects.length === 0 ? objectPlaceholder : ''}>
+          </div>
+        </label>
+      </fieldset>
+      <details class="compact">
+        <summary>Filters</summary>
+        <!--
+        <label>
+          Exclude {subjectLabel}
           <div class="token-input">
             {#each notSubjects as subject}
               <span class="token">
@@ -424,11 +385,11 @@
               bind:value={notSubjectsInput}
               on:keydown={(e) => handleTokenInput(e, 'notSubjects', 'notSubjectsInput')}
               on:blur={() => addToken('notSubjects', 'notSubjectsInput')}
-              placeholder={notSubjects.length === 0 ? 'spam.com' : ''}>
+              placeholder={notSubjects.length === 0 ? 'Full or partial URL' : ''}>
           </div>
         </label>
         <label>
-          Exclude Objects
+          Exclude {objectLabel}
           <div class="token-input">
             {#each notObjects as object}
               <span class="token">
@@ -444,25 +405,61 @@
               placeholder={notObjects.length === 0 ? 'test' : ''}>
           </div>
         </label>
-      </fieldset>
+        -->
 
-      <fieldset class="compact">
-        <legend>Date</legend>
+        <div class="matching-strategy">
+          <label>Match Precision</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="match"
+                checked={subjectMatch === 'auto' && objectMatch === 'auto'}
+                on:change={() => { subjectMatch = 'auto'; objectMatch = 'auto' }}>
+              Auto
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="match"
+                checked={subjectMatch === 'fuzzy' && objectMatch === 'auto'}
+                on:change={() => { subjectMatch = 'fuzzy'; objectMatch = 'auto' }}>
+              Fuzzy Subjects
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="match"
+                checked={objectMatch === 'fuzzy' && subjectMatch === 'auto'}
+                on:change={() => { subjectMatch = 'auto'; objectMatch = 'fuzzy' }}>
+              Fuzzy Objects
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="match"
+                checked={subjectMatch === 'fuzzy' && objectMatch === 'fuzzy'}
+                on:change={() => { subjectMatch = 'fuzzy'; objectMatch = 'fuzzy' }}>
+              Fuzzy Everything
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="match"
+                checked={objectMatch === 'very-fuzzy'}
+                on:change={() => { subjectMatch = 'auto'; objectMatch = 'very-fuzzy' }}>
+              Very Fuzzy
+            </label>
+          </div>
+        </div>
         <label>
           When
+          <small>Accepts: <strong>recent</strong> (last two weeks), <strong>after-DATE</strong>, <strong>before-DATE</strong>, or <strong>between-DATE-and-DATE</strong>. DATE format is <strong>YYYY-MM-DD</strong></small>
           <input
             type="text"
             bind:value={when}
             placeholder="recent">
         </label>
-        <div class="quick-dates">
-          <button type="button" on:click={() => when = 'recent'}>Recent</button>
-          <button type="button" on:click={() => when = ''}>Clear</button>
-        </div>
-      </fieldset>
-
-      <fieldset class="compact">
-        <legend>Options</legend>
         <label>
           Limit
           <input
@@ -478,7 +475,7 @@
             bind:value={offset}
             min="0">
         </label>
-      </fieldset>
+      </details>
 
       {#if objectMatch === 'very-fuzzy' && when}
         <div class="warning">
@@ -487,21 +484,20 @@
       {/if}
 
       <div class="actions">
-        <button type="submit" disabled={loading}>
+        <button class="rainbow" type="submit" disabled={loading}>
             EXPLORE
         </button>
       </div>
     </form>
-
+    <details class="compact url-section">
+      <summary>Advanced</summary>
     <!-- Generated URL -->
-    <section class="url-section">
-      <h4>API URL</h4>
-      <code>{queryUrl}</code>
+      <label>API URL</label>
+      <code class="clickable-url" on:click={copyUrl} on:keydown={(e) => e.key === 'Enter' && copyUrl()} tabindex="0" title="Click to copy">{queryUrl}</code>
       <div class="url-actions">
-        <button type="button" class="small-button" on:click={copyUrl}>Copy URL</button>
         <a href={queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/debug')} target="_blank" rel="noopener noreferrer" class="debug-link">Debug</a>
       </div>
-    </section>
+    </details>
   </aside>
 
   <!-- Main Results Area -->
@@ -524,6 +520,7 @@
       </section>
     {:else if results}
       <section class="results">
+          <!-- these modes can't currently appear but might be useful in the future -->
         {#if format === 'rss'}
           <pre>{results}</pre>
         {:else if format === 'debug'}
@@ -673,6 +670,34 @@
     font-size: var(--txt--2);
   }
 
+  /* Compact details (collapsible sections) */
+  details.compact {
+    border: 0px;
+    border-top: 1px solid var(--txt-color);
+    padding: 0.375rem;
+    margin: 0;
+    background-color: var(--bg-color);
+  }
+
+  details.compact summary {
+      background-color: var(--bg-color);
+    font-weight: bold;
+    padding: 0.125rem 0.25rem;
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    cursor: pointer;
+    list-style-position: inside;
+    margin: -0.375rem -0.375rem 0.375rem -0.375rem;
+  }
+
+  details.compact summary:hover {
+    background-color: yellow;
+  }
+
+  details.compact[open] summary {
+    margin-bottom: 0.375rem;
+  }
+
   /* Preset buttons */
   fieldset.compact button[type="button"] {
     display: block;
@@ -728,6 +753,29 @@
 
   .toggle-buttons button:hover {
     background-color: yellow;
+  }
+
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-block-start: 0.25rem;
+  }
+
+  .radio-label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0;
+    cursor: pointer;
+    font-size: var(--txt--2);
+    margin-block-end: 0;
+  }
+
+  .radio-label input[type="radio"] {
+    width: auto;
+    cursor: pointer;
   }
 
   input[type="text"],
@@ -811,6 +859,10 @@
     font-size: var(--txt--2);
   }
 
+  small {
+      line-height: 110%;
+      padding: 5px;
+  }
   button {
     padding: 0.25rem 0.5rem;
     height: 2rem;
@@ -832,14 +884,26 @@
   }
 
   .actions {
-    display: grid;
+    /*display: grid;*/
     grid-template-columns: 1fr 1fr;
     gap: 0.25rem;
   }
 
   .actions button {
     font-size: var(--txt--2);
-    padding: 0.375rem;
+    padding: 0px .5rem;
+    width: 90%;
+    text-align: center;
+    margin: 10px auto 3rem;
+  }
+
+  .rainbow {
+      box-shadow: 1px 1px 2px blue, 3px 3px 2px red, 5px 5px 2px lime, 7px 7px 2px yellow;
+      margin-bottom: 25px;
+  }
+
+  .rainbow:hover {
+      box-shadow: 5px 5px 8px blue, 10px 10px 8px red, 15px 15px 8px lime, 22px 22px 8px yellow;
   }
 
   .warning {
@@ -874,6 +938,19 @@
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
     line-height: 1.2;
+  }
+
+  .clickable-url {
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .clickable-url:hover {
+    background-color: yellow !important;
+  }
+
+  .clickable-url:active {
+    background-color: orange !important;
   }
 
   .url-actions {
