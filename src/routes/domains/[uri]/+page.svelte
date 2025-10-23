@@ -27,9 +27,9 @@
   $: otherThorpes = Array.from(new Map(thorpes.filter(t => !['Term', 'Backlink', 'Bookmark', 'Cite', 'Link'].includes(t.type)).map(t => [t.term, t])).values())
 
   // Filter pages by selected term
-  $: filteredPages = selectedTerm 
-    ? pages.filter(p => p.octothorpes && p.octothorpes.some(t => 
-        (typeof t === 'string' && t === selectedTerm) || 
+  $: filteredPages = selectedTerm
+    ? pages.filter(p => p.octothorpes && p.octothorpes.some(t =>
+        (typeof t === 'string' && t === selectedTerm) ||
         (typeof t === 'object' && t.term === selectedTerm)
       ))
     : pages
@@ -51,10 +51,10 @@
 
   onMount(async () => {
     domain = decodeURIComponent($page.params.uri)
-    
+
     // Strip protocol to get just the domain for fuzzy matching
     domainForQuery = domain.replace(/^https?:\/\//, '')
-    
+
     // Update URL with query params to match the API call
     if (browser) {
       const currentUrl = new URL(window.location.href)
@@ -65,7 +65,7 @@
         goto(`?${currentUrl.searchParams.toString()}`, { replaceState: true, noScroll: true, keepFocus: true })
       }
     }
-    
+
     try {
       // Fetch thorpes used by this domain (force fuzzy-s matching)
       thorpesUrl = `/get/thorpes/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s`
@@ -107,13 +107,13 @@
       <!-- Sidebar with Octothorpes -->
       <aside class="sidebar">
         <h2>Octothorpes</h2>
-        
+
         {#if termThorpes.length > 0}
           <section class="thorpe-group">
             <h3>Terms ({termThorpes.length})</h3>
             <div class="thorpe-list">
               {#each termThorpes as thorpe}
-                <button 
+                <button
                   type="button"
                   class="tag tag-button"
                   class:active={selectedTerm === thorpe.term}
@@ -130,7 +130,7 @@
             <h3>Backlinks ({backlinks.length})</h3>
             <div class="thorpe-list">
               {#each backlinks as thorpe}
-                <button 
+                <button
                   type="button"
                   class="tag tag-button tag-backlink"
                   class:active={selectedTerm === thorpe.term}
@@ -147,7 +147,7 @@
             <h3>Bookmarks ({bookmarks.length})</h3>
             <div class="thorpe-list">
               {#each bookmarks as thorpe}
-                <button 
+                <button
                   type="button"
                   class="tag tag-button tag-bookmark"
                   class:active={selectedTerm === thorpe.term}
@@ -164,7 +164,7 @@
             <h3>Cites ({cites.length})</h3>
             <div class="thorpe-list">
               {#each cites as thorpe}
-                <button 
+                <button
                   type="button"
                   class="tag tag-button tag-cite"
                   class:active={selectedTerm === thorpe.term}
@@ -181,7 +181,7 @@
             <h3>Links ({links.length})</h3>
             <div class="thorpe-list">
               {#each links as thorpe}
-                <button 
+                <button
                   type="button"
                   class="tag tag-button tag-link"
                   class:active={selectedTerm === thorpe.term}
@@ -195,10 +195,10 @@
 
         {#if otherThorpes.length > 0}
           <section class="thorpe-group">
-            <h3>Other ({otherThorpes.length})</h3>
+            <h5># ({otherThorpes.length})</h5>
             <div class="thorpe-list">
               {#each otherThorpes as thorpe}
-                <button 
+                <button
                   type="button"
                   class="tag tag-button"
                   class:active={selectedTerm === thorpe.term}
@@ -236,7 +236,7 @@
             {/if}
           </p>
         </div>
-        
+
         {#if filteredPages.length > 0}
           <div class="page-list">
             {#each filteredPages as pg}
@@ -327,7 +327,6 @@
     top: 1rem;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
-    border: 1px solid var(--txt-color);
     padding: 0.75rem;
     background-color: var(--bg-color);
   }
@@ -395,6 +394,7 @@
 
   .tag-button {
     cursor: pointer;
+    margin: 5px;
   }
 
   .tag-button.active {
@@ -517,9 +517,7 @@
   }
 
   .debug-panel {
-    background-color: #f5f5f5;
-    border: 1px solid #ccc;
-    padding: 0.25rem;
+    color:  #ccc;
     margin-block-start: 0.5rem;
   }
 
