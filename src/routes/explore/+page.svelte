@@ -20,7 +20,7 @@
   let notObjects = []
   let subjectMatch = 'auto'
   let objectMatch = 'auto'
-  let limit = 20
+  let limit = 50
   let offset = 0
   let when = ''
 
@@ -40,6 +40,12 @@
   $: subjectLabel = by === 'thorped' ? 'URLs' : by === 'in-webring' ? 'Full Webring URL' : 'From:'
   $: objectLabel = by === 'thorped' ? '#s' : by === 'in-webring' ? '#s' : 'To:'
   $: objectPlaceholder = objectLabel === '#s' ? 'demo' : 'Full or partial URL'
+
+  // Clear objects when "posted" is selected
+  $: if (by === 'posted') {
+    objects = []
+    objectsInput = ''
+  }
 
   // Load state from URL params on mount and execute query if params exist
   let hasLoadedFromUrl = false
@@ -275,6 +281,20 @@
       e.preventDefault()
       addToken(arrayName, inputName)
     }
+    // Tab or Enter: if there's text, tokenize it and prevent default
+    else if ((e.key === 'Tab' || e.key === 'Enter') && inputs[inputName].trim()) {
+      e.preventDefault()
+      addToken(arrayName, inputName)
+      // For Enter specifically, if input is now empty, submit the form
+      if (e.key === 'Enter') {
+        // Use setTimeout to let the addToken reactive updates complete
+        setTimeout(() => {
+          if (!inputs[inputName].trim()) {
+            e.target.form.requestSubmit()
+          }
+        }, 0)
+      }
+    }
     // Backspace on empty input removes last token
     else if (e.key === 'Backspace' && !inputs[inputName]) {
       e.preventDefault()
@@ -286,7 +306,7 @@
         else if (arrayName === 'notObjects') notObjects = notObjects.slice(0, -1)
       }
     }
-    // Enter should NOT add token, let form submission handle it
+    // Enter on empty input: let it submit the form (don't prevent default)
   }
 </script>
 
@@ -319,14 +339,13 @@
           <option value="everything">Everything</option>
           <option value="pages">Pages</option>
           <option value="thorpes">Thorpes</option>
-          <option value="domains">Domains</option>
         </select>
         <select bind:value={by}>
           <option value="thorped">Tagged</option>
+          <option value="posted">Posted</option>
           <option value="linked">Linked</option>
           <option value="backlinked">Backlinked</option>
           <option value="bookmarked">Bookmarked</option>
-          <option value="posted">Posted</option>
           <option value="in-webring">In Webring</option>
         </select>
       </fieldset>
@@ -364,7 +383,8 @@
               bind:value={objectsInput}
               on:keydown={(e) => handleTokenInput(e, 'objects', 'objectsInput')}
               on:blur={() => addToken('objects', 'objectsInput')}
-              placeholder={objects.length === 0 ? objectPlaceholder : ''}>
+              placeholder={objects.length === 0 ? objectPlaceholder : ''}
+              disabled={by === 'posted'}>
           </div>
         </label>
       </fieldset>
@@ -817,6 +837,17 @@
     font-family: var(--mono-stack);
     font-size: var(--txt--2);
     outline: none;
+  }
+
+  .token-input input:disabled {
+    background-color: #f0f0f0;
+    color: #999;
+    cursor: not-allowed;
+  }
+
+  .token-input:has(input:disabled) {
+    background-color: #f0f0f0;
+    opacity: 0.6;
   }
 
   .token-input .token {
