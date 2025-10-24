@@ -193,6 +193,11 @@
     }
   }
 
+  function getPreviewImageUrl(url) {
+    // Use microlink.io to get social preview image
+    return `https://api.microlink.io/?url=${encodeURIComponent(url)}&embed=image.url`
+  }
+
   function copyUrl() {
     if (browser && navigator.clipboard) {
       navigator.clipboard.writeText(queryUrl)
@@ -561,26 +566,43 @@
           <div class="result-list">
             {#each results.results || [] as item}
               <article class="result-item">
-                <h4 class="result-title">
-                  <a href={item['@id']} target="_blank" rel="noopener noreferrer">
-                    {item.title || item['@id']}
-                  </a>
-                </h4>
-                <div class="result-url">{item['@id']}</div>
-                {#if item.description}
-                  <p class="result-description">{item.description}</p>
+                {#if item.image}
+                  <img
+                    src={item.image}
+                    alt="Preview for {item.title || item['@id']}"
+                    class="preview-image"
+                    on:error={(e) => e.target.style.display = 'none'}
+                  />
+                {:else}
+                  <img
+                    src={getPreviewImageUrl(item['@id'])}
+                    alt="Preview for {item.title || item['@id']}"
+                    class="preview-image"
+                    on:error={(e) => e.target.style.display = 'none'}
+                  />
                 {/if}
-                {#if item.octothorpes && item.octothorpes.length > 0}
-                  <div class="result-tags">
-                    {#each item.octothorpes as thorpe}
-                      {#if typeof thorpe === 'string'}
-                        <a href="/~/{thorpe}" class="tag">#{thorpe}</a>
-                      {:else if thorpe.type}
-                        <span class="tag tag-{thorpe.type.toLowerCase()}">{thorpe.type}</span>
-                      {/if}
-                    {/each}
-                  </div>
-                {/if}
+                <div class="result-content">
+                  <h4 class="result-title">
+                    <a href={item['@id']} target="_blank" rel="noopener noreferrer">
+                      {item.title || item['@id']}
+                    </a>
+                  </h4>
+                  <div class="result-url">{item['@id']}</div>
+                  {#if item.description}
+                    <p class="result-description">{item.description}</p>
+                  {/if}
+                  {#if item.octothorpes && item.octothorpes.length > 0}
+                    <div class="result-tags">
+                      {#each item.octothorpes as thorpe}
+                        {#if typeof thorpe === 'string'}
+                          <a href="/~/{thorpe}" class="tag">#{thorpe}</a>
+                        {:else if thorpe.type}
+                          <span class="tag tag-{thorpe.type.toLowerCase()}">{thorpe.type}</span>
+                        {/if}
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
               </article>
             {/each}
           </div>
@@ -589,15 +611,32 @@
           <div class="result-list">
             {#each results.results || [] as item}
               <article class="result-item">
-                <h4 class="result-title">
-                  <a href={item.uri} target="_blank" rel="noopener noreferrer">
-                    {item.title || item.uri}
-                  </a>
-                </h4>
-                <div class="result-url">{item.uri}</div>
-                {#if item.description}
-                  <p class="result-description">{item.description}</p>
+                {#if item.image}
+                  <img
+                    src={item.image}
+                    alt="Preview for {item.title || item.uri}"
+                    class="preview-image"
+                    on:error={(e) => e.target.style.display = 'none'}
+                  />
+                {:else}
+                  <img
+                    src={getPreviewImageUrl(item.uri)}
+                    alt="Preview for {item.title || item.uri}"
+                    class="preview-image"
+                    on:error={(e) => e.target.style.display = 'none'}
+                  />
                 {/if}
+                <div class="result-content">
+                  <h4 class="result-title">
+                    <a href={item.uri} target="_blank" rel="noopener noreferrer">
+                      {item.title || item.uri}
+                    </a>
+                  </h4>
+                  <div class="result-url">{item.uri}</div>
+                  {#if item.description}
+                    <p class="result-description">{item.description}</p>
+                  {/if}
+                </div>
               </article>
             {/each}
           </div>
@@ -1069,13 +1108,32 @@
   }
 
   .result-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
     border-bottom: 1px solid #e0e0e0;
-    padding-block-end: 0.5rem;
+    padding-block-end: 0.75rem;
+    align-items: start;
+  }
+
+  .result-item:has(.preview-image[style*="display: none"]) {
+    grid-template-columns: 1fr;
   }
 
   .result-item:last-child {
     border-bottom: none;
     padding-block-end: 0;
+  }
+
+  .preview-image {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+    border: 1px solid var(--txt-color);
+  }
+
+  .result-content {
+    min-width: 0; /* Allow text truncation */
   }
 
   .result-title {
