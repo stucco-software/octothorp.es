@@ -244,23 +244,35 @@ function buildObjectStatement(blob) {
   if (excludeList?.length) {
     switch (mode) {
       case 'exact':
-        excludeStatement = `VALUES ?excludedObjects { ${processTermObjects(excludeList)} } FILTER(?o NOT IN (?excludedObjects))`
+        excludeStatement = `FILTER NOT EXISTS {
+          VALUES ?excludedObjects { ${processTermObjects(excludeList)} }
+          ?s octo:octothorpes ?excludedObjects .
+        }`
         break
       case 'fuzzy':
         if (type === "termsOnly") {
           const processedExclude = processTermObjects(excludeList, "fuzzy")
-          excludeStatement = `VALUES ?excludedObjList { ${processedExclude.map(o => `"${o}"`).join(' ')} }
-                 FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+          excludeStatement = `FILTER NOT EXISTS {
+            VALUES ?excludedObjList { ${processedExclude.map(o => `"${o}"`).join(' ')} }
+            ?s octo:octothorpes ?excludedObj .
+            FILTER(CONTAINS(STR(?excludedObj), ?excludedObjList))
+          }`
         }
         else {
-          excludeStatement = `VALUES ?excludedObjList { ${excludeList.map(o => `"${o}"`).join(' ')} }
-                 FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+          excludeStatement = `FILTER NOT EXISTS {
+            VALUES ?excludedObjList { ${excludeList.map(o => `"${o}"`).join(' ')} }
+            ?s octo:octothorpes ?excludedObj .
+            FILTER(CONTAINS(STR(?excludedObj), ?excludedObjList))
+          }`
         }
         break
       case 'very-fuzzy':
         const veryFuzzyExclude = processTermObjects(excludeList, "very-fuzzy")
-        excludeStatement = `VALUES ?excludedObjList { ${veryFuzzyExclude.map(o => `"${o}"`).join(' ')} }
-                 FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+        excludeStatement = `FILTER NOT EXISTS {
+          VALUES ?excludedObjList { ${veryFuzzyExclude.map(o => `"${o}"`).join(' ')} }
+          ?s octo:octothorpes ?excludedObj .
+          FILTER(CONTAINS(STR(?excludedObj), ?excludedObjList))
+        }`
         break
       default:
         excludeStatement = ''
@@ -467,7 +479,7 @@ export const buildEverythingQuery = async ({
   });
 
 
-  if (!subjectList.include.length > 0 && !subjectList.exclude.length > 0) {
+  if (!subjectList.include?.length && !subjectList.exclude?.length) {
     return `SELECT ?s ?p ?o WHERE {
       ?s ?p ?o .
       FILTER(false)
