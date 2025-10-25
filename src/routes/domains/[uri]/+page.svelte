@@ -5,6 +5,7 @@
   import { browser } from '$app/environment'
   import Loading from '$lib/components/Loading.svelte'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
+  import PreviewImage from '$lib/components/PreviewImage.svelte'
 
   let domain = ''
   let thorpes = []
@@ -241,26 +242,33 @@
           <div class="page-list">
             {#each filteredPages as pg}
               <article class="page-item">
-                <h3 class="page-title">
-                  <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">
-                    {pg.title || pg['@id'] || pg.uri}
-                  </a>
-                </h3>
-                <div class="page-url">{pg['@id'] || pg.uri}</div>
-                {#if pg.description}
-                  <p class="page-description">{pg.description}</p>
-                {/if}
-                {#if pg.octothorpes && pg.octothorpes.length > 0}
-                  <div class="page-tags">
-                    {#each pg.octothorpes as thorpe}
-                      {#if typeof thorpe === 'string'}
-                        <a href="/~/{thorpe}" class="tag-small">#{thorpe}</a>
-                      {:else if thorpe.term}
-                        <a href="/~/{thorpe.term}" class="tag-small tag-{thorpe.type?.toLowerCase()}">{thorpe.type}: #{thorpe.term}</a>
-                      {/if}
-                    {/each}
-                  </div>
-                {/if}
+                <PreviewImage 
+                  url={pg['@id'] || pg.uri} 
+                  image={pg.image}
+                  title={pg.title || pg['@id'] || pg.uri}
+                />
+                <div class="page-content">
+                  <h3 class="page-title">
+                    <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">
+                      {pg.title || pg['@id'] || pg.uri}
+                    </a>
+                  </h3>
+                  <div class="page-url">{pg['@id'] || pg.uri}</div>
+                  {#if pg.description}
+                    <p class="page-description">{pg.description}</p>
+                  {/if}
+                  {#if pg.octothorpes && pg.octothorpes.length > 0}
+                    <div class="page-tags">
+                      {#each pg.octothorpes as thorpe}
+                        {#if typeof thorpe === 'string'}
+                          <a href="/~/{thorpe}" class="tag-small">#{thorpe}</a>
+                        {:else if thorpe.term}
+                          <a href="/~/{thorpe.term}" class="tag-small tag-{thorpe.type?.toLowerCase()}">{thorpe.type}: #{thorpe.term}</a>
+                        {/if}
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
               </article>
             {/each}
           </div>
@@ -425,13 +433,25 @@
   }
 
   .page-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
     border-bottom: 1px solid #e0e0e0;
     padding-block-end: 0.75rem;
+    align-items: start;
+  }
+
+  .page-item:has(.preview-image[style*="display: none"]) {
+    grid-template-columns: 1fr;
   }
 
   .page-item:last-child {
     border-bottom: none;
     padding-block-end: 0;
+  }
+
+  .page-content {
+    min-width: 0; /* Allow text truncation */
   }
 
   .page-title {

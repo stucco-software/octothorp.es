@@ -4,6 +4,7 @@
   import { page } from '$app/stores'
   import Loading from '$lib/components/Loading.svelte'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
+  import PreviewImage from '$lib/components/PreviewImage.svelte'
 
   // Initialize from URL params if available
   $: urlParams = browser ? new URLSearchParams($page.url.search) : new URLSearchParams()
@@ -191,11 +192,6 @@
     } finally {
       loading = false
     }
-  }
-
-  function getPreviewImageUrl(url) {
-    // Use microlink.io to get social preview image
-    return `https://api.microlink.io/?url=${encodeURIComponent(url)}&embed=image.url`
   }
 
   function copyUrl() {
@@ -566,21 +562,11 @@
           <div class="result-list">
             {#each results.results || [] as item}
               <article class="result-item">
-                {#if item.image}
-                  <img
-                    src={item.image}
-                    alt="Preview for {item.title || item['@id']}"
-                    class="preview-image"
-                    on:error={(e) => e.target.style.display = 'none'}
-                  />
-                {:else}
-                  <img
-                    src={getPreviewImageUrl(item['@id'])}
-                    alt="Preview for {item.title || item['@id']}"
-                    class="preview-image"
-                    on:error={(e) => e.target.style.display = 'none'}
-                  />
-                {/if}
+                <PreviewImage 
+                  url={item['@id']} 
+                  image={item.image}
+                  title={item.title || item['@id']}
+                />
                 <div class="result-content">
                   <h4 class="result-title">
                     <a href={item['@id']} target="_blank" rel="noopener noreferrer">
@@ -611,21 +597,11 @@
           <div class="result-list">
             {#each results.results || [] as item}
               <article class="result-item">
-                {#if item.image}
-                  <img
-                    src={item.image}
-                    alt="Preview for {item.title || item.uri}"
-                    class="preview-image"
-                    on:error={(e) => e.target.style.display = 'none'}
-                  />
-                {:else}
-                  <img
-                    src={getPreviewImageUrl(item.uri)}
-                    alt="Preview for {item.title || item.uri}"
-                    class="preview-image"
-                    on:error={(e) => e.target.style.display = 'none'}
-                  />
-                {/if}
+                <PreviewImage 
+                  url={item.uri} 
+                  image={item.image}
+                  title={item.title || item.uri}
+                />
                 <div class="result-content">
                   <h4 class="result-title">
                     <a href={item.uri} target="_blank" rel="noopener noreferrer">
@@ -1123,13 +1099,6 @@
   .result-item:last-child {
     border-bottom: none;
     padding-block-end: 0;
-  }
-
-  .preview-image {
-    width: 120px;
-    height: 90px;
-    object-fit: cover;
-    border: 1px solid var(--txt-color);
   }
 
   .result-content {
