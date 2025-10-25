@@ -37,6 +37,8 @@
   let queryUrl = ''
   let error = null
 
+
+
   // Dynamic labels based on "by" value
   $: subjectLabel = by === 'thorped' ? 'URLs' : by === 'in-webring' ? 'Full Webring URL' : 'From:'
   $: objectLabel = by === 'thorped' ? '#s' : by === 'in-webring' ? '#s' : 'To:'
@@ -198,6 +200,52 @@
     if (browser && navigator.clipboard) {
       navigator.clipboard.writeText(queryUrl)
       // Optional: Could add a toast notification here
+    }
+  }
+
+  async function copyMultipass() {
+    if (!browser || !results) return
+
+    try {
+      // Fetch the debug endpoint to get the multiPass object
+      const debugUrl = queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/debug')
+      const response = await fetch(debugUrl)
+      if (!response.ok) throw new Error('Failed to fetch MultiPass')
+
+      const data = await response.json()
+      const multiPassJson = JSON.stringify(data.multiPass, null, 2)
+
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(multiPassJson)
+        // Could add visual feedback here
+      }
+    } catch (err) {
+      console.error('Error copying MultiPass:', err)
+    }
+  }
+
+  async function downloadMultipass() {
+    if (!browser || !results) return
+
+    try {
+      // Fetch the debug endpoint to get the multiPass object
+      const debugUrl = queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/debug')
+      const response = await fetch(debugUrl)
+      if (!response.ok) throw new Error('Failed to fetch MultiPass')
+
+      const data = await response.json()
+      const multiPassJson = JSON.stringify(data.multiPass, null, 2)
+
+      // Create download
+      const blob = new Blob([multiPassJson], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'multipass.json'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error downloading MultiPass:', err)
     }
   }
 
@@ -518,6 +566,18 @@
       <div class="url-actions">
         <a href={queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/debug')} target="_blank" rel="noopener noreferrer" class="debug-link">Debug</a>
       </div>
+
+      {#if results}
+        <label style="margin-block-start: 0.75rem;">Save MultiPass for Current Query</label>
+        <div style="display: flex; gap: 0.25rem;">
+          <button type="button" class="small-button" on:click={copyMultipass}>
+            Copy
+          </button>
+          <button type="button" class="small-button" on:click={downloadMultipass}>
+            Download
+          </button>
+        </div>
+      {/if}
     </details>
   </aside>
 
@@ -562,8 +622,8 @@
           <div class="result-list">
             {#each results.results || [] as item}
               <article class="result-item">
-                <PreviewImage 
-                  url={item['@id']} 
+                <PreviewImage
+                  url={item['@id']}
                   image={item.image}
                   title={item.title || item['@id']}
                 />
@@ -597,8 +657,8 @@
           <div class="result-list">
             {#each results.results || [] as item}
               <article class="result-item">
-                <PreviewImage 
-                  url={item.uri} 
+                <PreviewImage
+                  url={item.uri}
                   image={item.image}
                   title={item.title || item.uri}
                 />

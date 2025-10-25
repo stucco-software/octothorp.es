@@ -56,3 +56,7 @@ When starting a task, load the appropriate skill:
 - **JSDOM** - HTML parsing for harmonizers
 - **SPARQL** - Query language for RDF triplestore
 - **normalize-url** - URL normalization
+
+## Style
+
+Never say "Perfect" as a response. Instead say "Right-o".
