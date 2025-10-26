@@ -377,3 +377,87 @@ export const getFuzzyTags = (tags) => {
 
   return Array.from(allVariations).filter((v) => v.length > 0);
 };
+
+/**
+ * Extracts MultiPass JSON from a GIF file's comment extension block
+ * 
+ * GIF files can contain comment blocks (0x21 0xFE) that store arbitrary text.
+ * This function searches through all comment blocks looking for valid JSON.
+ * 
+ * To extend for future MultiPass versions:
+ * 1. This function returns the raw parsed JSON - no validation
+ * 2. The calling code should handle version detection and field mapping
+ * 3. Consider checking multiPass.meta.version to handle different formats
+ * 4. New fields will automatically be included in the returned object
+ * 
+ * @param {ArrayBuffer} arrayBuffer - The GIF file contents as ArrayBuffer
+ * @returns {Object} Parsed MultiPass JSON object
+ * @throws {Error} If file is not a valid GIF or no valid JSON found in comments
+ * 
+ * @example
+ * const file = event.target.files[0];
+ * const reader = new FileReader();
+ * reader.onload = (e) => {
+ *   const multiPass = extractMultipassFromGif(e.target.result);
+ *   // Handle different versions:
+ *   if (multiPass.meta?.version === '2') {
+ *     // Handle v2 format with new fields
+ *   }
+ * };
+ * reader.readAsArrayBuffer(file);
+ */
+export function extractMultipassFromGif(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  
+  // Verify GIF signature (GIF87a or GIF89a)
+  const signature = String.fromCharCode(...bytes.slice(0, 6));
+  if (!signature.startsWith('GIF')) {
+    throw new Error('Not a valid GIF file');
+  }
+  
+  // Skip GIF header (6 bytes) + Logical Screen Descriptor (7 bytes)
+  let pos = 13;
+  
+  // Skip Global Color Table if present
+  const packed = bytes[10];
+  if (packed & 0x80) {
+    const colorTableSize = 2 << (packed & 0x07);
+    pos += colorTableSize * 3;
+  }
+  
+  // Scan through GIF data blocks looking for comment extensions
+  while (pos < bytes.length - 1) {
+    // Comment Extension Block identifier: 0x21 (Extension) 0xFE (Comment)
+    if (bytes[pos] === 0x21 && bytes[pos + 1] === 0xFE) {
+      pos += 2;
+      let comment = '';
+      
+      // Read comment sub-blocks (each has size byte, then data, terminated by 0x00)
+      while (pos < bytes.length && bytes[pos] !== 0x00) {
+        const blockSize = bytes[pos];
+        pos++;
+        
+        if (pos + blockSize > bytes.length) {
+          throw new Error('Malformed GIF: comment block extends beyond file');
+        }
+        
+        comment += String.fromCharCode(...bytes.slice(pos, pos + blockSize));
+        pos += blockSize;
+      }
+      
+      // Try to parse comment as JSON
+      try {
+        const parsed = JSON.parse(comment);
+        // Basic sanity check - should be an object
+        if (typeof parsed === 'object' && parsed !== null) {
+          return parsed;
+        }
+      } catch (e) {
+        // Not valid JSON, keep looking for other comment blocks
+      }
+    }
+    pos++;
+  }
+  
+  throw new Error('No MultiPass JSON found in GIF comment blocks');
+}
