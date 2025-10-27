@@ -17,19 +17,10 @@ const DOMParser = new JSDOM().window.DOMParser
 const parser = new DOMParser()
 
 /**
- * Allowed domains for remote harmonizers
- * @constant {string[]}
- */
-const ALLOWED_HARMONIZER_DOMAINS = [
-  'octothorp.es',
-  'localhost' // Allow localhost only for development/testing
-]
-
-/**
- * Maximum size for remote harmonizer files (1MB)
+ * Maximum size for remote harmonizer files (56KB)
  * @constant {number}
  */
-const MAX_HARMONIZER_SIZE = 1024 * 1024
+const MAX_HARMONIZER_SIZE = 56 * 1024
 
 /**
  * Timeout for remote harmonizer fetches (5 seconds)
@@ -69,6 +60,8 @@ const RATE_LIMIT_WINDOW = 60 * 1000
 
 /**
  * Validates if a URL is allowed for remote harmonizer fetching
+ * Note: This now only validates SSRF protection (HTTPS, private IPs, cloud metadata)
+ * Domain allowlist validation happens at the API boundary in index/+server.js
  * @param {string} url - URL to validate
  * @returns {boolean} True if URL is allowed, false otherwise
  */
@@ -99,16 +92,8 @@ const isAllowedHarmonizerUrl = (url) => {
       return false
     }
     
-    // Check domain allowlist
-    const isAllowed = ALLOWED_HARMONIZER_DOMAINS.some(domain => 
-      parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
-    )
-    
-    if (!isAllowed) {
-      console.warn(`Harmonizer domain ${parsed.hostname} not in allowlist`)
-    }
-    
-    return isAllowed
+    // All other URL validation (domain allowlist, same-origin) happens at API boundary
+    return true
   } catch (e) {
     console.error('Invalid harmonizer URL:', e.message)
     return false
@@ -324,7 +309,110 @@ function mergeSchemas(baseSchema, override) {
 // exporting in case anything else is gonna need to grab harmonizers remotely
 
 /**
+ * Maximum complexity for CSS selectors to prevent ReDoS and performance issues
+ * @constant {number}
+ */
+const MAX_SELECTOR_LENGTH = 200
+const MAX_SELECTOR_DEPTH = 10 // Max number of combinators (>, +, ~, space)
+const MAX_RULES_PER_TYPE = 50 // Max extraction rules per object type
+
+/**
+ * Validates a CSS selector for complexity and safety
+ * @param {string} selector - CSS selector to validate
+ * @returns {boolean} True if selector is safe, false otherwise
+ */
+const isSafeSelectorComplexity = (selector) => {
+  if (!selector || typeof selector !== 'string') return false
+  
+  // Check length
+  if (selector.length > MAX_SELECTOR_LENGTH) {
+    console.warn(`Selector too long: ${selector.length} chars (max: ${MAX_SELECTOR_LENGTH})`)
+    return false
+  }
+  
+  // Count depth (combinators)
+  const combinators = selector.match(/[>+~\s]+/g) || []
+  if (combinators.length > MAX_SELECTOR_DEPTH) {
+    console.warn(`Selector too deep: ${combinators.length} levels (max: ${MAX_SELECTOR_DEPTH})`)
+    return false
+  }
+  
+  // Block dangerous patterns
+  const dangerousPatterns = [
+    /:has\(/i,           // :has() can be very expensive
+    /\(\s*\)/,           // Empty parentheses
+    /\*{2,}/,            // Multiple wildcards in sequence
+    /\[[^\]]{100,}\]/,   // Very long attribute selectors
+  ]
+  
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(selector)) {
+      console.warn(`Selector contains dangerous pattern: ${selector}`)
+      return false
+    }
+  }
+  
+  return true
+}
+
+/**
+ * Validates a harmonizer schema for safety and structure
+ * @param {Object} schema - Schema object to validate
+ * @returns {boolean} True if schema is safe, false otherwise
+ */
+const isSchemaValid = (schema) => {
+  if (!schema || typeof schema !== 'object') return false
+  
+  // Validate each object type in schema
+  for (const [objectType, config] of Object.entries(schema)) {
+    if (!config || typeof config !== 'object') {
+      console.warn(`Invalid config for object type: ${objectType}`)
+      return false
+    }
+    
+    // Check if it has extraction rules
+    if (config.o && Array.isArray(config.o)) {
+      // Limit number of rules
+      if (config.o.length > MAX_RULES_PER_TYPE) {
+        console.warn(`Too many rules for ${objectType}: ${config.o.length} (max: ${MAX_RULES_PER_TYPE})`)
+        return false
+      }
+      
+      // Validate each rule
+      for (const rule of config.o) {
+        if (typeof rule === 'object' && rule.selector) {
+          if (!isSafeSelectorComplexity(rule.selector)) {
+            return false
+          }
+          
+          // Validate postProcess regex if present
+          if (rule.postProcess?.method === 'regex') {
+            try {
+              // Test regex compilation and check for catastrophic backtracking patterns
+              const testRegex = new RegExp(rule.postProcess.params)
+              const regexStr = rule.postProcess.params
+              
+              // Block common catastrophic backtracking patterns
+              if (/(\(.+\)\+|\(.+\)\*){2,}/.test(regexStr)) {
+                console.warn(`Potentially dangerous regex pattern: ${regexStr}`)
+                return false
+              }
+            } catch (e) {
+              console.warn(`Invalid regex in postProcess: ${rule.postProcess.params}`)
+              return false
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  return true
+}
+
+/**
  * Fetches a harmonizer schema from a remote URL with security validations
+ * Note: Domain/origin validation happens at API boundary. This only validates SSRF protection.
  * @async
  * @param {string} url - URL to fetch harmonizer schema from
  * @returns {Promise<Object|null>} Harmonizer schema object or null if fetch fails
@@ -338,7 +426,7 @@ export async function remoteHarmonizer(url) {
     return cached
   }
   
-  // Validate URL is allowed
+  // Validate URL is allowed (SSRF protection only)
   if (!isAllowedHarmonizerUrl(url)) {
     console.error('Harmonizer URL not allowed:', url)
     return null
@@ -405,6 +493,11 @@ export async function remoteHarmonizer(url) {
         throw new Error("Harmonizer schema missing required 'subject' object")
       }
       
+      // Validate schema safety and complexity
+      if (!isSchemaValid(data.schema)) {
+        throw new Error("Harmonizer schema failed safety validation")
+      }
+      
       // Cache the successful result
       cacheHarmonizer(url, data)
       
@@ -427,6 +520,7 @@ export async function remoteHarmonizer(url) {
 
 /**
  * Harmonizes HTML content using a specified harmonizer schema
+ * Note: Domain/origin validation for remote harmonizers happens at API boundary
  * @async
  * @param {string} html - HTML content to harmonize
  * @param {string} [harmonizer="default"] - Harmonizer ID or URL ("default", "openGraph", "keywords", "ghost", or remote URL)

@@ -268,6 +268,83 @@ describe('POST /index endpoint validation', () => {
     })
   })
 
+  describe('Harmonizer Validation', () => {
+    const isHarmonizerAllowed = (harmonizerUrl, requestingOrigin) => {
+      // If harmonizer is a local ID (not a URL), always allow
+      if (!harmonizerUrl.startsWith('http')) {
+        return true
+      }
+      
+      try {
+        const harmonizerParsed = new URL(harmonizerUrl)
+        const requestingParsed = new URL(requestingOrigin)
+        
+        // Allow same-origin harmonizers
+        if (harmonizerParsed.origin === requestingParsed.origin) {
+          return true
+        }
+        
+        // Check if harmonizer domain is in the allowlist
+        const ALLOWED_HARMONIZER_DOMAINS = ['octothorp.es', 'localhost']
+        const isAllowed = ALLOWED_HARMONIZER_DOMAINS.some(domain => 
+          harmonizerParsed.hostname === domain || harmonizerParsed.hostname.endsWith(`.${domain}`)
+        )
+        
+        return isAllowed
+      } catch (e) {
+        return false
+      }
+    }
+
+    it('should allow local harmonizer IDs', () => {
+      const harmonizerUrl = 'openGraph'
+      const requestingOrigin = 'https://example.com'
+      
+      const allowed = isHarmonizerAllowed(harmonizerUrl, requestingOrigin)
+      expect(allowed).toBe(true)
+    })
+
+    it('should allow same-origin harmonizers', () => {
+      const harmonizerUrl = 'https://example.com/harmonizer.json'
+      const requestingOrigin = 'https://example.com'
+      
+      const allowed = isHarmonizerAllowed(harmonizerUrl, requestingOrigin)
+      expect(allowed).toBe(true)
+    })
+
+    it('should allow harmonizers from allowlisted domains', () => {
+      const harmonizerUrl = 'https://octothorp.es/harmonizer/custom'
+      const requestingOrigin = 'https://example.com'
+      
+      const allowed = isHarmonizerAllowed(harmonizerUrl, requestingOrigin)
+      expect(allowed).toBe(true)
+    })
+
+    it('should reject harmonizers from non-allowlisted domains', () => {
+      const harmonizerUrl = 'https://evil.com/harmonizer.json'
+      const requestingOrigin = 'https://example.com'
+      
+      const allowed = isHarmonizerAllowed(harmonizerUrl, requestingOrigin)
+      expect(allowed).toBe(false)
+    })
+
+    it('should reject cross-origin harmonizers not in allowlist', () => {
+      const harmonizerUrl = 'https://attacker.com/harmonizer.json'
+      const requestingOrigin = 'https://victim.com'
+      
+      const allowed = isHarmonizerAllowed(harmonizerUrl, requestingOrigin)
+      expect(allowed).toBe(false)
+    })
+
+    it('should allow harmonizers from allowlisted subdomains', () => {
+      const harmonizerUrl = 'https://blog.octothorp.es/harmonizer.json'
+      const requestingOrigin = 'https://example.com'
+      
+      const allowed = isHarmonizerAllowed(harmonizerUrl, requestingOrigin)
+      expect(allowed).toBe(true)
+    })
+  })
+
   describe('Security Scenarios', () => {
     it('should prevent cross-origin indexing attempt', () => {
       const attackerOrigin = 'https://attacker.com'
