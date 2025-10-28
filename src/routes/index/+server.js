@@ -19,14 +19,11 @@ let indexCooldown = 300000 //5min
 
 ////////// harmonizer validation //////////
 
-/**
- * Allowed domains for remote harmonizers
- * Note: instance domain is checked separately in isHarmonizerAllowed()
- * @constant {string[]}
- */
+// global whitelist of harmonizer providers
+// Note: instance domain is checked separately in isHarmonizerAllowed()
 const harmonizerWhitelist = [
   'octothorp.es',
-  'localhost' // Allow localhost only for development/testing
+  'localhost'
 ]
 
 /**
