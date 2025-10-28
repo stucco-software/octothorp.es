@@ -63,7 +63,10 @@ export async function GET({url}) {
   let defaultURL = 'https://demo.ideastore.dev'
   let uri = url.searchParams.get('uri') ?? defaultURL
   uri = new URL(uri)
-  let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
+  // Use the original URL for fetching (preserves trailing slashes)
+  let fetchUrl = `${uri.origin}${uri.pathname}`
+  // Normalize for storage/comparison purposes
+  let s = normalizeUrl(fetchUrl, { removeTrailingSlash: false })
   let origin = normalizeUrl(uri.origin)
   if (s) {
     return await handler(s, harmonizer)

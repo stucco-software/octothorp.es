@@ -531,24 +531,27 @@ const handleHTML = async (response, uri) => {
   return new Response(200)
 }
 
-const handler = async (s) => {
-  let isRecentlyIndexed = await recentlyIndexed(s)
+const handler = async (fetchUrl, storageUrl) => {
+  let isRecentlyIndexed = await recentlyIndexed(storageUrl)
   if (isRecentlyIndexed) {
     return error(429, 'This page has been recently indexed.')
   }
-  let subject = await fetch(s)
-  await recordIndexing(s)
+  let subject = await fetch(fetchUrl)
+  await recordIndexing(storageUrl)
 
   if (subject.headers.get('content-type').includes('text/html')) {
-    console.log("handle html…", s)
-    return await handleHTML(subject, s)
+    console.log("handle html…", storageUrl)
+    return await handleHTML(subject, storageUrl)
   }
 }
 
 export async function GET(req) {
   let url = new URL(req.request.url)
   let uri = new URL(url.searchParams.get('uri'))
-  let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
+  // Preserve trailing slash for fetching to avoid 404s on servers that require exact URLs
+  let fetchUrl = `${uri.origin}${uri.pathname}`
+  // Remove trailing slash for storage to ensure consistent canonicalization
+  let storageUrl = deslash(fetchUrl)
   let origin = normalizeUrl(uri.origin)
   let isVerifiedOrigin = await verifiedOrigin(origin)
 
@@ -556,8 +559,8 @@ export async function GET(req) {
     return error(401, 'Origin is not registered with this server.')
   }
 
-  if (s) {
-    return await handler(s, origin)
+  if (fetchUrl) {
+    return await handler(fetchUrl, storageUrl)
     // @TKTK
     // if it's JSON, pass to JSON handler
   }
