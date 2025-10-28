@@ -20,10 +20,12 @@ The Octothorpes Protocol (OP) is a decentralized system for creating custom feed
 Skills are located in `/static/skills/`:
 - **octothorpes-api.md** - API integration, query construction, response formats
 - **octothorpes-dev.md** - Server implementation, indexing, SPARQL, internal architecture
+- **octothorpes-testing.md** - Testing guidelines, patterns, and best practices
 
 When starting a task, load the appropriate skill:
 - API/integration work → Use octothorpes-api.md
 - Server/backend work → Use octothorpes-dev.md
+- Writing tests → Use octothorpes-testing.md
 
 ## Environment
 
@@ -43,7 +45,7 @@ When starting a task, load the appropriate skill:
 
 ## Code Patterns
 
-- Use in-source testing with Vitest (`if (import.meta.vitest)`)
+- **Testing:** Use separate test files in `/src/tests/` (NOT in-source testing)
 - Follow existing SvelteKit conventions
 - Maintain separation: `+server.js` for API endpoints, `.svelte` for UI pages
 - Core logic lives in `/src/lib/` files
