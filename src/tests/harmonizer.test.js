@@ -18,7 +18,7 @@ describe('External Harmonizer Support', () => {
       <body>
         <h1>Test Page</h1>
         <octo-thorpe>testTag</octo-thorpe>
-        <a rel="octo:octothorpes" href="https://octothorp.es/~/anotherTag">Another Tag</a>
+        <a rel="octo:octothorpes nofollow" href="https://octothorp.es/~/anotherTag">Another Tag</a>
         <a rel="octo:octothorpes" href="https://example.com/page">External Link</a>
       </body>
     </html>
@@ -27,7 +27,7 @@ describe('External Harmonizer Support', () => {
   describe('Default Harmonizer', () => {
     it('should extract basic metadata using default harmonizer', async () => {
       const result = await harmonizeSource(sampleHTML)
-      
+
       expect(result).toBeDefined()
       expect(result.title).toBe('Test Page')
       expect(result.description).toBe('A test page for harmonizer testing')
@@ -37,8 +37,8 @@ describe('External Harmonizer Support', () => {
 
     it('should extract octothorpes from custom elements', async () => {
       const result = await harmonizeSource(sampleHTML)
-      
-      const hashtags = result.octothorpes.filter(o => 
+
+      const hashtags = result.octothorpes.filter(o =>
         typeof o === 'string' || o.type === 'hashtag'
       )
       expect(hashtags.length).toBeGreaterThan(0)
@@ -47,8 +47,8 @@ describe('External Harmonizer Support', () => {
 
     it('should extract links with rel=octo:octothorpes', async () => {
       const result = await harmonizeSource(sampleHTML)
-      
-      const links = result.octothorpes.filter(o => 
+
+      const links = result.octothorpes.filter(o =>
         o.type === 'link'
       )
       expect(links.length).toBeGreaterThan(0)
@@ -59,7 +59,7 @@ describe('External Harmonizer Support', () => {
   describe('OpenGraph Harmonizer', () => {
     it('should extract OpenGraph metadata when specified', async () => {
       const result = await harmonizeSource(sampleHTML, 'openGraph')
-      
+
       expect(result).toBeDefined()
       expect(result.title).toBe('OpenGraph Title')
       expect(result.description).toBe('OpenGraph Description')
@@ -68,7 +68,7 @@ describe('External Harmonizer Support', () => {
 
     it('should merge with default schema', async () => {
       const result = await harmonizeSource(sampleHTML, 'openGraph')
-      
+
       // OpenGraph should override title/description but still extract octothorpes from default
       expect(result.title).toBe('OpenGraph Title')
       expect(result.octothorpes).toBeDefined()
@@ -79,11 +79,11 @@ describe('External Harmonizer Support', () => {
   describe('Keywords Harmonizer', () => {
     it('should extract keywords as hashtags', async () => {
       const result = await harmonizeSource(sampleHTML, 'keywords')
-      
+
       // Keywords harmonizer returns array of keywords in octothorpes
       expect(result.octothorpes).toBeDefined()
       expect(Array.isArray(result.octothorpes)).toBe(true)
-      
+
       // The split creates a nested array structure
       const flatKeywords = result.octothorpes.flat()
       expect(flatKeywords).toContain('keyword1')
@@ -93,10 +93,10 @@ describe('External Harmonizer Support', () => {
 
     it('should split comma-separated keywords', async () => {
       const result = await harmonizeSource(sampleHTML, 'keywords')
-      
+
       // Flatten the nested array structure
       const flatKeywords = result.octothorpes.flat()
-      
+
       // Should have at least 3 keywords
       expect(flatKeywords.length).toBeGreaterThanOrEqual(3)
     })
@@ -105,7 +105,7 @@ describe('External Harmonizer Support', () => {
   describe('Harmonizer Retrieval', () => {
     it('should retrieve default harmonizer', async () => {
       const harmonizer = await getHarmonizer('default')
-      
+
       expect(harmonizer).toBeDefined()
       expect(harmonizer.title).toBe('Default Octothorpe Harmonizer')
       expect(harmonizer.schema).toBeDefined()
@@ -115,7 +115,7 @@ describe('External Harmonizer Support', () => {
 
     it('should retrieve openGraph harmonizer', async () => {
       const harmonizer = await getHarmonizer('openGraph')
-      
+
       expect(harmonizer).toBeDefined()
       expect(harmonizer.title).toBe('Opengraph Protocol Harmonizer')
       expect(harmonizer.schema).toBeDefined()
@@ -136,7 +136,7 @@ describe('External Harmonizer Support', () => {
     it('should fetch and validate remote harmonizer', async () => {
       const remoteUrl = 'https://octothorp.es/harmonizer/default'
       const harmonizer = await remoteHarmonizer(remoteUrl)
-      
+
       expect(harmonizer).toBeDefined()
       expect(harmonizer.title).toBeDefined()
       expect(harmonizer.schema).toBeDefined()
@@ -146,7 +146,7 @@ describe('External Harmonizer Support', () => {
     it('should use remote harmonizer with harmonizeSource', async () => {
       const remoteUrl = 'https://octothorp.es/harmonizer/default'
       const result = await harmonizeSource(sampleHTML, remoteUrl)
-      
+
       expect(result).toBeDefined()
       expect(result['@id']).toBeDefined()
       expect(result.octothorpes).toBeDefined()
@@ -156,17 +156,17 @@ describe('External Harmonizer Support', () => {
     it('should return null for invalid remote harmonizer URL', async () => {
       const invalidUrl = 'https://example.com/nonexistent.json'
       const harmonizer = await remoteHarmonizer(invalidUrl)
-      
+
       expect(harmonizer).toBeNull()
     })
 
     it('should use cached harmonizer on second fetch', async () => {
       const remoteUrl = 'https://octothorp.es/harmonizer/default'
-      
+
       // First fetch
       const harmonizer1 = await remoteHarmonizer(remoteUrl)
       expect(harmonizer1).toBeDefined()
-      
+
       // Second fetch should use cache
       const harmonizer2 = await remoteHarmonizer(remoteUrl)
       expect(harmonizer2).toBeDefined()
@@ -178,7 +178,7 @@ describe('External Harmonizer Support', () => {
     it('should reject HTTP URLs (non-HTTPS)', async () => {
       const httpUrl = 'http://octothorp.es/harmonizer/default'
       const harmonizer = await remoteHarmonizer(httpUrl)
-      
+
       expect(harmonizer).toBeNull()
     })
 
@@ -189,7 +189,7 @@ describe('External Harmonizer Support', () => {
         'https://172.16.0.1/harmonizer.json',
         'https://127.0.0.1/harmonizer.json'
       ]
-      
+
       for (const url of privateIPs) {
         const harmonizer = await remoteHarmonizer(url)
         expect(harmonizer).toBeNull()
@@ -199,14 +199,14 @@ describe('External Harmonizer Support', () => {
     it('should reject cloud metadata endpoint', async () => {
       const metadataUrl = 'https://169.254.169.254/latest/meta-data/'
       const harmonizer = await remoteHarmonizer(metadataUrl)
-      
+
       expect(harmonizer).toBeNull()
     })
 
     it('should handle invalid URL format', async () => {
       const invalidUrl = 'not-a-url'
       const harmonizer = await remoteHarmonizer(invalidUrl)
-      
+
       expect(harmonizer).toBeNull()
     })
 
@@ -228,7 +228,7 @@ describe('External Harmonizer Support', () => {
           o: [{ selector: longSelector, attribute: 'href' }]
         }
       }
-      
+
       // This would be caught by isSchemaValid
       expect(longSelector.length).toBeGreaterThan(200)
     })
@@ -237,34 +237,34 @@ describe('External Harmonizer Support', () => {
       // Deep selector with many combinators (need 11+ for MAX_SELECTOR_DEPTH of 10)
       const deepSelector = 'div > span > a > b > i > u > s > em > strong > small > big > code'
       const combinators = deepSelector.match(/[>+~\s]+/g) || []
-      
+
       // Should have more than 10 combinators
       expect(combinators.length).toBeGreaterThan(10)
     })
 
     it('should reject dangerous :has() selectors', async () => {
       const dangerousSelector = 'div:has(> span:has(> a))'
-      
+
       expect(dangerousSelector).toContain(':has(')
     })
 
     it('should reject schemas with too many rules', async () => {
       // MAX_RULES_PER_TYPE is 50
       const tooManyRules = Array(51).fill({ selector: 'a', attribute: 'href' })
-      
+
       expect(tooManyRules.length).toBeGreaterThan(50)
     })
 
     it('should validate regex patterns in postProcess', async () => {
       // Test that regex compilation works
       const validRegex = 'https://example\\.com/~/([^/]+)'
-      
+
       expect(() => new RegExp(validRegex)).not.toThrow()
     })
 
     it('should detect potentially catastrophic regex patterns', async () => {
       const catastrophicPattern = '(a+)+(b+)+'
-      
+
       // This pattern has nested quantifiers that could cause backtracking
       expect(catastrophicPattern).toMatch(/(\(.+\)\+|\(.+\)\*){2,}/)
     })
@@ -273,20 +273,20 @@ describe('External Harmonizer Support', () => {
   describe('Harmonizer Parameter Flow', () => {
     it('should default to "default" harmonizer when no parameter provided', async () => {
       const result = await harmonizeSource(sampleHTML)
-      
+
       expect(result.title).toBe('Test Page') // Uses <title>, not og:title
     })
 
     it('should use specified harmonizer when parameter provided', async () => {
       const result = await harmonizeSource(sampleHTML, 'openGraph')
-      
+
       expect(result.title).toBe('OpenGraph Title') // Uses og:title
     })
 
     it('should accept harmonizer parameter as string', async () => {
       const harmonizer = 'openGraph'
       const result = await harmonizeSource(sampleHTML, harmonizer)
-      
+
       expect(result.title).toBe('OpenGraph Title')
     })
   })

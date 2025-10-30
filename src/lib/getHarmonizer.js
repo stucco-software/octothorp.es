@@ -87,7 +87,7 @@ const localHarmonizers = {
                   "attribute": "textContent"
                 },
                 {
-                  "selector": "a[rel='octo:octothorpes']",
+                  "selector": "a[rel~='octo:octothorpes']",
                   "attribute": "href",
                   // postProcess alters the returned strings.
                   // if you want to instead filter results
@@ -117,7 +117,7 @@ const localHarmonizers = {
             "s": "source",
             "o": [
               {
-                "selector": `[rel='octo:endorses']:not([href*='${instance}~/'])`,
+                "selector": `[rel~='octo:endorses']:not([href*='${instance}~/'])`,
                 "attribute": "href"
               }
             ]
@@ -126,7 +126,7 @@ const localHarmonizers = {
               "s": "source",
               "o": [
                 {
-                  "selector": `[rel='octo:bookmarks']:not([href*='${instance}~/'])`,
+                  "selector": `[rel~='octo:bookmarks']:not([href*='${instance}~/'])`,
                   "attribute": "href"
                 }
               ]
@@ -135,7 +135,7 @@ const localHarmonizers = {
               "s": "source",
               "o": [
                 {
-                  "selector": `[rel='octo:cites']:not([href*='${instance}~/'])`,
+                  "selector": `[rel~='octo:cites']:not([href*='${instance}~/'])`,
                   "attribute": "href"
                 }
               ]
