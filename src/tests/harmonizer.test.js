@@ -18,7 +18,7 @@ describe('External Harmonizer Support', () => {
       <body>
         <h1>Test Page</h1>
         <octo-thorpe>testTag</octo-thorpe>
-        <a rel="octo:octothorpes nofollow" href="https://octothorp.es/~/anotherTag">Another Tag</a>
+        <a rel="octo:octothorpes,tag" href="https://octothorp.es/~/anotherTag">Another Tag</a>
         <a rel="octo:octothorpes" href="https://example.com/page">External Link</a>
       </body>
     </html>
