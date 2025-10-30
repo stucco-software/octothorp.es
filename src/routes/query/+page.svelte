@@ -1,6 +1,7 @@
 <script>
   import { enhance } from '$app/forms'
   import PreviewImage from '$lib/components/PreviewImage.svelte'
+  import RSSFeed from '$lib/components/RSSFeed.svelte'
   import { extractMultipassFromGif } from '$lib/utils.js'
   
   export let form
@@ -9,6 +10,9 @@
   
   let gifPreview = null
   let isDragging = false
+  
+  // Generate RSS description from MultiPass meta
+  $: rssDescription = form?.multiPass?.meta?.title || 'Query results'
 
   function processFile(file, formEl) {
     const textarea = formEl.querySelector('textarea[name="multipass"]')
@@ -140,6 +144,23 @@
 
   <main class="results-area">
     {#if form?.success}
+      {#if form.multiPass?.meta}
+        <div class="multipass-meta">
+          {#if form.multiPass.meta.image}
+            <img src={form.multiPass.meta.image} alt={form.multiPass.meta.title} class="meta-image" />
+          {/if}
+          <div class="meta-content">
+            <h2 class="meta-title">{form.multiPass.meta.title}</h2>
+            {#if form.multiPass.meta.description}
+              <p class="meta-description">{form.multiPass.meta.description}</p>
+            {/if}
+            {#if form.multiPass.meta.author}
+              <p class="meta-author">by {form.multiPass.meta.author}</p>
+            {/if}
+          </div>
+        </div>
+      {/if}
+      
       <div class="results-header">
         <h3>Results</h3>
         <p class="result-count">
@@ -501,6 +522,53 @@
     color: #666;
     border: 2px dashed var(--txt-color);
     font-size: var(--txt--1);
+  }
+
+  .multipass-meta {
+    background-color: lightgoldenrodyellow;
+    border: 1px solid var(--txt-color);
+    padding: 0.75rem;
+    margin-block-end: 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .multipass-meta:not(:has(.meta-image)) {
+    grid-template-columns: 1fr;
+  }
+
+  .meta-image {
+    max-width: 120px;
+    max-height: 120px;
+    border: 1px solid var(--txt-color);
+    object-fit: cover;
+  }
+
+  .meta-content {
+    min-width: 0;
+  }
+
+  .meta-title {
+    font-family: var(--serif-stack);
+    font-size: var(--txt-0);
+    margin: 0 0 0.25rem 0;
+    font-weight: bold;
+  }
+
+  .meta-description {
+    font-size: var(--txt--1);
+    margin: 0 0 0.25rem 0;
+    line-height: 1.4;
+  }
+
+  .meta-author {
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    margin: 0;
+    font-style: italic;
+    color: #333;
   }
 
   @media (max-width: 900px) {

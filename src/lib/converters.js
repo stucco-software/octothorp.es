@@ -410,6 +410,9 @@ export const getMultiPassFromParams  = (
 
         const defaultTitle = titleParts.join(' ');
         const feedTitle = searchParams.get('feedtitle') ? searchParams.get('feedtitle') : defaultTitle
+        const feedDescription = searchParams.get('feeddescription') ? searchParams.get('feeddescription') : `MultiPass auto generated from a request to the ${instance}/get API`
+        const feedAuthor = searchParams.get('feedauthor') ? searchParams.get('feedauthor') : 'Octothorpes Protocol'
+        const feedImage = searchParams.get('feedimage') ? searchParams.get('feedimage') : `${instance}badge.png`
 
 
       // set dateFilter from ?when
@@ -418,10 +421,10 @@ export const getMultiPassFromParams  = (
       const MultiPass = {
           meta: {
               title: `${feedTitle}`,
-              description: `MultiPass auto generated from a request to the ${instance}/get API`,
+              description: feedDescription,
               server: `${instance}`,
-              author: "Octothorpes Protocol",
-              image: `${instance}badge.png`,
+              author: feedAuthor,
+              image: feedImage,
               version: "1",
               resultMode: resultMode,
           },

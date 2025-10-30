@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "title": "Test MultiPass - Example Pages",
+    "description": "A test MultiPass for encoding into GIFs",
+    "server": "https://octothorp.es/",
+    "author": "Octothorpes Protocol",
+    "image": "https://octothorp.es/badge.png",
+    "version": "1",
+    "resultMode": "blobjects"
+  },
+  "subjects": {
+    "mode": "exact",
+    "include": ["https://example.com"],
+    "exclude": []
+  },
+  "objects": {
+    "type": "termsOnly",
+    "mode": "exact",
+    "include": [],
+    "exclude": []
+  },
+  "filters": {
+    "subtype": "",
+    "limitResults": "100",
+    "offsetResults": "0",
+    "dateRange": null
+  }
+}

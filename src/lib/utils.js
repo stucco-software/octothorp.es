@@ -379,6 +379,104 @@ export const getFuzzyTags = (tags) => {
 };
 
 /**
+ * Validates if an object is a properly structured MultiPass
+ * 
+ * A valid MultiPass must have:
+ * - meta object with required fields (title, resultMode, version, server)
+ * - subjects object with mode and include/exclude arrays
+ * - objects object with type, mode, and include/exclude arrays
+ * - filters object with limitResults, offsetResults, and optional dateRange/subtype
+ * 
+ * @param {*} data - Data to validate as MultiPass
+ * @returns {{valid: true}|{valid: false, error: string}} Validation result
+ * 
+ * @example
+ * const result = isValidMultipass(myData);
+ * if (!result.valid) {
+ *   console.error(result.error);
+ * }
+ */
+export function isValidMultipass(data) {
+  // Must be an object
+  if (typeof data !== 'object' || data === null) {
+    return { valid: false, error: 'MultiPass must be a JSON object' };
+  }
+
+  // Check meta object
+  if (!data.meta || typeof data.meta !== 'object') {
+    return { valid: false, error: 'MultiPass must have a "meta" object' };
+  }
+
+  const requiredMetaFields = ['title', 'resultMode', 'version', 'server'];
+  for (const field of requiredMetaFields) {
+    if (!data.meta[field]) {
+      return { valid: false, error: `MultiPass meta must have "${field}" field` };
+    }
+  }
+
+  // Check subjects object
+  if (!data.subjects || typeof data.subjects !== 'object') {
+    return { valid: false, error: 'MultiPass must have a "subjects" object' };
+  }
+
+  if (!data.subjects.mode || typeof data.subjects.mode !== 'string') {
+    return { valid: false, error: 'MultiPass subjects must have a "mode" string' };
+  }
+
+  if (!Array.isArray(data.subjects.include)) {
+    return { valid: false, error: 'MultiPass subjects must have an "include" array' };
+  }
+
+  if (!Array.isArray(data.subjects.exclude)) {
+    return { valid: false, error: 'MultiPass subjects must have an "exclude" array' };
+  }
+
+  // Check objects object
+  if (!data.objects || typeof data.objects !== 'object') {
+    return { valid: false, error: 'MultiPass must have an "objects" object' };
+  }
+
+  if (!data.objects.type || typeof data.objects.type !== 'string') {
+    return { valid: false, error: 'MultiPass objects must have a "type" string' };
+  }
+
+  if (!data.objects.mode || typeof data.objects.mode !== 'string') {
+    return { valid: false, error: 'MultiPass objects must have a "mode" string' };
+  }
+
+  if (!Array.isArray(data.objects.include)) {
+    return { valid: false, error: 'MultiPass objects must have an "include" array' };
+  }
+
+  if (!Array.isArray(data.objects.exclude)) {
+    return { valid: false, error: 'MultiPass objects must have an "exclude" array' };
+  }
+
+  // Check filters object
+  if (!data.filters || typeof data.filters !== 'object') {
+    return { valid: false, error: 'MultiPass must have a "filters" object' };
+  }
+
+  // limitResults and offsetResults can be strings or numbers
+  if (data.filters.limitResults === undefined && data.filters.limitResults !== 0) {
+    return { valid: false, error: 'MultiPass filters must have "limitResults"' };
+  }
+
+  if (data.filters.offsetResults === undefined && data.filters.offsetResults !== 0) {
+    return { valid: false, error: 'MultiPass filters must have "offsetResults"' };
+  }
+
+  // dateRange is optional but must be object if present
+  if (data.filters.dateRange !== undefined && data.filters.dateRange !== null) {
+    if (typeof data.filters.dateRange !== 'object') {
+      return { valid: false, error: 'MultiPass filters.dateRange must be an object or null' };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
  * Extracts MultiPass JSON from a GIF file's comment extension block
  * 
  * GIF files can contain comment blocks (0x21 0xFE) that store arbitrary text.
@@ -460,4 +558,89 @@ export function extractMultipassFromGif(arrayBuffer) {
   }
   
   throw new Error('No MultiPass JSON found in GIF comment blocks');
+}
+
+/**
+ * Injects MultiPass JSON into a GIF file's comment extension block
+ * 
+ * Creates a new GIF file with the MultiPass data embedded in a comment block.
+ * This operation is performed entirely client-side - no data is sent to any server.
+ * 
+ * The function:
+ * 1. Validates the GIF structure
+ * 2. Serializes the MultiPass object to JSON
+ * 3. Splits JSON into 255-byte sub-blocks (GIF spec requirement)
+ * 4. Inserts comment extension after the header but before image data
+ * 5. Returns a new ArrayBuffer with the modified GIF
+ * 
+ * @param {ArrayBuffer} arrayBuffer - The original GIF file contents
+ * @param {Object} multiPassObject - The MultiPass query object to embed
+ * @returns {Uint8Array} New GIF file with embedded MultiPass JSON
+ * @throws {Error} If file is not a valid GIF
+ * 
+ * @example
+ * const gifFile = await file.arrayBuffer();
+ * const multiPass = { uris: ['https://example.com'], what: 'pages' };
+ * const encodedGif = injectMultipassIntoGif(gifFile, multiPass);
+ * // Download or use encodedGif
+ */
+export function injectMultipassIntoGif(arrayBuffer, multiPassObject) {
+  const bytes = new Uint8Array(arrayBuffer);
+  
+  // Verify GIF signature (GIF87a or GIF89a)
+  const signature = String.fromCharCode(...bytes.slice(0, 6));
+  if (!signature.startsWith('GIF')) {
+    throw new Error('Not a valid GIF file');
+  }
+  
+  // Convert MultiPass to JSON string
+  const jsonString = JSON.stringify(multiPassObject);
+  const jsonBytes = new TextEncoder().encode(jsonString);
+  
+  // Build comment extension block
+  const commentBlocks = [];
+  
+  // Extension Introducer + Comment Label
+  commentBlocks.push(0x21, 0xFE);
+  
+  // Split JSON into 255-byte sub-blocks (max size per GIF spec)
+  let offset = 0;
+  while (offset < jsonBytes.length) {
+    const chunkSize = Math.min(255, jsonBytes.length - offset);
+    const chunk = jsonBytes.slice(offset, offset + chunkSize);
+    
+    // Sub-block: size byte + data
+    commentBlocks.push(chunkSize);
+    commentBlocks.push(...chunk);
+    
+    offset += chunkSize;
+  }
+  
+  // Block terminator
+  commentBlocks.push(0x00);
+  
+  // Find insertion point (after header + global color table, before image data)
+  // Skip GIF header (6 bytes) + Logical Screen Descriptor (7 bytes)
+  let insertPos = 13;
+  
+  // Skip Global Color Table if present
+  const packed = bytes[10];
+  if (packed & 0x80) {
+    const colorTableSize = 2 << (packed & 0x07);
+    insertPos += colorTableSize * 3;
+  }
+  
+  // Build new GIF: header + comment block + rest of data
+  const result = new Uint8Array(bytes.length + commentBlocks.length);
+  
+  // Copy header and global color table
+  result.set(bytes.slice(0, insertPos), 0);
+  
+  // Insert comment block
+  result.set(commentBlocks, insertPos);
+  
+  // Copy rest of original GIF
+  result.set(bytes.slice(insertPos), insertPos + commentBlocks.length);
+  
+  return result;
 }

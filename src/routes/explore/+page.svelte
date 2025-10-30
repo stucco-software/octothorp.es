@@ -24,6 +24,10 @@
   let limit = 50
   let offset = 0
   let when = ''
+  let customTitle = ''
+  let customAuthor = ''
+  let customDescription = ''
+  let customImage = ''
 
   // Input values for tokenized fields
   let subjectsInput = ''
@@ -91,6 +95,10 @@
     if (params.has('limit')) limit = parseInt(params.get('limit'))
     if (params.has('offset')) offset = parseInt(params.get('offset'))
     if (params.has('when')) when = params.get('when')
+    if (params.has('feedtitle')) customTitle = params.get('feedtitle')
+    if (params.has('feedauthor')) customAuthor = params.get('feedauthor')
+    if (params.has('feeddescription')) customDescription = params.get('feeddescription')
+    if (params.has('feedimage')) customImage = params.get('feedimage')
 
     // If URL has params, execute query after a brief delay to ensure reactive statements run
     if (hasParams) {
@@ -127,6 +135,10 @@
       if (limit !== 20) params.set('limit', limit.toString())
       if (offset !== 0) params.set('offset', offset.toString())
       if (when) params.set('when', when)
+      if (customTitle) params.set('feedtitle', customTitle)
+      if (customAuthor) params.set('feedauthor', customAuthor)
+      if (customDescription) params.set('feeddescription', customDescription)
+      if (customImage) params.set('feedimage', customImage)
 
       const newUrl = params.toString() ? `?${params.toString()}` : '/explore'
       if (window.location.search !== '?' + params.toString()) {
@@ -164,6 +176,10 @@
       if (limit) params.push('limit=' + limit)
       if (offset) params.push('offset=' + offset)
       if (when) params.push('when=' + when)
+      if (customTitle) params.push('feedtitle=' + encodeURIComponent(customTitle))
+      if (customAuthor) params.push('feedauthor=' + encodeURIComponent(customAuthor))
+      if (customDescription) params.push('feeddescription=' + encodeURIComponent(customDescription))
+      if (customImage) params.push('feedimage=' + encodeURIComponent(customImage))
 
       queryUrl = url + (params.length > 0 ? '?' + params.join('&') : '')
     }
@@ -263,6 +279,10 @@
     limit = 20
     offset = 0
     when = ''
+    customTitle = ''
+    customAuthor = ''
+    customDescription = ''
+    customImage = ''
     subjectsInput = ''
     objectsInput = ''
     notSubjectsInput = ''
@@ -560,6 +580,45 @@
     </form>
     <details class="compact url-section">
       <summary>Advanced</summary>
+      
+      <label>
+        Custom Title
+        <small>Override the auto-generated feed title</small>
+        <input
+          type="text"
+          bind:value={customTitle}
+          placeholder="My Custom Feed Title">
+      </label>
+      
+      <label>
+        Custom Author
+        <small>Set author name for the feed</small>
+        <input
+          type="text"
+          bind:value={customAuthor}
+          placeholder="Your Name">
+      </label>
+      
+      <label>
+        Custom Description
+        <small>Set description for the feed</small>
+        <input
+          type="text"
+          bind:value={customDescription}
+          placeholder="Description of this feed">
+      </label>
+      
+      <label>
+        Custom Image
+        <small>Set image URL for the feed (use .gif for encoding)</small>
+        <input
+          type="text"
+          bind:value={customImage}
+          placeholder="https://example.com/image.gif">
+      </label>
+
+      <hr style="margin-block: 0.75rem; border: none; border-top: 1px solid var(--txt-color);">
+
     <!-- Generated URL -->
       <label>API URL</label>
       <code class="clickable-url" on:click={copyUrl} on:keydown={(e) => e.key === 'Enter' && copyUrl()} tabindex="0" title="Click to copy">{queryUrl}</code>
