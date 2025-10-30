@@ -1,16 +1,68 @@
 <script>
   export let onEncode = null; // Optional callback when encoding succeeds
+  export let multiPassData = null; // Optional pre-populated MultiPass data
+  export let isLoadingMultiPass = false; // Whether we're loading a pre-populated MultiPass
   
   let multiPassFile = null;
   let gifFile = null;
-  let multiPassData = null;
   let gifPreview = null;
   let error = null;
   let isProcessing = false;
+  let isLoadingGif = false;
   let isDraggingMultiPass = false;
   let isDraggingGif = false;
 
   import { injectMultipassIntoGif, isValidMultipass } from '$lib/utils.js';
+  import { onMount, onDestroy } from 'svelte';
+  import Loading from '$lib/components/Loading.svelte';
+  
+  // Watch for external multiPassData changes (when loaded from explore page)
+  $: if (multiPassData && !multiPassFile) {
+    // Create a fake file object for display purposes
+    multiPassFile = { name: 'current-query.json', size: JSON.stringify(multiPassData).length };
+    
+    // Check if we should auto-load GIF from meta.image
+    if (multiPassData?.meta?.image && multiPassData.meta.image.toLowerCase().endsWith('.gif')) {
+      loadGifFromUrl(multiPassData.meta.image);
+    }
+  }
+  
+  // Listen for event to load GIF from meta.image
+  let eventListener;
+  onMount(() => {
+    eventListener = (event) => {
+      const mp = event.detail.multiPass;
+      if (mp?.meta?.image && mp.meta.image.toLowerCase().endsWith('.gif')) {
+        loadGifFromUrl(mp.meta.image);
+      }
+    };
+    window.addEventListener('load-multipass-gif', eventListener);
+  });
+  
+  onDestroy(() => {
+    if (eventListener) {
+      window.removeEventListener('load-multipass-gif', eventListener);
+    }
+  });
+  
+  async function loadGifFromUrl(url) {
+    isLoadingGif = true;
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.type === 'image/gif') {
+          const arrayBuffer = await blob.arrayBuffer();
+          gifFile = arrayBuffer;
+          gifPreview = URL.createObjectURL(blob);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load GIF from meta.image:', err);
+    } finally {
+      isLoadingGif = false;
+    }
+  }
 
   async function handleMultiPassUpload(event) {
     const file = event.target.files?.[0] || event.dataTransfer?.files?.[0];
@@ -116,10 +168,15 @@
       const a = document.createElement('a');
       a.href = url;
       a.download = 'multipass.gif';
+      a.style.display = 'none';
+      document.body.appendChild(a);
       a.click();
       
-      // Cleanup
-      URL.revokeObjectURL(url);
+      // Cleanup after a short delay to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
 
       // Call optional callback
       if (onEncode) {
@@ -149,6 +206,9 @@
 </script>
 
 <div class="encoder-container">
+  {#if isLoadingMultiPass || isLoadingGif}
+    <Loading message={isLoadingGif ? "Loading GIF from MultiPass..." : "Loading MultiPass..."} />
+  {:else}
   <div class="upload-zones">
     <!-- MultiPass JSON Upload -->
     <div 
@@ -172,8 +232,13 @@
           {:else}
             <div class="upload-prompt">
               <div class="icon">📄</div>
-              <div class="text">Drop MultiPass JSON</div>
-              <div class="subtext">or click to browse</div>
+              {#if multiPassData}
+                <div class="text">Current query loaded</div>
+                <div class="subtext">or upload different JSON</div>
+              {:else}
+                <div class="text">Drop MultiPass JSON</div>
+                <div class="subtext">or click to browse</div>
+              {/if}
             </div>
           {/if}
         </div>
@@ -246,6 +311,7 @@
       </button>
     {/if}
   </div>
+  {/if}
 </div>
 
 <style>
