@@ -2,6 +2,7 @@ import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, build
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
+import { cosmographify } from '$lib/cosmographify.js'
 import { error, redirect, json } from '@sveltejs/kit';
 /*
 
@@ -98,6 +99,17 @@ export async function load({ params, url }) {
 
       return {
         rss: rss(rssTree, params.what)
+      };
+    case "cosmograph":
+      // Convert results to Cosmograph CSV format
+      const format = url.searchParams.get('format') || 'edges';
+      const resultType = params.what === 'everything' ? 'blobjects' : 'parsed';
+      const { csv, edgesCount, nodesCount } = cosmographify(actualResults, resultType, format);
+      
+      return {
+        cosmograph: csv,
+        edgesCount: edgesCount,
+        nodesCount: nodesCount
       };
     default:
     return { results: actualResults }

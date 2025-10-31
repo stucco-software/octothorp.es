@@ -14,6 +14,19 @@ export async function GET(req) {
     })
   }
   
+  // Check if this is a Cosmograph CSV response
+  if (response.cosmograph) {
+    const format = req.url.searchParams.get('format') || 'edges';
+    const filename = `cosmograph-${format}.csv`;
+    return new Response(response.cosmograph, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Access-Control-Allow-Origin': '*'
+      }
+    })
+  }
+  
   return json(response, {
     headers: { 'Access-Control-Allow-Origin': '*' }
   })
