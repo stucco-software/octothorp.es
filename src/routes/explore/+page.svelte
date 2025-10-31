@@ -348,8 +348,9 @@
     if (results) {
       encoderLoading = true
       try {
-        const debugUrl = queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/debug')
-        const response = await fetch(debugUrl)
+        // Use the multipass endpoint which only builds the config without running the query
+        const multipassUrl = queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/multipass')
+        const response = await fetch(multipassUrl)
         if (response.ok) {
           const data = await response.json()
           encoderMultiPass = data.multiPass
@@ -460,6 +461,7 @@
           // Create preview URL for the GIF
           const blob = new Blob([e.target.result], { type: 'image/gif' })
           uploadedMultiPassPreview = URL.createObjectURL(blob)
+          console.log('GIF uploaded, preview URL:', uploadedMultiPassPreview)
         } else {
           // Regular JSON file
           multiPass = JSON.parse(e.target.result)
@@ -468,6 +470,8 @@
 
         // Populate form from MultiPass
         populateFormFromMultiPass(multiPass)
+        console.log('After populate - uploadedMultiPassPreview:', uploadedMultiPassPreview)
+        console.log('After populate - loadedMultiPassMeta:', loadedMultiPassMeta)
 
         // Auto-execute query
         setTimeout(() => executeQuery(), 100)
@@ -1115,7 +1119,6 @@
 
   .sidebar-image {
     margin-block-end: 1rem;
-    border: 1px solid var(--txt-color);
     background-color: var(--bg-color);
   }
 

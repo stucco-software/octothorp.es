@@ -14,7 +14,7 @@ export const deslash = (urlstring) => {
 /**
  * Converts various date formats to Unix timestamps
  * @param {string} datestring - Date string to convert (ISO, YYYY-MM-DD, or Unix timestamp)
- * @returns {number} Unix timestamp (seconds since epoch)
+ * @returns {number} Unix timestamp (milliseconds since epoch)
  * @throws {Error} If the date string is invalid
  */
 export const getUnixDateFromString = (datestring) => {
@@ -41,7 +41,7 @@ export const getUnixDateFromString = (datestring) => {
     throw new Error(`Invalid date: ${datestring}`);
   }
 
-  return Math.floor(date.getTime() / 1000);
+  return date.getTime();
 };
 
 ////////// Clean up raw db return for simple queries //////////

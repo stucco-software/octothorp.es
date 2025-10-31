@@ -3,47 +3,39 @@ import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
 import { error, redirect, json } from '@sveltejs/kit';
-/*
 
-get
-  /everything
-  /links
-  /terms
-  /domains
-  /pages
- /webrings
-     	/thorped
-    	/in-ring
-	/linked(etc)
-	/posted
-
-get/[what]/[by]/[[as]]??
-
-terms
-thorpes
-octothorpes
-links
-backlinks
-bookmarks
-all
-
-
-if by is in-webring
-    sMode = WEBRING
-if by is octo/thorpe/term/etc
-    objectType = term
-if WHAT is everything
-    LIMIT and OFFSET and WHEN need to apply to the returned BLOBJECTS
-    NOT the actual db query
-[[as]]
-default json
-accept RSS, etc
-*/
 
 export async function load({ params, url }) {
   const multiPass = getMultiPassFromParams(params, url);
   let query = "";
   let actualResults = "";
+
+  // Early return for multipass endpoint - don't execute queries
+  if (params.as === "multipass") {
+    // Build query string without executing it
+    switch (params.what) {
+      case "pages":
+      case "links":
+      case "backlinks":
+        query = buildSimpleQuery(multiPass);
+        break;
+      case "everything":
+        query = await buildEverythingQuery(multiPass);
+        break;
+      case "thorpes":
+        query = buildThorpeQuery(multiPass);
+        break;
+      case "domains":
+        query = buildDomainQuery(multiPass);
+        break;
+      default:
+        throw new Error(`Invalid route.`)
+    }
+    return {
+      multiPass: multiPass,
+      query: query
+    }
+  }
 
   switch (params.what) {
     case "pages":
