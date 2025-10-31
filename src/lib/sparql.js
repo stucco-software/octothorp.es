@@ -480,7 +480,7 @@ export const buildEverythingQuery = async ({
     noObjectHandler = `UNION
     {
       ${statements.subjectStatement}
-      ?s octo:indexed ?date .
+      ?s octo:created ?date .
       ?s rdf:type ?pageType .
       OPTIONAL { ?s octo:title ?title }
       OPTIONAL { ?s octo:image ?image }
@@ -506,7 +506,7 @@ export const buildEverythingQuery = async ({
     {
       ${statements.subjectStatement}
       ${statements.subtypeFilter}
-      ?s octo:indexed ?date .
+      ?s ?o ?date .
       ?s rdf:type ?pageType .
       ?s octo:octothorpes ?o .
       OPTIONAL { ?o rdf:type ?oType. }
@@ -559,16 +559,18 @@ export const buildSimpleQuery = ({
     ${statements.objectStatement}
     ?s octo:octothorpes ?o .
     ${objectTypes[objects.type]}
+    ?s ?o ?date .
     OPTIONAL { ?o octo:title ?ot . }
     OPTIONAL { ?o octo:description ?od . }
     OPTIONAL { ?o octo:image ?oimg . }
-  ` : ''
+  ` : `
+    ?s octo:created ?date .
+  `
 
   const query = `${selectClause}
   WHERE {
     ${statements.subjectStatement}
     ${objectClauses}
-    ?s octo:indexed ?date .
     ${statements.dateFilter}
     ?s rdf:type ?pageType .
 
@@ -600,7 +602,6 @@ export const buildThorpeQuery = ({
   meta, subjects, objects, filters
   }) => {
   const statements = getStatements(subjects, objects, filters, meta.resultMode)
-  // const query = `SELECT DISTINCT ?s ?o ?date WHERE {    VALUES ?subList { "demo.ideastore.dev" }               FILTER(CONTAINS(STR(?s), ?subList))   ?o rdf:type <octo:Term> .         ?s ?o ?date .    ?s octo:octothorpes ?o   }    ORDER BY DESC(?date) `
   const query = `SELECT DISTINCT ?o ?date
   WHERE {
     ${statements.subjectStatement}

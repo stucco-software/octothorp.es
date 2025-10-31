@@ -5,6 +5,8 @@
   import Loading from '$lib/components/Loading.svelte'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
   import PreviewImage from '$lib/components/PreviewImage.svelte'
+  import MultiPassEncoder from '$lib/components/MultiPassEncoder.svelte'
+  import { extractMultipassFromGif } from '$lib/utils.js'
 
   // Initialize from URL params if available
   $: urlParams = browser ? new URLSearchParams($page.url.search) : new URLSearchParams()
@@ -24,6 +26,10 @@
   let limit = 50
   let offset = 0
   let when = ''
+  let customTitle = ''
+  let customAuthor = ''
+  let customDescription = ''
+  let customImage = ''
 
   // Input values for tokenized fields
   let subjectsInput = ''
@@ -36,6 +42,16 @@
   let loading = false
   let queryUrl = ''
   let error = null
+
+  // MultiPass upload state
+  let isDraggingMultiPass = false
+  let uploadedMultiPassPreview = null
+  let loadedMultiPassMeta = null
+
+  // View state
+  let showEncoder = false
+  let encoderMultiPass = null
+  let encoderLoading = false
 
 
 
@@ -91,6 +107,10 @@
     if (params.has('limit')) limit = parseInt(params.get('limit'))
     if (params.has('offset')) offset = parseInt(params.get('offset'))
     if (params.has('when')) when = params.get('when')
+    if (params.has('feedtitle')) customTitle = params.get('feedtitle')
+    if (params.has('feedauthor')) customAuthor = params.get('feedauthor')
+    if (params.has('feeddescription')) customDescription = params.get('feeddescription')
+    if (params.has('feedimage')) customImage = params.get('feedimage')
 
     // If URL has params, execute query after a brief delay to ensure reactive statements run
     if (hasParams) {
@@ -127,6 +147,10 @@
       if (limit !== 20) params.set('limit', limit.toString())
       if (offset !== 0) params.set('offset', offset.toString())
       if (when) params.set('when', when)
+      if (customTitle) params.set('feedtitle', customTitle)
+      if (customAuthor) params.set('feedauthor', customAuthor)
+      if (customDescription) params.set('feeddescription', customDescription)
+      if (customImage) params.set('feedimage', customImage)
 
       const newUrl = params.toString() ? `?${params.toString()}` : '/explore'
       if (window.location.search !== '?' + params.toString()) {
@@ -164,6 +188,10 @@
       if (limit) params.push('limit=' + limit)
       if (offset) params.push('offset=' + offset)
       if (when) params.push('when=' + when)
+      if (customTitle) params.push('feedtitle=' + encodeURIComponent(customTitle))
+      if (customAuthor) params.push('feedauthor=' + encodeURIComponent(customAuthor))
+      if (customDescription) params.push('feeddescription=' + encodeURIComponent(customDescription))
+      if (customImage) params.push('feedimage=' + encodeURIComponent(customImage))
 
       queryUrl = url + (params.length > 0 ? '?' + params.join('&') : '')
     }
@@ -171,6 +199,9 @@
 
   async function executeQuery() {
     if (!browser) return
+
+    // Close encoder if open
+    if (showEncoder) closeEncoder()
 
     loading = true
     error = null
@@ -250,6 +281,9 @@
   }
 
   function clearForm() {
+    // Close encoder if open
+    if (showEncoder) closeEncoder()
+
     // Reset all form values to defaults
     what = 'everything'
     by = 'thorped'
@@ -263,15 +297,30 @@
     limit = 20
     offset = 0
     when = ''
+    customTitle = ''
+    customAuthor = ''
+    customDescription = ''
+    customImage = ''
     subjectsInput = ''
     objectsInput = ''
     notSubjectsInput = ''
     notObjectsInput = ''
     results = null
     error = null
+
+    // Clear MultiPass upload state
+    isDraggingMultiPass = false
+    if (uploadedMultiPassPreview) {
+      URL.revokeObjectURL(uploadedMultiPassPreview)
+      uploadedMultiPassPreview = null
+    }
+    loadedMultiPassMeta = null
   }
 
   async function loadPreset(preset) {
+    // Close encoder if open
+    if (showEncoder) closeEncoder()
+
     switch(preset) {
       case 'wwo':
         what = 'everything'
@@ -290,6 +339,178 @@
     await new Promise(resolve => setTimeout(resolve, 0))
     // Execute query after loading preset
     executeQuery()
+  }
+
+  async function loadEncoder() {
+    showEncoder = true
+
+    // If we have results, fetch the MultiPass for the current query
+    if (results) {
+      encoderLoading = true
+      try {
+        // Use the multipass endpoint which only builds the config without running the query
+        const multipassUrl = queryUrl.replace(/\/get\/([^/]+)\/([^/?]+)(\/[^?]+)?/, '/get/$1/$2/multipass')
+        const response = await fetch(multipassUrl)
+        if (response.ok) {
+          const data = await response.json()
+          encoderMultiPass = data.multiPass
+        }
+      } catch (err) {
+        console.error('Error fetching MultiPass for encoder:', err)
+      } finally {
+        encoderLoading = false
+      }
+    }
+  }
+
+  function closeEncoder() {
+    showEncoder = false
+    encoderMultiPass = null
+    encoderLoading = false
+  }
+
+  // MultiPass upload handling
+  function populateFormFromMultiPass(multiPass) {
+    // Set what based on resultMode
+    if (multiPass.meta?.resultMode) {
+      what = multiPass.meta.resultMode === 'blobjects' ? 'everything' :
+            multiPass.meta.resultMode === 'octothorpes' ? 'thorpes' :
+            multiPass.meta.resultMode === 'links' ? 'pages' : 'everything'
+    }
+
+    // Set subjects
+    subjects = multiPass.subjects?.include || []
+    notSubjects = multiPass.subjects?.exclude || []
+
+    // Set objects
+    objects = multiPass.objects?.include || []
+    notObjects = multiPass.objects?.exclude || []
+
+    // Set match modes
+    subjectMatch = multiPass.subjects?.mode || 'auto'
+    objectMatch = multiPass.objects?.mode || 'auto'
+
+    // Determine 'by' from object type and subtype
+    if (multiPass.objects?.type === 'termsOnly') {
+      by = 'thorped'
+    } else if (multiPass.filters?.subtype === 'Backlink') {
+      by = 'backlinked'
+    } else if (multiPass.filters?.subtype === 'Cite') {
+      by = 'cited'
+    } else if (multiPass.filters?.subtype === 'Bookmark') {
+      by = 'bookmarked'
+    } else if (multiPass.subjects?.mode === 'byParent') {
+      by = 'in-webring'
+    } else if (multiPass.objects?.type === 'notTerms') {
+      by = 'linked'
+    } else if (multiPass.objects?.type === 'none') {
+      by = 'posted'
+    } else {
+      by = 'linked'
+    }
+
+    // Set filters
+    limit = parseInt(multiPass.filters?.limitResults) || 50
+    offset = parseInt(multiPass.filters?.offsetResults) || 0
+
+    // Set date range
+    if (multiPass.filters?.dateRange) {
+      const dr = multiPass.filters.dateRange
+      if (dr.after && dr.before) {
+        when = `between-${new Date(dr.after).toISOString().split('T')[0]}-and-${new Date(dr.before).toISOString().split('T')[0]}`
+      } else if (dr.after) {
+        when = `after-${new Date(dr.after).toISOString().split('T')[0]}`
+      } else if (dr.before) {
+        when = `before-${new Date(dr.before).toISOString().split('T')[0]}`
+      }
+    } else {
+      when = ''
+    }
+
+    // Set custom meta fields if present
+    customTitle = multiPass.meta?.title || ''
+    customAuthor = multiPass.meta?.author || ''
+    customDescription = multiPass.meta?.description || ''
+    customImage = multiPass.meta?.image || ''
+
+    // Store meta information for display
+    loadedMultiPassMeta = {
+      title: multiPass.meta?.title,
+      description: multiPass.meta?.description,
+      author: multiPass.meta?.author,
+      image: multiPass.meta?.image
+    }
+  }
+
+  function handleMultiPassUpload(file) {
+    if (!file) return
+
+    error = null
+    isDraggingMultiPass = false
+
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      try {
+        let multiPass
+
+        // Check if it's a GIF file
+        if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
+          multiPass = extractMultipassFromGif(e.target.result)
+
+          // Create preview URL for the GIF
+          const blob = new Blob([e.target.result], { type: 'image/gif' })
+          uploadedMultiPassPreview = URL.createObjectURL(blob)
+          console.log('GIF uploaded, preview URL:', uploadedMultiPassPreview)
+        } else {
+          // Regular JSON file
+          multiPass = JSON.parse(e.target.result)
+          uploadedMultiPassPreview = null
+        }
+
+        // Populate form from MultiPass
+        populateFormFromMultiPass(multiPass)
+        console.log('After populate - uploadedMultiPassPreview:', uploadedMultiPassPreview)
+        console.log('After populate - loadedMultiPassMeta:', loadedMultiPassMeta)
+
+        // Auto-execute query
+        setTimeout(() => executeQuery(), 100)
+      } catch (err) {
+        error = `Error reading MultiPass: ${err.message}`
+        uploadedMultiPassPreview = null
+      }
+    }
+
+    // Read as ArrayBuffer for GIF files, text for JSON
+    if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
+      reader.readAsArrayBuffer(file)
+    } else {
+      reader.readAsText(file)
+    }
+  }
+
+  function handleFileInput(event) {
+    const file = event.target.files[0]
+    if (file) {
+      handleMultiPassUpload(file)
+      event.target.value = '' // Reset file input
+    }
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault()
+    isDraggingMultiPass = true
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault()
+    isDraggingMultiPass = false
+  }
+
+  function handleDrop(event) {
+    event.preventDefault()
+    const file = event.dataTransfer.files[0]
+    handleMultiPassUpload(file)
   }
 
   // Token handling functions
@@ -360,22 +581,51 @@
 </script>
 
 <svelte:head>
-  <title>API Explorer - Octothorpes Protocol</title>
+  <title>{loadedMultiPassMeta?.title || 'API Explorer'} - Octothorpes Protocol</title>
 </svelte:head>
 
-<h1>Explore with Octothorpes</h1>
+{#if loadedMultiPassMeta}
+  <div class="multipass-header">
+    <div class="multipass-header-content">
+      <h1>{loadedMultiPassMeta.title}</h1>
+    </div>
+  </div>
+{:else}
+  <h1>Explore with Octothorpes</h1>
+{/if}
 
 <RSSFeed />
 
 <div class="explorer-container">
   <!-- Sidebar with Form -->
   <aside class="sidebar">
+    {#if uploadedMultiPassPreview || (loadedMultiPassMeta?.image && !uploadedMultiPassPreview)}
+      <div class="sidebar-image">
+        <img
+          src={uploadedMultiPassPreview || loadedMultiPassMeta.image}
+          alt="MultiPass"
+          class="multipass-sidebar-image"
+        />
+      </div>
+    {/if}
+    {#if loadedMultiPassMeta}
+        {#if loadedMultiPassMeta.description}
+          <p class="multipass-header-description">{loadedMultiPassMeta.description}</p>
+        {/if}
+        {#if loadedMultiPassMeta.author}
+          <p class="multipass-header-author">by {loadedMultiPassMeta.author}</p>
+        {/if}
+    {/if}
+
     <form on:submit|preventDefault={executeQuery}>
       <!-- Quick Presets -->
       <fieldset class="compact">
         <legend>Shortcuts</legend>
         <button class="rainbow" type="button" on:click={() => loadPreset('wwo')}>
           Recent #weirdweboctober
+        </button>
+        <button type="button" on:click={loadEncoder}>
+          Make MultiPass GIF
         </button>
         <button type="button" on:click={clearForm}>
           Clear Form
@@ -560,6 +810,45 @@
     </form>
     <details class="compact url-section">
       <summary>Advanced</summary>
+
+      <label>
+        Custom Title
+        <small>Override the auto-generated feed title</small>
+        <input
+          type="text"
+          bind:value={customTitle}
+          placeholder="My Custom Feed Title">
+      </label>
+
+      <label>
+        Custom Author
+        <small>Set author name for the feed</small>
+        <input
+          type="text"
+          bind:value={customAuthor}
+          placeholder="Your Name">
+      </label>
+
+      <label>
+        Custom Description
+        <small>Set description for the feed</small>
+        <input
+          type="text"
+          bind:value={customDescription}
+          placeholder="Description of this feed">
+      </label>
+
+      <label>
+        Custom Image
+        <small>Set image URL for the feed (use .gif for encoding)</small>
+        <input
+          type="text"
+          bind:value={customImage}
+          placeholder="https://example.com/image.gif">
+      </label>
+
+      <hr style="margin-block: 0.75rem; border: none; border-top: 1px solid var(--txt-color);">
+
     <!-- Generated URL -->
       <label>API URL</label>
       <code class="clickable-url" on:click={copyUrl} on:keydown={(e) => e.key === 'Enter' && copyUrl()} tabindex="0" title="Click to copy">{queryUrl}</code>
@@ -582,7 +871,26 @@
   </aside>
 
   <!-- Main Results Area -->
-  <main class="results-area">
+  <main
+    class="results-area"
+    class:dragging-over-results={isDraggingMultiPass && results && !showEncoder}
+    on:dragover={(e) => { if (results && !showEncoder) handleDragOver(e); }}
+    on:dragleave={(e) => { if (results && !showEncoder) handleDragLeave(e); }}
+    on:drop={(e) => { if (results && !showEncoder) handleDrop(e); }}
+  >
+    {#if showEncoder}
+      <div class="encode-view">
+        <div class="encode-header">
+          <h2>Encode MultiPass GIF</h2>
+          <button class="close-button" on:click={closeEncoder}>← Back to Explore</button>
+        </div>
+        <p class="encode-description">
+          Embed your MultiPass query into a GIF image for easy sharing.
+          All encoding happens in your browser - no data is uploaded.
+        </p>
+        <MultiPassEncoder multiPassData={encoderMultiPass} isLoadingMultiPass={encoderLoading} />
+      </div>
+    {:else}
     {#if results}
       <div class="results-header">
         <h3>Results</h3>
@@ -702,9 +1010,31 @@
         {/if}
       </section>
     {:else}
-      <div class="empty-state">
+      <div
+        class="empty-state"
+        class:dragging={isDraggingMultiPass}
+        on:dragover={handleDragOver}
+        on:dragleave={handleDragLeave}
+        on:drop={handleDrop}
+        role="button"
+        tabindex="0"
+      >
+        {#if uploadedMultiPassPreview}
+          <img src={uploadedMultiPassPreview} alt="Uploaded MultiPass" style="max-width: 200px; margin-bottom: 1rem; border: 1px solid var(--txt-color);" />
+        {/if}
         <p>Set some query parameters and click "Explore" to discover sites connected to this OP relay.</p>
+        <p style="margin-top: 1rem; font-weight: bold;">Or drag & drop a MultiPass JSON or GIF here</p>
+        <label class="upload-button">
+          Upload MultiPass
+          <input
+            type="file"
+            accept=".json,.gif,application/json,image/gif"
+            on:change={handleFileInput}
+            style="display: none;"
+          />
+        </label>
       </div>
+    {/if}
     {/if}
   </main>
 </div>
@@ -716,7 +1046,51 @@
     font-size: var(--txt-1);
     max-width: 1200px;
     margin-inline: auto;
+  }
+
+  .multipass-header {
+    max-width: 1200px;
+    margin-inline: auto;
     padding-inline: 1rem;
+    margin-block-end: 0.5rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .multipass-header:not(:has(.multipass-header-image)) {
+    grid-template-columns: 1fr;
+  }
+
+  .multipass-header-image {
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid var(--txt-color);
+    object-fit: cover;
+  }
+
+  .multipass-header-content {
+    min-width: 0;
+  }
+
+  .multipass-header-content h1 {
+    margin: 0 0 0.25rem 0;
+    padding: 0;
+  }
+
+  .multipass-header-description {
+    font-size: var(--txt--1);
+    line-height: 1.4;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .multipass-header-author {
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    font-style: italic;
+    color: #666;
+    margin: 0;
   }
 
   .description {
@@ -741,6 +1115,17 @@
     top: 1rem;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
+  }
+
+  .sidebar-image {
+    margin-block-end: 1rem;
+    background-color: var(--bg-color);
+  }
+
+  .multipass-sidebar-image {
+    width: 100%;
+    height: auto;
+    display: block;
   }
 
   .sidebar form {
@@ -1090,15 +1475,114 @@
 
   /* Main results area */
   .results-area {
-    min-height: 300px;
+    min-height: 400px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+  }
+
+  .results-area.dragging-over-results {
+    background-color: lightgoldenrodyellow;
+    box-shadow: inset 0 0 0 3px blue;
+  }
+
+  .results-area.dragging-over-results::after {
+    content: 'Drop MultiPass to load query';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 2px solid blue;
+    padding: 1rem 2rem;
+    font-family: var(--sans-stack);
+    font-weight: bold;
+    font-size: var(--txt-0);
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Encode View */
+  .encode-view {
+    padding: 1.5rem;
+    background-color: var(--bg-color);
+  }
+
+  .encode-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-block-end: 0.5rem;
+  }
+
+  .encode-header h2 {
+    font-family: var(--serif-stack);
+    font-size: var(--txt-0);
+    margin: 0;
+  }
+
+  .close-button {
+    padding: 0.375rem 0.75rem;
+    background-color: var(--bg-color);
+    border: 1px solid var(--txt-color);
+    cursor: pointer;
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    font-weight: bold;
+  }
+
+  .close-button:hover {
+    background-color: lightgoldenrodyellow;
+  }
+
+  .encode-description {
+    font-size: var(--txt--1);
+    color: #666;
+    margin: 0 0 1.5rem 0;
+    line-height: 1.5;
   }
 
   .empty-state {
-    padding: 1rem;
+    padding: 2rem 1rem;
     text-align: center;
     color: #666;
-    border: 2px dashed var(--txt-color);
     font-size: var(--txt--1);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-image: url('/wonkgraph.png');
+    background-repeat: repeat;
+    background-size: auto 150%;
+  }
+
+  .empty-state p, .empty-state label {
+  background-color: var(--bg-color);
+  }
+
+  .empty-state.dragging {
+    background-color: lightgoldenrodyellow;
+    border-color: blue;
+    border-style: solid;
+  }
+
+  .upload-button {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background-color: lightgoldenrodyellow;
+    border: 2px solid var(--txt-color);
+    cursor: pointer;
+    font-family: var(--sans-stack);
+    font-weight: bold;
+    font-size: var(--txt--1);
+    transition: background-color 0.2s ease;
+  }
+
+  .upload-button:hover {
+    background-color: yellow;
   }
 
   .results {

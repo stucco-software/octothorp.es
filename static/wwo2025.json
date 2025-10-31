@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "title": "Weird Web October 2025",
+    "description": "Commemorative MultiPass for the return of the funnest time of the year on the internet",
+    "server": "https://octothorp.es/",
+    "author": "Octothorpes Protocol devs",
+    "image": "",
+    "version": "1",
+    "resultMode": "blobjects"
+  },
+  "subjects": {
+    "mode": "exact",
+    "include": [],
+    "exclude": []
+  },
+  "objects": {
+    "type": "termsOnly",
+    "mode": "exact",
+    "include": [
+      "weirdweboctober"
+    ],
+    "exclude": []
+  },
+  "filters": {
+    "subtype": "",
+    "limitResults": "1000",
+    "offsetResults": "0",
+    "dateRange": {
+      "after": 1759017600000,
+      "before": 1761955200000
+    }
+  }
+}
