@@ -15,7 +15,7 @@
     text-align: center;
     background-color: var(--bg-color);
     overflow: hidden;
-    min-height: 200px;
+    min-height: 400px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -28,8 +28,8 @@
     width: 200%;
     height: 100%;
     background-image: url('/wonkgraph.png');
-    background-repeat: repeat-x;
-    background-size: auto 300%;
+    background-repeat: repeat;
+    background-size: auto 150%;
     opacity: 0.8;
   }
 
