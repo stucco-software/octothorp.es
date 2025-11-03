@@ -91,22 +91,21 @@ const preloadHref = preloadLink.getAttribute('href');
 if (plugins === "linkfill") {
   console.log("do link fill");
 
-
-  if (preloadLink) {
   const preloadLinks = document.querySelectorAll('link[rel="preload"][as="fetch"]');
-        preloadLinks.forEach(preloadLink => {
-
-            let existingHref = preloadLink.getAttribute('href');
-            if (existingHref && existingHref.trim() !== '') {
-                preloadLink.setAttribute('href', existingHref + currentUrl);
-            } else {
-                preloadLink.setAttribute('href', baseUrl + currentUrl);
-            }
-        });
-      } else {
-          preloadLink.setAttribute('href', baseUrl + currentUrl);
+  
+  if (preloadLinks.length > 0) {
+    preloadLinks.forEach(preloadLink => {
+      let existingHref = preloadLink.getAttribute('href');
+      // Only set if not already set with currentUrl
+      if (!existingHref || existingHref.trim() === '') {
+        preloadLink.setAttribute('href', baseUrl + currentUrl);
+      } else if (!existingHref.includes(currentUrl)) {
+        // Only append if currentUrl isn't already there
+        preloadLink.setAttribute('href', existingHref + currentUrl);
       }
+    });
   }
+}
 else
 {
   let link = document.createElementNS('http://www.w3.org/1999/XHTML/V10', 'link');
