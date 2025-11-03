@@ -2,7 +2,7 @@
   export let onEncode = null; // Optional callback when encoding succeeds
   export let multiPassData = null; // Optional pre-populated MultiPass data
   export let isLoadingMultiPass = false; // Whether we're loading a pre-populated MultiPass
-  
+
   let multiPassFile = null;
   let gifFile = null;
   let gifPreview = null;
@@ -15,18 +15,18 @@
   import { injectMultipassIntoGif, isValidMultipass } from '$lib/utils.js';
   import { onMount, onDestroy } from 'svelte';
   import Loading from '$lib/components/Loading.svelte';
-  
+
   // Watch for external multiPassData changes (when loaded from explore page)
   $: if (multiPassData && !multiPassFile) {
     // Create a fake file object for display purposes
     multiPassFile = { name: 'current-query.json', size: JSON.stringify(multiPassData).length };
-    
+
     // Check if we should auto-load GIF from meta.image
     if (multiPassData?.meta?.image && multiPassData.meta.image.toLowerCase().endsWith('.gif')) {
       loadGifFromUrl(multiPassData.meta.image);
     }
   }
-  
+
   // Listen for event to load GIF from meta.image
   let eventListener;
   onMount(() => {
@@ -38,13 +38,13 @@
     };
     window.addEventListener('load-multipass-gif', eventListener);
   });
-  
+
   onDestroy(() => {
     if (eventListener) {
       window.removeEventListener('load-multipass-gif', eventListener);
     }
   });
-  
+
   async function loadGifFromUrl(url) {
     isLoadingGif = true;
     try {
@@ -163,7 +163,7 @@
       // Create download link
       const blob = new Blob([encodedGif], { type: 'image/gif' });
       const url = URL.createObjectURL(blob);
-      
+
       // Trigger download
       const a = document.createElement('a');
       a.href = url;
@@ -171,7 +171,7 @@
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      
+
       // Cleanup after a short delay to ensure download starts
       setTimeout(() => {
         document.body.removeChild(a);
@@ -211,7 +211,7 @@
   {:else}
   <div class="upload-zones">
     <!-- MultiPass JSON Upload -->
-    <div 
+    <div
       class="upload-zone"
       class:has-file={multiPassFile}
       class:dragging={isDraggingMultiPass}
@@ -252,7 +252,7 @@
     </div>
 
     <!-- GIF Upload -->
-    <div 
+    <div
       class="upload-zone"
       class:has-file={gifFile}
       class:dragging={isDraggingGif}
@@ -293,16 +293,16 @@
   {/if}
 
   <div class="actions">
-    <button 
+    <button
       class="encode-button"
       on:click={encodeMultiPass}
       disabled={!multiPassFile || !gifFile || isProcessing}
     >
       {isProcessing ? 'Encoding...' : 'Encode & Download MultiPass GIF'}
     </button>
-    
+
     {#if multiPassFile || gifFile}
-      <button 
+      <button
         class="reset-button"
         on:click={reset}
         disabled={isProcessing}
