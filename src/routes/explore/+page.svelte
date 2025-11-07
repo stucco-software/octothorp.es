@@ -23,7 +23,7 @@
   let notObjects = []
   let subjectMatch = 'auto'
   let objectMatch = 'auto'
-  let limit = 50
+  let limit = 20
   let offset = 0
   let when = ''
   let customTitle = ''
