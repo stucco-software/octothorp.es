@@ -23,7 +23,7 @@
   let notObjects = []
   let subjectMatch = 'auto'
   let objectMatch = 'auto'
-  let limit = 50
+  let limit = 20
   let offset = 0
   let when = ''
   let customTitle = ''
@@ -887,6 +887,7 @@
         <p class="encode-description">
           Embed your MultiPass query into a GIF image for easy sharing.
           All encoding happens in your browser - no data is uploaded.
+          Click once to encode, and again to download.
         </p>
         <MultiPassEncoder multiPassData={encoderMultiPass} isLoadingMultiPass={encoderLoading} />
       </div>

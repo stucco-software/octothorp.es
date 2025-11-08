@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>octo-multipass-loader Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #3c7efb;
+      padding-bottom: 0.5rem;
+    }
+    
+    .intro {
+      background: #e3f2fd;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      border-left: 4px solid #3c7efb;
+    }
+    
+    section {
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background: #fafafa;
+      border-radius: 8px;
+    }
+    
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    
+    code {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.9rem;
+    }
+    
+    .demo-box {
+      background: white;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+      border: 2px solid #3c7efb;
+    }
+    
+    .feature-list {
+      background: #fff3e0;
+      padding: 1.5rem;
+      border-radius: 8px;
+      border-left: 4px solid #ff6f00;
+    }
+    
+    .feature-list ul {
+      margin: 0;
+    }
+    
+    .feature-list li {
+      margin: 0.5rem 0;
+    }
+    
+    .download-links {
+      display: flex;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    
+    .download-button {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: #3c7efb;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    
+    .download-button:hover {
+      opacity: 0.9;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    
+    th, td {
+      text-align: left;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+    }
+    
+    th {
+      background: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <h1>&lt;octo-multipass-loader&gt; Component</h1>
+  
+  <div class="intro">
+    <p>
+      <strong>Drag-and-drop MultiPass loader</strong> - Just like the Explore page, 
+      this component accepts MultiPass JSON files or GIF files with embedded MultiPass data.
+    </p>
+    <p>
+      Drop a file, and it automatically extracts the query, loads results, and displays them.
+      Perfect for creating shareable feed widgets!
+    </p>
+  </div>
+
+  <div class="feature-list">
+    <h2>Features</h2>
+    <ul>
+      <li>✅ <strong>Drag and drop</strong> - Drop JSON or GIF files directly</li>
+      <li>✅ <strong>File browser</strong> - Click to browse for files</li>
+      <li>✅ <strong>GIF extraction</strong> - Automatically extracts MultiPass from GIF comment blocks</li>
+      <li>✅ <strong>Auto-load</strong> - Instantly fetches and displays results after upload</li>
+      <li>✅ <strong>GIF preview</strong> - Shows the GIF image alongside results</li>
+      <li>✅ <strong>Metadata display</strong> - Shows title, description, and author from MultiPass</li>
+      <li>✅ <strong>Reset button</strong> - Easy to load a different file</li>
+      <li>✅ <strong>Multiple render modes</strong> - List, cards, or compact</li>
+    </ul>
+  </div>
+
+  <section>
+    <h2>Live Demo</h2>
+    <p>Try it out! Drag and drop a MultiPass JSON or GIF file below:</p>
+    
+    <div class="demo-box">
+      <octo-multipass-loader></octo-multipass-loader>
+    </div>
+    
+    <p style="margin-top: 1rem;">
+      Don't have a MultiPass file? 
+      <a href="/explore" target="_blank">Create one on the Explore page</a>, 
+      then download the JSON or encode it into a GIF.
+    </p>
+  </section>
+
+  <section>
+    <h2>Example: Cards Layout</h2>
+    <p>Use <code>render="cards"</code> for a grid layout:</p>
+    
+    <pre><code>&lt;octo-multipass-loader render="cards"&gt;&lt;/octo-multipass-loader&gt;</code></pre>
+    
+    <div class="demo-box">
+      <octo-multipass-loader render="cards"></octo-multipass-loader>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example: Compact Layout</h2>
+    <p>Use <code>render="compact"</code> for inline links:</p>
+    
+    <pre><code>&lt;octo-multipass-loader render="compact"&gt;&lt;/octo-multipass-loader&gt;</code></pre>
+    
+    <div class="demo-box">
+      <octo-multipass-loader render="compact"></octo-multipass-loader>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example: Custom Placeholder</h2>
+    <p>Customize the upload prompt:</p>
+    
+    <pre><code>&lt;octo-multipass-loader 
+  placeholder="Drop your curated feed here"&gt;
+&lt;/octo-multipass-loader&gt;</code></pre>
+    
+    <div class="demo-box">
+      <octo-multipass-loader placeholder="Drop your curated feed here"></octo-multipass-loader>
+    </div>
+  </section>
+
+  <section>
+    <h2>How to Use</h2>
+    
+    <h3>1. Include the component</h3>
+    <pre><code>&lt;script type="module" src="https://octothorp.es/components/octo-multipass-loader.js"&gt;&lt;/script&gt;</code></pre>
+    
+    <h3>2. Add to your page</h3>
+    <pre><code>&lt;octo-multipass-loader&gt;&lt;/octo-multipass-loader&gt;</code></pre>
+    
+    <h3>3. Users can drag and drop</h3>
+    <ul>
+      <li>MultiPass JSON files (.json)</li>
+      <li>GIF files with embedded MultiPass (.gif)</li>
+    </ul>
+    
+    <h3>4. Available Attributes</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>render</code></td>
+          <td>String</td>
+          <td>Display mode: list, cards, compact</td>
+          <td>list</td>
+        </tr>
+        <tr>
+          <td><code>placeholder</code></td>
+          <td>String</td>
+          <td>Custom upload prompt text</td>
+          <td>"Drop MultiPass JSON or GIF here"</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Workflow: Create → Share → Embed</h2>
+    
+    <h3>Step 1: Create MultiPass on Explore Page</h3>
+    <ol>
+      <li>Go to <a href="/explore" target="_blank">/explore</a></li>
+      <li>Build your query (tags, filters, etc.)</li>
+      <li>Add custom metadata (title, description, author)</li>
+      <li>Download MultiPass JSON or encode into GIF</li>
+    </ol>
+    
+    <h3>Step 2: Share the File</h3>
+    <ul>
+      <li>Host the JSON file on your site</li>
+      <li>Or encode into a GIF and share on social media</li>
+      <li>Or email the file to recipients</li>
+    </ul>
+    
+    <h3>Step 3: Embed the Loader</h3>
+    <pre><code>&lt;!-- On any website --&gt;
+&lt;script type="module" src="https://octothorp.es/components/octo-multipass-loader.js"&gt;&lt;/script&gt;
+
+&lt;h2&gt;Curated Feed&lt;/h2&gt;
+&lt;p&gt;Drop your MultiPass file to view:&lt;/p&gt;
+&lt;octo-multipass-loader&gt;&lt;/octo-multipass-loader&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Use Cases</h2>
+    
+    <h3>1. Shareable Curated Feeds</h3>
+    <p>
+      Create a curated feed on /explore, encode it into a GIF, and share it.
+      Anyone can drop the GIF into this component to see your feed.
+    </p>
+    
+    <h3>2. Personal Feed Widget</h3>
+    <p>
+      Add this component to your blog. Create MultiPass configurations for different
+      topics, and let visitors drag-drop to explore them.
+    </p>
+    
+    <h3>3. Feed Gallery</h3>
+    <p>
+      Create a page with multiple loaders for different topic feeds. Users can
+      drag their saved MultiPass GIFs to any loader to compare queries.
+    </p>
+    
+    <h3>4. Social Media Integration</h3>
+    <p>
+      Encode MultiPass into GIFs and share on social media. When someone saves
+      the GIF, they can drop it into any loader component to see the full feed.
+    </p>
+  </section>
+
+  <section>
+    <h2>GIF Encoding</h2>
+    <p>
+      To create a MultiPass GIF:
+    </p>
+    <ol>
+      <li>Go to <a href="/explore" target="_blank">/explore</a></li>
+      <li>Build your query</li>
+      <li>Click "Make MultiPass GIF"</li>
+      <li>Upload a GIF image</li>
+      <li>Click "Encode & Download"</li>
+      <li>The MultiPass is embedded in the GIF's comment block</li>
+    </ol>
+    
+    <p>
+      The GIF looks like a normal image but contains all the query data.
+      This component automatically extracts and executes the embedded query!
+    </p>
+  </section>
+
+  <section>
+    <h2>Comparison: Loader vs Regular MultiPass Component</h2>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>&lt;octo-multipass&gt;</th>
+          <th>&lt;octo-multipass-loader&gt;</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Accepts JSON string</td>
+          <td>✅ Yes (via attribute)</td>
+          <td>✅ Yes (via file)</td>
+        </tr>
+        <tr>
+          <td>Accepts JavaScript object</td>
+          <td>✅ Yes</td>
+          <td>❌ No</td>
+        </tr>
+        <tr>
+          <td>Drag and drop</td>
+          <td>❌ No</td>
+          <td>✅ Yes</td>
+        </tr>
+        <tr>
+          <td>GIF extraction</td>
+          <td>❌ No</td>
+          <td>✅ Yes</td>
+        </tr>
+        <tr>
+          <td>File browser</td>
+          <td>❌ No</td>
+          <td>✅ Yes</td>
+        </tr>
+        <tr>
+          <td>Best for</td>
+          <td>Programmatic use</td>
+          <td>User interaction</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p><strong>When to use which:</strong></p>
+    <ul>
+      <li>Use <code>&lt;octo-multipass&gt;</code> when you have the MultiPass object in JavaScript</li>
+      <li>Use <code>&lt;octo-multipass-loader&gt;</code> when users will upload/drag-drop files</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>CSS Customization</h2>
+    <p>All standard CSS custom properties work:</p>
+    
+    <pre><code>octo-multipass-loader {
+  --octo-font: system-ui, sans-serif;
+  --octo-primary: #3c7efb;
+  --octo-background: #ffffff;
+  --octo-text: #333333;
+  --octo-border: #e0e0e0;
+  --octo-error: #d32f2f;
+  --octo-spacing: 1rem;
+  --octo-radius: 4px;
+}</code></pre>
+  </section>
+
+  <!-- Load the component -->
+  <script type="module" src="/components/octo-multipass-loader.js"></script>
+</body>
+</html>

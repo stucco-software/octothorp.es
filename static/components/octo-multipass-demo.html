@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>octo-multipass Web Component Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #3c7efb;
+      padding-bottom: 0.5rem;
+    }
+    
+    h2 {
+      color: #555;
+      margin-top: 3rem;
+    }
+    
+    .intro {
+      background: #e3f2fd;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      border-left: 4px solid #3c7efb;
+    }
+    
+    .intro strong {
+      color: #1976d2;
+    }
+    
+    section {
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    section h3 {
+      margin-top: 0;
+      color: #666;
+      font-size: 1rem;
+      font-weight: normal;
+      font-family: monospace;
+    }
+    
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    
+    code {
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.9rem;
+    }
+    
+    .result-box {
+      background: white;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+      border: 2px solid #3c7efb;
+    }
+    
+    .architecture {
+      background: #fff3e0;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin: 2rem 0;
+      border-left: 4px solid #ff6f00;
+    }
+    
+    .architecture h2 {
+      margin-top: 0;
+      color: #e65100;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    
+    th, td {
+      text-align: left;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+    }
+    
+    th {
+      background: #f5f5f5;
+      font-weight: bold;
+    }
+    
+    .inline-example {
+      font-size: 1.125rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 4px;
+    }
+    
+    button {
+      padding: 0.5rem 1rem;
+      margin: 0.25rem;
+      background: #3c7efb;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <h1>&lt;octo-multipass&gt; Web Component</h1>
+  
+  <div class="intro">
+    <p>
+      <strong>Accept MultiPass objects as input</strong> to display curated feeds. 
+      This component converts MultiPass query configurations into live results.
+    </p>
+    <p>
+      Perfect for embedding saved queries, sharing feed configurations, or building dynamic feeds from MultiPass GIFs.
+    </p>
+  </div>
+
+  <div class="architecture">
+    <h2>How It Works</h2>
+    <ol>
+      <li><strong>Input:</strong> MultiPass object (JSON or object)</li>
+      <li><strong>Convert:</strong> MultiPass → API query parameters</li>
+      <li><strong>Query:</strong> Automatically determines what/by endpoint</li>
+      <li><strong>Display:</strong> Shows results with MultiPass metadata (title, author, description)</li>
+    </ol>
+    
+    <p><strong>Use Cases:</strong></p>
+    <ul>
+      <li>Embed curated feeds on your website</li>
+      <li>Share query configurations via MultiPass JSON</li>
+      <li>Display results from MultiPass GIFs</li>
+      <li>Build dynamic feeds from saved queries</li>
+    </ul>
+  </div>
+
+  <section>
+    <h2>Example 1: Basic MultiPass (Pages Tagged "demo")</h2>
+    <p>Simple MultiPass showing pages tagged with "demo":</p>
+    
+    <pre><code>&lt;octo-multipass autoload
+  multipass='{
+    "meta": {"resultMode": "links", "version": "1", "server": "https://octothorp.es"},
+    "subjects": {"include": [], "exclude": []},
+    "objects": {"include": ["demo"], "exclude": [], "type": "termsOnly"},
+    "filters": {"limitResults": 5, "offsetResults": 0}
+  }'&gt;
+&lt;/octo-multipass&gt;</code></pre>
+    
+    <div class="result-box">
+      <octo-multipass autoload
+        multipass='{"meta":{"resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["demo"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":5,"offsetResults":0}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 2: MultiPass with Metadata</h2>
+    <p>MultiPass with title, description, and author:</p>
+    
+    <pre><code>&lt;octo-multipass autoload
+  multipass='{
+    "meta": {
+      "title": "IndieWeb & SmallWeb Pages",
+      "description": "A curated collection of pages about the IndieWeb and SmallWeb movements",
+      "author": "Demo Curator",
+      "resultMode": "links",
+      "version": "1",
+      "server": "https://octothorp.es"
+    },
+    "subjects": {"include": [], "exclude": []},
+    "objects": {"include": ["indieweb", "smallweb"], "exclude": [], "type": "termsOnly"},
+    "filters": {"limitResults": 10, "offsetResults": 0}
+  }'&gt;
+&lt;/octo-multipass&gt;</code></pre>
+    
+    <div class="result-box">
+      <octo-multipass autoload
+        multipass='{"meta":{"title":"IndieWeb & SmallWeb Pages","description":"A curated collection of pages about the IndieWeb and SmallWeb movements","author":"Demo Curator","resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["indieweb","smallweb"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":10,"offsetResults":0}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 3: Everything Mode (Blobjects)</h2>
+    <p>Using <code>resultMode: "blobjects"</code> to get full objects with octothorpes:</p>
+    
+    <div class="result-box">
+      <octo-multipass autoload
+        multipass='{"meta":{"title":"Demo Everything","resultMode":"blobjects","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["demo"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":5,"offsetResults":0}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 4: Cards Layout</h2>
+    <p>Use <code>render="cards"</code> for grid display:</p>
+    
+    <div class="result-box">
+      <octo-multipass autoload render="cards"
+        multipass='{"meta":{"title":"Recent Demo Pages (Cards)","resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["demo"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":6,"offsetResults":0}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 5: Compact Layout</h2>
+    <p>Use <code>render="compact"</code> for inline comma-separated links:</p>
+    
+    <div class="result-box">
+      <octo-multipass autoload render="compact"
+        multipass='{"meta":{"resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["demo"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":8,"offsetResults":0}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 6: Count Mode (Inline)</h2>
+    <div class="inline-example">
+      <p>
+        There are 
+        <octo-multipass autoload render="count"
+          multipass='{"meta":{"resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["demo"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":100,"offsetResults":0}}'>
+        </octo-multipass>
+        pages tagged "demo".
+      </p>
+    </div>
+    
+    <pre><code>&lt;p&gt;
+  There are 
+  &lt;octo-multipass autoload render="count" multipass='{...}'&gt;&lt;/octo-multipass&gt;
+  pages tagged "demo".
+&lt;/p&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Example 7: Recent Pages (Date Filter)</h2>
+    <p>MultiPass with date range filter:</p>
+    
+    <div class="result-box">
+      <octo-multipass autoload
+        multipass='{"meta":{"title":"Recent Demo Pages","description":"Pages tagged demo from the last two weeks","resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":[],"exclude":[]},"objects":{"include":["demo"],"exclude":[],"type":"termsOnly"},"filters":{"limitResults":10,"offsetResults":0,"dateRange":{"after":1730937600000}}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 8: Via JavaScript (Dynamic Loading)</h2>
+    <p>Load MultiPass dynamically from JSON file or API:</p>
+    
+    <button onclick="loadDynamicMultipass()">Load Dynamic MultiPass</button>
+    
+    <div class="result-box">
+      <octo-multipass id="dynamic-mp"></octo-multipass>
+    </div>
+    
+    <pre><code>&lt;octo-multipass id="my-feed"&gt;&lt;/octo-multipass&gt;
+
+&lt;script&gt;
+  // Load from URL
+  fetch('/path/to/multipass.json')
+    .then(r => r.json())
+    .then(mp => {
+      document.getElementById('my-feed').multipass = mp;
+      document.getElementById('my-feed').autoload = true;
+    });
+    
+  // Or set directly
+  const multipass = {
+    meta: { resultMode: 'links', version: '1', server: 'https://octothorp.es' },
+    subjects: { include: [], exclude: [] },
+    objects: { include: ['demo'], exclude: [], type: 'termsOnly' },
+    filters: { limitResults: 5, offsetResults: 0 }
+  };
+  document.getElementById('my-feed').multipass = multipass;
+  document.getElementById('my-feed').autoload = true;
+&lt;/script&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Example 9: Pages from Specific Domain</h2>
+    <p>MultiPass showing pages posted from octothorp.es:</p>
+    
+    <div class="result-box">
+      <octo-multipass autoload
+        multipass='{"meta":{"title":"Pages from octothorp.es","resultMode":"links","version":"1","server":"https://octothorp.es"},"subjects":{"include":["octothorp.es"],"exclude":[]},"objects":{"include":[],"exclude":[],"type":"none"},"filters":{"limitResults":10,"offsetResults":0}}'>
+      </octo-multipass>
+    </div>
+  </section>
+
+  <section>
+    <h2>How to Use</h2>
+    
+    <h3>1. Include the component</h3>
+    <pre><code>&lt;script type="module" src="https://octothorp.es/components/octo-multipass.js"&gt;&lt;/script&gt;</code></pre>
+    
+    <h3>2. Use with inline JSON</h3>
+    <pre><code>&lt;octo-multipass autoload
+  multipass='{
+    "meta": {"resultMode": "links", "version": "1", "server": "https://octothorp.es"},
+    "subjects": {"include": [], "exclude": []},
+    "objects": {"include": ["demo"], "type": "termsOnly"},
+    "filters": {"limitResults": 10, "offsetResults": 0}
+  }'&gt;
+&lt;/octo-multipass&gt;</code></pre>
+    
+    <h3>3. Or load dynamically via JavaScript</h3>
+    <pre><code>&lt;octo-multipass id="feed"&gt;&lt;/octo-multipass&gt;
+
+&lt;script&gt;
+  const mp = { /* your multipass object */ };
+  document.getElementById('feed').multipass = mp;
+  document.getElementById('feed').autoload = true;
+&lt;/script&gt;</code></pre>
+    
+    <h3>4. Available Attributes</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>multipass</code></td>
+          <td>String or Object</td>
+          <td>MultiPass JSON or object</td>
+          <td>Required</td>
+        </tr>
+        <tr>
+          <td><code>autoload</code></td>
+          <td>Boolean</td>
+          <td>Load automatically on mount</td>
+          <td>false</td>
+        </tr>
+        <tr>
+          <td><code>render</code></td>
+          <td>String</td>
+          <td>Display mode: list, cards, compact, count</td>
+          <td>list</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h3>5. MultiPass Structure</h3>
+    <p>Required fields:</p>
+    <pre><code>{
+  "meta": {
+    "resultMode": "links",        // "links", "blobjects", or "octothorpes"
+    "version": "1",
+    "server": "https://octothorp.es",
+    "title": "Feed Title",         // Optional
+    "description": "Description",  // Optional
+    "author": "Author Name"        // Optional
+  },
+  "subjects": {
+    "include": [],                 // Domain filters
+    "exclude": []
+  },
+  "objects": {
+    "include": [],                 // Terms or URLs
+    "exclude": [],
+    "type": "termsOnly"            // "termsOnly", "notTerms", "none"
+  },
+  "filters": {
+    "limitResults": 10,
+    "offsetResults": 0,
+    "dateRange": {                 // Optional
+      "after": timestamp,
+      "before": timestamp
+    },
+    "subtype": "Backlink"          // Optional: "Backlink", "Cite", "Bookmark"
+  }
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>Integration with Explore Page</h2>
+    <p>
+      You can export MultiPass JSON from the 
+      <a href="/explore" target="_blank">Explore page</a> and use it directly:
+    </p>
+    <ol>
+      <li>Build your query on <a href="/explore">/explore</a></li>
+      <li>Click "Copy MultiPass" or "Download MultiPass"</li>
+      <li>Use the JSON in this component</li>
+    </ol>
+    <p>This allows you to prototype queries visually, then embed them anywhere!</p>
+  </section>
+
+  <!-- Load the component -->
+  <script type="module" src="/components/octo-multipass.js"></script>
+  
+  <!-- Demo interaction script -->
+  <script>
+    function loadDynamicMultipass() {
+      const multipass = {
+        meta: {
+          title: "Dynamically Loaded Feed",
+          description: "This MultiPass was loaded via JavaScript",
+          author: "JavaScript Demo",
+          resultMode: "links",
+          version: "1",
+          server: "https://octothorp.es"
+        },
+        subjects: { include: [], exclude: [] },
+        objects: { include: ["demo"], exclude: [], type: "termsOnly" },
+        filters: { limitResults: 5, offsetResults: 0 }
+      };
+      
+      const component = document.getElementById('dynamic-mp');
+      component.multipass = multipass;
+      component.autoload = true;
+    }
+  </script>
+</body>
+</html>

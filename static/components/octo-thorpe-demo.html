@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>octo-thorpe Web Component Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #3c7efb;
+      padding-bottom: 0.5rem;
+    }
+    
+    h2 {
+      color: #555;
+      margin-top: 3rem;
+    }
+    
+    .intro {
+      background: #e3f2fd;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      border-left: 4px solid #3c7efb;
+    }
+    
+    .intro strong {
+      color: #1976d2;
+    }
+    
+    section {
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    section h3 {
+      margin-top: 0;
+      color: #666;
+      font-size: 1rem;
+      font-weight: normal;
+      font-family: monospace;
+    }
+    
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    
+    code {
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.9rem;
+    }
+    
+    .result-box {
+      background: white;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+      border: 2px solid #3c7efb;
+    }
+    
+    .architecture {
+      background: #fff3e0;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin: 2rem 0;
+      border-left: 4px solid #ff6f00;
+    }
+    
+    .architecture h2 {
+      margin-top: 0;
+      color: #e65100;
+    }
+    
+    .architecture ul {
+      margin: 0;
+    }
+    
+    .architecture li {
+      margin: 0.5rem 0;
+    }
+    
+    /* Custom styling example */
+    .custom-orange {
+      --octo-primary: #ff6f00;
+      --octo-background: #fff3e0;
+      --octo-border: #ffe0b2;
+    }
+    
+    .custom-grid octo-thorpe {
+      --octo-spacing: 1.5rem;
+    }
+    
+    /* Inline count example */
+    .inline-example {
+      font-size: 1.125rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>&lt;octo-thorpe&gt; Web Component</h1>
+  
+  <div class="intro">
+    <p>
+      <strong>A declarative web component</strong> for displaying pages tagged with octothorpes. 
+      Built using the <strong>store pattern</strong> for minimal bundle size and maximum flexibility.
+    </p>
+    <p>
+      Just set HTML attributes that map directly to API parameters. No JavaScript required.
+    </p>
+  </div>
+
+  <div class="architecture">
+    <h2>Architecture Highlights</h2>
+    <ul>
+      <li><strong>Store-based:</strong> Uses Svelte stores compiled to vanilla JS (~2KB overhead)</li>
+      <li><strong>Declarative:</strong> HTML attributes map 1:1 to API query parameters</li>
+      <li><strong>Focused:</strong> Only queries <code>GET /get/pages/thorped</code></li>
+      <li><strong>Lightweight:</strong> ~15KB total (5KB gzipped) including all features</li>
+      <li><strong>No dependencies:</strong> Single self-contained .js file</li>
+      <li><strong>Customizable:</strong> CSS custom properties for all visual aspects</li>
+    </ul>
+  </div>
+
+  <section>
+    <h2>Example 1: Basic Usage (Autoload)</h2>
+    <h3>&lt;octo-thorpe o="demo" autoload&gt;&lt;/octo-thorpe&gt;</h3>
+    
+    <div class="result-box">
+      <octo-thorpe o="demo" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 2: Manual Load Button</h2>
+    <h3>&lt;octo-thorpe o="demo"&gt;&lt;/octo-thorpe&gt;</h3>
+    <p>Without <code>autoload</code>, shows a button for user interaction:</p>
+    
+    <div class="result-box">
+      <octo-thorpe o="demo"></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 3: Multiple Terms</h2>
+    <h3>&lt;octo-thorpe o="indieweb,smallweb" autoload&gt;&lt;/octo-thorpe&gt;</h3>
+    <p>Comma-separated terms query for pages tagged with any of them:</p>
+    
+    <div class="result-box">
+      <octo-thorpe o="indieweb,smallweb" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 4: Card Layout</h2>
+    <h3>&lt;octo-thorpe o="demo" render="cards" limit="6" autoload&gt;&lt;/octo-thorpe&gt;</h3>
+    
+    <div class="result-box">
+      <octo-thorpe o="demo" render="cards" limit="6" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 5: Compact Mode</h2>
+    <h3>&lt;octo-thorpe o="demo" render="compact" limit="5" autoload&gt;&lt;/octo-thorpe&gt;</h3>
+    <p>Inline comma-separated list:</p>
+    
+    <div class="result-box">
+      <octo-thorpe o="demo" render="compact" limit="5" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 6: Count Mode (Inline)</h2>
+    <div class="inline-example">
+      <p>
+        There are 
+        <octo-thorpe o="demo" render="count" autoload></octo-thorpe> 
+        pages tagged with "demo".
+      </p>
+    </div>
+    
+    <pre><code>&lt;p&gt;
+  There are 
+  &lt;octo-thorpe o="demo" render="count" autoload&gt;&lt;/octo-thorpe&gt; 
+  pages tagged with "demo".
+&lt;/p&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Example 7: Advanced Filtering</h2>
+    <h3>&lt;octo-thorpe o="demo" s="octothorp.es" match="fuzzy" limit="20" autoload&gt;&lt;/octo-thorpe&gt;</h3>
+    <p>Filter by subject (domain) with fuzzy matching:</p>
+    
+    <div class="result-box">
+      <octo-thorpe o="demo" s="octothorp.es" match="fuzzy" limit="20" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 8: Custom Styling (Orange Theme)</h2>
+    <h3>CSS Custom Properties</h3>
+    <pre><code>.custom-orange {
+  --octo-primary: #ff6f00;
+  --octo-background: #fff3e0;
+  --octo-border: #ffe0b2;
+}</code></pre>
+    
+    <div class="result-box custom-orange">
+      <octo-thorpe o="demo" limit="5" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>Example 9: Recent Pages Only</h2>
+    <h3>&lt;octo-thorpe o="demo" when="recent" autoload&gt;&lt;/octo-thorpe&gt;</h3>
+    <p>Only show pages from the last 2 weeks:</p>
+    
+    <div class="result-box">
+      <octo-thorpe o="demo" when="recent" autoload></octo-thorpe>
+    </div>
+  </section>
+
+  <section>
+    <h2>How to Use</h2>
+    
+    <h3>1. Include the component</h3>
+    <pre><code>&lt;script type="module" src="https://octothorp.es/components/octo-thorpe.js"&gt;&lt;/script&gt;</code></pre>
+    
+    <h3>2. Use it in your HTML</h3>
+    <pre><code>&lt;octo-thorpe o="webdev" autoload&gt;&lt;/octo-thorpe&gt;</code></pre>
+    
+    <h3>3. Available Attributes</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+      <thead>
+        <tr style="background: #f5f5f5;">
+          <th style="text-align: left; padding: 0.5rem; border: 1px solid #ddd;">Attribute</th>
+          <th style="text-align: left; padding: 0.5rem; border: 1px solid #ddd;">Description</th>
+          <th style="text-align: left; padding: 0.5rem; border: 1px solid #ddd;">Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>o</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Octothorpe terms (comma-separated)</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">''</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>s</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Subject filter - domain(s)</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">''</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>noto</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Exclude terms</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">''</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>nots</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Exclude subjects</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">''</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>match</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Match mode (exact, fuzzy, fuzzy-o, fuzzy-s, very-fuzzy)</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">exact</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>limit</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Maximum results</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">10</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>offset</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Result offset (pagination)</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">0</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>when</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Date filter (recent, after-DATE, before-DATE, between-DATE-and-DATE)</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">''</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>autoload</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Load automatically on mount</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">false</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>render</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">Display mode (list, cards, compact, count)</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">list</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;"><code>server</code></td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">API server URL</td>
+          <td style="padding: 0.5rem; border: 1px solid #ddd;">https://octothorp.es</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <h3>4. CSS Custom Properties</h3>
+    <pre><code>octo-thorpe {
+  --octo-font: system-ui, sans-serif;
+  --octo-primary: #3c7efb;
+  --octo-background: #ffffff;
+  --octo-text: #333333;
+  --octo-border: #e0e0e0;
+  --octo-error: #d32f2f;
+  --octo-spacing: 1rem;
+  --octo-radius: 4px;
+}</code></pre>
+  </section>
+
+  <!-- Load the component -->
+  <script type="module" src="/components/octo-thorpe.js"></script>
+</body>
+</html>

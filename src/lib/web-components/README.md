@@ -1,166 +1,230 @@
 # Octothorpes Web Components
 
-This directory contains Svelte-based web components that compile to standard custom elements for embedding Octothorpes Protocol functionality in any website.
+Modern, declarative web components for the Octothorpes Protocol, built with the **store pattern** for minimal bundle size and maximum flexibility.
 
 ## Architecture
 
+### Design Principles
+
+1. **Store-based**: Uses Svelte stores compiled to vanilla JavaScript
+2. **Declarative**: HTML attributes map 1:1 to API query parameters
+3. **Focused**: Each component queries one specific endpoint
+4. **Lightweight**: Minimal JavaScript, no external dependencies
+5. **Customizable**: CSS custom properties for all visual aspects
+
+### The Pattern
+
 ```
-/src/lib/web-components/
-├── shared/              # Shared utilities
-│   ├── api-client.js   # API wrapper with MultiPass support
-│   └── ...             # Future: styles, utils, etc.
-├── octo-query/         # MultiPass query component
-│   ├── OctoQuery.svelte
-│   └── README.md
-└── README.md           # This file
+Component Source (*.svelte)
+    ↓ imports
+Shared Store (octo-store.js)
+    ↓ compiles to
+Single JS Bundle (*.js)
+    ↓ uses
+API Endpoints (/get/[what]/[by])
 ```
 
 ## Components
 
-### octo-query
+### `<octo-thorpe>`
 
-A flexible query component that accepts MultiPass-style parameters and displays results from the Octothorpes API.
+Displays pages tagged with octothorpes.
 
-**Use cases:**
-- Display pages tagged with specific terms
-- Show recent posts from your site
-- List backlinks to your pages
-- Create custom feeds
-- Build webring navigation
+**API:** `GET /get/pages/thorped`
 
-[Full Documentation](./octo-query/README.md)
-
-**Quick Example:**
+**Usage:**
 ```html
-<script type="module" src="https://octothorp.es/components/octo-query.js"></script>
-
-<octo-query 
-  what="pages" 
-  by="thorped" 
-  o="indieweb"
-  limit="10"
-  autoload="true">
-</octo-query>
+<script type="module" src="https://octothorp.es/components/octo-thorpe.js"></script>
+<octo-thorpe o="demo" autoload></octo-thorpe>
 ```
 
-## Development
+**Attributes:**
+- `o` - Octothorpe terms (comma-separated)
+- `s` - Subject filter (domains, comma-separated)
+- `noto` - Exclude terms
+- `nots` - Exclude subjects
+- `match` - Match mode: `exact`, `fuzzy`, `fuzzy-o`, `fuzzy-s`, `very-fuzzy`
+- `limit` - Maximum results (default: `10`)
+- `offset` - Result offset for pagination (default: `0`)
+- `when` - Date filter: `recent`, `after-DATE`, `before-DATE`, `between-DATE-and-DATE`
+- `autoload` - Auto-load on mount (boolean attribute)
+- `render` - Display mode: `list`, `cards`, `compact`, `count`
+- `server` - API server URL (default: `https://octothorp.es`)
 
-### Building Components
+**Render Modes:**
+- `list` - Default bulleted list with descriptions and dates
+- `cards` - Grid layout with images
+- `compact` - Inline comma-separated links
+- `count` - Just the number (for inline use)
 
-Build all components:
+**CSS Custom Properties:**
+```css
+octo-thorpe {
+  --octo-font: system-ui, sans-serif;
+  --octo-primary: #3c7efb;
+  --octo-background: #ffffff;
+  --octo-text: #333333;
+  --octo-border: #e0e0e0;
+  --octo-error: #d32f2f;
+  --octo-spacing: 1rem;
+  --octo-radius: 4px;
+}
+```
+
+**Bundle Size:** 55KB (11KB gzipped)
+
+## Shared Utilities
+
+### `octo-store.js`
+
+Store factory for creating reactive API query stores.
+
+```javascript
+import { createOctoQuery } from '../shared/octo-store.js';
+
+const query = createOctoQuery('pages', 'thorped');
+
+await query.fetch({
+  server: 'https://octothorp.es',
+  o: 'demo',
+  limit: 10
+});
+
+// Access reactive state
+$query.results  // Array of results
+$query.loading  // Boolean
+$query.error    // String or null
+$query.count    // Number of results
+```
+
+## Building Components
+
+### 1. Create Component
+
+```svelte
+<!-- src/lib/web-components/my-component/MyComponent.svelte -->
+<svelte:options customElement="my-component" />
+
+<script>
+  import { onMount } from 'svelte';
+  import { createOctoQuery } from '../shared/octo-store.js';
+  
+  export let o = '';
+  export let autoload = false;
+  
+  const query = createOctoQuery('pages', 'thorped');
+  
+  async function load() {
+    await query.fetch({ o });
+  }
+  
+  onMount(() => {
+    if (autoload) load();
+  });
+</script>
+
+{#if $query.loading}
+  <div>Loading...</div>
+{:else if $query.results.length}
+  <ul>
+    {#each $query.results as item}
+      <li><a href={item.uri}>{item.title}</a></li>
+    {/each}
+  </ul>
+{/if}
+```
+
+### 2. Add to Build Config
+
+```javascript
+// vite.config.components.js
+export default defineConfig({
+  build: {
+    lib: {
+      entry: {
+        'octo-thorpe': resolve(__dirname, 'src/lib/web-components/octo-thorpe/OctoThorpe.svelte'),
+        'my-component': resolve(__dirname, 'src/lib/web-components/my-component/MyComponent.svelte')
+      }
+    }
+  }
+});
+```
+
+### 3. Build
+
 ```bash
 npm run build:components
 ```
 
-This compiles Svelte components to ES modules in `/static/components/`.
+### 4. Deploy
 
-### Build Configuration
+Component is output to `static/components/my-component.js` and served automatically by SvelteKit.
 
-Components are built using a separate Vite config (`vite.config.components.js`) with:
-- Custom element mode enabled
-- ES module output
-- Minification and sourcemaps
-- Output to `/static/components/`
+## Developer Experience Goals
 
-### Adding New Components
+### For Component Authors
 
-1. Create a new directory in `/src/lib/web-components/`
-2. Create a `.svelte` file with `<svelte:options customElement="your-name" />`
-3. Add the component to `vite.config.components.js` entry points
-4. Build and test
+- **Minimal code**: Store handles fetch logic, component handles display
+- **Type-safe**: TypeScript support in stores
+- **Testable**: Store logic separate from rendering
+- **Reusable**: Share renderers across components
 
-Example structure:
-```
-/src/lib/web-components/your-component/
-├── YourComponent.svelte
-├── README.md
-└── test.html (optional demo)
-```
+### For Component Users
 
-## Shared Utilities
-
-### API Client
-
-Located in `shared/api-client.js`, provides a clean interface to the Octothorpes API:
-
-```javascript
-import { createClient } from '@shared/api-client.js';
-
-const client = createClient('https://octothorp.es');
-
-// Query with MultiPass parameters
-const results = await client.query('pages', 'thorped', {
-  o: ['demo', 'test'],
-  limit: 20,
-  when: 'recent'
-});
-
-// Convenience methods
-const pages = await client.getPagesThorped(['indieweb']);
-const backlinks = await client.getBacklinks('https://example.com');
-const webring = await client.getDomainsInWebring('https://example.com/ring/');
-```
-
-## Design Principles
-
-1. **API-First**: Components are thin wrappers around API calls
-2. **MultiPass Compatible**: Accept parameters matching the API's MultiPass structure
-3. **Standard Web Components**: No framework required to use them
-4. **Customizable**: CSS custom properties for styling
-5. **Progressive Enhancement**: Works with or without JavaScript
-6. **Self-Contained**: Each component bundles only what it needs
-
-## Testing
-
-Components can be tested using Vitest with JSDOM:
-
-```javascript
-import { render } from '@testing-library/svelte';
-import OctoQuery from './OctoQuery.svelte';
-
-describe('OctoQuery', () => {
-  it('renders with default props', () => {
-    const { container } = render(OctoQuery, {
-      props: { what: 'pages', by: 'posted' }
-    });
-    expect(container).toBeTruthy();
-  });
-});
-```
-
-## Browser Support
-
-Components work in all modern browsers supporting:
-- ES Modules
-- Custom Elements v1
-- Shadow DOM
-- Fetch API
-
-No polyfills required for modern browsers (Chrome 67+, Firefox 63+, Safari 10.1+, Edge 79+).
+- **Zero JavaScript**: Just HTML attributes
+- **Predictable**: If you know the API, you know the components
+- **Customizable**: CSS variables for styling
+- **No build step**: Drop in `<script>` tag and use
 
 ## Future Components
 
-Planned components based on existing functionality:
+Planned components following this pattern:
 
-- **octo-thorpe** - Inline octothorpe/tag display (migration of `tag.js`)
-- **web-ring** - Webring navigation (migration of `ring.js`)
-- **octo-feed** - RSS feed display
-- **octo-bookmarks** - Bookmark collection display
-- **octo-badge** - Protocol badge/status indicator
+- `<octo-links>` - Pages linking to URLs (GET /get/pages/linked)
+- `<octo-webring>` - Domains in webring (GET /get/domains/in-webring)
+- `<octo-feed>` - Generic query with RSS output
+- `<octo-backlinks>` - Pages backlinking to URLs (GET /get/pages/backlinked)
 
-## Migration from Legacy Components
+## Migration Notes
 
-Existing components in `/static/` (`tag.js`, `ring.js`) will be migrated to this architecture:
+This is the **v2 architecture**. Previous components (`tag.js`, `ring.js`, `octo-query`, `demo-list`) used a different pattern and have been deprecated.
 
-1. Keep old versions working
-2. Build new Svelte versions alongside
-3. Add deprecation notices
-4. Support both for 3-6 months
-5. Eventually remove old versions
+### What Changed
 
-## Resources
+**Before:**
+- Manual fetch logic in each component
+- `api-client.js` duplicated query building
+- No shared patterns
 
-- [Octothorpes API Documentation](https://octothorp.es/docs/api)
-- [MultiPass Structure](https://octothorp.es/docs/multipass)
-- [Svelte Custom Elements](https://svelte.dev/docs#run-time-custom-element-api)
-- [Web Components Spec](https://developer.mozilla.org/en-US/docs/Web/Web_Components)
+**After:**
+- Store-based reactive data fetching
+- Query building happens server-side
+- Shared `octo-store.js` for all components
+- ~40% smaller bundles
+
+### For Users
+
+The API is simpler and more declarative:
+
+```html
+<!-- Old: octo-query -->
+<octo-query what="pages" by="thorped" o="demo" autoload="true"></octo-query>
+
+<!-- New: octo-thorpe -->
+<octo-thorpe o="demo" autoload></octo-thorpe>
+```
+
+## Testing
+
+Run dev server and visit demo pages:
+
+```bash
+npm run dev
+```
+
+Then open:
+- http://localhost:5173/components/octo-thorpe-demo.html
+
+## Documentation
+
+See `octo-thorpe-demo.html` for comprehensive examples of all features.
