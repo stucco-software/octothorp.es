@@ -564,20 +564,58 @@
 {/if}
 
 <style>
-  /* CSS Custom Properties */
+  /* CSS Custom Properties - Override these to customize the component */
   :host {
+    /* Typography */
     --octo-font: system-ui, -apple-system, sans-serif;
+    --octo-font-size-base: 1rem;
+    --octo-font-size-small: 0.875rem;
+    --octo-font-size-large: 1.125rem;
+    --octo-font-size-title: 1.5rem;
+    --octo-line-height: 1.5;
+    
+    /* Colors */
     --octo-primary: #3c7efb;
+    --octo-primary-hover: #2d6eeb;
     --octo-background: #ffffff;
+    --octo-background-hover: #f8f9fa;
+    --octo-background-alt: #f0f0f0;
     --octo-text: #333333;
+    --octo-text-secondary: #666666;
+    --octo-text-muted: #999999;
     --octo-border: #e0e0e0;
     --octo-error: #d32f2f;
+    --octo-error-bg: #ffebee;
+    
+    /* Spacing */
     --octo-spacing: 1rem;
+    --octo-spacing-small: 0.5rem;
+    --octo-spacing-large: 2rem;
+    
+    /* Border radius */
     --octo-radius: 4px;
+    --octo-radius-large: 8px;
+    
+    /* Shadows */
+    --octo-shadow-small: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --octo-shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.15);
+    
+    /* Transitions */
+    --octo-transition: all 0.2s ease;
+    
+    /* Upload zone */
+    --octo-upload-border-width: 3px;
+    --octo-upload-min-height: 300px;
+    
+    /* Button */
+    --octo-button-padding: 0.5rem 1rem;
+    --octo-button-padding-large: 0.75rem 1.5rem;
 
     display: block;
     font-family: var(--octo-font);
     color: var(--octo-text);
+    font-size: var(--octo-font-size-base);
+    line-height: var(--octo-line-height);
   }
 
   /* GIF mode */
@@ -602,13 +640,13 @@
     height: auto;
     display: block;
     border-radius: var(--octo-radius);
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: var(--octo-transition);
+    box-shadow: var(--octo-shadow-small);
   }
 
   .gif-button:hover .gif-clickable {
     transform: scale(1.02);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--octo-shadow-medium);
   }
 
   .gif-button:focus {
@@ -619,27 +657,27 @@
 
   /* Upload zone */
   .upload-zone {
-    min-height: 300px;
-    border: 3px dashed var(--octo-border);
+    min-height: var(--octo-upload-min-height);
+    border: var(--octo-upload-border-width) dashed var(--octo-border);
     border-radius: var(--octo-radius);
     background: var(--octo-background);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: var(--octo-spacing);
-    transition: all 0.2s ease;
+    transition: var(--octo-transition);
     cursor: pointer;
   }
 
   .upload-zone:hover {
     border-color: var(--octo-primary);
-    background: #f8f9fa;
+    background: var(--octo-background-hover);
   }
 
   .upload-zone.dragging {
     border-color: var(--octo-primary);
     border-style: solid;
-    background: #e3f2fd;
+    background: var(--octo-background-hover);
     transform: scale(1.02);
   }
 
@@ -654,37 +692,37 @@
   }
 
   .upload-text {
-    font-size: 1.125rem;
+    font-size: var(--octo-font-size-large);
     font-weight: bold;
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 var(--octo-spacing-small) 0;
     color: var(--octo-text);
   }
 
   .upload-subtext {
-    font-size: 0.875rem;
-    color: #666;
+    font-size: var(--octo-font-size-small);
+    color: var(--octo-text-secondary);
     margin: 0 0 var(--octo-spacing) 0;
   }
 
   .upload-button {
     display: inline-block;
-    padding: 0.75rem 1.5rem;
+    padding: var(--octo-button-padding-large);
     background: var(--octo-primary);
     color: white;
     border-radius: var(--octo-radius);
     cursor: pointer;
     font-weight: bold;
-    transition: opacity 0.2s;
+    transition: var(--octo-transition);
   }
 
   .upload-button:hover {
-    opacity: 0.9;
+    background: var(--octo-primary-hover);
   }
 
   .upload-error {
     margin-top: var(--octo-spacing);
     padding: var(--octo-spacing);
-    background: #ffebee;
+    background: var(--octo-error-bg);
     border: 1px solid var(--octo-error);
     border-radius: var(--octo-radius);
   }
@@ -732,42 +770,43 @@
   }
 
   .multipass-title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.5rem;
+    margin: 0 0 var(--octo-spacing-small) 0;
+    font-size: var(--octo-font-size-title);
     font-weight: bold;
   }
 
   .multipass-description {
-    margin: 0 0 0.5rem 0;
-    color: #666;
-    line-height: 1.5;
+    margin: 0 0 var(--octo-spacing-small) 0;
+    color: var(--octo-text-secondary);
+    line-height: var(--octo-line-height);
   }
 
   .multipass-author {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--octo-font-size-small);
     font-style: italic;
-    color: #999;
+    color: var(--octo-text-muted);
   }
 
   .button-group {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--octo-spacing-small);
     flex-shrink: 0;
   }
 
   .reset-button {
-    padding: 0.5rem 1rem;
+    padding: var(--octo-button-padding);
     background: var(--octo-background);
     border: 1px solid var(--octo-border);
     border-radius: var(--octo-radius);
     cursor: pointer;
-    font-size: 0.875rem;
+    font-size: var(--octo-font-size-small);
     white-space: nowrap;
+    transition: var(--octo-transition);
   }
 
   .reset-button:hover {
-    background: #f8f9fa;
+    background: var(--octo-background-hover);
   }
 
   /* Loading state */
@@ -792,13 +831,13 @@
 
   .loading p {
     margin: 0;
-    color: #666;
+    color: var(--octo-text-secondary);
   }
 
   /* Error state */
   .error {
     padding: var(--octo-spacing);
-    background: #ffebee;
+    background: var(--octo-error-bg);
     border: 1px solid var(--octo-error);
     border-radius: var(--octo-radius);
     text-align: center;
@@ -811,12 +850,17 @@
   }
 
   .retry-button {
-    padding: 0.5rem 1rem;
+    padding: var(--octo-button-padding);
     background: var(--octo-error);
     color: white;
     border: none;
     border-radius: var(--octo-radius);
     cursor: pointer;
+    transition: var(--octo-transition);
+  }
+  
+  .retry-button:hover {
+    opacity: 0.9;
   }
 
   /* List mode */
@@ -877,32 +921,32 @@
   }
 
   .description {
-    margin: 0.5rem 0 0 0;
-    color: #666;
-    font-size: 0.875rem;
-    line-height: 1.4;
+    margin: var(--octo-spacing-small) 0 0 0;
+    color: var(--octo-text-secondary);
+    font-size: var(--octo-font-size-small);
+    line-height: var(--octo-line-height);
   }
 
   .date {
     display: block;
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
-    color: #999;
+    margin-top: var(--octo-spacing-small);
+    font-size: var(--octo-font-size-small);
+    color: var(--octo-text-muted);
   }
 
   .tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
-    margin-top: 0.5rem;
+    gap: var(--octo-spacing-small);
+    margin-top: var(--octo-spacing-small);
   }
 
   .tag {
     display: inline-block;
     padding: 0.125rem 0.375rem;
-    background: #f0f0f0;
+    background: var(--octo-background-alt);
     border-radius: var(--octo-radius);
-    font-size: 0.75rem;
+    font-size: var(--octo-font-size-small);
   }
 
   /* Meta footer */
@@ -911,8 +955,8 @@
     padding-top: var(--octo-spacing);
     border-top: 1px solid var(--octo-border);
     text-align: right;
-    font-size: 0.875rem;
-    color: #666;
+    font-size: var(--octo-font-size-small);
+    color: var(--octo-text-secondary);
   }
 
   .result-count {
