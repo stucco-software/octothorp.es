@@ -126,6 +126,7 @@
     <ul>
       <li>✅ <strong>Drag and drop</strong> - Drop JSON or GIF files directly</li>
       <li>✅ <strong>File browser</strong> - Click to browse for files</li>
+      <li>✅ <strong>Direct GIF URLs</strong> - NEW! Provide a GIF URL for click-to-load mode</li>
       <li>✅ <strong>GIF extraction</strong> - Automatically extracts MultiPass from GIF comment blocks</li>
       <li>✅ <strong>Auto-load</strong> - Instantly fetches and displays results after upload</li>
       <li>✅ <strong>GIF preview</strong> - Shows the GIF image alongside results</li>
@@ -186,6 +187,33 @@
   </section>
 
   <section>
+    <h2>Example: Direct GIF URL (NEW!)</h2>
+    <p>
+      You can now provide a direct URL to a MultiPass GIF. The component will display 
+      the GIF as a clickable button - click it to load and execute the embedded query!
+    </p>
+    
+    <pre><code>&lt;octo-multipass-loader 
+  gif="https://example.com/path/to/multipass.gif"&gt;
+&lt;/octo-multipass-loader&gt;</code></pre>
+    
+    <p>
+      <strong>Perfect for:</strong>
+    </p>
+    <ul>
+      <li>Embedding curated feeds directly in your pages</li>
+      <li>Creating interactive feed galleries</li>
+      <li>Sharing feeds via image hosting services</li>
+      <li>Building "click to load" feed widgets</li>
+    </ul>
+    
+    <p style="margin-top: 1rem; padding: 1rem; background: #fff3e0; border-radius: 4px;">
+      <strong>Note:</strong> When the <code>gif</code> attribute is provided, the component 
+      skips the upload interface and displays the GIF directly. Users click the GIF to load results.
+    </p>
+  </section>
+
+  <section>
     <h2>How to Use</h2>
     
     <h3>1. Include the component</h3>
@@ -222,6 +250,12 @@
           <td>String</td>
           <td>Custom upload prompt text</td>
           <td>"Drop MultiPass JSON or GIF here"</td>
+        </tr>
+        <tr>
+          <td><code>gif</code></td>
+          <td>String (URL)</td>
+          <td>Direct URL to MultiPass GIF - displays clickable GIF instead of upload interface</td>
+          <td>""</td>
         </tr>
       </tbody>
     </table>
