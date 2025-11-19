@@ -2,6 +2,7 @@ import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { find } from '$lib/ld/find'
 import { instance } from '$env/static/private'
 import { server_name } from '$env/static/private'
+import { dashboard_thorpe } from '$env/static/private'
 
 export async function load(req) {
   // get all the relevant thorpes
@@ -36,6 +37,7 @@ export async function load(req) {
   return {
     instance,
     server_name,
+    dashboard_thorpe,
     thorpes,
     domains,
     assertions,

@@ -1,17 +1,51 @@
 <script type="text/javascript">
   import BearblogCard from '$lib/components/bearblogCard.svelte'
   import Contribute from '$lib/components/Contribute.svelte'
+  import PreviewImage from '$lib/components/PreviewImage.svelte'
+  import { onMount } from 'svelte'
+  import { browser } from '$app/environment'
   export let data
-  export let server_name
-  import { assets } from '$app/paths';
-  let rss = `${data.instance}rss/`
+
+  let recentResults = []
+  let loading = false
+  let error = null
+  let defaultOctothorpe = data.dashboard_thorpe || 'demo'
+
+  async function fetchRecentResults() {
+    if (!browser) return
+
+    loading = true
+    error = null
+
+    try {
+      const base = window.location.origin
+      const url = `${base}/get/everything/thorped?o=${defaultOctothorpe}&limit=3`
+
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      recentResults = data.results || []
+    } catch (err) {
+      error = err.message
+      console.error('Error fetching recent results:', err)
+    } finally {
+      loading = false
+    }
+  }
+
+  onMount(() => {
+    fetchRecentResults()
+  })
 </script>
 
 <link
   rel="alternate"
   type="application/rss+xml"
   title={data.instance}
-  href={rss}>
+  href={`${data.instance}rss/`}>
 
 <div class="title-card">
   <h1>Enjoy the World <br><em>Wide</em> Web</h1>
@@ -27,18 +61,46 @@
 
 <div class="dotgrid">
   <div class="dashboard">
-    <section class="testimonial">
-      <p>The latest web nerd feature.</p>
-      <p class="attribution">—&nbsp;Anil Dash</p>
-    </section>
-    <section class="testimonial">
-      <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
-      <p class="attribution"><a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">—&nbsp;Ludic</a></p>
-    </section>
-    <section class="testimonial">
-      <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
-      <p class="attribution"><a href="https://news.ycombinator.com/item?id=41761873">—&nbsp;Some dude on hackernews</a></p>
-    </section>
+    {#if loading}
+      <section class="result loading">
+        <p>Loading recent content...</p>
+      </section>
+    {:else if error}
+      <section class="result error">
+        <p>Error loading content: {error}</p>
+      </section>
+    {:else if recentResults && recentResults.length > 0}
+      {#each recentResults as result}
+        <article class="result">
+          <PreviewImage
+            url={result['@id']}
+            image={result.image}
+            title={result.title || result['@id']}
+            cssClass="dashboard-preview"
+          />
+          <div class="result-content">
+            <h3 class="result-title">
+              {#if result.title}
+                <a href={result['@id']} target="_blank" rel="noopener noreferrer">{result.title}</a>
+              {:else}
+                <a href={result['@id']} target="_blank" rel="noopener noreferrer">{new URL(result['@id']).hostname}</a>
+              {/if}
+            </h3>
+            <div class="result-url">{result['@id']}</div>
+            {#if result.description}
+              <p class="result-description">{result.description}</p>
+            {/if}
+            {#if result.date}
+              <p class="date">{new Date(result.date).toLocaleDateString()}</p>
+            {/if}
+          </div>
+        </article>
+      {/each}
+    {:else}
+      <section class="result empty">
+        <p>No recent content found for #{defaultOctothorpe}</p>
+      </section>
+    {/if}
   </div>
 
   <Contribute />
@@ -61,7 +123,8 @@
       <!-- <p>Please stand by while we resolve resolve technical difficulties.</p> -->
       <img
         class="launch"
-        src="/duplu_plane.avif">
+        src="/duplu_plane.avif"
+        alt="Duplu plane illustration">
       <date>August 1st, 2025</date>
       <h3><mark>Version 0.5 released</mark></h3>
       <p>Take a journey through what <a href="https://docs.octothorp.es/pitch">Octothorpes has to offer</a> on our <a href="https://docs.octothorp.es/">New documentation site.</a></p>
@@ -97,44 +160,88 @@
     .dashboard {
       grid-template-columns: repeat(1, 1fr);
     }
-
   }
 
-
-  .dashboard section, .dashboard p span {
-    background-color: lightgoldenrodyellow;
-    outline: 1ch solid var(--bg-color);
-    }
-  .dashboard section {
-    padding: 1ch 1ch 2ch 1ch;
-  }
-  section.testimonial {
+  article.result {
     border: 1px solid var(--txt-color);
     background-color: var(--bg-color);
     filter: drop-shadow(1ch 1ch 1px var(--bios-gray));
     display: flex;
     flex-direction: column;
+    padding: 1ch;
   }
 
-  section.testimonial p {
+  section.result.loading,
+  section.result.error,
+  section.result.empty {
+    border: 1px solid var(--txt-color);
+    background-color: var(--bg-color);
+    filter: drop-shadow(1ch 1ch 1px var(--bios-gray));
+    padding: 1ch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+  }
+
+  section.result.error {
+    background-color: #ffeeee;
+  }
+
+  :global(.dashboard-preview) {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    margin-block-end: 0.5rem;
+    background-image: url(/wonkgraph.png);
+  }
+
+  .result-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .result-title {
     font-size: var(--txt-0);
     line-height: 1.1;
-    margin-block-end: 1rem;
-    padding: .5ch;
+    margin: 0 0 0.25rem 0;
+    font-weight: normal;
+  }
+
+  .result-title a {
+    color: var(--txt-color);
+    text-decoration: none;
+  }
+
+  .result-title a:hover {
+    color: blue;
+    background-color: yellow;
+  }
+
+  .result-url {
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+    color: var(--bios-gray);
+    margin-block-end: 0.5rem;
+    word-break: break-all;
+  }
+
+  .result-description {
+    font-size: var(--txt--1);
+    line-height: 1.2;
+    margin-block-end: 0.5rem;
     color: var(--txt-color);
   }
 
-  section.testimonial p:hover {
-    color: blue;
-  }
-  hr {
-    border: 2px dashed var(--bg-color);
-  }
-
-  .attribution {
-    text-align: right;
+  .date {
+    font-size: var(--txt--2);
+    color: var(--bios-gray);
     margin-block-start: auto;
-}
+    text-align: right;
+    margin-block-end: 0;
+  }
 
   .breaking {
     max-width: 24rem;
