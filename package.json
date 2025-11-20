@@ -4,7 +4,8 @@
 	"private": true,
 	"scripts": {
 		"dev": "vite dev --host 0.0.0.0",
-		"build": "vite build",
+		"build": "npm run build:components && vite build",
+		"build:components": "vite build --config vite.config.components.js",
 		"preview": "vite preview",
 		"test": "vitest",
 		"demo": "sirv demo --cors --port 8888"
