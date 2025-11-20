@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Octo-Backlinks Demo</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.6;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .test-section {
+      margin: 2rem 0;
+      padding: 1rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Octo-Backlinks Component Demo</h1>
+  
+  <div class="test-section">
+    <h2>Test 1: No URL provided (should use current page URL)</h2>
+    <p>Component should detect current page URL: <code id="current-url"></code></p>
+    <octo-backlinks id="test1" autoload></octo-backlinks>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 2: Explicit URL provided</h2>
+    <p>Showing backlinks to: <code>https://octothorp.es</code></p>
+    <octo-backlinks o="https://octothorp.es" autoload></octo-backlinks>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 3: Count mode with no URL</h2>
+    <p>This page has <octo-backlinks render="count" autoload></octo-backlinks> backlinks.</p>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 4: Manual load (no autoload, no URL)</h2>
+    <octo-backlinks id="test4"></octo-backlinks>
+  </div>
+  
+  <script type="module" src="/components/octo-backlinks.js"></script>
+  
+  <script>
+    // Display current URL for reference
+    document.getElementById('current-url').textContent = window.location.href;
+    
+    // Log what URL the component is using
+    setTimeout(() => {
+      const component = document.getElementById('test1');
+      console.log('Test 1 component:', component);
+      console.log('Current window.location.href:', window.location.href);
+    }, 100);
+  </script>
+</body>
+</html>

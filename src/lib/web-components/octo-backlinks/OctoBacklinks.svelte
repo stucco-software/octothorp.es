@@ -1,121 +1,138 @@
-<svelte:options customElement="octo-multipass" />
+<!--
+  OCTO-BACKLINKS WEB COMPONENT
+  
+  Shows pages that link to a specific URL.
+  
+  USAGE:
+    <script type="module" src="https://octothorp.es/components/octo-backlinks.js"></script>
+    <octo-backlinks o="https://example.com/page" autoload></octo-backlinks>
+  
+  ATTRIBUTES:
+    o            - URL to find backlinks for (defaults to current page URL)
+    s            - Filter by domains (comma-separated)
+    limit        - Max results (default: 10)
+    offset       - Pagination offset (default: 0)
+    when         - Date filter: recent, after-DATE, before-DATE, between-DATE-and-DATE
+    autoload     - Auto-load on mount (boolean)
+    render       - Display mode: list, cards, compact, count (default: list)
+    emptyMessage - Message when no results (default: "No links found to this page")
+-->
+
+<svelte:options customElement="octo-backlinks" />
 
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
-  import { parseMultipass, multipassToParams, extractWhatBy } from '../shared/multipass-utils.js';
   import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
   
-  // Accept MultiPass as JSON string or object
-  export let multipass = '';
-  export let autoload = false;
-  export let render = 'list';  // list, cards, compact, count
+  // ============================================================================
+  // STANDARD PROPS
+  // ============================================================================
   
-  // Internal state
-  let parsedMultiPass = null;
-  let queryParams = null;
-  let what = 'pages';
-  let by = 'thorped';
-  let query = null;
+  export let server = 'https://octothorp.es';
+  export let s = '';           // Subjects (domains) - comma-separated
+  export let o = '';           // Objects (URLs) - comma-separated, defaults to current page URL
+  export let nots = '';        // Exclude subjects
+  export let noto = '';        // Exclude objects
+  export let match = '';       // Match mode: exact, fuzzy, fuzzy-o, fuzzy-s, very-fuzzy
+  export let limit = '10';     // Result limit
+  export let offset = '0';     // Result offset (pagination)
+  export let when = '';        // Date filter: recent, after-DATE, before-DATE, between-DATE-and-DATE
+  export let autoload = false; // Auto-load on mount
+  export let render = 'list';  // Render mode: list, cards, compact, count
+  export let emptyMessage = 'No links found to this page'; // Message when no results
   
-  // Parse and process multipass input whenever it changes
-  $: {
-    parsedMultiPass = parseMultipass(multipass);
-    
-    if (parsedMultiPass) {
-      // Extract endpoint parameters
-      ({ what, by } = extractWhatBy(parsedMultiPass));
-      
-      // Convert to query params
-      queryParams = multipassToParams(parsedMultiPass);
-      
-      // Create query store
-      query = createOctoQuery(what, by);
-    } else {
-      query = null;
-      queryParams = null;
-    }
-  }
+  // Default to current page URL if no URL provided
+  let currentUrl = '';
   
-  // Load function
+  // Track if we've loaded at least once
+  let hasLoaded = false;
+  
+  // Build params object reactively, using current URL if o is not provided
+  $: params = { server, s, o: o || currentUrl, nots, noto, match, limit, offset, when };
+  
+  // ============================================================================
+  // QUERY ENDPOINT
+  // ============================================================================
+  
+  // Query pages that link to the provided URL(s)
+  const query = createOctoQuery('pages', 'linked');
+  
+  // ============================================================================
+  // STANDARD METHODS
+  // ============================================================================
+  
   async function load() {
-    if (!query || !queryParams) return;
-    await query.fetch(queryParams);
+    await query.fetch(params);
+    hasLoaded = true;
   }
   
-  // Auto-load on mount if requested
   onMount(() => {
-    if (autoload && parsedMultiPass) {
-      load();
+    // Get current page URL if not provided
+    if (!o && typeof window !== 'undefined') {
+      currentUrl = window.location.href;
+    }
+    
+    // Load after setting currentUrl
+    if (autoload || autoload === '') {
+      // Use setTimeout to ensure currentUrl is set before fetching
+      setTimeout(() => load(), 0);
     }
   });
   
-  // (Common display helpers imported from display-helpers.js)
+  // ============================================================================
+  // COMPONENT-SPECIFIC HELPERS - Add any custom helpers here
+  // ============================================================================
+  
+  // (Common helpers like getTitle, getUrl, formatDate are imported from display-helpers.js)
 </script>
 
-{#if !parsedMultiPass}
-  <!-- Invalid or missing MultiPass -->
-  <div class="octo-multipass error-container">
-    <div class="error">
-      <p><strong>Invalid MultiPass</strong></p>
-      <p>Component requires a valid MultiPass object.</p>
-    </div>
-  </div>
-
-{:else if render === 'count'}
+{#if render === 'count'}
   <!-- Count mode - inline display -->
-  {#if query && $query.loading}
+  {#if $query.loading}
     <span class="count-loading">…</span>
-  {:else if query && $query.error}
+  {:else if $query.error}
     <span class="count-error">✗</span>
-  {:else if query && $query.results}
-    <span class="count">{$query.count}</span>
   {:else}
-    <span class="count-pending">?</span>
+    <span class="count">{$query.count}</span>
   {/if}
 
 {:else}
   <!-- Full component display -->
-  <div class="octo-multipass">
+  <div class="component-container">
     
-    <!-- MultiPass metadata header -->
-    {#if parsedMultiPass.meta?.title}
-      <h2 class="multipass-title">{parsedMultiPass.meta.title}</h2>
-    {/if}
-    
-    {#if parsedMultiPass.meta?.description}
-      <p class="multipass-description">{parsedMultiPass.meta.description}</p>
-    {/if}
-    
-    {#if parsedMultiPass.meta?.author}
-      <p class="multipass-author">by {parsedMultiPass.meta.author}</p>
-    {/if}
-    
-    <!-- Load button (if not autoloaded) -->
-    {#if query && !$query.results.length && !$query.loading && !$query.error}
+    <!-- Loading prompt (only show if never loaded) -->
+    {#if !hasLoaded && !$query.loading && !$query.error}
       <button on:click={load} class="load-button">
-        Load Results
+        Load pages linking to {o || 'URL'}
       </button>
     {/if}
     
     <!-- Loading state -->
-    {#if query && $query.loading}
+    {#if $query.loading}
       <div class="loading">
         <div class="spinner"></div>
-        <p>Loading...</p>
+        <p>Loading backlinks...</p>
       </div>
     {/if}
     
     <!-- Error state -->
-    {#if query && $query.error}
+    {#if $query.error}
       <div class="error">
         <p><strong>Error:</strong> {$query.error}</p>
         <button on:click={load} class="retry-button">Retry</button>
       </div>
     {/if}
     
+    <!-- Empty state (no results after loading) -->
+    {#if hasLoaded && $query.results.length === 0 && !$query.loading && !$query.error}
+      <div class="empty">
+        <p>{emptyMessage}</p>
+      </div>
+    {/if}
+    
     <!-- Results -->
-    {#if query && $query.results.length > 0 && !$query.loading}
+    {#if $query.results.length > 0 && !$query.loading}
       
       {#if render === 'list'}
         <!-- List mode -->
@@ -130,15 +147,6 @@
               {/if}
               {#if item.date}
                 <time class="date">{formatDate(item.date)}</time>
-              {/if}
-              {#if item.octothorpes && item.octothorpes.length > 0}
-                <div class="tags">
-                  {#each item.octothorpes as thorpe}
-                    {#if typeof thorpe === 'string'}
-                      <span class="tag">#{thorpe}</span>
-                    {/if}
-                  {/each}
-                </div>
               {/if}
             </li>
           {/each}
@@ -160,9 +168,6 @@
               {#if item.description}
                 <p class="description">{item.description}</p>
               {/if}
-              {#if item.date}
-                <time class="date">{formatDate(item.date)}</time>
-              {/if}
             </article>
           {/each}
         </div>
@@ -178,12 +183,9 @@
         </div>
       {/if}
       
-      <!-- Result count footer -->
+      <!-- Result count -->
       <div class="meta">
-        <span class="result-count">{$query.count} result{$query.count === 1 ? '' : 's'}</span>
-        {#if parsedMultiPass.meta?.author}
-          <span class="author-credit"> • curated by {parsedMultiPass.meta.author}</span>
-        {/if}
+        <span class="result-count">{$query.count} backlink{$query.count === 1 ? '' : 's'}</span>
       </div>
       
     {/if}
@@ -192,7 +194,7 @@
 {/if}
 
 <style>
-  /* CSS Custom Properties */
+  /* CSS Custom Properties - users can override these */
   :host {
     --octo-font: system-ui, -apple-system, sans-serif;
     --octo-primary: #3c7efb;
@@ -208,46 +210,23 @@
     color: var(--octo-text);
   }
   
-  .octo-multipass {
+  .component-container {
     background: var(--octo-background);
   }
   
   /* Count mode (inline) */
   .count,
   .count-loading,
-  .count-error,
-  .count-pending {
+  .count-error {
     font-weight: bold;
   }
   
-  .count-loading,
-  .count-pending {
+  .count-loading {
     opacity: 0.5;
   }
   
   .count-error {
     color: var(--octo-error);
-  }
-  
-  /* MultiPass metadata */
-  .multipass-title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--octo-text);
-  }
-  
-  .multipass-description {
-    margin: 0 0 0.5rem 0;
-    color: #666;
-    line-height: 1.5;
-  }
-  
-  .multipass-author {
-    margin: 0 0 1rem 0;
-    font-size: 0.875rem;
-    font-style: italic;
-    color: #999;
   }
   
   /* Buttons */
@@ -299,10 +278,6 @@
   }
   
   /* Error state */
-  .error-container {
-    padding: var(--octo-spacing);
-  }
-  
   .error {
     padding: var(--octo-spacing);
     background: #ffebee;
@@ -316,8 +291,16 @@
     margin: 0 0 var(--octo-spacing) 0;
   }
   
-  .error p:last-child {
-    margin-bottom: 0;
+  /* Empty state */
+  .empty {
+    padding: var(--octo-spacing);
+    text-align: center;
+    color: #999;
+  }
+  
+  .empty p {
+    margin: 0;
+    font-style: italic;
   }
   
   /* List mode */
@@ -391,37 +374,16 @@
     color: #999;
   }
   
-  .tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    margin-top: 0.5rem;
-  }
-  
-  .tag {
-    display: inline-block;
-    padding: 0.125rem 0.375rem;
-    background: #f0f0f0;
-    border-radius: var(--octo-radius);
-    font-size: 0.75rem;
-    color: #666;
-  }
-  
   /* Meta info */
   .meta {
     margin-top: var(--octo-spacing);
     padding-top: var(--octo-spacing);
     border-top: 1px solid var(--octo-border);
     text-align: right;
-    font-size: 0.875rem;
-    color: #666;
   }
   
   .result-count {
-    font-weight: bold;
-  }
-  
-  .author-credit {
-    font-style: italic;
+    font-size: 0.875rem;
+    color: #666;
   }
 </style>

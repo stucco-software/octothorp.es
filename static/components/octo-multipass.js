@@ -1,5 +1,6 @@
 import { c as create_custom_element, S as SvelteComponent, i as init, f as flush, s as safe_not_equal, a as append_styles, e as empty, b as insert, n as noop, d as detach, o as onMount, h as createOctoQuery, w as subscribe, j as element, k as space, l as attr, m as append, t as text, q as set_data, p as listen, r as ensure_array_like, u as destroy_each, v as src_url_equal } from "./octo-store-sa0Q_z2k.js";
 import { p as parseMultipass, e as extractWhatBy, m as multipassToParams } from "./multipass-utils-Btdq4M2H.js";
+import { g as getTitle, a as getUrl, f as formatDate } from "./display-helpers-C2Eemnsf.js";
 function add_css(target) {
   append_styles(target, "svelte-99us", ":host{--octo-font:system-ui, -apple-system, sans-serif;--octo-primary:#3c7efb;--octo-background:#ffffff;--octo-text:#333333;--octo-border:#e0e0e0;--octo-error:#d32f2f;--octo-spacing:1rem;--octo-radius:4px;display:block;font-family:var(--octo-font);color:var(--octo-text)}.octo-multipass.svelte-99us.svelte-99us{background:var(--octo-background)}.count.svelte-99us.svelte-99us,.count-loading.svelte-99us.svelte-99us,.count-error.svelte-99us.svelte-99us,.count-pending.svelte-99us.svelte-99us{font-weight:bold}.count-loading.svelte-99us.svelte-99us,.count-pending.svelte-99us.svelte-99us{opacity:0.5}.count-error.svelte-99us.svelte-99us{color:var(--octo-error)}.multipass-title.svelte-99us.svelte-99us{margin:0 0 0.5rem 0;font-size:1.5rem;font-weight:bold;color:var(--octo-text)}.multipass-description.svelte-99us.svelte-99us{margin:0 0 0.5rem 0;color:#666;line-height:1.5}.multipass-author.svelte-99us.svelte-99us{margin:0 0 1rem 0;font-size:0.875rem;font-style:italic;color:#999}.load-button.svelte-99us.svelte-99us,.retry-button.svelte-99us.svelte-99us{background:var(--octo-primary);color:white;border:none;padding:0.75rem 1.5rem;font-size:1rem;font-family:var(--octo-font);border-radius:var(--octo-radius);cursor:pointer;transition:opacity 0.2s}.load-button.svelte-99us.svelte-99us:hover,.retry-button.svelte-99us.svelte-99us:hover{opacity:0.9}.retry-button.svelte-99us.svelte-99us{background:var(--octo-error)}.loading.svelte-99us.svelte-99us{text-align:center;padding:calc(var(--octo-spacing) * 2)}.spinner.svelte-99us.svelte-99us{width:40px;height:40px;margin:0 auto var(--octo-spacing);border:4px solid var(--octo-border);border-top-color:var(--octo-primary);border-radius:50%;animation:svelte-99us-spin 1s linear infinite}@keyframes svelte-99us-spin{to{transform:rotate(360deg)}}.loading.svelte-99us p.svelte-99us{margin:0;color:#666}.error-container.svelte-99us.svelte-99us{padding:var(--octo-spacing)}.error.svelte-99us.svelte-99us{padding:var(--octo-spacing);background:#ffebee;border:1px solid var(--octo-error);border-radius:var(--octo-radius);text-align:center}.error.svelte-99us p.svelte-99us{color:var(--octo-error);margin:0 0 var(--octo-spacing) 0}.error.svelte-99us p.svelte-99us:last-child{margin-bottom:0}.list.svelte-99us.svelte-99us{list-style:none;padding:0;margin:0}.list.svelte-99us li.svelte-99us{padding:var(--octo-spacing);border-bottom:1px solid var(--octo-border)}.list.svelte-99us li.svelte-99us:last-child{border-bottom:none}.cards.svelte-99us.svelte-99us{display:grid;grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));gap:var(--octo-spacing)}.card.svelte-99us.svelte-99us{padding:var(--octo-spacing);border:1px solid var(--octo-border);border-radius:var(--octo-radius);background:var(--octo-background)}.card.svelte-99us img.svelte-99us{width:100%;height:auto;border-radius:var(--octo-radius);margin-bottom:0.5rem}.card.svelte-99us h3.svelte-99us{margin:0 0 0.5rem 0;font-size:1.125rem}.compact.svelte-99us.svelte-99us{line-height:1.5}a.svelte-99us.svelte-99us{color:var(--octo-primary);text-decoration:none}a.svelte-99us.svelte-99us:hover{text-decoration:underline}.description.svelte-99us.svelte-99us{margin:0.5rem 0 0 0;color:#666;font-size:0.875rem;line-height:1.4}.date.svelte-99us.svelte-99us{display:block;margin-top:0.25rem;font-size:0.75rem;color:#999}.tags.svelte-99us.svelte-99us{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem}.tag.svelte-99us.svelte-99us{display:inline-block;padding:0.125rem 0.375rem;background:#f0f0f0;border-radius:var(--octo-radius);font-size:0.75rem;color:#666}.meta.svelte-99us.svelte-99us{margin-top:var(--octo-spacing);padding-top:var(--octo-spacing);border-top:1px solid var(--octo-border);text-align:right;font-size:0.875rem;color:#666}.result-count.svelte-99us.svelte-99us{font-weight:bold}.author-credit.svelte-99us.svelte-99us{font-style:italic}");
 }
@@ -676,7 +677,7 @@ function create_if_block_16(ctx) {
       }
     },
     p(ctx2, dirty) {
-      if (dirty & /*$query, getUrl, getTitle*/
+      if (dirty & /*$query*/
       8) {
         each_value_3 = ensure_array_like(
           /*$query*/
@@ -734,7 +735,7 @@ function create_if_block_12(ctx) {
       }
     },
     p(ctx2, dirty) {
-      if (dirty & /*formatDate, $query, getUrl, getTitle*/
+      if (dirty & /*$query*/
       8) {
         each_value_2 = ensure_array_like(
           /*$query*/
@@ -792,7 +793,7 @@ function create_if_block_7(ctx) {
       }
     },
     p(ctx2, dirty) {
-      if (dirty & /*$query, formatDate, getUrl, getTitle*/
+      if (dirty & /*$query*/
       8) {
         each_value = ensure_array_like(
           /*$query*/
@@ -1659,18 +1660,6 @@ function create_fragment(ctx) {
       if_block.d(detaching);
     }
   };
-}
-function getTitle(item) {
-  return item.title || item["@id"] || item.uri || item.term || "Untitled";
-}
-function getUrl(item) {
-  return item["@id"] || item.uri || "#";
-}
-function formatDate(timestamp) {
-  if (!timestamp)
-    return "";
-  const date = new Date(parseInt(timestamp));
-  return date.toLocaleDateString();
 }
 function instance($$self, $$props, $$invalidate) {
   let $query, $$unsubscribe_query = noop, $$subscribe_query = () => ($$unsubscribe_query(), $$unsubscribe_query = subscribe(query, ($$value) => $$invalidate(3, $query = $$value)), query);

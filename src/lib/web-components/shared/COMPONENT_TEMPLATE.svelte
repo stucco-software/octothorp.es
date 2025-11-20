@@ -27,6 +27,7 @@
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
+  import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
   
   // ============================================================================
   // STANDARD PROPS - Copy these for every component
@@ -69,22 +70,11 @@
   });
   
   // ============================================================================
-  // HELPER FUNCTIONS - Add any component-specific helpers here
+  // COMPONENT-SPECIFIC HELPERS - Add any custom helpers here
   // ============================================================================
   
-  function getTitle(item) {
-    return item.title || item.uri || 'Untitled';
-  }
-  
-  function getUrl(item) {
-    return item['@id'] || item.uri || '#';
-  }
-  
-  function formatDate(timestamp) {
-    if (!timestamp) return '';
-    const date = new Date(parseInt(timestamp));
-    return date.toLocaleDateString();
-  }
+  // Common display helpers (getTitle, getUrl, formatDate) are imported from display-helpers.js
+  // Add component-specific helper functions here if needed
 </script>
 
 <!-- ========================================================================== -->

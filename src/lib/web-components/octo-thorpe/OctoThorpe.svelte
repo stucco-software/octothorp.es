@@ -3,6 +3,7 @@
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
+  import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
   
   // API Configuration
   export let server = 'https://octothorp.es';
@@ -46,22 +47,7 @@
     }
   });
   
-  // Helper to get display title
-  function getTitle(item) {
-    return item.title || item.uri || 'Untitled';
-  }
-  
-  // Helper to get display URL
-  function getUrl(item) {
-    return item['@id'] || item.uri || '#';
-  }
-  
-  // Helper to format date
-  function formatDate(timestamp) {
-    if (!timestamp) return '';
-    const date = new Date(parseInt(timestamp));
-    return date.toLocaleDateString();
-  }
+  // (Common display helpers imported from display-helpers.js)
 </script>
 
 {#if render === 'count'}
