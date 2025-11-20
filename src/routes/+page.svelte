@@ -20,7 +20,7 @@
   </p>
 
   <p>
-    This Server is a network of <mark>{data.thorpes}</mark> <a href="/~">Tags</a> across <mark>{data.domains}</mark> <a href="/domains">Websites.</a>
+    This Server is a network of <mark>{data.thorpes}</mark> <a href="/~">Tags</a> across <mark>{data.domains}</mark> <a href="/domains">Websites</a> and <mark>{data.webrings}</mark> <a href="/webrings">Webrings.</a>
    </p>
 
 </div>

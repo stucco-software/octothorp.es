@@ -1,5 +1,6 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { find } from '$lib/ld/find'
+import { countWebrings } from '$lib/utils.js'
 import { instance } from '$env/static/private'
 import { server_name } from '$env/static/private'
 
@@ -9,6 +10,7 @@ export async function load(req) {
   let links = 0
   let domains = 0
   let assertions = 0
+  let webrings = 0
   try {
     // We just gave each instance its own store
     let counters = await queryArray(`
@@ -30,6 +32,9 @@ export async function load(req) {
     links = results('count', 'octo:Page') || 0
     domains = results('count', 'octo:Origin') || 0
     assertions = results('count', 'octo:Assertion') || 0
+    
+    // Count webrings using utility function
+    webrings = await countWebrings(queryArray)
   } catch (e) {
     console.log(e)
   }
@@ -39,6 +44,7 @@ export async function load(req) {
     thorpes,
     domains,
     assertions,
-    links
+    links,
+    webrings
   }
 }

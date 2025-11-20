@@ -33,6 +33,14 @@
         <p class="webring-description">{data.webringDescription}</p>
       {/if}
       <div class="webring-url">{data.webringUri}</div>
+      <p class="member-count">{data.members.length} member site{data.members.length === 1 ? '' : 's'} *
+          <a href="#" on:click={goToRandomMember}>Random Member</a>
+          *
+          <a href="/explore?by=in-webring&s={encodeURIComponent(data.webringUri)}" >
+            Explore →
+          </a>
+</p>
+
     </div>
     <div class="rss-container">
       <a href="/get/everything/in-webring/rss?s={encodeURIComponent(data.webringUri)}" class="rss-link">
@@ -49,16 +57,6 @@
     </div>
   {:else}
     <div class="content">
-      <div class="members-header">
-        <h2>Members</h2>
-        <div class="actions">
-          <a href="/explore?by=in-webring&s={encodeURIComponent(data.webringUri)}" class="explore-link">
-            Explore this webring →
-          </a>
-          <button type="button" on:click={goToRandomMember}>Random Member</button>
-          <p class="member-count">{data.members.length} member{data.members.length === 1 ? '' : 's'}</p>
-        </div>
-      </div>
 
       {#if data.members.length > 0}
         <section class="members-list">
@@ -216,29 +214,9 @@
     max-width: 800px;
   }
 
-  .members-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-block-end: 1rem;
-    padding-block-end: 0.5rem;
-    border-bottom: 1px solid var(--txt-color);
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
 
   .explore-link {
-    padding: 0.5rem 1rem;
     background-color: lightgoldenrodyellow;
-    border: 1px solid var(--txt-color);
-    font-family: var(--sans-stack);
-    font-size: var(--txt--1);
-    color: var(--txt-color);
     text-decoration: none;
     display: inline-block;
   }
@@ -248,7 +226,7 @@
   }
 
   button {
-    padding: 0.5rem 1rem;
+      padding: 0.25rem .5rem;
     background-color: var(--bg-color);
     border: 1px solid var(--txt-color);
     cursor: pointer;
