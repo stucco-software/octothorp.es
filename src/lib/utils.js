@@ -644,3 +644,52 @@ export function injectMultipassIntoGif(arrayBuffer, multiPassObject) {
   
   return result;
 }
+
+/**
+ * Gets all webrings with their metadata, excluding internal test webrings
+ * @param {Function} queryArray - The SPARQL query function from sparql.js
+ * @returns {Promise<Array>} Array of webring objects with uri, title, description, and image
+ */
+export async function getWebrings(queryArray) {
+  try {
+    const response = await queryArray(`
+      select ?w ?title ?description ?image {
+        ?w rdf:type <octo:Webring> .
+        FILTER(!contains(str(?w), "octothorpes.fly.dev"))
+        optional { ?w octo:title ?title . }
+        optional { ?w octo:description ?description . }
+        optional { ?w octo:image ?image . }
+      }
+    `)
+
+    return response.results.bindings.map(node => ({
+      uri: node.w.value,
+      title: node.title?.value || null,
+      description: node.description?.value || null,
+      image: node.image?.value || null
+    }))
+  } catch (e) {
+    console.error('Error fetching webrings:', e)
+    return []
+  }
+}
+
+/**
+ * Counts the number of webrings, excluding internal test webrings
+ * @param {Function} queryArray - The SPARQL query function from sparql.js
+ * @returns {Promise<number>} The count of webrings (excluding octothorpes.fly.dev)
+ */
+export async function countWebrings(queryArray) {
+  try {
+    const webringQuery = await queryArray(`
+      select ?w {
+        ?w rdf:type <octo:Webring> .
+        FILTER(!contains(str(?w), "octothorpes.fly.dev"))
+      }
+    `)
+    return webringQuery.results.bindings.length || 0
+  } catch (e) {
+    console.error('Error counting webrings:', e)
+    return 0
+  }
+}

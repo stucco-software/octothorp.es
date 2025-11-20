@@ -10,6 +10,9 @@
       <a href="/domains">sites</a>
     </li>
     <li>
+      <a href="/webrings">webrings</a>
+    </li>
+    <li>
       <a href="/register">register</a>
     </li>
     <li>
@@ -42,7 +45,7 @@
     display: grid;
 		margin: 0;
 		padding: 0;
-    grid-template-columns: repeat(5, min-content);
+    grid-template-columns: repeat(6, min-content);
     /*display: inline;*/
 	}
 	li {
