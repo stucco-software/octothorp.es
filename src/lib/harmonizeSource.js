@@ -591,7 +591,12 @@ export async function harmonizeSource(html, harmonizer = "default") {
             values.forEach((val) =>{
                let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
                if (pv) {
-                pVals.push(pv)
+                // Flatten arrays (e.g., from split) into individual values
+                if (Array.isArray(pv)) {
+                  pVals.push(...pv)
+                } else {
+                  pVals.push(pv)
+                }
                }
               values = pVals
             })
