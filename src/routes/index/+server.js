@@ -604,36 +604,18 @@ const handleHTML = async (response, uri, harmonizer = "default") => {
   // console.log(`VVVVVVVVVVVVVVVV`)
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
+    if (typeof octothorpe === 'string') {
+      handleThorpe(s, octothorpe)
+      continue
+    }
     let octoURI = deslash(octothorpe.uri)
-    switch(octothorpe.type) {
-      case 'link':
-      case 'mention':
-      case 'Link':
-      case 'Mention':
-      case 'Backlink':
-      case 'backlink':
-        friends.linked.push(octoURI)
-        handleMention(s, octoURI)
-        break;
-      case 'hashtag':
-        handleThorpe(s, octoURI)
-        break;
-      case 'endorse':
-        friends.endorsed.push(octoURI)
-        // TKTK handle endorsement
-        // TK: Web of Trust Verification
-        //  1. Grab `[rel="octo:endorses"]`
-        //  2. Create term <s> octo:endorses <o> .
-        //  3. Create term <o.origin> octo:verified "true" .
-        break;
-      case 'bookmark':
-        console.log(`handle bookmark?`, octoURI)
-        // TKTK handle bookmark uniquely
-        handleMention(s, octoURI)
-        break;
-      default:
-        handleThorpe(s, octothorpe)
-        break;
+    if (octothorpe.type === 'hashtag') {
+      handleThorpe(s, octoURI)
+    } else if (octothorpe.type === 'endorse') {
+      friends.endorsed.push(octoURI)
+    } else if (octothorpe.uri) {
+      friends.linked.push(octoURI)
+      handleMention(s, octoURI)
     }
   }
 
