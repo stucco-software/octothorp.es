@@ -8,6 +8,18 @@ import normalizeUrl from 'normalize-url'
 const p = 'octo:octothorpes'
 const indexCooldown = 300000 // 5min
 
+// Map harmonizer type values to RDF subtype names.
+// Types not listed here default to Backlink (generic page-to-page link).
+const subtypeMap = {
+  bookmark: 'Bookmark',
+  Bookmark: 'Bookmark',
+  cite: 'Cite',
+  citation: 'Cite',
+  Cite: 'Cite',
+}
+
+export const resolveSubtype = (type) => subtypeMap[type] || 'Backlink'
+
 ////////// harmonizer validation //////////
 
 const harmonizerWhitelist = [
@@ -257,14 +269,14 @@ export const createMention = async (s, o) => {
   `)
 }
 
-export const createBacklink = async (s, o) => {
-  console.log(`create backlink…`)
+export const createBacklink = async (s, o, subtype = 'Backlink') => {
+  console.log(`create backlink… (${subtype})`)
   let now = Date.now()
   return await insert(`
     <${o}> ${p} _:backlink .
       _:backlink octo:created ${now} .
       _:backlink octo:url <${s}> .
-      _:backlink rdf:type <octo:Backlink> .
+      _:backlink rdf:type <octo:${subtype}> .
   `)
 }
 
@@ -419,7 +431,7 @@ export const handleThorpe = async (s, o, { instance }) => {
   }
 }
 
-export const handleMention = async (s, o) => {
+export const handleMention = async (s, o, subtype = 'Backlink') => {
   const subj = deslash(s)
   const obj = deslash(o)
   const isObjWebring = await extantPage(obj, "Webring")
@@ -446,7 +458,7 @@ export const handleMention = async (s, o) => {
   let isExtantbacklink = await extantBacklink(subj, obj)
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink(subj, obj)
+    await createBacklink(subj, obj, subtype)
   }
 }
 
@@ -515,18 +527,18 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
     if (typeof octothorpe === 'string') {
-      handleThorpe(s, octothorpe, { instance })
+      await handleThorpe(s, octothorpe, { instance })
       continue
     }
     if (!octothorpe.uri) continue
     let octoURI = deslash(octothorpe.uri)
     if (octothorpe.type === 'hashtag') {
-      handleThorpe(s, octoURI, { instance })
+      await handleThorpe(s, octoURI, { instance })
     } else if (octothorpe.type === 'endorse') {
       friends.endorsed.push(octoURI)
     } else {
       friends.linked.push(octoURI)
-      handleMention(s, octoURI)
+      await handleMention(s, octoURI, resolveSubtype(octothorpe.type))
     }
   }
 
