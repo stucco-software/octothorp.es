@@ -73,6 +73,54 @@ octo-thorpe {
 
 **Bundle Size:** 55KB (11KB gzipped)
 
+### `<octo-backlinks>`
+
+Shows pages that link to a specific URL. Defaults to the current page if `o` is not set.
+
+**API:** `GET /get/pages/linked`
+
+**Usage:**
+```html
+<script type="module" src="https://octothorp.es/components/octo-backlinks.js"></script>
+<octo-backlinks autoload></octo-backlinks>
+```
+
+**Attributes:** Same as `<octo-thorpe>` (`server`, `s`, `o`, `nots`, `noto`, `match`, `limit`, `offset`, `when`, `autoload`, `render`), plus:
+- `emptyMessage` - Message when no results (default: `"No links found to this page"`)
+
+If `o` is omitted, defaults to `window.location.href`.
+
+### `<octo-multipass>`
+
+Accepts a MultiPass JSON object and displays results with metadata (title, author, description).
+
+**Usage:**
+```html
+<script type="module" src="https://octothorp.es/components/octo-multipass.js"></script>
+<octo-multipass multipass='{"meta":{"title":"My Feed",...},...}' autoload></octo-multipass>
+```
+
+**Attributes:**
+- `multipass` - MultiPass JSON string or object
+- `autoload` - Auto-load on mount (boolean)
+- `render` - Display mode: `list`, `cards`, `compact`, `count`
+
+### `<octo-multipass-loader>`
+
+File upload component for MultiPass objects. Accepts GIF or JSON file drops.
+
+**Usage:**
+```html
+<script type="module" src="https://octothorp.es/components/octo-multipass-loader.js"></script>
+<octo-multipass-loader placeholder="Drop a MultiPass here"></octo-multipass-loader>
+```
+
+**Attributes:**
+- `render` - Display mode: `list`, `cards`, `compact`
+- `placeholder` - Upload prompt text (default: `"Drop MultiPass JSON or GIF here"`)
+- `gif` - URL to a MultiPass GIF (can be set programmatically)
+- `target` - CSS selector for target element to render results into
+
 ## Shared Utilities
 
 ### `octo-store.js`
@@ -180,10 +228,8 @@ Component is output to `static/components/my-component.js` and served automatica
 
 Planned components following this pattern:
 
-- `<octo-links>` - Pages linking to URLs (GET /get/pages/linked)
 - `<octo-webring>` - Domains in webring (GET /get/domains/in-webring)
 - `<octo-feed>` - Generic query with RSS output
-- `<octo-backlinks>` - Pages backlinking to URLs (GET /get/pages/backlinked)
 
 ## Migration Notes
 

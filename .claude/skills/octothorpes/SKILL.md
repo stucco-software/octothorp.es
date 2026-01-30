@@ -67,30 +67,40 @@ At the start of any development session, perform these checks:
 ### URL Structure
 
 ```
-{BASE_URL}/get/[what]/[by]/[[as]]?s=<subjects>&o=<objects>&<filters>
+{instance}/get/[what]/[by]/[[as]]?s=<subjects>&o=<objects>&<filters>
 ```
 
-| `[what]` | Returns |
-|----------|---------|
-| `everything` | Complete blobjects with metadata and relationships |
-| `pages` | Flat list of page URLs |
-| `thorpes` | List of terms/hashtags |
-| `domains` | List of verified origins |
+### [what] -- Result Type
 
-| `[by]` | Filter |
-|--------|--------|
-| `thorped` | Pages tagged with terms |
-| `linked` | Pages linking to other pages |
-| `backlinked` | Validated bidirectional links |
-| `bookmarked` | Bookmark subtype |
-| `posted` | All indexed pages |
-| `in-webring` | Pages in a webring |
+Multiple aliases map to the same result mode:
 
-| `[[as]]` | Format |
-|----------|--------|
-| (default) | JSON |
-| `rss` | RSS 2.0 |
-| `debug` | Debug with MultiPass and SPARQL |
+| Aliases | resultMode | Returns |
+|---------|------------|---------|
+| `everything`, `blobjects`, `whatever` | `blobjects` | Composite objects with metadata and all relationships |
+| `pages`, `links`, `mentions`, `backlinks`, `citations`, `bookmarks` | `links` | Flat list of pages with role, uri, title, description, date, image |
+| `thorpes`, `octothorpes`, `tags`, `terms` | `octothorpes` | List of terms with date |
+| `domains` | `domains` | List of verified origins |
+
+### [by] -- Query Filter
+
+| Aliases | Object type | Notes |
+|---------|-------------|-------|
+| `thorped`, `octothorped`, `tagged`, `termed` | `termsOnly` | Pages tagged with terms |
+| `linked`, `mentioned` | `notTerms` | Pages linking to other pages |
+| `backlinked` | `pagesOnly` | Validated bidirectional links (subtype: Backlink) |
+| `cited` | `notTerms` | Citation subtype |
+| `bookmarked` | `notTerms` | Bookmark subtype |
+| `posted`, `all` | `none` | All indexed pages (no object filter) |
+| `in-webring`, `members`, `member-of` | varies | Webring queries; forces subject mode to `byParent` |
+
+### [[as]] -- Response Format
+
+| Value | Returns |
+|-------|---------|
+| (omitted) | `{ results: [...] }` as JSON |
+| `rss` | RSS 2.0 XML feed |
+| `debug` | Object with `multiPass`, `query` (SPARQL string), and `actualResults` |
+| `multipass` | MultiPass config and SPARQL query without executing |
 
 ### Query Parameters
 
@@ -98,30 +108,81 @@ At the start of any development session, perform these checks:
 |-------|-------------|
 | `s`, `o` | Subject/object filters (comma-separated) |
 | `not-s`, `not-o` | Exclusions |
-| `match` | `exact`, `fuzzy`, `fuzzy-s`, `fuzzy-o`, `very-fuzzy-o` |
-| `limit`, `offset` | Pagination |
-| `when` | `recent`, `after-DATE`, `before-DATE`, `between-DATE-and-DATE` |
+| `match` | Matching strategy (see below) |
+| `limit` | Max results (default: 100, use `no-limit` or `0` for unlimited) |
+| `offset` | Skip N results (default: 0) |
+| `when` | `recent` (2 weeks), `after-DATE`, `before-DATE`, `between-DATE-and-DATE` |
+| `feedtitle`, `feeddescription`, `feedauthor`, `feedimage` | Override MultiPass meta fields (useful for RSS) |
 
-**Matching:** Well-formed URLs → exact; plain strings → fuzzy. Override with `?match=`.
+**Date formats:** Unix timestamp (`1704067200`) or ISO date (`2024-01-01`).
+
+### Matching Strategies
+
+| `?match=` | Subjects | Objects |
+|-----------|----------|---------|
+| `exact` | Exact URI match | Exact URI match |
+| `fuzzy` | CONTAINS on subject | Fuzzy term variations |
+| `fuzzy-s` / `fuzzy-subject` | CONTAINS on subject | Exact |
+| `fuzzy-o` / `fuzzy-object` | Exact | Fuzzy term variations as exact URIs |
+| `very-fuzzy-o` / `very-fuzzy-object` | Exact | CONTAINS on object (slow) |
+| `very-fuzzy` | CONTAINS on subject | CONTAINS on object (slow) |
+
+**Automatic inference** (when `?match` is omitted):
+- Well-formed URLs (`https://...`) → `exact`
+- Plain strings → `fuzzy`
+- Terms (`[by]=thorped`) → always `exact` for objects (terms are converted to full URIs)
 
 **Warning:** `very-fuzzy` + date filters is extremely slow.
 
 ### Response Formats
 
-**Blobjects** (`everything`):
+**Blobjects** (`everything`) -- `getBlobjectFromResponse()`:
 ```json
 {
   "results": [{
     "@id": "https://example.com/page",
-    "title": "Title", "description": "...", "date": 1740179856134,
-    "octothorpes": ["demo", { "type": "link", "uri": "https://other.com" }]
+    "title": "Page Title",
+    "description": "...",
+    "image": "https://..." ,
+    "date": 1740179856134,
+    "octothorpes": [
+      "demo",
+      { "type": "link", "uri": "https://other.com" },
+      { "type": "Bookmark", "uri": "https://saved.com" }
+    ]
   }]
 }
 ```
 
-**Pages**: `{ "results": [{ "role": "subject", "uri": "...", "title": "...", "date": ... }] }`
+The `octothorpes` array is mixed: strings for terms (extracted from the URI, e.g. `https://octothorp.es/~/demo` becomes `"demo"`), and objects with `type` + `uri` for page relationships.
 
-**Terms**: `{ "results": [{ "term": "demo", "date": ... }] }`
+**Pages/Links** -- `parseBindings(bindings, "pages")`:
+```json
+{
+  "results": [{
+    "role": "subject",
+    "uri": "https://example.com/page",
+    "title": "Page Title",
+    "description": "...",
+    "date": 1740179856134,
+    "image": "https://..."
+  }]
+}
+```
+
+The `role` field is `"subject"` or `"object"`, indicating which side of the relationship the page came from.
+
+**Terms** -- `parseBindings(bindings, "thorpes")`:
+```json
+{
+  "results": [{
+    "term": "demo",
+    "date": 1740179856134
+  }]
+}
+```
+
+**Domains** -- uses the same `parseBindings` format as Pages (with `role`, `uri`, `title`, `description`, `date`, `image`).
 
 ---
 
@@ -147,23 +208,65 @@ At the start of any development session, perform these checks:
 
 ### MultiPass Object
 
+The internal representation of a parsed API query. Built by `getMultiPassFromParams()` in `converters.js`.
+
 ```javascript
 {
-  meta: { title, resultMode: "blobjects|links|octothorpes|domains" },
-  subjects: { mode: "exact|fuzzy|byParent", include: [], exclude: [] },
-  objects: { type: "termsOnly|pagesOnly|notTerms|all|none", mode, include: [], exclude: [] },
-  filters: { subtype, limitResults, offsetResults, dateRange: { after, before } }
+  meta: {
+    title: string,              // Auto-generated or from ?feedtitle
+    description: string,        // Auto-generated or from ?feeddescription
+    server: string,             // From instance env variable
+    author: string,             // From ?feedauthor
+    image: string,              // From ?feedimage
+    version: "1",               // API version
+    resultMode: "blobjects" | "links" | "octothorpes" | "domains"
+  },
+  subjects: {
+    mode: "exact" | "fuzzy" | "byParent",
+    include: string[],
+    exclude: string[]
+  },
+  objects: {
+    type: "termsOnly" | "pagesOnly" | "notTerms" | "all" | "none",
+    mode: "exact" | "fuzzy" | "very-fuzzy",
+    include: string[],
+    exclude: string[]
+  },
+  filters: {
+    subtype: string | null,     // "Backlink", "Cite", "Bookmark", etc.
+    limitResults: string,       // Default "100", or "0" / "no-limit"
+    offsetResults: string,      // Default "0"
+    dateRange: { after: number, before: number } | null
+  }
 }
 ```
 
 ### RDF Schema
 
+**Graph structure:**
+
+```
+Webring ──hasMember──▶ Origin ──hasPart──▶ Page ──octothorpes──▶ Term
+                         │                   │                     │
+                         │ verified: "true"   │                     │ created, used (timestamps)
+                         │                   │
+                         │                   ├──octothorpes──▶ Page (link)
+                         │                   ├──title, description, image (metadata)
+                         │                   └──indexed (timestamp)
+```
+
+- `Webring -hasMember-> Origin -hasPart-> Page` is the chain used by `byParent` mode (webring queries)
+- `Origin` must have `octo:verified "true"` to be indexed
+- Page-to-Page octothorpes use blank nodes to carry subtype information
+
 **Predicates:**
-- `octo:octothorpes` - Page → Term or Page → Page
+- `octo:octothorpes` - Page → Term or Page → Page (core relationship)
 - `octo:indexed`, `octo:created`, `octo:used` - Timestamps
 - `octo:title`, `octo:description`, `octo:image` - Metadata
-- `octo:hasMember` (Webring → Origin), `octo:hasPart` (Origin → Page)
-- `octo:verified` - Boolean string
+- `octo:hasMember` - Webring → Origin
+- `octo:hasPart` - Origin → Page
+- `octo:verified` - Boolean string on Origin
+- `octo:endorses` - Origin → Origin (enables backlinks between domains)
 
 **Blank nodes for subtypes:**
 ```sparql
@@ -171,6 +274,8 @@ At the start of any development session, perform these checks:
   _:b octo:url <target> .
   _:b rdf:type <octo:Backlink> .
 ```
+
+Subtypes include `octo:Backlink`, `octo:Cite`, `octo:Bookmark`. The blank node also stores the timestamp and source URI of the relationship.
 
 ---
 
@@ -346,6 +451,62 @@ Remote harmonizers (fetched by URL) are validated:
 
 ---
 
+## Web Components
+
+Client-side custom elements that query the OP API and render results. Built with Svelte, compiled to standard Web Components.
+
+**Source:** `/src/lib/web-components/`
+**Build config:** `vite.config.components.js`
+**Output:** `/static/components/` (ES modules)
+**Build command:** Uses Vite with Svelte plugin in `customElement` mode.
+
+### Components
+
+| Element | Source | API endpoint | Purpose |
+|---------|--------|-------------|---------|
+| `<octo-thorpe>` | `octo-thorpe/OctoThorpe.svelte` | `/get/pages/thorped` | Display pages tagged with specific terms |
+| `<octo-backlinks>` | `octo-backlinks/OctoBacklinks.svelte` | `/get/pages/linked` | Show pages linking to a URL (defaults to current page) |
+| `<octo-multipass>` | `octo-multipass/OctoMultipass.svelte` | Dynamic | Accept a MultiPass object, display results with metadata |
+| `<octo-multipass-loader>` | `octo-multipass-loader/OctoMultipassLoader.svelte` | Dynamic | File upload (GIF/JSON) for MultiPass objects |
+
+### Common Attributes
+
+All components share these attributes:
+- `server` - API server URL (default: `"https://octothorp.es"`)
+- `autoload` - Auto-fetch on mount (boolean)
+- `render` - Display mode: `list`, `cards`, `compact`, `count`
+- `limit`, `offset` - Pagination
+- `s`, `o` - Subject/object filters
+- `nots`, `noto` - Exclusions
+- `match` - Matching strategy
+- `when` - Date filter
+
+### Shared Utilities
+
+| File | Purpose |
+|------|---------|
+| `shared/octo-store.js` | Svelte store factory for API queries (`createOctoQuery(what, by)`) |
+| `shared/display-helpers.js` | `getTitle()`, `getUrl()`, `formatDate()` |
+| `shared/multipass-utils.js` | `parseMultipass()`, `multipassToParams()`, `extractWhatBy()` |
+
+### CSS Theming
+
+Components use CSS custom properties for styling:
+- `--octo-font`, `--octo-primary`, `--octo-background`, `--octo-text`
+- `--octo-border`, `--octo-error`, `--octo-spacing`, `--octo-radius`
+
+### Building Components
+
+**Build:** `npm run build:components`
+
+See `/src/lib/web-components/README.md` for the full guide on creating new components (Svelte setup, build config, deploy).
+
+### Legacy
+
+`/static/tag.js` is the original plain-JS implementation of `<octo-thorpe>` using shadow DOM. The Svelte-based components in `/src/lib/web-components/` are the current system.
+
+---
+
 ## Core Files
 
 | File | Purpose |
@@ -360,6 +521,10 @@ Remote harmonizers (fetched by URL) are validated:
 | `/src/lib/rssify.js` | RSS generation |
 | `/src/routes/harmonizer/[id]/+server.js` | API endpoint to retrieve harmonizer schemas |
 | `/src/routes/debug/harmsource/[id]/+server.js` | Debug endpoint to test harmonization |
+| `/src/routes/debug/orchestra-pit/+server.js` | Debug endpoint to test indexing any URL without registration |
+| `/src/lib/web-components/` | Web component source (Svelte custom elements) |
+| `/static/components/` | Compiled web component output |
+| `vite.config.components.js` | Web component build config |
 
 ---
 
@@ -406,9 +571,24 @@ Integration tests verify that endpoints return expected data from the running ap
 - Use `WebFetch` to fetch `{instance}/~/[term]` and other public routes
 - Verify the page renders and contains expected content
 
+**Orchestra Pit** (`{instance}/debug/orchestra-pit`):
+
+A debug endpoint for testing the indexing/harmonization pipeline without registering the domain or recording results. Fetches any URL, runs it through a harmonizer, and returns the extracted metadata as JSON.
+
+```
+GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
+```
+
+- `uri` - URL to fetch and harmonize (defaults to `https://demo.ideastore.dev`)
+- `as` - Harmonizer ID or URL (defaults to `"default"`)
+- Returns the `harmonizeSource()` output plus a `harmonizerUsed` field showing the full harmonizer schema that was applied
+- No origin verification, no cooldown, no data written to the triplestore
+- Useful for testing harmonizer changes against real pages
+
 **Example local test URLs** (when `instance=http://localhost:5173/`):
 - API: `http://localhost:5173/get/everything/thorped?o=demo`
 - Debug: `http://localhost:5173/get/everything/thorped/debug?o=demo`
+- Orchestra Pit: `http://localhost:5173/debug/orchestra-pit?uri=https://example.com&as=openGraph`
 - Page: `http://localhost:5173/~/demo`
 - Index: `http://localhost:5173/index?uri=...`
 
