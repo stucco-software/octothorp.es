@@ -631,6 +631,11 @@ const handleHTML = async (response, uri, harmonizer = "default") => {
         // TKTK handle bookmark uniquely
         handleMention(s, octoURI)
         break;
+      case 'cite':
+      case 'Cite':
+      case 'citation':
+        handleMention(s, octoURI)
+        break;
       default:
         handleThorpe(s, octothorpe)
         break;

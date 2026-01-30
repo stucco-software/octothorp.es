@@ -539,6 +539,11 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
         console.log(`handle bookmark?`, octoURI)
         handleMention(s, octoURI)
         break
+      case 'cite':
+      case 'Cite':
+      case 'citation':
+        handleMention(s, octoURI)
+        break
       default:
         handleThorpe(s, octothorpe, { instance })
         break
