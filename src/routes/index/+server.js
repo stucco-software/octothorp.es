@@ -608,12 +608,13 @@ const handleHTML = async (response, uri, harmonizer = "default") => {
       handleThorpe(s, octothorpe)
       continue
     }
+    if (!octothorpe.uri) continue
     let octoURI = deslash(octothorpe.uri)
     if (octothorpe.type === 'hashtag') {
       handleThorpe(s, octoURI)
     } else if (octothorpe.type === 'endorse') {
       friends.endorsed.push(octoURI)
-    } else if (octothorpe.uri) {
+    } else {
       friends.linked.push(octoURI)
       handleMention(s, octoURI)
     }
