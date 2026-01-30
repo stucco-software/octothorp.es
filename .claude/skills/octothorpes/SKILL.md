@@ -613,3 +613,39 @@ GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
 **Indexing:**
 - /routes/index/+server.js contains logic for indexing external pages
 - try to use existing logic instead of re-creating those patterns
+
+---
+
+## Core Extraction Readiness
+
+OP is moving toward a monorepo where framework-agnostic business logic lives in a shared `@octothorpes/core` package, consumed by both SvelteKit and a future CLI. All new code should be written with this in mind.
+
+**The rule:** Business logic must not depend on SvelteKit. Route handlers (`+server.js`) are the boundary. Everything in `src/lib/` below that boundary should be extractable.
+
+**In `src/lib/`, do not use:**
+- `$env/static/private` -- accept config as parameters instead
+- `@sveltejs/kit` (`error()`, `json()`) -- throw plain JS errors; route handlers catch and convert
+- `import.meta.glob()` -- use standard Node.js APIs or accept data as parameters
+
+```javascript
+// BAD -- coupled to SvelteKit
+import { instance } from '$env/static/private'
+import { error } from '@sveltejs/kit'
+
+export function buildTermUri(term) {
+  if (!term) throw error(400, 'Missing term')
+  return `${instance}~/${term}`
+}
+
+// GOOD -- extractable
+export function buildTermUri(term, instance) {
+  if (!term) throw new Error('Missing term')
+  return `${instance}~/${term}`
+}
+```
+
+**Keep route handlers thin:** parse the request, inject config from `$env`, call library functions, format the response. Accept dependencies (like `queryArray`) as parameters rather than importing singletons that carry their own `$env` imports.
+
+**When modifying existing coupled files** (e.g., `sparql.js` which imports `$env`), follow the file's existing patterns -- don't refactor the whole file for a feature addition. But write any **new functions** to accept config as parameters. **New files** in `src/lib/` should be fully extractable from day one.
+
+Many `src/lib/` files are already framework-agnostic (`utils.js`, `rssify.js`, `arrayify.js`, etc.). Others need refactoring to remove `$env` or `@sveltejs/kit` imports (`sparql.js`, `converters.js`, `harmonizeSource.js`, `origin.js`). See `.claude/plans/cli/CORE_EXTRACTION_PLAN.md` for the file-by-file status and refactoring patterns, and `MONOREPO_SPEC.md` for the target package structure and public API.
