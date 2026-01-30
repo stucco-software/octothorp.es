@@ -5,8 +5,8 @@ import normalizeUrl from 'normalize-url'
 
 ////////// globals
 
-let p = 'octo:octothorpes'
-let indexCooldown = 300000 //5min
+const p = 'octo:octothorpes'
+const indexCooldown = 300000 // 5min
 
 ////////// harmonizer validation //////////
 
@@ -95,14 +95,12 @@ export const parseRequestBody = async (request) => {
 ////////// helpers //////////
 
 export const isURL = (term) => {
-  let bool
   try {
     new URL(term)
-    bool = true
+    return true
   } catch (e) {
-    bool = false
+    return false
   }
-  return bool
 }
 
 export const getAllMentioningUrls = async (url) => {
@@ -145,8 +143,6 @@ export const webringMembers = async (s) => {
 
 export const recentlyIndexed = async (s) => {
   let now = Date.now()
-
-  let url = new URL(s)
   let r = await queryArray(`
     select distinct ?t {
       <${s}> octo:indexed ?t .

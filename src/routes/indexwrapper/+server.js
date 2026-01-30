@@ -9,8 +9,8 @@ import {
 } from '$lib/indexing.js'
 
 export async function GET(req) {
-  let url = new URL(req.request.url)
-  let uriParam = url.searchParams.get('uri')
+  const url = new URL(req.request.url)
+  const uriParam = url.searchParams.get('uri')
 
   if (!uriParam) {
     return error(400, 'URI parameter is required.')
@@ -23,11 +23,11 @@ export async function GET(req) {
     return error(400, 'Invalid URI format.')
   }
 
-  let harmonizer = url.searchParams.get('as') ?? "default"
-  let s = normalizeUrl(`${uri.origin}${uri.pathname}`)
-  let origin = normalizeUrl(uri.origin)
+  const harmonizer = url.searchParams.get('as') ?? "default"
+  const s = normalizeUrl(`${uri.origin}${uri.pathname}`)
+  const origin = normalizeUrl(uri.origin)
 
-  let isVerifiedOrigin = await verifiedOrigin(origin)
+  const isVerifiedOrigin = await verifiedOrigin(origin)
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }
