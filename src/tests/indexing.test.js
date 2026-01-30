@@ -21,6 +21,7 @@ import {
   recentlyIndexed,
   extantTerm,
   extantPage,
+  createBacklink,
   createOctothorpe,
   createTerm,
   createPage,
@@ -267,6 +268,30 @@ describe('Indexing Business Logic', () => {
     })
   })
 
+  describe('createBacklink', () => {
+    it('should default to octo:Backlink subtype', async () => {
+      insert.mockResolvedValue({})
+      await createBacklink('https://example.com/page', 'https://other.com/page')
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('rdf:type <octo:Backlink>')
+    })
+
+    it('should use provided subtype', async () => {
+      insert.mockResolvedValue({})
+      await createBacklink('https://example.com/page', 'https://other.com/page', 'Cite')
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('rdf:type <octo:Cite>')
+      expect(insertCall).not.toContain('rdf:type <octo:Backlink>')
+    })
+
+    it('should use Bookmark subtype', async () => {
+      insert.mockResolvedValue({})
+      await createBacklink('https://example.com/page', 'https://other.com/page', 'Bookmark')
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('rdf:type <octo:Bookmark>')
+    })
+  })
+
   describe('recordIndexing', () => {
     it('should delete old timestamp and insert new one', async () => {
       query.mockResolvedValue({})
@@ -463,6 +488,132 @@ describe('Indexing Business Logic', () => {
       // recordTitle should be called with the fallback URI
       const titleInsert = insert.mock.calls.find(call => call[0].includes('octo:title'))
       expect(titleInsert[0]).toContain('https://example.com/fallback')
+    })
+
+    it('should handle unrecognized typed objects (e.g. cite) as mentions without crashing', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: 'A test page',
+        octothorpes: [
+          { type: 'cite', uri: 'https://sweetfish.site' },
+        ],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(false)
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      expect(insert).toHaveBeenCalled()
+      const insertCalls = insert.mock.calls.map(c => c[0])
+      // Should not create a term from the object
+      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
+      termCreations.forEach(call => {
+        expect(call).not.toContain('[object Object]')
+        expect(call).not.toContain('~/cite')
+      })
+      // Should write the backlink blank node with octo:Cite subtype
+      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      expect(backlinkInsert).toBeDefined()
+      expect(backlinkInsert).toContain('rdf:type <octo:Cite>')
+      expect(backlinkInsert).not.toContain('rdf:type <octo:Backlink>')
+    })
+
+    it('should write octo:Bookmark subtype for bookmark octothorpes', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          { type: 'bookmark', uri: 'https://saved.com/article' },
+        ],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(false)
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      expect(backlinkInsert).toContain('rdf:type <octo:Bookmark>')
+    })
+
+    it('should write octo:Backlink subtype for link octothorpes', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          { type: 'link', uri: 'https://other.com/page' },
+        ],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(false)
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      expect(backlinkInsert).toContain('rdf:type <octo:Backlink>')
+    })
+
+    it('should handle plain string octothorpes', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          'my-tag',
+        ],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(false)
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+      const termCreation = insertCalls.find(c => c.includes('octo:Term') && c.includes('my-tag'))
+      expect(termCreation).toBeDefined()
+    })
+
+    it('should handle typed object with no uri gracefully', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          { type: 'unknown' },
+        ],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(false)
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
     })
   })
 
