@@ -514,30 +514,18 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   let friends = { endorsed: [], linked: [] }
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
+    if (typeof octothorpe === 'string') {
+      handleThorpe(s, octothorpe, { instance })
+      continue
+    }
     let octoURI = deslash(octothorpe.uri)
-    switch (octothorpe.type) {
-      case 'link':
-      case 'mention':
-      case 'Link':
-      case 'Mention':
-      case 'Backlink':
-      case 'backlink':
-        friends.linked.push(octoURI)
-        handleMention(s, octoURI)
-        break
-      case 'hashtag':
-        handleThorpe(s, octoURI, { instance })
-        break
-      case 'endorse':
-        friends.endorsed.push(octoURI)
-        break
-      case 'bookmark':
-        console.log(`handle bookmark?`, octoURI)
-        handleMention(s, octoURI)
-        break
-      default:
-        handleThorpe(s, octothorpe, { instance })
-        break
+    if (octothorpe.type === 'hashtag') {
+      handleThorpe(s, octoURI, { instance })
+    } else if (octothorpe.type === 'endorse') {
+      friends.endorsed.push(octoURI)
+    } else if (octothorpe.uri) {
+      friends.linked.push(octoURI)
+      handleMention(s, octoURI)
     }
   }
 
