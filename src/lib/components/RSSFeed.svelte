@@ -15,10 +15,14 @@
 
 
 
-    // For domain pages or other non-/get/ pages, construct RSS URL from params
+    // For non-/get/ pages (e.g. Explore), construct RSS URL from query params
     if (!pathname.includes('/get/')) {
-      // Default to /get/everything/thorped/rss
-      return `${url.origin}/get/everything/thorped/rss${params.toString() ? '?' + params.toString() : ''}`
+      const what = params.get('what') || 'everything'
+      const by = params.get('by') || 'thorped'
+      params.delete('what')
+      params.delete('by')
+      params.delete('format')
+      return `${url.origin}/get/${what}/${by}/rss${params.toString() ? '?' + params.toString() : ''}`
     }
 
     // For /get/ endpoints, replace format with rss
@@ -39,13 +43,16 @@
     const pathname = url.pathname
     const parts = []
 
-    // Extract what/by from pathname or default to everything/thorped
+    // Extract what/by from pathname or query params
     let what = 'everything'
     let by = ''
     if (pathname.includes('/get/')) {
       const pathParts = pathname.split('/')
       if (pathParts[2]) what = pathParts[2]
       if (pathParts[3]) by = pathParts[3]
+    } else {
+      what = params.get('what') || 'everything'
+      by = params.get('by') || 'thorped'
     }
 
     parts.push(what)
