@@ -1,9 +1,5 @@
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
 import { determineBadgeUri } from '$lib/badge.js'
 import normalizeUrl from 'normalize-url'
-
-const badgeSuccess = readFileSync(resolve('static/badge.png'))
 
 const pngHeaders = {
   'Content-Type': 'image/png',
@@ -22,7 +18,7 @@ function logRequest(entry) {
   }
 }
 
-export async function GET({ request, url }) {
+export async function GET({ request, url, fetch }) {
   // If ?log is present, return the log viewer
   if (url.searchParams.has('log')) {
     return new Response(renderLog(), {
@@ -85,7 +81,9 @@ export async function GET({ request, url }) {
     },
   })
 
-  return new Response(badgeSuccess, { headers: pngHeaders })
+  const badgeResponse = await fetch('/badge.png')
+  const badgeBuffer = await badgeResponse.arrayBuffer()
+  return new Response(badgeBuffer, { headers: pngHeaders })
 }
 
 function renderLog() {
