@@ -1,10 +1,9 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { badge_image } from '$env/static/private'
 import { determineBadgeUri, badgeVariant } from '$lib/badge.js'
 import normalizeUrl from 'normalize-url'
 
-const badgeFile = badge_image || 'badge.png'
+const badgeFile = 'badge.png'
 const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))
 
 const pngHeaders = {
