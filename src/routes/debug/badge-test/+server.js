@@ -4,7 +4,7 @@ import { determineBadgeUri, badgeVariant } from '$lib/badge.js'
 import normalizeUrl from 'normalize-url'
 
 const badgeFile = 'badge.png'
-const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))
+const badgeSuccess = readFileSync(resolve(`/static/${badgeFile}`))
 
 const pngHeaders = {
   'Content-Type': 'image/png',
