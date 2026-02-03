@@ -398,7 +398,7 @@ Each rule is an object (or a static string) with these fields:
 
 ### Harmonizer Output
 
-`harmonizeSource()` returns:
+`harmonizeSource()` returns a **blobject** -- the canonical data shape used throughout the indexing pipeline. Blobjects are the post-harmonization format: any input (HTML, JSON, XML) gets harmonized into a blobject, and the storage pipeline (`handleThorpe`, `handleMention`, etc.) consumes blobjects. This means pre-formed blobjects can skip harmonization entirely and go straight to storage.
 
 ```javascript
 {

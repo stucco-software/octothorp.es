@@ -24,7 +24,8 @@ export default defineConfig({
         'octo-thorpe': resolve(__dirname, 'src/lib/web-components/octo-thorpe/OctoThorpe.svelte'),
         'octo-multipass': resolve(__dirname, 'src/lib/web-components/octo-multipass/OctoMultipass.svelte'),
         'octo-multipass-loader': resolve(__dirname, 'src/lib/web-components/octo-multipass-loader/OctoMultipassLoader.svelte'),
-        'octo-backlinks': resolve(__dirname, 'src/lib/web-components/octo-backlinks/OctoBacklinks.svelte')
+        'octo-backlinks': resolve(__dirname, 'src/lib/web-components/octo-backlinks/OctoBacklinks.svelte'),
+        'octo-badge': resolve(__dirname, 'src/lib/web-components/octo-badge/OctoBadge.svelte')
       },
       // Build as ES modules (modern browsers)
       formats: ['es'],
