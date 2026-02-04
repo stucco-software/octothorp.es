@@ -98,18 +98,40 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
             item => typeof item === 'object' && (item.target === targetUrl || item.uri === targetUrl)
           );
 
-
-          // TKTK handle blank nodes, incl terms on triples like hashtagged bookmarks
+          // Check if this blank node has associated terms (terms on relationships)
+          // blankNodeObj contains term URIs like "https://octothorp.es/~/gadgets"
+          let relationTerm = null
+          if (binding.blankNodeObj?.value?.includes('/~/')) {
+            const termValue = binding.blankNodeObj.value.substring(
+              binding.blankNodeObj.value.lastIndexOf('~/') + 2
+            )
+            relationTerm = termValue
+          }
 
           if (existingIndex === -1) {
-            current.octothorpes.push({
+            const newEntry = {
               uri: targetUrl,
               type: oType
-            });
-          } else if (oType !== 'link') {
+            }
+            // Add terms array if we found a relation term
+            if (relationTerm) {
+              newEntry.terms = [relationTerm]
+            }
+            current.octothorpes.push(newEntry);
+          } else {
             // Update existing entry if we have a more specific type
-            // TKTK this over-assigns types like Backlinks
-            current.octothorpes[existingIndex].type = oType;
+            if (oType !== 'link') {
+              current.octothorpes[existingIndex].type = oType;
+            }
+            // Add relation term to existing entry if not already present
+            if (relationTerm) {
+              if (!current.octothorpes[existingIndex].terms) {
+                current.octothorpes[existingIndex].terms = []
+              }
+              if (!current.octothorpes[existingIndex].terms.includes(relationTerm)) {
+                current.octothorpes[existingIndex].terms.push(relationTerm)
+              }
+            }
           }
 
         }
