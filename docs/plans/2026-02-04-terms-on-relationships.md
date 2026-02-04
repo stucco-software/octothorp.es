@@ -4,7 +4,7 @@
 
 **Goal:** Allow link-type octothorpes (bookmarks, citations, links) to carry their own terms via `data-octothorpes` attribute, enabling categorized relationships.
 
-**Architecture:** Extends the existing blank node structure for page-to-page relationships to include `octo:octothorpes` triples pointing to Term URIs. The harmonizer extracts terms from `data-octothorpes`, indexing attaches them to blank nodes, and queries/responses include them.
+**Architecture:** Extends the existing blank node structure for page-to-page relationships to include `octo:octothorpes` triples pointing to Term URIs. When Page A bookmarks Page B, a blank node is created on Page B (pointing back to Page A via `octo:url`). Terms attach to this blank node. The harmonizer extracts terms from `data-octothorpes`, indexing attaches them to blank nodes, and queries/responses include them.
 
 **Tech Stack:** JavaScript, SvelteKit, SPARQL/RDF, Vitest
 

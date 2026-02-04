@@ -22,20 +22,44 @@ Allow link-type octothorpes (bookmarks, citations, links, endorsements) to carry
 
 ## Data Model
 
-### RDF Storage
+### Current RDF Storage for Page-to-Page Relationships
 
-Terms attach to the existing blank node structure for page-to-page relationships:
+When Page A bookmarks Page B, the indexing system creates **two separate structures**:
+
+1. **Direct triple** (via `createMention`): A simple link from source to target
+2. **Blank node** (via `createBacklink`): Metadata about the relationship, attached to the *target* page
 
 ```
+# Direct triple - simple page-to-page link
+<PageA> octo:octothorpes <PageB> .
+<PageA> <PageB> 1234567890 .           # timestamp as predicate (legacy pattern)
+
+# Blank node - relationship metadata, attached to target (PageB)
 <PageB> octo:octothorpes _:b1 .
-  _:b1 octo:url <PageA> .
+  _:b1 octo:url <PageA> .              # points back to source
   _:b1 octo:created 1234567890 .
   _:b1 rdf:type octo:Bookmark .
-  _:b1 octo:octothorpes <https://octothorp.es/~/gadgets> .
-  _:b1 octo:octothorpes <https://octothorp.es/~/bikes> .
+```
+
+The blank node structure exists specifically to carry typed relationship metadata (Bookmark, Cite, Backlink subtypes). The blank node is attached to the **target page** and points back to the **source page** via `octo:url`.
+
+### New: Terms on the Blank Node
+
+Terms attach to the existing blank node:
+
+```
+# Page A bookmarks Page B with terms "gadgets" and "bikes"
+<PageB> octo:octothorpes _:b1 .
+  _:b1 octo:url <PageA> .              # source page
+  _:b1 octo:created 1234567890 .
+  _:b1 rdf:type octo:Bookmark .
+  _:b1 octo:octothorpes <https://octothorp.es/~/gadgets> .   # NEW
+  _:b1 octo:octothorpes <https://octothorp.es/~/bikes> .     # NEW
 ```
 
 Terms are full URI references to `octo:Term` resources (not plain strings), reusing the same `octo:octothorpes` predicate and Term resources used for page-level tagging.
+
+**Direction summary:** Page A declares the bookmark (in its HTML), but the blank node lives on Page B in the triplestore. This is because the blank node represents "Page B has been bookmarked by Page A" - the relationship metadata is stored with the target.
 
 ### Term Lifecycle
 
@@ -218,5 +242,4 @@ Standalone `thorped` = page terms. `+thorped` modifier = relationship terms.
 ## Out of Scope
 
 - Combined filtering (page terms AND relationship terms in one query)
-- Fuzzy matching on relationship terms (exact only)
 - Remote harmonizer validation for `terms` property (follow existing patterns)
