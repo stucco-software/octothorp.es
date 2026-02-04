@@ -290,4 +290,97 @@ describe('External Harmonizer Support', () => {
       expect(result.title).toBe('OpenGraph Title')
     })
   })
+
+  describe('Terms on Link-Type Octothorpes', () => {
+    const htmlWithTermsOnBookmark = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Test Page</title></head>
+        <body>
+          <a rel="octo:bookmarks" data-octothorpes="gadgets,bikes" href="https://example.com/page">Cool Stuff</a>
+        </body>
+      </html>
+    `
+
+    it('should extract terms from data-octothorpes attribute on bookmark links', async () => {
+      const result = await harmonizeSource(htmlWithTermsOnBookmark)
+
+      const bookmark = result.octothorpes.find(o => o.type === 'bookmark')
+      expect(bookmark).toBeDefined()
+      expect(bookmark.uri).toBe('https://example.com/page')
+      expect(bookmark.terms).toBeDefined()
+      expect(bookmark.terms).toContain('gadgets')
+      expect(bookmark.terms).toContain('bikes')
+    })
+
+    it('should handle links without data-octothorpes attribute', async () => {
+      const htmlWithoutTerms = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:bookmarks" href="https://example.com/page">Bookmark</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithoutTerms)
+
+      const bookmark = result.octothorpes.find(o => o.type === 'bookmark')
+      expect(bookmark).toBeDefined()
+      expect(bookmark.uri).toBe('https://example.com/page')
+      expect(bookmark.terms).toBeUndefined()
+    })
+
+    it('should extract terms from citation links', async () => {
+      const htmlWithCite = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:cites" data-octothorpes="disagree,methodology" href="https://example.com/paper">Paper</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithCite)
+
+      const cite = result.octothorpes.find(o => o.type === 'cite')
+      expect(cite).toBeDefined()
+      expect(cite.terms).toContain('disagree')
+      expect(cite.terms).toContain('methodology')
+    })
+  })
+
+  describe('Default Harmonizer Schema - Terms Config', () => {
+    it('should have terms extraction config for bookmark schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.bookmark).toBeDefined()
+      expect(harmonizer.schema.bookmark.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.bookmark.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+
+    it('should have terms extraction config for cite schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.cite).toBeDefined()
+      expect(harmonizer.schema.cite.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.cite.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+
+    it('should have terms extraction config for link schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.link).toBeDefined()
+      expect(harmonizer.schema.link.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.link.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+
+    it('should have terms extraction config for endorse schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.endorse).toBeDefined()
+      expect(harmonizer.schema.endorse.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.endorse.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+  })
 })
