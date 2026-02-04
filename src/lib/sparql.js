@@ -384,6 +384,19 @@ function getStatements (subjects, objects, filters, resultMode) {
     console.log(subtypeFilter)
   }
 
+  // Filter by relation terms (terms attached to blank nodes for relationships)
+  let relationTermsFilter = ""
+  if (filters.relationTerms && filters.relationTerms.length > 0) {
+    const termUris = filters.relationTerms.map(t => `<${instance}~/${t}>`).join(' ')
+    relationTermsFilter = `FILTER EXISTS {
+      ?o ?blankNodePred ?blankNode .
+      FILTER(isBlank(?blankNode))
+      VALUES ?relationTerm { ${termUris} }
+      ?blankNode octo:octothorpes ?relationTerm .
+    }`
+    console.log(relationTermsFilter)
+  }
+
 
   let limitFilter = filters.limitResults
   if (limitFilter != "0" && limitFilter != "no-limit" && !isNaN(parseInt(limitFilter)) && resultMode != "blobjects") {
@@ -406,6 +419,7 @@ function getStatements (subjects, objects, filters, resultMode) {
     subjectStatement: subjectStatement,
     objectStatement: objectStatement,
     subtypeFilter: subtypeFilter,
+    relationTermsFilter: relationTermsFilter,
     dateFilter: dateFilter,
     limitFilter: limitFilter,
     offsetFilter: offsetFilter
@@ -506,6 +520,7 @@ export const buildEverythingQuery = async ({
     {
       ${statements.subjectStatement}
       ${statements.subtypeFilter}
+      ${statements.relationTermsFilter}
       ?s ?o ?date .
       ?s rdf:type ?pageType .
       ?s octo:octothorpes ?o .
@@ -556,6 +571,7 @@ export const buildSimpleQuery = ({
   // Build object-related clauses conditionally
   const objectClauses = includeObjects ? `
     ${statements.subtypeFilter}
+    ${statements.relationTermsFilter}
     ${statements.objectStatement}
     ?s octo:octothorpes ?o .
     ${objectTypes[objects.type]}
