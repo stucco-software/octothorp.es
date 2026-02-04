@@ -203,8 +203,22 @@ export const getMultiPassFromParams  = (
       ////////// ?S and ?O //////////
 
       // default to ask for objects as rdf:type octo:Term
-      const matchByParams = params.by ? params.by : "termsOnly"
+      let matchByParams = params.by ? params.by : "termsOnly"
       let objectType = "all"
+      let relationTerms = undefined
+
+      // Parse +thorped modifier from [by] parameter
+      // e.g., "bookmarked+thorped" becomes matchByParams="bookmarked" with relationTerms from ?o
+      if (matchByParams.includes('+thorped')) {
+        const parts = matchByParams.split('+')
+        matchByParams = parts[0] // e.g., "bookmarked"
+        // Relation terms come from ?o parameter when +thorped is present
+        const relationTermsParam = searchParams.get('o')
+        if (relationTermsParam) {
+          relationTerms = relationTermsParam.split(',').map(t => t.trim())
+        }
+      }
+
       // TKTK for V1.0 compisite objectType handling hashtaggedBookmark
 
       // default to exact matches
@@ -441,6 +455,7 @@ export const getMultiPassFromParams  = (
           },
           filters: {
               subtype: subtype,
+              relationTerms: relationTerms,
               limitResults: limitParams,
               offsetResults: offsetParams,
               dateRange: dateFilter
