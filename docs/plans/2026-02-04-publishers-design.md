@@ -261,9 +261,97 @@ npm test -- --run
 4. **Remote resolvers** - Fetch resolver definitions from URLs (like Harmonizers)
 5. **Core extraction** - Move `resolve.js` to `@octothorpes/core`
 
-## ATProto Resolver Preview
+## ATProto Integration
 
-Based on the `site.standard.document` lexicon:
+The ATProto resolver transforms blobjects to `site.standard.document` format. To actually publish to ATProto, additional tooling wraps around the resolver.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     ATProto Publishing                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐               │
+│   │ Blobject │────▶│ Resolver │────▶│   PDS    │               │
+│   └──────────┘     └──────────┘     └──────────┘               │
+│        │                │                 │                     │
+│   OP data          transform to       POST record               │
+│                    site.standard      with auth                 │
+│                    .document                                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Two Integration Flows
+
+**Push (on index):**
+```
+Page indexed → blobject created → resolve() → POST to PDS
+```
+OP acts as a bridge - when a page is indexed, it also publishes to ATProto if the origin has ATProto configured. Requires:
+- Hook in the indexing pipeline
+- Origin → ATProto mapping stored in OP
+
+**Pull (on demand):**
+```
+External tool → GET blobjects from OP API → resolve() → POST to PDS
+```
+Separate tooling fetches from OP and handles the ATProto write. OP stays read-focused. Could be:
+- CLI command: `octothorpes publish --origin example.com --to atproto`
+- Cron job or external service
+- User-triggered export
+
+### Requirements for Both Flows
+
+| Requirement | Description |
+|-------------|-------------|
+| **Origin → ATProto mapping** | Associates an OP origin (`https://myblog.com`) with an ATProto identity (DID) and publication AT-URI. Could be stored in OP, external config, or fetched from `/.well-known/site.standard.publication`. |
+| **Authentication** | App passwords or session tokens for the PDS. Stored outside OP for security, passed in at runtime. Uses `com.atproto.server.createSession`. |
+| **Deduplication** | Track "last published" timestamp per blobject, or compare content hashes to avoid re-publishing unchanged documents. |
+| **Publication record** | `site.standard.document` records reference a `site.standard.publication`. The publication must exist first - either created manually or bootstrapped by tooling. |
+
+### extractTags Transform
+
+Blobject `octothorpes` arrays contain mixed content:
+```javascript
+octothorpes: [
+  "indieweb",                                    // string - hashtag/term
+  "webdev",                                      // string - hashtag/term  
+  { type: "link", uri: "https://example.com" }, // object - page relationship
+  { type: "Bookmark", uri: "https://saved.com" } // object - page relationship
+]
+```
+
+The ATProto `tags` field expects `string[]`. The `extractTags` transform filters out relationship objects:
+```javascript
+// Input: ["indieweb", { type: "link", uri: "..." }, "webdev"]
+// Output: ["indieweb", "webdev"]
+```
+
+### CLI Integration
+
+The planned `@octothorpes/cli` package is a natural home for pull-based publishing:
+
+```bash
+# Publish all documents from an origin to ATProto
+octothorpes publish --origin example.com --to atproto
+
+# Publish a specific page
+octothorpes publish --uri https://example.com/post --to atproto
+
+# Dry run - show what would be published
+octothorpes publish --origin example.com --to atproto --dry-run
+```
+
+The CLI would:
+1. Load ATProto credentials from env/config
+2. Fetch blobjects from OP (local or remote)
+3. Resolve each to `site.standard.document` format
+4. POST to the configured PDS
+5. Track what's been published to avoid duplicates
+
+## ATProto Resolver
 
 ```javascript
 export const atprotoDocument = {
