@@ -9,21 +9,18 @@
     "version": "1.0"
   },
   "schema": {
-    "site": {
-      "from": "origin",
+    "url": {
+      "from": "@id",
       "required": true
     },
     "title": {
-      "from": "title",
+      "from": ["title", "@id"],
       "required": true
     },
     "publishedAt": {
       "from": "date",
       "postProcess": { "method": "date", "params": "iso8601" },
       "required": true
-    },
-    "path": {
-      "from": "path"
     },
     "description": {
       "from": "description"
@@ -32,12 +29,8 @@
       "from": "octothorpes",
       "postProcess": { "method": "extractTags" }
     },
-    "updatedAt": {
-      "from": "updated",
-      "postProcess": { "method": "date", "params": "iso8601" }
-    },
-    "textContent": {
-      "from": "textContent"
+    "image": {
+      "from": "image"
     }
   }
 }

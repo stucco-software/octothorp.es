@@ -1,7 +1,8 @@
 import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils.js'
-import { rss } from '$lib/rssify.js'
+import { getPublisher } from '$lib/publish/getPublisher.js'
+import { publish } from '$lib/publish/index.js'
 
 
 export async function load({ params, url }) {
@@ -68,28 +69,40 @@ export async function load({ params, url }) {
       break
   }
 
-  switch (params.as) {
-    case "debug":
-    return {
-      multiPass: multiPass,
-      query: query,
-      actualResults: actualResults,
+  // Check for publisher format
+  const publisher = await getPublisher(params.as)
+  
+  if (publisher) {
+    // Transform data using resolver schema
+    const items = publish(actualResults, publisher.schema)
+    
+    // Build channel/meta from publisher defaults + request overrides
+    const channelMeta = {
+      ...publisher.meta.channel,
+      title: multiPass.meta.title,
+      description: multiPass.meta.description,
+      link: url.href,
+      pubDate: new Date().toUTCString()
     }
-    case "rss":
-      // Channel metadata for the feed
-      const channelData = {
-        title: multiPass.meta.title,
-        description: multiPass.meta.description,
-        link: url.href,
-        pubDate: new Date()
-      }
-
-      return {
-        rss: rss(channelData, actualResults)
-      };
-    default:
-    return { results: actualResults }
-    break
+    
+    // Render final output
+    const output = publisher.render(items, channelMeta)
+    
+    return {
+      [params.as]: output,
+      contentType: publisher.contentType
+    }
   }
 
+  // Built-in formats
+  switch (params.as) {
+    case "debug":
+      return {
+        multiPass: multiPass,
+        query: query,
+        actualResults: actualResults,
+      }
+    default:
+      return { results: actualResults }
+  }
 }

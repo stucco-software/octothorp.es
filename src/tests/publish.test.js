@@ -10,8 +10,9 @@ import {
   encodeValue,
   extractTags
 } from '../lib/publish/resolve.js'
-import { rssItem, rssChannel } from '../lib/publish/resolvers/rss.js'
-import atprotoDocument from '../lib/publish/resolvers/atproto-document.json'
+import { publish, getPublisher, listPublishers } from '../lib/publish/index.js'
+import rssResolver from '../lib/publish/publishers/rss2/resolver.json'
+import atprotoDocument from '../lib/publish/publishers/atproto/resolver.json'
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {
@@ -187,7 +188,7 @@ describe('Publisher System', () => {
 
   describe('validateResolver', () => {
     it('should validate a correct resolver', () => {
-      const result = validateResolver(rssItem)
+      const result = validateResolver(rssResolver)
       expect(result.valid).toBe(true)
     })
 
@@ -324,18 +325,138 @@ describe('Publisher System', () => {
     })
   })
 
+  describe('publish', () => {
+    const testResolver = {
+      '@context': 'http://example.com',
+      '@id': 'test',
+      schema: {
+        title: { from: 'title', required: true },
+        link: { from: '@id', required: true }
+      }
+    }
+
+    it('should resolve a single item', () => {
+      const source = { title: 'Test', '@id': 'https://example.com' }
+      const result = publish(source, testResolver)
+
+      expect(result.title).toBe('Test')
+      expect(result.link).toBe('https://example.com')
+    })
+
+    it('should return null for invalid single item', () => {
+      const source = { '@id': 'https://example.com' } // missing required title
+      const result = publish(source, testResolver)
+
+      expect(result).toBeNull()
+    })
+
+    it('should resolve an array of items', () => {
+      const sources = [
+        { title: 'Post 1', '@id': 'https://example.com/1' },
+        { title: 'Post 2', '@id': 'https://example.com/2' }
+      ]
+      const result = publish(sources, testResolver)
+
+      expect(result).toHaveLength(2)
+      expect(result[0].title).toBe('Post 1')
+      expect(result[1].title).toBe('Post 2')
+    })
+
+    it('should filter out invalid items from array', () => {
+      const sources = [
+        { title: 'Valid', '@id': 'https://example.com/1' },
+        { '@id': 'https://example.com/2' }, // missing required title
+        { title: 'Also Valid', '@id': 'https://example.com/3' }
+      ]
+      const result = publish(sources, testResolver)
+
+      expect(result).toHaveLength(2)
+      expect(result[0].title).toBe('Valid')
+      expect(result[1].title).toBe('Also Valid')
+    })
+
+    it('should return empty array when all items are invalid', () => {
+      const sources = [
+        { '@id': 'https://example.com/1' },
+        { '@id': 'https://example.com/2' }
+      ]
+      const result = publish(sources, testResolver)
+
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('getPublisher', () => {
+    it('should return publisher for rss2 format', async () => {
+      const publisher = await getPublisher('rss2')
+      
+      expect(publisher).not.toBeNull()
+      expect(publisher.schema).toBeDefined()
+      expect(publisher.contentType).toBe('application/rss+xml')
+      expect(publisher.meta).toBeDefined()
+      expect(publisher.meta.channel).toBeDefined()
+      expect(typeof publisher.render).toBe('function')
+    })
+
+    it('should return publisher for rss alias', async () => {
+      const publisher = await getPublisher('rss')
+      
+      expect(publisher).not.toBeNull()
+      expect(publisher.contentType).toBe('application/rss+xml')
+    })
+
+    it('should return null for unknown format', async () => {
+      const publisher = await getPublisher('unknown')
+      
+      expect(publisher).toBeNull()
+    })
+
+    it('should render RSS output', async () => {
+      const publisher = await getPublisher('rss2')
+      const items = [{
+        title: 'Test Post',
+        link: 'https://example.com/post',
+        guid: 'https://example.com/post',
+        pubDate: 'Fri, 21 Jun 2024 00:00:00 GMT',
+        description: 'A test post'
+      }]
+      const channel = {
+        title: 'Test Feed',
+        link: 'https://example.com/feed',
+        description: 'A test feed'
+      }
+
+      const output = publisher.render(items, channel)
+
+      expect(output).toContain('<rss')
+      expect(output).toContain('<channel>')
+      expect(output).toContain('<title>Test Feed</title>')
+      expect(output).toContain('<title>Test Post</title>')
+      expect(output).toContain('<link>https://example.com/post</link>')
+    })
+  })
+
+  describe('listPublishers', () => {
+    it('should return list of available formats', () => {
+      const formats = listPublishers()
+      
+      expect(formats).toContain('rss2')
+      expect(formats).toContain('rss')
+    })
+  })
+
   describe('loadResolver', () => {
     it('should load a valid resolver object', () => {
-      const result = loadResolver(rssItem)
+      const result = loadResolver(rssResolver)
       expect(result.valid).toBe(true)
-      expect(result.resolver).toBe(rssItem)
+      expect(result.resolver).toBe(rssResolver)
     })
 
     it('should parse and load a JSON string', () => {
-      const jsonString = JSON.stringify(rssItem)
+      const jsonString = JSON.stringify(rssResolver)
       const result = loadResolver(jsonString)
       expect(result.valid).toBe(true)
-      expect(result.resolver['@id']).toBe(rssItem['@id'])
+      expect(result.resolver['@id']).toBe(rssResolver['@id'])
     })
 
     it('should reject invalid JSON', () => {
@@ -358,7 +479,7 @@ describe('Publisher System', () => {
     })
   })
 
-  describe('RSS Resolvers', () => {
+  describe('RSS Resolver', () => {
     it('should resolve blobject to RSS item', () => {
       const blobject = {
         title: 'My Post',
@@ -368,7 +489,7 @@ describe('Publisher System', () => {
         image: 'https://example.com/image.jpg'
       }
 
-      const result = resolve(blobject, rssItem)
+      const result = resolve(blobject, rssResolver)
 
       expect(result.title).toBe('My Post')
       expect(result.link).toBe('https://example.com/my-post')
@@ -384,25 +505,9 @@ describe('Publisher System', () => {
         date: new Date('2024-06-21').getTime()
       }
 
-      const result = resolve(blobject, rssItem)
+      const result = resolve(blobject, rssResolver)
 
       expect(result.title).toBe('https://example.com/untitled')
-    })
-
-    it('should resolve channel metadata', () => {
-      const channelData = {
-        title: 'My Feed',
-        link: 'https://example.com/feed',
-        description: 'A test feed',
-        pubDate: new Date('2024-06-21')
-      }
-
-      const result = resolve(channelData, rssChannel)
-
-      expect(result.title).toBe('My Feed')
-      expect(result.link).toBe('https://example.com/feed')
-      expect(result.description).toBe('A test feed')
-      expect(result.pubDate).toBe('Fri, 21 Jun 2024 00:00:00 GMT')
     })
   })
 
@@ -414,27 +519,27 @@ describe('Publisher System', () => {
 
     it('should resolve blobject to ATProto document format', () => {
       const blobject = {
-        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        '@id': 'https://example.com/my-blog-post',
         title: 'My Blog Post',
         date: new Date('2024-06-21T12:00:00Z').getTime(),
         description: 'A post about the decentralized web',
         octothorpes: ['indieweb', 'atproto', { type: 'link', uri: 'https://example.com' }],
-        path: '/posts/my-blog-post'
+        image: 'https://example.com/image.jpg'
       }
 
       const result = resolve(blobject, atprotoDocument)
 
-      expect(result.site).toBe('at://did:plc:xyz/site.standard.publication/123')
+      expect(result.url).toBe('https://example.com/my-blog-post')
       expect(result.title).toBe('My Blog Post')
       expect(result.publishedAt).toBe('2024-06-21T12:00:00.000Z')
       expect(result.description).toBe('A post about the decentralized web')
       expect(result.tags).toEqual(['indieweb', 'atproto'])
-      expect(result.path).toBe('/posts/my-blog-post')
+      expect(result.image).toBe('https://example.com/image.jpg')
     })
 
     it('should return null when required fields are missing', () => {
       const blobject = {
-        title: 'No origin or date'
+        title: 'No url or date'
       }
 
       const result = resolve(blobject, atprotoDocument)
@@ -443,38 +548,36 @@ describe('Publisher System', () => {
 
     it('should omit optional fields when empty', () => {
       const blobject = {
-        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        '@id': 'https://example.com/post',
         title: 'Minimal Post',
         date: Date.now()
-        // no description, tags, path, etc.
+        // no description, tags, image
       }
 
       const result = resolve(blobject, atprotoDocument)
 
-      expect(result.site).toBe('at://did:plc:xyz/site.standard.publication/123')
+      expect(result.url).toBe('https://example.com/post')
       expect(result.title).toBe('Minimal Post')
       expect(result).not.toHaveProperty('description')
       expect(result).not.toHaveProperty('tags')
-      expect(result).not.toHaveProperty('path')
+      expect(result).not.toHaveProperty('image')
     })
 
     it('should format dates as ISO 8601', () => {
       const blobject = {
-        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        '@id': 'https://example.com/post',
         title: 'Test',
-        date: new Date('2024-06-21T12:00:00Z').getTime(),
-        updated: new Date('2024-06-22T15:30:00Z').getTime()
+        date: new Date('2024-06-21T12:00:00Z').getTime()
       }
 
       const result = resolve(blobject, atprotoDocument)
 
       expect(result.publishedAt).toBe('2024-06-21T12:00:00.000Z')
-      expect(result.updatedAt).toBe('2024-06-22T15:30:00.000Z')
     })
 
     it('should extract only string tags from octothorpes', () => {
       const blobject = {
-        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        '@id': 'https://example.com/post',
         title: 'Tagged Post',
         date: Date.now(),
         octothorpes: [
@@ -489,6 +592,17 @@ describe('Publisher System', () => {
       const result = resolve(blobject, atprotoDocument)
 
       expect(result.tags).toEqual(['tag1', 'tag2', 'tag3'])
+    })
+
+    it('should fall back to @id for title', () => {
+      const blobject = {
+        '@id': 'https://example.com/untitled',
+        date: new Date('2024-06-21').getTime()
+      }
+
+      const result = resolve(blobject, atprotoDocument)
+
+      expect(result.title).toBe('https://example.com/untitled')
     })
   })
 })
