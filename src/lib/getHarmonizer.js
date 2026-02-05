@@ -109,7 +109,10 @@ const localHarmonizers = {
               "o": [
                 {
                   "selector": `a[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
-                  "attribute": "href"
+                  "attribute": "href",
+                  "terms": {
+                    "attribute": "data-octothorpes"
+                  }
                 }
               ]
             },
@@ -118,7 +121,10 @@ const localHarmonizers = {
             "o": [
               {
                 "selector": `[rel~='octo:endorses']:not([href*='${instance}~/'])`,
-                "attribute": "href"
+                "attribute": "href",
+                "terms": {
+                  "attribute": "data-octothorpes"
+                }
               }
             ]
           },
@@ -127,7 +133,10 @@ const localHarmonizers = {
               "o": [
                 {
                   "selector": `[rel~='octo:bookmarks']:not([href*='${instance}~/'])`,
-                  "attribute": "href"
+                  "attribute": "href",
+                  "terms": {
+                    "attribute": "data-octothorpes"
+                  }
                 }
               ]
             },
@@ -136,7 +145,10 @@ const localHarmonizers = {
               "o": [
                 {
                   "selector": `[rel~='octo:cites']:not([href*='${instance}~/'])`,
-                  "attribute": "href"
+                  "attribute": "href",
+                  "terms": {
+                    "attribute": "data-octothorpes"
+                  }
                 }
               ]
             }

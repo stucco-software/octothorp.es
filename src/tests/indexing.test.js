@@ -33,6 +33,7 @@ import {
   handleMention,
   handleHTML,
   handler,
+  resolveSubtype,
 } from '$lib/indexing.js'
 
 import { queryArray, queryBoolean, insert, query } from '$lib/sparql.js'
@@ -697,6 +698,127 @@ describe('Indexing Business Logic', () => {
       const data = await parseRequestBody(request)
       expect(data.uri).toBe('https://example.com')
       expect(data.harmonizer).toBe('openGraph')
+    })
+  })
+
+  describe('resolveSubtype', () => {
+    it('should resolve bookmark subtype correctly', () => {
+      expect(resolveSubtype('bookmark')).toBe('Bookmark')
+      expect(resolveSubtype('Bookmark')).toBe('Bookmark')
+    })
+
+    it('should resolve cite subtype correctly', () => {
+      expect(resolveSubtype('cite')).toBe('Cite')
+      expect(resolveSubtype('Cite')).toBe('Cite')
+    })
+
+    it('should default to Backlink for unknown types', () => {
+      expect(resolveSubtype('link')).toBe('Backlink')
+      expect(resolveSubtype('unknown')).toBe('Backlink')
+    })
+  })
+
+  describe('Terms on Relationships', () => {
+    it('should attach terms to backlink blank node when provided', async () => {
+      insert.mockResolvedValue({})
+      await createBacklink(
+        'https://example.com/page',
+        'https://other.com/page',
+        'Bookmark',
+        ['gadgets', 'bikes'],
+        { instance }
+      )
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('rdf:type <octo:Bookmark>')
+      expect(insertCall).toContain(`<${instance}~/gadgets>`)
+      expect(insertCall).toContain(`<${instance}~/bikes>`)
+    })
+
+    it('should not include term triples when terms array is empty', async () => {
+      insert.mockResolvedValue({})
+      await createBacklink(
+        'https://example.com/page',
+        'https://other.com/page',
+        'Bookmark',
+        [],
+        { instance }
+      )
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('rdf:type <octo:Bookmark>')
+      expect(insertCall).not.toContain('~/gadgets')
+      expect(insertCall).not.toContain('~/bikes')
+    })
+
+    it('should create terms and attach to backlink in handleMention', async () => {
+      queryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(undefined) // checkEndorsement
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
+        .mockResolvedValueOnce(false) // extantTerm for 'bikes'
+      insert.mockResolvedValue({})
+
+      await handleMention(
+        'https://example.com/page',
+        'https://other.com/page',
+        'Bookmark',
+        ['gadgets', 'bikes'],
+        { instance }
+      )
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+
+      // Should have created terms
+      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
+      expect(termCreations.length).toBe(2)
+
+      // Should have recorded usage
+      const usageCalls = insertCalls.filter(c => c.includes('octo:used'))
+      expect(usageCalls.length).toBe(2)
+
+      // Backlink should include terms
+      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      expect(backlinkInsert).toContain(`<${instance}~/gadgets>`)
+      expect(backlinkInsert).toContain(`<${instance}~/bikes>`)
+    })
+
+    it('should pass terms from harmonized output through handleHTML', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          { type: 'bookmark', uri: 'https://saved.com/article', terms: ['gadgets', 'bikes'] },
+        ],
+        type: null,
+      })
+      queryBoolean
+        .mockResolvedValueOnce(false) // extantPage for source
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(undefined) // checkEndorsement
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
+        .mockResolvedValueOnce(false) // extantTerm for 'bikes'
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+
+      // Should have created terms
+      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
+      expect(termCreations.length).toBe(2)
+
+      // Backlink should include terms
+      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      expect(backlinkInsert).toContain(`<${instance}~/gadgets>`)
+      expect(backlinkInsert).toContain(`<${instance}~/bikes>`)
     })
   })
 })

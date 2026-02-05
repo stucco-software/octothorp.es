@@ -269,15 +269,26 @@ export const createMention = async (s, o) => {
   `)
 }
 
-export const createBacklink = async (s, o, subtype = 'Backlink') => {
-  console.log(`create backlink… (${subtype})`)
+export const createBacklink = async (s, o, subtype = 'Backlink', terms = [], { instance } = {}) => {
+  console.log(`create backlink… (${subtype})${terms.length ? ` with terms: ${terms.join(', ')}` : ''}`)
   let now = Date.now()
-  return await insert(`
+
+  // Build base triples
+  let triples = `
     <${o}> ${p} _:backlink .
       _:backlink octo:created ${now} .
       _:backlink octo:url <${s}> .
       _:backlink rdf:type <octo:${subtype}> .
-  `)
+  `
+
+  // Add term triples if present
+  for (const term of terms) {
+    triples += `
+      _:backlink ${p} <${instance}~/${term}> .
+    `
+  }
+
+  return await insert(triples)
 }
 
 export const createWebring = async (s) => {
@@ -431,7 +442,7 @@ export const handleThorpe = async (s, o, { instance }) => {
   }
 }
 
-export const handleMention = async (s, o, subtype = 'Backlink') => {
+export const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance } = {}) => {
   const subj = deslash(s)
   const obj = deslash(o)
   const isObjWebring = await extantPage(obj, "Webring")
@@ -458,7 +469,15 @@ export const handleMention = async (s, o, subtype = 'Backlink') => {
   let isExtantbacklink = await extantBacklink(subj, obj)
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink(subj, obj, subtype)
+    // Create/record terms before creating backlink
+    for (const term of terms) {
+      const isExtantTerm = await extantTerm(term, { instance })
+      if (!isExtantTerm) {
+        await createTerm(term, { instance })
+      }
+      await recordUsage(subj, term, { instance })
+    }
+    await createBacklink(subj, obj, subtype, terms, { instance })
   }
 }
 
@@ -538,7 +557,9 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
       friends.endorsed.push(octoURI)
     } else {
       friends.linked.push(octoURI)
-      await handleMention(s, octoURI, resolveSubtype(octothorpe.type))
+      // Pass terms array (default to empty if not present)
+      const terms = octothorpe.terms || []
+      await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance })
     }
   }
 

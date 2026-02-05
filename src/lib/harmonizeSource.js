@@ -247,20 +247,33 @@ function removeTrailingSlash(url) {
  * @param {string} [rule.selector] - CSS selector for elements
  * @param {string} [rule.attribute] - Element attribute to extract
  * @param {Object} [rule.postProcess] - Post-processing configuration
- * @returns {Array} Array of extracted values
+ * @param {Object} [rule.terms] - Terms extraction configuration
+ * @param {string} [rule.terms.attribute] - Attribute containing comma-separated terms
+ * @returns {Array} Array of extracted values (strings or objects with uri/terms)
  */
 const extractValues = (html, rule) => {
   if (typeof rule === "string") {
     // If the rule is a string, return it as-is
     return [rule]
   }
-  const { selector, attribute, postProcess } = rule
+  const { selector, attribute, postProcess, terms } = rule
   let tempContainer = parser.parseFromString(html, "text/html")
   const elements = [...tempContainer.querySelectorAll(selector)]
   const values = elements
     .map((element) => {
       let value = element[attribute]
       value = removeTrailingSlash(value)
+      
+      // If terms extraction is configured, return object with uri and terms
+      if (terms) {
+        const termsAttr = element.getAttribute(terms.attribute)
+        let extractedTerms = null
+        if (termsAttr) {
+          extractedTerms = termsAttr.split(',').map(t => t.trim()).filter(Boolean)
+        }
+        return { uri: value, terms: extractedTerms }
+      }
+      
       return value
     })
   return values
@@ -589,14 +602,26 @@ export async function harmonizeSource(html, harmonizer = "default") {
           if (rule.postProcess) {
             let pVals = []
             values.forEach((val) =>{
-               let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
-               if (pv) {
-                // Flatten arrays (e.g., from split) into individual values
-                if (Array.isArray(pv)) {
-                  pVals.push(...pv)
-                } else {
-                  pVals.push(pv)
-                }
+               // Handle objects with terms - apply postProcess to uri only
+               if (typeof val === 'object' && val.uri) {
+                 let pv = processValue(val.uri, rule.postProcess.method, rule.postProcess.params)
+                 if (pv) {
+                   if (Array.isArray(pv)) {
+                     pVals.push(...pv.map(v => ({ uri: v, terms: val.terms })))
+                   } else {
+                     pVals.push({ uri: pv, terms: val.terms })
+                   }
+                 }
+               } else {
+                 let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
+                 if (pv) {
+                  // Flatten arrays (e.g., from split) into individual values
+                  if (Array.isArray(pv)) {
+                    pVals.push(...pv)
+                  } else {
+                    pVals.push(pv)
+                  }
+                 }
                }
               values = pVals
             })
@@ -665,8 +690,19 @@ export async function harmonizeSource(html, harmonizer = "default") {
     ...(typedOutput.hashtag || []),
     ...Object.entries(typedOutput)
       .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
-      .flatMap(([key, uris]) =>
-        uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
+      .flatMap(([key, items]) =>
+        items.map(item => {
+          // Handle objects with terms (from link types with data-octothorpes)
+          if (typeof item === 'object' && item.uri) {
+            const result = { type: key, uri: item.uri }
+            if (item.terms && item.terms.length > 0) {
+              result.terms = item.terms
+            }
+            return result
+          }
+          // Plain string uri
+          return { type: key, uri: item }
+        })
       )
   ]
   return output
