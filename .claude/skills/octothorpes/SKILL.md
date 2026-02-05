@@ -5,9 +5,40 @@ description: Develop and integrate with the Octothorpes Protocol, otherwise know
 
 # Octothorpes Protocol Development
 
-The Octothorpes Protocol (OP) is a decentralized system that extracts metadata from the content of independent websites or documents and makes that metadata available via an API and a public-facing website. Metadata is stored in an RDF triplestore and queried with SPARQL. The website is built on SvelteKit, and the primary language is javascript. Dataflow is as follows: a document, usually a website, requests indexing from an OP server by hitting its "index" endpoint. If it's an allowed domain, the OP server uses a Harmonizer to find and normalize metadata from the document. This data is stored in the triple store and can be retrieved as raw JSON or a custom JSON schema called a Blobject.
+The Octothorpes Protocol (OP) is a decentralized system that extracts metadata from the content of independent websites or documents and makes that metadata available via an API and a public-facing website. Metadata is stored in an RDF triplestore and queried with SPARQL. The website is built on SvelteKit, and the primary language is javascript. Dataflow is as follows: a document, usually a website, requests indexing from an OP Relay by hitting its "index" endpoint. If it's an allowed domain, the Relay uses a Harmonizer to find and normalize metadata from the document. This data is stored in the triple store and can be retrieved as raw JSON or a custom JSON schema called a Blobject.
 
 Work is driven by GitHub issues on `stucco-software/octothorp.es`. When directed to an issue, read it with `gh issue view <number>` before starting work. Tasks typically involve extending protocol features, fixing bugs, and writing tests.
+
+---
+
+## Architecture Terminology
+
+Understanding these terms is essential for working on OP:
+
+- **Core** (`@octothorpes/core`): Framework-agnostic business logic -- indexing, harmonizing, querying, publishing. No network server, no UI. This is being extracted from the SvelteKit app.
+
+- **Relay**: A public OP endpoint that exposes the API (indexing, querying). A Relay is Core + network transport. Can be headless (API only) or bundled with a UI. The current octothorp.es is a Relay with a UI.
+
+- **Server**: A Relay with a frontend UI. "Server" and "Relay" are sometimes used interchangeably, but a Relay doesn't require a UI -- it could be just a bare API endpoint.
+
+- **Bridge**: A standalone service connecting an OP Relay to an external protocol (ActivityPub, ATProto). Bridges consume OP data via the API + Publishers and handle bidirectional protocol-specific work. Bridges store their own operational state (followers, queues, credentials) **outside** the OP triplestore.
+
+- **Dashboard**: A future user-facing client for individuals to manage their OP presence, link external identities (Bluesky, Mastodon), and configure cross-posting. This is where "accounts" would live -- OP Core and Relays don't have user accounts.
+
+- **Publisher**: Transforms blobjects into output formats (RSS, ATProto records, ActivityStreams). Publishers are stateless formatters. See `/src/lib/publish/`.
+
+- **Indexer**: Fetches content from a URI and produces a blobject via harmonization. Indexers are protocol-specific (HTTP, ATProto, ActivityPub) and pluggable. The current implementation only has an HTTP indexer.
+
+- **Blobject**: The canonical data shape for indexed content. All inputs (HTML, JSON, etc.) get harmonized into blobjects, and all outputs (RSS, ATProto) are transformed from blobjects.
+
+### Triplestore Philosophy
+
+A foundational concept: the triplestore is a representation of the state of data on the broader network. It stores facts about pages, terms, relationships, and identity associations -- but operational state (Bridge followers, delivery queues, user sessions) belongs elsewhere.
+
+This means:
+- A Relay can add or remove a Bridge without consequence to the triplestore
+- Identity associations (linking domains to DIDs or fediverse actors) **are** stored in the triplestore -- they represent network state
+- But Bridge-specific data (who follows a term, pending deliveries) is **not** stored in the triplestore
 
 ## Repository Structure
 
@@ -281,25 +312,41 @@ Subtypes include `octo:Backlink`, `octo:Cite`, `octo:Bookmark`. The blank node a
 
 ## Indexing System
 
-OP is **pull-based**: pages call `/index?uri=<url>`, server fetches and processes the HTML.
+OP is **pull-based**: pages call `/index?uri=<url>`, Relay fetches and processes the content.
 
-### Flow
+### Indexing Pipeline
+
+```
+URI → [Indexer] → raw content → [Harmonizer] → blobject → [Storage]
+        ↑                            ↑
+   protocol-specific           content-type-specific
+   (HTTP, ATProto, AP)         (HTML/CSS, JSON/JSONPath)
+```
+
+Currently only HTTP indexing is implemented. The architecture supports pluggable Indexers for other protocols (ATProto, ActivityPub) -- see the Indexer section below.
+
+### Flow (HTTP)
 
 1. Client: `GET /index?uri=<page-url>` with `Origin` header
 2. Verify origin against `octo:verified`
 3. Check cooldown via `octo:indexed`
-4. Fetch HTML from URI
+4. Fetch HTML from URI (HTTP Indexer)
 5. `harmonizeSource(html, harmonizer)` extracts metadata
 6. Process octothorpes: strings → `handleThorpe()`, objects → `handleMention()`
 7. Record metadata and timestamp
 
 ### Key Functions
 
+Located in `/src/lib/indexing.js`:
+
 | Category | Functions |
 |----------|-----------|
 | Validation | `extantTerm()`, `extantPage()`, `extantThorpe()`, `extantMention()`, `extantBacklink()`, `recentlyIndexed()` |
 | Creation | `createTerm()`, `createPage()`, `createOctothorpe()`, `createMention()`, `createBacklink()`, `createWebring()` |
 | Recording | `recordIndexing()`, `recordTitle()`, `recordDescription()`, `recordUsage()` |
+| Handlers | `handleThorpe()`, `handleMention()`, `handleWebring()`, `handleHTML()` |
+| Rate Limiting | `checkIndexingRateLimit()` |
+| Harmonizer Validation | `isHarmonizerAllowed()` |
 
 ### Client Integration
 
@@ -308,6 +355,45 @@ OP is **pull-based**: pages call `/index?uri=<url>`, server fetches and processe
 fetch(`${instance}/index?uri=` + encodeURIComponent(window.location.href))
 // With harmonizer:
 fetch(`${instance}/index?uri=${encodeURIComponent(url)}&harmonizer=ghost`)
+```
+
+### Pluggable Indexers (Future)
+
+To support non-HTTP URIs (like `at://` for ATProto), the indexing system is being refactored to use pluggable Indexers:
+
+```javascript
+// Conceptual interface
+interface Indexer {
+  schemes: string[]           // URI schemes handled ('http', 'https', 'at', etc.)
+  fetch(uri): Promise<{       // Fetch content
+    content: string | object,
+    contentType: string,
+    metadata?: object
+  }>
+  defaultHarmonizer?: string  // Default harmonizer for this protocol
+}
+```
+
+The `IndexerRegistry` dispatches by URI scheme:
+- `https://example.com/page` → HttpIndexer
+- `at://did:plc:abc/app.bsky.feed.post/123` → AtprotoIndexer (future)
+
+### External URIs
+
+OP can store non-HTTP URIs directly in the triplestore:
+
+```sparql
+<at://did:plc:abc/app.bsky.feed.post/123> a octo:Page ;
+  octo:title "My Bluesky Post" .
+```
+
+For identity associations (linking domains to external identities):
+
+```sparql
+<https://example.com> a octo:Origin ;
+  octo:verified "true" ;
+  octo:atprotoIdentity <did:plc:abc123> ;
+  octo:activitypubActor <https://mastodon.social/users/alice> .
 ```
 
 ---
@@ -507,18 +593,130 @@ See `/src/lib/web-components/README.md` for the full guide on creating new compo
 
 ---
 
+## Publishers
+
+Publishers transform blobjects into output formats. They are stateless formatters used by the API's `[[as]]` parameter and by Bridges.
+
+**Location:** `/src/lib/publish/`
+
+### Structure
+
+```
+src/lib/publish/
+├── index.js              # exports publish(), getPublisher(), listPublishers()
+├── resolve.js            # core resolve() function + transforms
+├── getPublisher.js       # publisher registry
+└── publishers/
+    ├── rss2/
+    │   ├── resolver.json # schema mapping blobject → RSS item fields
+    │   └── renderer.js   # XML rendering + contentType + meta
+    └── atproto/
+        ├── resolver.json # schema mapping blobject → site.standard.document
+        └── renderer.js   # passthrough (returns items directly)
+```
+
+### Publisher Components
+
+Each publisher has:
+- **Resolver schema** (`resolver.json`): Maps blobject fields to output format fields, with optional transforms
+- **Renderer** (`renderer.js`): Produces final output (XML string, JSON, etc.) and declares `contentType`
+
+### Adding a New Publisher
+
+1. Create `publishers/<format>/resolver.json` with schema
+2. Create `publishers/<format>/renderer.js` exporting:
+   - `default` - the imported resolver schema
+   - `contentType` - MIME type string
+   - `meta` - publisher metadata
+   - `render(items, meta)` - render function
+3. Register in `getPublisher.js`
+
+### Key APIs
+
+```javascript
+import { publish, getPublisher, listPublishers } from '$lib/publish'
+
+// Transform blobjects using a resolver schema
+const items = publish(blobjects, resolver.schema)
+
+// Get publisher by format
+const publisher = await getPublisher('rss2')  // or 'rss', 'atproto'
+
+// List available formats
+const formats = listPublishers()  // ['rss2', 'rss', 'atproto']
+```
+
+---
+
+## Bridges
+
+Bridges connect OP Relays to external protocols. They are separate services that:
+- Consume OP data via the API + Publishers
+- Handle bidirectional protocol-specific work
+- Store their own operational state outside the triplestore
+
+### Use Cases
+
+1. **Terms as Followable Actors** (Use Case 1): Make OP terms followable from the fediverse or subscribable as ATProto feeds. Example: `@demo@octothorp.es` becomes a fediverse actor that posts when new pages are tagged with "demo".
+
+2. **User Cross-Posting** (Use Case 2, future): Users with verified Origins could bridge their posts to personal fediverse/Bluesky accounts. Requires the Dashboard/account concept.
+
+### ActivityPub Bridge
+
+Would make OP terms followable from Mastodon, etc.:
+
+**Endpoints:**
+- `/.well-known/webfinger` - Resolves `acct:demo@octothorp.es` → actor URI
+- `/~/demo/actor` - Actor object with inbox/outbox
+- `/~/demo/outbox` - OrderedCollection of Create activities
+- `/~/demo/inbox` - Receives Follow/Undo requests
+
+**Operational state (stored outside triplestore):**
+- Follower lists per term
+- Delivery queue for outbound activities
+- HTTP signature keys
+
+### ATProto Bridge
+
+Would make OP terms available as Bluesky feeds:
+
+**Endpoints:**
+- Feed generator endpoints per term
+- DID document hosting
+
+### Bridge Design Principles
+
+- Use existing SDKs (`@atproto/api`, ActivityPub libraries) -- Bridges should be thin adapters
+- All operational state lives outside the OP triplestore
+- A Relay can add/remove Bridges without affecting the triplestore
+- Bridges consume Publisher output for formatting
+
+### Server Admin Setup (Conceptual)
+
+```bash
+op-bridge-activitypub \
+  --op-relay=https://my-relay.example \
+  --domain=my-relay.example \
+  --listen=:8080 \
+  --state-dir=/var/lib/op-bridge-ap
+```
+
+---
+
 ## Core Files
 
 | File | Purpose |
 |------|---------|
 | `/src/routes/get/[what]/[by]/[[as]]/load.js` | Main API |
-| `/src/routes/index/+server.js` | Indexing |
+| `/src/routes/index/+server.js` | Indexing route handler |
+| `/src/lib/indexing.js` | Indexing logic: handlers, storage, validation |
 | `/src/lib/converters.js` | URL ↔ MultiPass |
 | `/src/lib/sparql.js` | Query building |
 | `/src/lib/harmonizeSource.js` | Harmonization engine: extraction, processing, filtering, remote fetching |
 | `/src/lib/getHarmonizer.js` | Local harmonizer definitions and lookup |
+| `/src/lib/publish/` | Publisher system (resolve, render, publisher registry) |
 | `/src/lib/utils.js` | Validation, dates, tags |
-| `/src/lib/rssify.js` | RSS generation |
+| `/src/lib/rssify.js` | RSS generation (legacy, being replaced by publishers) |
 | `/src/routes/harmonizer/[id]/+server.js` | API endpoint to retrieve harmonizer schemas |
 | `/src/routes/debug/harmsource/[id]/+server.js` | Debug endpoint to test harmonization |
 | `/src/routes/debug/orchestra-pit/+server.js` | Debug endpoint to test indexing any URL without registration |
