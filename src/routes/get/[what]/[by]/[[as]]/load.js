@@ -1,8 +1,7 @@
 import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
-import { parseBindings } from '$lib/utils'
+import { parseBindings } from '$lib/utils.js'
 import { rss } from '$lib/rssify.js'
-import { error, redirect, json } from '@sveltejs/kit';
 
 
 export async function load({ params, url }) {
@@ -77,19 +76,16 @@ export async function load({ params, url }) {
       actualResults: actualResults,
     }
     case "rss":
-      // Create RSS feed structure
-      const rssTree = {
-        channel: {
-          title: multiPass.meta.title,
-          description: multiPass.meta.description,
-          link: url.href,
-          pubDate: new Date().toUTCString(),
-          items: actualResults
-        }
-      };
+      // Channel metadata for the feed
+      const channelData = {
+        title: multiPass.meta.title,
+        description: multiPass.meta.description,
+        link: url.href,
+        pubDate: new Date()
+      }
 
       return {
-        rss: rss(rssTree, params.what)
+        rss: rss(channelData, actualResults)
       };
     default:
     return { results: actualResults }
