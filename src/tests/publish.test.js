@@ -1,14 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { 
   resolve, 
-  validateResolver, 
+  validateResolver,
+  loadResolver,
   resolveFrom, 
   resolvePath, 
   applyPostProcess, 
   formatDate, 
-  encodeValue 
+  encodeValue,
+  extractTags
 } from '../lib/publish/resolve.js'
 import { rssItem, rssChannel } from '../lib/publish/resolvers/rss.js'
+import atprotoDocument from '../lib/publish/resolvers/atproto-document.json'
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {
@@ -136,6 +139,49 @@ describe('Publisher System', () => {
       ]
       const result = applyPostProcess('World', transforms)
       expect(result).toBe('Hello, World!')
+    })
+  })
+
+  describe('extractTags', () => {
+    it('should extract string tags from mixed octothorpes array', () => {
+      const octothorpes = [
+        'demo',
+        'indieweb',
+        { type: 'link', uri: 'https://example.com' },
+        'webdev',
+        { type: 'Bookmark', uri: 'https://other.com' }
+      ]
+      const result = extractTags(octothorpes)
+      expect(result).toEqual(['demo', 'indieweb', 'webdev'])
+    })
+
+    it('should return null for empty array', () => {
+      expect(extractTags([])).toBeNull()
+    })
+
+    it('should return null for array with only objects', () => {
+      const octothorpes = [
+        { type: 'link', uri: 'https://example.com' }
+      ]
+      expect(extractTags(octothorpes)).toBeNull()
+    })
+
+    it('should return null for non-array input', () => {
+      expect(extractTags('not an array')).toBeNull()
+      expect(extractTags(null)).toBeNull()
+      expect(extractTags(undefined)).toBeNull()
+    })
+
+    it('should trim whitespace from tags', () => {
+      const octothorpes = ['  spaced  ', 'normal']
+      const result = extractTags(octothorpes)
+      expect(result).toEqual(['spaced', 'normal'])
+    })
+
+    it('should filter out empty strings', () => {
+      const octothorpes = ['valid', '', '  ', 'also-valid']
+      const result = extractTags(octothorpes)
+      expect(result).toEqual(['valid', 'also-valid'])
     })
   })
 
@@ -278,6 +324,40 @@ describe('Publisher System', () => {
     })
   })
 
+  describe('loadResolver', () => {
+    it('should load a valid resolver object', () => {
+      const result = loadResolver(rssItem)
+      expect(result.valid).toBe(true)
+      expect(result.resolver).toBe(rssItem)
+    })
+
+    it('should parse and load a JSON string', () => {
+      const jsonString = JSON.stringify(rssItem)
+      const result = loadResolver(jsonString)
+      expect(result.valid).toBe(true)
+      expect(result.resolver['@id']).toBe(rssItem['@id'])
+    })
+
+    it('should reject invalid JSON', () => {
+      const result = loadResolver('not valid json {')
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain('Invalid JSON')
+    })
+
+    it('should reject resolver missing required fields', () => {
+      const result = loadResolver({ schema: {} })
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain('@context')
+    })
+
+    it('should load the ATProto document resolver from JSON', () => {
+      const result = loadResolver(atprotoDocument)
+      expect(result.valid).toBe(true)
+      expect(result.resolver['@context']).toBe('https://standard.site/')
+      expect(result.resolver.meta.lexicon).toBe('site.standard.document')
+    })
+  })
+
   describe('RSS Resolvers', () => {
     it('should resolve blobject to RSS item', () => {
       const blobject = {
@@ -323,6 +403,92 @@ describe('Publisher System', () => {
       expect(result.link).toBe('https://example.com/feed')
       expect(result.description).toBe('A test feed')
       expect(result.pubDate).toBe('Fri, 21 Jun 2024 00:00:00 GMT')
+    })
+  })
+
+  describe('ATProto Document Resolver', () => {
+    it('should validate the ATProto resolver schema', () => {
+      const result = validateResolver(atprotoDocument)
+      expect(result.valid).toBe(true)
+    })
+
+    it('should resolve blobject to ATProto document format', () => {
+      const blobject = {
+        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        title: 'My Blog Post',
+        date: new Date('2024-06-21T12:00:00Z').getTime(),
+        description: 'A post about the decentralized web',
+        octothorpes: ['indieweb', 'atproto', { type: 'link', uri: 'https://example.com' }],
+        path: '/posts/my-blog-post'
+      }
+
+      const result = resolve(blobject, atprotoDocument)
+
+      expect(result.site).toBe('at://did:plc:xyz/site.standard.publication/123')
+      expect(result.title).toBe('My Blog Post')
+      expect(result.publishedAt).toBe('2024-06-21T12:00:00.000Z')
+      expect(result.description).toBe('A post about the decentralized web')
+      expect(result.tags).toEqual(['indieweb', 'atproto'])
+      expect(result.path).toBe('/posts/my-blog-post')
+    })
+
+    it('should return null when required fields are missing', () => {
+      const blobject = {
+        title: 'No origin or date'
+      }
+
+      const result = resolve(blobject, atprotoDocument)
+      expect(result).toBeNull()
+    })
+
+    it('should omit optional fields when empty', () => {
+      const blobject = {
+        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        title: 'Minimal Post',
+        date: Date.now()
+        // no description, tags, path, etc.
+      }
+
+      const result = resolve(blobject, atprotoDocument)
+
+      expect(result.site).toBe('at://did:plc:xyz/site.standard.publication/123')
+      expect(result.title).toBe('Minimal Post')
+      expect(result).not.toHaveProperty('description')
+      expect(result).not.toHaveProperty('tags')
+      expect(result).not.toHaveProperty('path')
+    })
+
+    it('should format dates as ISO 8601', () => {
+      const blobject = {
+        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        title: 'Test',
+        date: new Date('2024-06-21T12:00:00Z').getTime(),
+        updated: new Date('2024-06-22T15:30:00Z').getTime()
+      }
+
+      const result = resolve(blobject, atprotoDocument)
+
+      expect(result.publishedAt).toBe('2024-06-21T12:00:00.000Z')
+      expect(result.updatedAt).toBe('2024-06-22T15:30:00.000Z')
+    })
+
+    it('should extract only string tags from octothorpes', () => {
+      const blobject = {
+        origin: 'at://did:plc:xyz/site.standard.publication/123',
+        title: 'Tagged Post',
+        date: Date.now(),
+        octothorpes: [
+          'tag1',
+          { type: 'Bookmark', uri: 'https://saved.com' },
+          'tag2',
+          { type: 'link', uri: 'https://linked.com' },
+          'tag3'
+        ]
+      }
+
+      const result = resolve(blobject, atprotoDocument)
+
+      expect(result.tags).toEqual(['tag1', 'tag2', 'tag3'])
     })
   })
 })

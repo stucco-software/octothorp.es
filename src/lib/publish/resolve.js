@@ -86,10 +86,31 @@ function applyTransform(value, transform) {
     case 'default':
       return value != null && value !== '' ? value : params
     
+    case 'extractTags':
+      return extractTags(value)
+    
     default:
       console.warn(`Unknown transform method: ${method}`)
       return value
   }
+}
+
+/**
+ * Extracts tag strings from a blobject octothorpes array
+ * Blobject octothorpes are mixed: strings for terms, objects for page relationships
+ * This extracts only the string tags (hashtags/terms)
+ * @param {Array} octothorpes - Mixed array of strings and objects
+ * @returns {string[]|null} Array of tag strings, or null if empty/invalid
+ */
+function extractTags(octothorpes) {
+  if (!Array.isArray(octothorpes)) return null
+  
+  const tags = octothorpes
+    .filter(item => typeof item === 'string')
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0)
+  
+  return tags.length > 0 ? tags : null
 }
 
 /**
@@ -246,5 +267,28 @@ export function resolve(source, resolver) {
   return result
 }
 
+/**
+ * Loads a resolver from a JSON object or parses a JSON string
+ * Validates the resolver before returning
+ * @param {Object|string} source - Resolver object or JSON string
+ * @returns {{ resolver: Object, valid: boolean, error?: string }}
+ */
+export function loadResolver(source) {
+  let resolver
+  
+  try {
+    resolver = typeof source === 'string' ? JSON.parse(source) : source
+  } catch (e) {
+    return { resolver: null, valid: false, error: `Invalid JSON: ${e.message}` }
+  }
+  
+  const validation = validateResolver(resolver)
+  if (!validation.valid) {
+    return { resolver: null, ...validation }
+  }
+  
+  return { resolver, valid: true }
+}
+
 // Export helpers for testing
-export { resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue }
+export { resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags }
