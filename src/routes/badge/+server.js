@@ -3,9 +3,8 @@ import { resolve } from 'path'
 import { instance, badge_image, server_name } from '$env/static/private'
 import { verifiedOrigin } from '$lib/origin.js'
 import { queryBoolean } from '$lib/sparql.js'
-import { handler, checkIndexingRateLimit } from '$lib/indexing.js'
+import { handler } from '$lib/indexing.js'
 import { determineBadgeUri, badgeVariant } from '$lib/badge.js'
-import normalizeUrl from 'normalize-url'
 
 const badgeFile = badge_image || 'badge.png'
 const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))
@@ -42,25 +41,27 @@ export async function GET({ request, url }) {
     return pngResponse(badgeFail)
   }
 
-  const s = normalizeUrl(`${parsed.origin}${parsed.pathname}`)
-  const origin = normalizeUrl(parsed.origin)
-  console.log(`[badge] resolved: page=${s} origin=${origin}`)
+  const origin = parsed.origin
+  console.log(`[badge] resolved: page=${pageUrl} origin=${origin}`)
 
+  // Badge needs to know verification status to pick the right image,
+  // so we check here rather than letting handler() do it.
   const isVerified = await verifiedOrigin(origin, { serverName: server_name, queryBoolean })
   if (!isVerified) {
     console.log(`[badge] -> unregistered (origin not verified: ${origin})`)
     return pngResponse(badgeUnregistered)
   }
 
-  if (!checkIndexingRateLimit(origin)) {
-    console.log(`[badge] -> success (rate limited, skipping indexing)`)
-    return pngResponse(badgeSuccess)
-  }
-
-  console.log(`[badge] -> success (triggering indexing for ${s})`)
-  // Fire indexing in background -- don't block the image response
-  handler(s, harmonizer, origin, { instance }).catch((e) => {
-    console.log(`[badge] indexing result for ${s}: ${e.message}`)
+  console.log(`[badge] -> success (triggering indexing for ${pageUrl})`)
+  // Fire indexing in background -- don't block the image response.
+  // Pass verifyOrigin that always returns true since we already verified above.
+  handler(pageUrl, harmonizer, pageUrl, {
+    instance,
+    serverName: server_name,
+    queryBoolean,
+    verifyOrigin: async () => true
+  }).catch((e) => {
+    console.log(`[badge] indexing result for ${pageUrl}: ${e.message}`)
   })
 
   return pngResponse(badgeSuccess)
