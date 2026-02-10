@@ -1,7 +1,8 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { instance, badge_image } from '$env/static/private'
+import { instance, badge_image, server_name } from '$env/static/private'
 import { verifiedOrigin } from '$lib/origin.js'
+import { queryBoolean } from '$lib/sparql.js'
 import { handler, checkIndexingRateLimit } from '$lib/indexing.js'
 import { determineBadgeUri, badgeVariant } from '$lib/badge.js'
 import normalizeUrl from 'normalize-url'
@@ -45,7 +46,7 @@ export async function GET({ request, url }) {
   const origin = normalizeUrl(parsed.origin)
   console.log(`[badge] resolved: page=${s} origin=${origin}`)
 
-  const isVerified = await verifiedOrigin(origin)
+  const isVerified = await verifiedOrigin(origin, { serverName: server_name, queryBoolean })
   if (!isVerified) {
     console.log(`[badge] -> unregistered (origin not verified: ${origin})`)
     return pngResponse(badgeUnregistered)

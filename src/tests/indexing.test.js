@@ -11,6 +11,10 @@ vi.mock('$lib/harmonizeSource.js', () => ({
   harmonizeSource: vi.fn(),
 }))
 
+vi.mock('$env/static/private', () => ({
+  server_name: 'test-server',
+}))
+
 import {
   isHarmonizerAllowed,
   checkIndexingRateLimit,
@@ -38,6 +42,7 @@ import {
 
 import { queryArray, queryBoolean, insert, query } from '$lib/sparql.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js'
+import { verifiedOrigin, verifyApprovedDomain } from '$lib/origin.js'
 
 const instance = 'http://localhost:5173/'
 
@@ -819,6 +824,52 @@ describe('Indexing Business Logic', () => {
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
       expect(backlinkInsert).toContain(`<${instance}~/gadgets>`)
       expect(backlinkInsert).toContain(`<${instance}~/bikes>`)
+    })
+  })
+
+  describe('Origin Verification (decoupled)', () => {
+    it('verifyApprovedDomain returns true when SPARQL says verified', async () => {
+      const mockQueryBoolean = vi.fn().mockResolvedValue(true)
+      const result = await verifyApprovedDomain('https://example.com', { queryBoolean: mockQueryBoolean })
+      expect(result).toBe(true)
+      expect(mockQueryBoolean).toHaveBeenCalledWith(
+        expect.stringContaining('https://example.com')
+      )
+    })
+
+    it('verifyApprovedDomain returns false when not verified', async () => {
+      const mockQueryBoolean = vi.fn().mockResolvedValue(false)
+      const result = await verifyApprovedDomain('https://unknown.com', { queryBoolean: mockQueryBoolean })
+      expect(result).toBe(false)
+    })
+
+    it('verifiedOrigin dispatches to verifyApprovedDomain by default', async () => {
+      const mockQueryBoolean = vi.fn().mockResolvedValue(true)
+      const result = await verifiedOrigin('https://example.com', {
+        serverName: 'Default Server',
+        queryBoolean: mockQueryBoolean
+      })
+      expect(result).toBe(true)
+      expect(mockQueryBoolean).toHaveBeenCalled()
+    })
+
+    it('verifiedOrigin dispatches to verifiyContent when serverName is Bear Blog', async () => {
+      // Mock global fetch for verifiyContent
+      const originalFetch = global.fetch
+      global.fetch = vi.fn().mockResolvedValue({
+        text: () => Promise.resolve('<html><head><meta content="look-for-the-bear-necessities"></head><body></body></html>')
+      })
+
+      const mockQueryBoolean = vi.fn()
+      const result = await verifiedOrigin('https://bearblog.example.com', {
+        serverName: 'Bear Blog',
+        queryBoolean: mockQueryBoolean
+      })
+      expect(result).toBe(true)
+      // queryBoolean should NOT be called -- Bear Blog uses content verification
+      expect(mockQueryBoolean).not.toHaveBeenCalled()
+
+      global.fetch = originalFetch
     })
   })
 })

@@ -1,18 +1,14 @@
-import { queryBoolean } from '$lib/sparql.js'
-import { server_name } from '$env/static/private'
 import { JSDOM } from 'jsdom'
 
-const verifiyContent = async (s) => {
+export const verifiyContent = async (s) => {
   let response = await fetch(s)
   const src = await response.text()
   const DOMParser = new JSDOM().window.DOMParser
   const parser = new DOMParser()
   let doc = parser.parseFromString(src, "text/html")
 
-  // let pageMetaNode = doc.querySelector("meta[content='look-for-the-bear-necessities']")
   let isGood = false
   let isNotBad = true;
-  // const robotsMetaTags = doc.querySelectorAll("meta[name='robots']");
   const metaTags = doc.getElementsByTagName('meta');
 
   // Iterate through all meta tags
@@ -44,7 +40,7 @@ const verifiyContent = async (s) => {
   }
 }
 
-const verifyApprovedDomain = async origin => {
+export const verifyApprovedDomain = async (origin, { queryBoolean }) => {
   let originVerified = await queryBoolean(`
     ask {
       <${origin}> octo:verified "true" .
@@ -56,7 +52,7 @@ const verifyApprovedDomain = async origin => {
   return originVerified
 }
 
-const verifyWebOfTrust = async origin => {
+export const verifyWebOfTrust = async (origin, { queryBoolean }) => {
   // @TKTK
   // Are there any verified origins in the graph that…
     // endorse this origin?
@@ -73,21 +69,20 @@ const verifyWebOfTrust = async origin => {
   return false
 }
 
-export const verifiedOrigin = async (origin) => {
+export const verifiedOrigin = async (origin, { serverName, queryBoolean }) => {
   // TKTK this should use env vars, but something like an object
   // that contains both the flag for method to use 
   // and the params to send it. that way you can't just look at the repo
   // and find the verification criteria for different services.
   // We can also add a couple more basic methods, like verifying
   // on origin (ie *.glitch.com) and white/blacklists.
-  if (server_name == "Bear Blog") {
+  if (serverName == "Bear Blog") {
     // this will work with Bear Blog but we should consider 
     // whether we should try to do this on the full url that requests indexing
-    // return false
     return await verifiyContent(origin)
   } else {
     // TKTK verify web trusted domain
     // let webbed = await verifyWebOfTrust(origin)
-    return await verifyApprovedDomain(origin)
+    return await verifyApprovedDomain(origin, { queryBoolean })
   }
 }

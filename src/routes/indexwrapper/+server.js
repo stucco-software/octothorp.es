@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
-import { instance } from '$env/static/private'
+import { instance, server_name } from '$env/static/private'
 import { verifiedOrigin } from '$lib/origin.js'
+import { queryBoolean } from '$lib/sparql.js'
 import normalizeUrl from 'normalize-url'
 import {
   handler,
@@ -27,7 +28,7 @@ export async function GET(req) {
   const s = normalizeUrl(`${uri.origin}${uri.pathname}`)
   const origin = normalizeUrl(uri.origin)
 
-  const isVerifiedOrigin = await verifiedOrigin(origin)
+  const isVerifiedOrigin = await verifiedOrigin(origin, { serverName: server_name, queryBoolean })
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }
@@ -57,7 +58,7 @@ export async function POST({ request }) {
     return error(400, 'Invalid origin format.')
   }
 
-  const isVerifiedOrigin = await verifiedOrigin(origin)
+  const isVerifiedOrigin = await verifiedOrigin(origin, { serverName: server_name, queryBoolean })
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }
