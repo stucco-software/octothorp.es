@@ -35,8 +35,9 @@ export const parseUri = (uri) => {
 
 export const validateSameOrigin = (parsedUri, requestingOrigin) => {
   if (parsedUri.scheme === 'http' || parsedUri.scheme === 'https') {
-    const normalizedRequesting = normalizeUrl(requestingOrigin)
-    if (parsedUri.origin !== normalizedRequesting) {
+    // Extract just the origin from requestingOrigin, whether it's a full URL or bare origin
+    const requestingParsed = new URL(requestingOrigin)
+    if (parsedUri.origin !== requestingParsed.origin) {
       throw new Error('Cannot index pages from a different origin.')
     }
     return true

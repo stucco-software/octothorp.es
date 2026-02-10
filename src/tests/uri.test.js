@@ -59,6 +59,11 @@ describe('URI Validation Module', () => {
       expect(validateSameOrigin(parsed, 'https://example.com')).toBe(true)
     })
 
+    it('should return true when requestingOrigin is a full URL with same origin', () => {
+      const parsed = parseUri('http://localhost:3000/reindex/')
+      expect(validateSameOrigin(parsed, 'http://localhost:3000/reindex/')).toBe(true)
+    })
+
     it('should throw for mismatched HTTP origins', () => {
       const parsed = parseUri('https://example.com/page')
       expect(() => validateSameOrigin(parsed, 'https://other.com')).toThrow('Cannot index pages from a different origin.')
