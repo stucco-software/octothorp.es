@@ -2,6 +2,17 @@ import { json, error } from '@sveltejs/kit'
 import { instance, server_name } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
+import { parseUri } from '$lib/uri.js'
+
+const knownErrors = [
+  'not registered',
+  'Rate limit',
+  'recently indexed',
+  'different origin',
+  'Harmonizer not allowed',
+  'Invalid URI',
+  'no scheme found',
+]
 
 const mapErrorToStatus = (message) => {
   if (message.includes('not registered')) return 401
@@ -9,8 +20,11 @@ const mapErrorToStatus = (message) => {
   if (message.includes('recently indexed')) return 429
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
-  return 400
+  if (knownErrors.some(e => message.includes(e))) return 400
+  return 500
 }
+
+console.log("something hit indexwrapper");
 
 const config = () => ({
   instance,
@@ -58,10 +72,11 @@ export async function POST({ request }) {
 
   try {
     await handler(uri, harmonizer, requestOrigin, config())
+    const normalized = parseUri(uri).normalized
     return json({
       status: 'success',
       message: 'Page indexed successfully',
-      uri,
+      uri: normalized,
       indexed_at: Date.now()
     }, { status: 200 })
   } catch (e) {
