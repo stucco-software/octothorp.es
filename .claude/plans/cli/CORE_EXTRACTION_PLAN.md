@@ -46,6 +46,7 @@ These are pure functions with no framework dependencies -- copy directly.
 - `arrayify.js` -- array coercion
 - `asyncMap.js` -- async mapping (update internal import path for `arrayify`)
 - `web-components/shared/multipass-utils.js` -- MultiPass validation
+- `uri.js` -- modular URI validation (HTTP, AT Protocol, extensible)
 
 ### Minor Refactoring (remove `$env` or `@sveltejs/kit` imports)
 
@@ -55,6 +56,7 @@ These are pure functions with no framework dependencies -- copy directly.
 | `harmonizeSource.js` | 21.5 KB | `@sveltejs/kit` (error/json) | Replace with plain JS errors |
 | `ld/rdfa2triples.js` | ~2 KB | `$env/static/private` (instance URL) | Accept `instance` as param |
 | `mail/send.js` | 1.2 KB | `$env/static/private` (SMTP config) | Accept config object |
+| `origin.js` | 3.1 KB | ~~`$env/static/private`, depends on sparql.js~~ Done | Accepts `{ serverName, queryBoolean }` config params |
 
 ### Medium Refactoring (class-based wrappers with config injection)
 
@@ -62,7 +64,6 @@ These are pure functions with no framework dependencies -- copy directly.
 |------|------|----------|-----|
 | `sparql.js` | 21.7 KB | `$env/static/private` (credentials + instance) | `SparqlClient` class with config constructor |
 | `converters.js` | 17.5 KB | `$env/static/private` + `@sveltejs/kit` | `RdfConverter` class, custom error classes |
-| `origin.js` | 3.1 KB | `$env/static/private`, depends on sparql.js | `OriginVerifier` class, accepts `SparqlClient` |
 | `assert.js` | 2.3 KB | `$env/static/private`, depends on sparql.js + mail | `RdfAssertionManager` class |
 
 ### Major Refactoring

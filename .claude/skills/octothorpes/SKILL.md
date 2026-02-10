@@ -285,13 +285,20 @@ OP is **pull-based**: pages call `/index?uri=<url>`, server fetches and processe
 
 ### Flow
 
-1. Client: `GET /index?uri=<page-url>` with `Origin` header
-2. Verify origin against `octo:verified`
-3. Check cooldown via `octo:indexed`
-4. Fetch HTML from URI
-5. `harmonizeSource(html, harmonizer)` extracts metadata
-6. Process octothorpes: strings → `handleThorpe()`, objects → `handleMention()`
-7. Record metadata and timestamp
+`handler()` in `$lib/indexing.js` owns the full validation pipeline. Route handlers (`indexwrapper/+server.js`) are thin HTTP adapters that parse requests, inject config, call `handler()`, and map errors to HTTP responses.
+
+1. Client: `GET /indexwrapper?uri=<page-url>`
+2. `handler()` pipeline:
+   a. `parseUri(uri)` -- validate and normalize via `$lib/uri.js` (supports HTTP, AT Protocol)
+   b. `validateSameOrigin()` -- cross-origin check
+   c. `verifiedOrigin()` -- origin registered? (via `$lib/origin.js`, accepts `{ serverName, queryBoolean }`)
+   d. `checkIndexingRateLimit()` -- rate limit per origin
+   e. `isHarmonizerAllowed()` -- harmonizer validation
+   f. `recentlyIndexed()` -- cooldown check
+3. Fetch HTML from URI
+4. `harmonizeSource(html, harmonizer)` extracts metadata
+5. Process octothorpes: strings → `handleThorpe()`, objects → `handleMention()`
+6. Record metadata and timestamp
 
 ### Key Functions
 
@@ -517,6 +524,8 @@ See `/src/lib/web-components/README.md` for the full guide on creating new compo
 | `/src/lib/sparql.js` | Query building |
 | `/src/lib/harmonizeSource.js` | Harmonization engine: extraction, processing, filtering, remote fetching |
 | `/src/lib/getHarmonizer.js` | Local harmonizer definitions and lookup |
+| `/src/lib/uri.js` | Modular URI validation (HTTP, AT Protocol) |
+| `/src/lib/origin.js` | Origin verification (decoupled, accepts config) |
 | `/src/lib/utils.js` | Validation, dates, tags |
 | `/src/lib/rssify.js` | RSS generation |
 | `/src/routes/harmonizer/[id]/+server.js` | API endpoint to retrieve harmonizer schemas |
