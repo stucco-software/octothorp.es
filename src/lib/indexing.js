@@ -1,6 +1,8 @@
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js'
 import { deslash } from '$lib/utils.js'
+import { parseUri, validateSameOrigin } from '$lib/uri.js'
+import { verifiedOrigin } from '$lib/origin.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// globals
@@ -575,36 +577,47 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   return new Response(200)
 }
 
-export const handler = async (s, harmonizer, requestingOrigin, { instance }) => {
-  try {
-    const uriParsed = new URL(s)
-    const uriOrigin = normalizeUrl(uriParsed.origin)
-    const normalizedRequestingOrigin = normalizeUrl(requestingOrigin)
+export const handler = async (uri, harmonizer, requestingOrigin, config) => {
+  const { instance, serverName, queryBoolean: configQueryBoolean, verifyOrigin } = config
 
-    if (uriOrigin !== normalizedRequestingOrigin) {
-      throw new Error('Cannot index pages from a different origin.')
-    }
-  } catch (e) {
-    if (e.message === 'Cannot index pages from a different origin.') {
-      throw e
-    }
-    throw new Error('Invalid URI format.')
+  // 1. Parse and normalize URI
+  const parsed = parseUri(uri)
+
+  // 2. Cross-origin check
+  validateSameOrigin(parsed, requestingOrigin)
+
+  // 3. Origin verification
+  const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
+    serverName,
+    queryBoolean: configQueryBoolean || queryBoolean
+  }))
+  const isVerified = await verify(parsed.origin)
+  if (!isVerified) {
+    throw new Error('Origin is not registered with this server.')
   }
 
+  // 4. Rate limiting
+  if (!checkIndexingRateLimit(parsed.origin)) {
+    throw new Error('Rate limit exceeded. Please try again later.')
+  }
+
+  // 5. Harmonizer check
   if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
     throw new Error('Harmonizer not allowed for this origin.')
   }
 
-  let isRecentlyIndexed = await recentlyIndexed(s)
+  // 6. Cooldown
+  let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
   if (isRecentlyIndexed) {
     throw new Error('This page has been recently indexed.')
   }
 
-  let subject = await fetch(s)
-  await recordIndexing(s)
+  // 7. Fetch and process
+  let subject = await fetch(parsed.normalized)
+  await recordIndexing(parsed.normalized)
 
   if (subject.headers.get('content-type').includes('text/html')) {
-    console.log("handle html…", s)
-    return await handleHTML(subject, s, harmonizer, { instance })
+    console.log("handle html…", parsed.normalized)
+    return await handleHTML(subject, parsed.normalized, harmonizer, { instance })
   }
 }

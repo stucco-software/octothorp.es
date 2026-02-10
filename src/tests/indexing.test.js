@@ -631,12 +631,16 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should throw on disallowed harmonizer', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       await expect(
-        handler('https://example.com/page', 'https://evil.com/harm.json', 'https://example.com', { instance })
+        handler('https://example.com/page', 'https://evil.com/harm.json', 'https://example.com', {
+          instance, verifyOrigin: mockVerifyOrigin
+        })
       ).rejects.toThrow('Harmonizer not allowed for this origin.')
     })
 
     it('should throw on recently indexed page', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       const recentTimestamp = Date.now() - 60000
       queryArray.mockResolvedValue({
         results: {
@@ -644,11 +648,43 @@ describe('Indexing Business Logic', () => {
         }
       })
       await expect(
-        handler('https://example.com/page', 'default', 'https://example.com', { instance })
+        handler('https://example.com/page', 'default', 'https://example.com', {
+          instance, verifyOrigin: mockVerifyOrigin
+        })
       ).rejects.toThrow('This page has been recently indexed.')
     })
 
+    it('should throw when origin is unverified', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(false)
+      await expect(
+        handler('https://example.com/page', 'default', 'https://example.com', {
+          instance,
+          serverName: 'test',
+          queryBoolean,
+          verifyOrigin: mockVerifyOrigin
+        })
+      ).rejects.toThrow('Origin is not registered')
+    })
+
+    it('should throw when rate limit is exceeded', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+      const origin = 'https://rate-limit-handler-test.com'
+      // Exhaust rate limit
+      for (let i = 0; i < 10; i++) {
+        checkIndexingRateLimit(origin)
+      }
+      await expect(
+        handler(`${origin}/page`, 'default', origin, {
+          instance,
+          serverName: 'test',
+          queryBoolean,
+          verifyOrigin: mockVerifyOrigin
+        })
+      ).rejects.toThrow('Rate limit exceeded')
+    })
+
     it('should fetch and process HTML for valid request', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       // Not recently indexed
       queryArray.mockResolvedValue({ results: { bindings: [] } })
       // Mock global fetch
@@ -670,7 +706,9 @@ describe('Indexing Business Logic', () => {
       })
       queryBoolean.mockResolvedValue(true) // extantPage
 
-      await handler('https://example.com/page', 'default', 'https://example.com', { instance })
+      await handler('https://example.com/page', 'default', 'https://example.com', {
+        instance, verifyOrigin: mockVerifyOrigin
+      })
 
       expect(global.fetch).toHaveBeenCalledWith('https://example.com/page')
       expect(harmonizeSource).toHaveBeenCalled()
