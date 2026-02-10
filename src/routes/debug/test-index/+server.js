@@ -23,8 +23,16 @@ const html = `<!doctype html>
 <html>
 <head><title>Test Indexing</title></head>
 <body>
-  <h2>Test /indexwrapper</h2>
+  <h2>Test Indexing Endpoint</h2>
   <form method="POST">
+    <label>Endpoint:
+      <select name="endpoint">
+        <option value="">this page (direct handler)</option>
+        <option value="/indexwrapper">/indexwrapper</option>
+        <option value="/index">/index</option>
+      </select>
+    </label>
+    <br><br>
     <label>URI: <input name="uri" type="url" size="60" required placeholder="https://demo.ideastore.dev"></label>
     <br><br>
     <label>Harmonizer: <input name="harmonizer" value="default" size="20"></label>
@@ -38,17 +46,26 @@ const html = `<!doctype html>
       const form = new FormData(e.target)
       const uri = form.get('uri')
       const harmonizer = form.get('harmonizer')
+      const endpoint = form.get('endpoint')
       const result = document.getElementById('result')
       result.textContent = 'Indexing...'
       try {
-        const res = await fetch('', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uri, harmonizer })
-        })
+        let url, opts
+        if (endpoint) {
+          url = endpoint + '?uri=' + encodeURIComponent(uri) + '&as=' + encodeURIComponent(harmonizer)
+          opts = { method: 'GET' }
+        } else {
+          url = ''
+          opts = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uri, harmonizer })
+          }
+        }
+        const res = await fetch(url, opts)
         const text = await res.text()
-        try { result.textContent = JSON.stringify(JSON.parse(text), null, 2) }
-        catch { result.textContent = res.status + ' ' + text }
+        try { result.textContent = res.status + '\\n' + JSON.stringify(JSON.parse(text), null, 2) }
+        catch { result.textContent = res.status + '\\n' + text }
       } catch (err) {
         result.textContent = 'Error: ' + err.message
       }
