@@ -1,6 +1,5 @@
 ![release badge](https://img.shields.io/github/v/release/stucco-software/octothorp.es)
 
-> *Note: We are on a coding break until January 15, 2026. Still checking issues, just no new dev until then*
 > 
 # Octothorpe Protocol Server #️⃣♥️#️⃣
 
