@@ -30,8 +30,10 @@ import {
   createTerm,
   createPage,
   recordIndexing,
+  recordProperty,
   recordTitle,
   recordDescription,
+  recordImage,
   recordUsage,
   handleThorpe,
   handleMention,
@@ -312,14 +314,40 @@ describe('Indexing Business Logic', () => {
     })
   })
 
+  describe('recordProperty', () => {
+    it('should skip null values', async () => {
+      await recordProperty('https://example.com/page', 'octo:title', null)
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should skip undefined values', async () => {
+      await recordProperty('https://example.com/page', 'octo:title', undefined)
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should trim and record with the given predicate', async () => {
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      await recordProperty('https://example.com/page', 'octo:title', '  Test Title  ')
+      const deleteCall = query.mock.calls[0][0]
+      expect(deleteCall).toContain('octo:title')
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('octo:title')
+      expect(insertCall).toContain('Test Title')
+      expect(insertCall).not.toContain('  Test Title  ')
+    })
+  })
+
   describe('recordTitle', () => {
-    it('should trim and record title', async () => {
+    it('should delegate to recordProperty with octo:title', async () => {
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
       await recordTitle('https://example.com/page', '  Test Title  ')
       const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('octo:title')
       expect(insertCall).toContain('Test Title')
-      expect(insertCall).not.toContain('  Test Title  ')
     })
   })
 
@@ -330,12 +358,30 @@ describe('Indexing Business Logic', () => {
       expect(insert).not.toHaveBeenCalled()
     })
 
-    it('should trim and record description', async () => {
+    it('should delegate to recordProperty with octo:description', async () => {
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
       await recordDescription('https://example.com/page', '  A description  ')
       const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('octo:description')
       expect(insertCall).toContain('A description')
+    })
+  })
+
+  describe('recordImage', () => {
+    it('should skip null images', async () => {
+      await recordImage('https://example.com/page', null)
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should delegate to recordProperty with octo:image', async () => {
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      await recordImage('https://example.com/page', '  https://example.com/img.png  ')
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('octo:image')
+      expect(insertCall).toContain('https://example.com/img.png')
     })
   })
 

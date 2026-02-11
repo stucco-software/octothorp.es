@@ -193,7 +193,11 @@
           <div class="page-list">
             {#each filteredPages as pg}
               <article class="page-item">
-
+                  <PreviewImage
+                        url={pg['@id'] || pg.uri}
+                        image={pg.image}
+                        title={pg.title || pg['@id'] || pg.uri}
+                      />
                 <div class="page-content">
                   <h3 class="page-title">
                     <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">

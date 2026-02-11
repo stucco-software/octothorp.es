@@ -332,36 +332,26 @@ export const recordIndexing = async (s) => {
   `)
 }
 
-export const recordTitle = async (s, title) => {
-  let text = title.trim()
+export const recordProperty = async (s, predicate, value) => {
+  if (!value) {
+    return
+  }
+  let text = value.trim()
   await query(`
     delete {
-      <${s}> octo:title ?o .
+      <${s}> ${predicate} ?o .
     } where {
-      <${s}> octo:title ?o .
+      <${s}> ${predicate} ?o .
     }
   `)
   return await insert(`
-    <${s}> octo:title "${text}" .
+    <${s}> ${predicate} "${text}" .
   `)
 }
 
-export const recordDescription = async (s, description) => {
-  if (!description) {
-    return
-  }
-  let text = description.trim()
-  await query(`
-    delete {
-      <${s}> octo:description ?o .
-    } where {
-      <${s}> octo:description ?o .
-    }
-  `)
-  return await insert(`
-    <${s}> octo:description "${text}" .
-  `)
-}
+export const recordTitle = (s, title) => recordProperty(s, 'octo:title', title)
+export const recordDescription = (s, description) => recordProperty(s, 'octo:description', description)
+export const recordImage = (s, image) => recordProperty(s, 'octo:image', image)
 
 export const recordUsage = async (s, o, { instance }) => {
   let now = Date.now()
@@ -572,6 +562,7 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
 
   await recordTitle(s, harmed.title)
   await recordDescription(s, harmed.description)
+  await recordImage(s, harmed.image)
 
   console.log("done")
   return new Response(200)
