@@ -1,4 +1,4 @@
-import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
+import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 import { rss } from '$lib/rssify.js'
@@ -52,6 +52,7 @@ export async function load({ params, url }) {
       // Pass filters when returning blobjects, because blobjects are composite objects
       // and we want to filter the set of blobjects, not response entries
       actualResults = await getBlobjectFromResponse(bj, multiPass.filters);
+      actualResults = await enrichBlobjectTargets(actualResults);
       // TKTK check to run filters on result instead of query
       break;
     case "thorpes":
