@@ -1,23 +1,17 @@
 <script type="text/javascript">
-  import { page } from '$app/stores'
-  import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { browser } from '$app/environment'
-  import Loading from '$lib/components/Loading.svelte'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
   import PreviewImage from '$lib/components/PreviewImage.svelte'
 
-  let domain = ''
-  let thorpes = []
-  let pages = []
-  let loading = true
-  let error = null
-  let thorpesUrl = ''
-  let pagesUrl = ''
-  let thorpesData = null
-  let pagesData = null
+  export let data
+
+  $: domain = data.domain
+  $: domainForQuery = data.domainForQuery
+  $: thorpes = data.thorpes
+  $: pages = data.pages
+
   let selectedTerm = null
-  let domainForQuery = ''
 
   // Group thorpes by type and deduplicate
   $: termThorpes = Array.from(new Map(thorpes.filter(t => t.type === 'Term').map(t => [t.term, t])).values())
@@ -49,44 +43,6 @@
   function filterByTerm(term) {
     selectedTerm = selectedTerm === term ? null : term
   }
-
-  onMount(async () => {
-    domain = decodeURIComponent($page.params.uri)
-
-    // Strip protocol to get just the domain for fuzzy matching
-    domainForQuery = domain.replace(/^https?:\/\//, '')
-
-    // Update URL with query params to match the API call
-    if (browser) {
-      const currentUrl = new URL(window.location.href)
-      if (!currentUrl.searchParams.has('s')) {
-        currentUrl.searchParams.set('s', domainForQuery)
-        currentUrl.searchParams.set('match', 'fuzzy-s')
-        currentUrl.searchParams.set('limit', '1000')
-        goto(`?${currentUrl.searchParams.toString()}`, { replaceState: true, noScroll: true, keepFocus: true })
-      }
-    }
-
-    try {
-      // Fetch thorpes used by this domain (force fuzzy-s matching)
-      thorpesUrl = `/get/thorpes/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s`
-      const thorpesRes = await fetch(thorpesUrl)
-      if (!thorpesRes.ok) throw new Error('Failed to fetch thorpes')
-      thorpesData = await thorpesRes.json()
-      thorpes = thorpesData.results || []
-
-      // Fetch pages from this domain (force fuzzy-s matching, get as "everything" to include octothorpes)
-      pagesUrl = `/get/everything/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s&limit=1000`
-      const pagesRes = await fetch(pagesUrl)
-      if (!pagesRes.ok) throw new Error('Failed to fetch pages')
-      pagesData = await pagesRes.json()
-      pages = pagesData.results || []
-    } catch (err) {
-      error = err.message
-    } finally {
-      loading = false
-    }
-  })
 </script>
 
 <svelte:head>
@@ -99,11 +55,6 @@
     <RSSFeed />
   </header>
 
-  {#if loading}
-    <Loading message="Loading domain data..." />
-  {:else if error}
-    <div class="error">Error: {error}</div>
-  {:else}
     <div class="content-wrapper">
       <!-- Sidebar with Octothorpes -->
       <aside class="sidebar">
@@ -219,8 +170,8 @@
         <details class="debug-panel">
           <summary>Debug</summary>
           <div class="debug-content">
-            <p><a href={thorpesUrl} target="_blank" rel="noopener noreferrer">Thorpes API</a></p>
-            <p><a href={pagesUrl} target="_blank" rel="noopener noreferrer">Pages API</a></p>
+            <p><a href={`/get/thorpes/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s`} target="_blank" rel="noopener noreferrer">Thorpes API</a></p>
+            <p><a href={`/get/everything/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s&limit=1000`} target="_blank" rel="noopener noreferrer">Pages API</a></p>
           </div>
         </details>
       </aside>
@@ -242,11 +193,7 @@
           <div class="page-list">
             {#each filteredPages as pg}
               <article class="page-item">
-                <PreviewImage 
-                  url={pg['@id'] || pg.uri} 
-                  image={pg.image}
-                  title={pg.title || pg['@id'] || pg.uri}
-                />
+
                 <div class="page-content">
                   <h3 class="page-title">
                     <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">
@@ -279,7 +226,6 @@
         {/if}
       </main>
     </div>
-  {/if}
 </div>
 
 <style>
@@ -362,13 +308,6 @@
     font-size: var(--txt--1);
     color: #666;
     margin: 0;
-  }
-
-  .error {
-    padding: 1rem;
-    text-align: center;
-    border: 2px solid red;
-    background-color: #ffeeee;
   }
 
   .thorpe-group {
