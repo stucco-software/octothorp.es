@@ -383,6 +383,11 @@ export const getMultiPassFromParams  = (
               s = cleanInputs(subjects)
               notS = cleanInputs(notSubjects)
               break;
+            case "all":
+              subjectMode = "exact"
+              s = cleanInputs(subjects, "exact")
+              objectMode = "all"
+              break;
             default:
                 console.error(`Invalid match type "${matchFilterParam}":`, error.message)
                 throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
