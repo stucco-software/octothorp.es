@@ -1,0 +1,40 @@
+{
+  "@context": "https://octothorp.es/context.json",
+  "@id": "https://octothorp.es/debug/162/harmonizer-uppercase.json",
+  "@type": "harmonizer",
+  "title": "Case Test: Uppercase Selectors",
+  "mode": "html",
+  "schema": {
+    "subject": {
+      "s": "source",
+      "title": [
+        { "selector": "TITLE", "attribute": "textContent" }
+      ],
+      "description": [
+        { "selector": "META[name='description']", "attribute": "content" }
+      ],
+      "image": [
+        { "selector": "META[property='og:image']", "attribute": "content" }
+      ]
+    },
+    "hashtag": {
+      "s": "source",
+      "o": [
+        {
+          "selector": ".content H2",
+          "attribute": "textContent",
+          "postProcess": { "method": "trim" }
+        }
+      ]
+    },
+    "link": {
+      "s": "source",
+      "o": [
+        {
+          "selector": "FOOTER A.outbound",
+          "attribute": "href"
+        }
+      ]
+    }
+  }
+}
