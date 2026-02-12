@@ -9,7 +9,7 @@
   $: rssUrl = (() => {
     if (!currentUrl) return ''
     if (!browser) return ''
-    const url = new URL(window.location.href)
+    const url = new URL(currentUrl)
     const pathname = url.pathname
     const params = new URLSearchParams(url.search)
 
@@ -38,7 +38,7 @@
   $: description = (() => {
     if (!currentUrl) return ''
     if (!browser) return ''
-    const url = new URL(window.location.href)
+    const url = new URL(currentUrl)
     const params = new URLSearchParams(url.search)
     const pathname = url.pathname
     const parts = []

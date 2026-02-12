@@ -12,9 +12,7 @@ import normalizeUrl from 'normalize-url'
 // import { json } from '@sveltejs/kit'
 import { getHarmonizer } from "$lib/getHarmonizer"
 
-// this is copied from getSubjectHTML from index
-const DOMParser = new JSDOM().window.DOMParser
-const parser = new DOMParser()
+
 
 /**
  * Maximum size for remote harmonizer files (56KB)
@@ -257,7 +255,8 @@ const extractValues = (html, rule) => {
     return [rule]
   }
   const { selector, attribute, postProcess, terms } = rule
-  let tempContainer = parser.parseFromString(html, "text/html")
+  const dom = new JSDOM(html, { contentType: "text/html" })
+  let tempContainer = dom.window.document
   const elements = [...tempContainer.querySelectorAll(selector)]
   const values = elements
     .map((element) => {
