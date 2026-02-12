@@ -610,6 +610,8 @@ GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
 
 ## Development Patterns
 
+**Stability principle:** Prioritize solutions that do not break or significantly modify the API surface, important data object shapes (especially MultiPass), or pipeline processes. New features should fit into existing patterns -- add new values to existing fields rather than new fields, add new cases to existing switches rather than new code paths, and keep return types unchanged. When choosing between approaches, prefer the one with the smallest blast radius on existing code.
+
 **Performance:**
 - Avoid very-fuzzy + date filters in API calls
 - Use VALUES over FILTER CONTAINS when writing SPARQL when possible
