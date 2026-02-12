@@ -1,0 +1,75 @@
+import { describe, it, expect } from 'vitest'
+import { testQueryFromMultiPass } from '$lib/sparql.js'
+
+describe('buildObjectStatement via testQueryFromMultiPass', () => {
+  describe('mode "all" with terms', () => {
+    it('should include VALUES clause for ?o binding', () => {
+      const result = testQueryFromMultiPass({
+        meta: { resultMode: 'blobjects' },
+        subjects: { mode: 'exact', include: [], exclude: [] },
+        objects: { type: 'termsOnly', mode: 'all', include: ['cats', 'tacos'], exclude: [] },
+        filters: { dateRange: {}, limitResults: '100', offsetResults: '0' }
+      })
+
+      expect(result.objectStatement).toContain('VALUES ?o')
+    })
+
+    it('should include FILTER EXISTS for each term', () => {
+      const result = testQueryFromMultiPass({
+        meta: { resultMode: 'blobjects' },
+        subjects: { mode: 'exact', include: [], exclude: [] },
+        objects: { type: 'termsOnly', mode: 'all', include: ['cats', 'tacos'], exclude: [] },
+        filters: { dateRange: {}, limitResults: '100', offsetResults: '0' }
+      })
+
+      expect(result.objectStatement).toContain('FILTER EXISTS')
+      // Should have one FILTER EXISTS per term
+      const filterCount = (result.objectStatement.match(/FILTER EXISTS/g) || []).length
+      expect(filterCount).toBe(2)
+    })
+
+    it('should reference correct term URIs in FILTER EXISTS', () => {
+      const result = testQueryFromMultiPass({
+        meta: { resultMode: 'blobjects' },
+        subjects: { mode: 'exact', include: [], exclude: [] },
+        objects: { type: 'termsOnly', mode: 'all', include: ['cats', 'tacos'], exclude: [] },
+        filters: { dateRange: {}, limitResults: '100', offsetResults: '0' }
+      })
+
+      expect(result.objectStatement).toContain('~/cats>')
+      expect(result.objectStatement).toContain('~/tacos>')
+    })
+
+    it('should work with a single term (no FILTER EXISTS needed but still valid)', () => {
+      const result = testQueryFromMultiPass({
+        meta: { resultMode: 'blobjects' },
+        subjects: { mode: 'exact', include: [], exclude: [] },
+        objects: { type: 'termsOnly', mode: 'all', include: ['cats'], exclude: [] },
+        filters: { dateRange: {}, limitResults: '100', offsetResults: '0' }
+      })
+
+      expect(result.objectStatement).toContain('VALUES ?o')
+      // Single term still gets a FILTER EXISTS -- harmless
+      const filterCount = (result.objectStatement.match(/FILTER EXISTS/g) || []).length
+      expect(filterCount).toBe(1)
+    })
+  })
+
+  describe('mode "all" with page URIs', () => {
+    it('should include VALUES clause and FILTER EXISTS for page URIs', () => {
+      const result = testQueryFromMultiPass({
+        meta: { resultMode: 'links' },
+        subjects: { mode: 'exact', include: [], exclude: [] },
+        objects: { type: 'notTerms', mode: 'all', include: ['https://a.com', 'https://b.com'], exclude: [] },
+        filters: { dateRange: {}, limitResults: '100', offsetResults: '0' }
+      })
+
+      expect(result.objectStatement).toContain('VALUES ?o')
+      expect(result.objectStatement).toContain('FILTER EXISTS')
+      expect(result.objectStatement).toContain('<https://a.com>')
+      expect(result.objectStatement).toContain('<https://b.com>')
+      const filterCount = (result.objectStatement.match(/FILTER EXISTS/g) || []).length
+      expect(filterCount).toBe(2)
+    })
+  })
+})
