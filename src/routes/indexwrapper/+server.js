@@ -4,6 +4,7 @@ import { verifiedOrigin } from '$lib/origin.js'
 import normalizeUrl from 'normalize-url'
 import {
   handler,
+  handleBlobject,
   checkIndexingRateLimit,
   parseRequestBody
 } from '$lib/indexing.js'
@@ -74,7 +75,7 @@ export async function POST({ request }) {
   }
 
   const uri = data.uri
-  const harmonizer = data.harmonizer ?? "default"
+  const harmonizer = data.as ?? data.harmonizer ?? "default"
 
   if (!uri) {
     return error(400, 'URI parameter is required.')
@@ -90,7 +91,11 @@ export async function POST({ request }) {
   const normalizedUri = normalizeUrl(`${targetUrl.origin}${targetUrl.pathname}`)
 
   try {
-    await handler(normalizedUri, harmonizer, origin, { instance })
+    if (harmonizer === 'blobject') {
+      await handleBlobject(data.blobject, normalizedUri, origin, { instance })
+    } else {
+      await handler(normalizedUri, harmonizer, origin, { instance })
+    }
     return json({
       status: 'success',
       message: 'Page indexed successfully',

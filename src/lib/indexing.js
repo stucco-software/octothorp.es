@@ -1,5 +1,6 @@
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js'
+import { validateBlobject } from '$lib/validateBlobject.js'
 import { deslash } from '$lib/utils.js'
 import normalizeUrl from 'normalize-url'
 
@@ -551,6 +552,71 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
 
   console.log("done")
   return new Response(200)
+}
+
+export const handleBlobject = async (blobject, normalizedUri, requestingOrigin, { instance }) => {
+  if (!blobject) {
+    throw new Error('Blobject field is required when as=blobject')
+  }
+
+  const validation = validateBlobject(blobject)
+  if (!validation.valid) {
+    throw new Error(`Invalid blobject: ${validation.error}`)
+  }
+
+  const blobjectOrigin = normalizeUrl(new URL(blobject['@id']).origin)
+  const normalizedRequestingOrigin = normalizeUrl(requestingOrigin)
+  if (blobjectOrigin !== normalizedRequestingOrigin) {
+    throw new Error('Blobject @id origin must match requesting origin')
+  }
+
+  let s = blobject['@id'] === 'source' ? normalizedUri : blobject['@id']
+
+  let isRecentlyIndexed = await recentlyIndexed(s)
+  if (isRecentlyIndexed) {
+    throw new Error('This page has been recently indexed.')
+  }
+
+  await recordIndexing(s)
+
+  let isExtantPage = await extantPage(s)
+  if (!isExtantPage) {
+    await createPage(s)
+  }
+
+  let friends = { endorsed: [], linked: [] }
+  for (const octothorpe of blobject.octothorpes) {
+    if (typeof octothorpe === 'string') {
+      handleThorpe(s, octothorpe, { instance })
+      continue
+    }
+    let octoURI = deslash(octothorpe.uri)
+    switch (octothorpe.type) {
+      case 'link':
+      case 'mention':
+      case 'Link':
+      case 'Mention':
+      case 'Backlink':
+      case 'backlink':
+        friends.linked.push(octoURI)
+        handleMention(s, octoURI)
+        break
+      case 'endorse':
+        friends.endorsed.push(octoURI)
+        break
+      case 'bookmark':
+        handleMention(s, octoURI)
+        break
+      default:
+        handleThorpe(s, octothorpe.type || octothorpe, { instance })
+        break
+    }
+  }
+
+  await recordTitle(s, blobject.title)
+  await recordDescription(s, blobject.description)
+
+  console.log(`[as=blobject] indexed ${s}`)
 }
 
 export const handler = async (s, harmonizer, requestingOrigin, { instance }) => {
