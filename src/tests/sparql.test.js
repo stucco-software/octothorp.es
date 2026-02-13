@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { testQueryFromMultiPass } from '$lib/sparql.js'
+import { testQueryFromMultiPass, buildSimpleQuery } from '$lib/sparql.js'
 
 describe('buildObjectStatement via testQueryFromMultiPass', () => {
   describe('mode "all" with terms', () => {
@@ -71,5 +71,37 @@ describe('buildObjectStatement via testQueryFromMultiPass', () => {
       const filterCount = (result.objectStatement.match(/FILTER EXISTS/g) || []).length
       expect(filterCount).toBe(2)
     })
+  })
+})
+
+describe('buildSimpleQuery with match-all', () => {
+  it('should produce SPARQL with VALUES and FILTER EXISTS for match=all terms', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: [], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'all', include: ['cats', 'tacos'], exclude: [] },
+      filters: { dateRange: null, subtype: null, limitResults: '100', offsetResults: '0' }
+    }
+
+    const query = buildSimpleQuery(multiPass)
+
+    expect(query).toContain('VALUES ?o')
+    expect(query).toContain('FILTER EXISTS')
+    expect(query).toContain('~/cats>')
+    expect(query).toContain('~/tacos>')
+  })
+
+  it('should NOT contain FILTER EXISTS for normal exact mode', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: [], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['cats', 'tacos'], exclude: [] },
+      filters: { dateRange: null, subtype: null, limitResults: '100', offsetResults: '0' }
+    }
+
+    const query = buildSimpleQuery(multiPass)
+
+    expect(query).toContain('VALUES ?o')
+    expect(query).not.toContain('FILTER EXISTS')
   })
 })
