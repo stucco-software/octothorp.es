@@ -236,6 +236,19 @@ function buildObjectStatement(blob) {
         includeStatement = `VALUES ?objList { ${veryFuzzyInclude.map(o => `"${o}"`).join(' ')} }
                  FILTER(CONTAINS(STR(?o), ?objList))`
         break
+      case 'all':
+        let allUris
+        if (type === "termsOnly") {
+          allUris = processTermObjects(includeList)
+        } else {
+          allUris = formatUris(includeList)
+        }
+        includeStatement = `VALUES ?o { ${allUris} }`
+        const uriList = allUris.split(' ')
+        includeStatement += uriList.map(uri =>
+          `\nFILTER EXISTS { ?s octo:octothorpes ${uri} . }`
+        ).join('')
+        break
       default:
         includeStatement = ''
     }
