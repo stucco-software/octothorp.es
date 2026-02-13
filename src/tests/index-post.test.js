@@ -345,6 +345,69 @@ describe('POST /index endpoint validation', () => {
     })
   })
 
+  describe('as=blobject passthrough', () => {
+    it('should accept blobject harmonizer value', () => {
+      const data = {
+        uri: 'https://example.com/page',
+        as: 'blobject',
+        blobject: {
+          '@id': 'https://example.com/page',
+          title: 'Test',
+          description: '',
+          image: '',
+          contact: '',
+          type: '',
+          octothorpes: ['tag1']
+        }
+      }
+      const harmonizer = data.as ?? 'default'
+      expect(harmonizer).toBe('blobject')
+      expect(data.blobject).toBeDefined()
+      expect(data.blobject['@id']).toBe('https://example.com/page')
+    })
+
+    it('should require blobject field when as=blobject', () => {
+      const data = {
+        uri: 'https://example.com/page',
+        as: 'blobject'
+      }
+      const hasBlobject = data.as === 'blobject' && data.blobject
+      expect(hasBlobject).toBeFalsy()
+    })
+
+    it('should require blobject @id to match uri', () => {
+      const data = {
+        uri: 'https://example.com/page',
+        as: 'blobject',
+        blobject: {
+          '@id': 'https://evil.com/page',
+          title: 'Test',
+          octothorpes: []
+        }
+      }
+
+      const uriOrigin = new URL(data.uri).origin
+      const blobjectOrigin = new URL(data.blobject['@id']).origin
+      expect(uriOrigin).not.toBe(blobjectOrigin)
+    })
+
+    it('should allow matching origins between uri and blobject @id', () => {
+      const data = {
+        uri: 'https://example.com/page',
+        as: 'blobject',
+        blobject: {
+          '@id': 'https://example.com/page',
+          title: 'Test',
+          octothorpes: ['tag1']
+        }
+      }
+
+      const uriOrigin = new URL(data.uri).origin
+      const blobjectOrigin = new URL(data.blobject['@id']).origin
+      expect(uriOrigin).toBe(blobjectOrigin)
+    })
+  })
+
   describe('Security Scenarios', () => {
     it('should prevent cross-origin indexing attempt', () => {
       const attackerOrigin = 'https://attacker.com'

@@ -7,6 +7,7 @@ import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { verifiedOrigin } from '$lib/origin.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js';
 import { deslash } from '$lib/utils.js'
+import { validateBlobject } from '$lib/validateBlobject.js'
 
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 import normalizeUrl from 'normalize-url'
@@ -653,6 +654,79 @@ const handleHTML = async (response, uri, harmonizer = "default") => {
 }
 
 /**
+ * Handle a pre-harmonized blobject from client-side extraction.
+ * Validates the blobject, then feeds it into the same recording
+ * pipeline as handleHTML, skipping fetch and harmonization.
+ * @param {Object} blobject - Pre-harmonized blobject from client
+ * @param {string} normalizedUri - Normalized URI from the request
+ * @param {string} requestingOrigin - Origin making the request
+ */
+const handleBlobject = async (blobject, normalizedUri, requestingOrigin) => {
+  if (!blobject) {
+    throw new Error('Blobject field is required when as=blobject')
+  }
+
+  const validation = validateBlobject(blobject)
+  if (!validation.valid) {
+    throw new Error(`Invalid blobject: ${validation.error}`)
+  }
+
+  const blobjectOrigin = normalizeUrl(new URL(blobject['@id']).origin)
+  const normalizedRequestingOrigin = normalizeUrl(requestingOrigin)
+  if (blobjectOrigin !== normalizedRequestingOrigin) {
+    throw new Error('Blobject @id origin must match requesting origin')
+  }
+
+  let s = blobject['@id'] === 'source' ? normalizedUri : blobject['@id']
+
+  let isRecentlyIndexed = await recentlyIndexed(s)
+  if (isRecentlyIndexed) {
+    throw new Error('This page has been recently indexed.')
+  }
+
+  await recordIndexing(s)
+
+  let isExtantPage = await extantPage(s)
+  if (!isExtantPage) {
+    await createPage(s)
+  }
+
+  let friends = { endorsed: [], linked: [] }
+  for (const octothorpe of blobject.octothorpes) {
+    if (typeof octothorpe === 'string') {
+      handleThorpe(s, octothorpe)
+      continue
+    }
+    let octoURI = deslash(octothorpe.uri)
+    switch (octothorpe.type) {
+      case 'link':
+      case 'mention':
+      case 'Link':
+      case 'Mention':
+      case 'Backlink':
+      case 'backlink':
+        friends.linked.push(octoURI)
+        handleMention(s, octoURI)
+        break
+      case 'endorse':
+        friends.endorsed.push(octoURI)
+        break
+      case 'bookmark':
+        handleMention(s, octoURI)
+        break
+      default:
+        handleThorpe(s, octothorpe.type || octothorpe)
+        break
+    }
+  }
+
+  await recordTitle(s, blobject.title)
+  await recordDescription(s, blobject.description)
+
+  console.log(`[as=blobject] indexed ${s}`)
+}
+
+/**
  * Main handler for indexing requests with consolidated security checks
  * @param {string} s - Normalized URI to index
  * @param {string} harmonizer - Harmonizer ID or URL to use
@@ -764,7 +838,7 @@ export async function POST({request}) {
   }
 
   const uri = data.uri
-  const harmonizer = data.harmonizer ?? "default"
+  const harmonizer = data.as ?? data.harmonizer ?? "default"
 
   // 5. Validate URI is provided and is valid
   if (!uri) {
@@ -781,9 +855,13 @@ export async function POST({request}) {
   // 6. Normalize URI
   const normalizedUri = normalizeUrl(`${targetUrl.origin}${targetUrl.pathname}`)
 
-  // 7. Process indexing request (handler includes security checks)
+  // 7. Process indexing request
   try {
-    await handler(normalizedUri, harmonizer, origin)
+    if (harmonizer === 'blobject') {
+      await handleBlobject(data.blobject, normalizedUri, origin)
+    } else {
+      await handler(normalizedUri, harmonizer, origin)
+    }
 
     // 8. Return success response
     return json({
