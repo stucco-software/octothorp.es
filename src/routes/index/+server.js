@@ -685,7 +685,9 @@ const handler = async (s, harmonizer = "default", requestingOrigin) => {
   }
 
   // 4. Fetch and process the page
-  let subject = await fetch(s)
+  let subject = await fetch(s, {
+    headers: { 'User-Agent': 'Octothorpes/1.0' }
+  })
   await recordIndexing(s)
 
   if (subject.headers.get('content-type').includes('text/html')) {
