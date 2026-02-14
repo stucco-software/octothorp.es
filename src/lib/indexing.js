@@ -644,7 +644,9 @@ export const handler = async (s, harmonizer, requestingOrigin, { instance }) => 
     throw new Error('This page has been recently indexed.')
   }
 
-  let subject = await fetch(s)
+  let subject = await fetch(s, {
+    headers: { 'User-Agent': 'Octothorpes/1.0' }
+  })
   await recordIndexing(s)
 
   if (subject.headers.get('content-type').includes('text/html')) {
