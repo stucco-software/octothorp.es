@@ -71,7 +71,26 @@ const localHarmonizers = {
               [{
                 "selector": "meta[property='octo:type']",
                 "attribute": "content"
-              }]
+              }],
+            "postDate":
+              [
+                {
+                  "selector": "meta[property='article:published_time']",
+                  "attribute": "content"
+                },
+                {
+                  "selector": "time[datetime]",
+                  "attribute": "datetime"
+                },
+                {
+                  "selector": "meta[property='octo:postDate']",
+                  "attribute": "content"
+                },
+                {
+                  "selector": "[data-octodate]",
+                  "attribute": "data-octodate"
+                }
+              ]
             },
 
           // definition keys become type labels in the

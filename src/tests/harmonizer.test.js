@@ -350,6 +350,88 @@ describe('External Harmonizer Support', () => {
     })
   })
 
+  describe('PostDate Extraction', () => {
+    const htmlWithArticlePublishedTime = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Blog Post</title>
+          <meta property="article:published_time" content="2024-06-15T10:00:00Z">
+        </head>
+        <body><p>Content</p></body>
+      </html>
+    `
+
+    const htmlWithTimeDatetime = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Blog Post</title></head>
+        <body>
+          <time datetime="2024-06-15">June 15, 2024</time>
+          <p>Content</p>
+        </body>
+      </html>
+    `
+
+    const htmlWithOctoPostDate = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Blog Post</title>
+          <meta property="octo:postDate" content="2024-06-15">
+        </head>
+        <body><p>Content</p></body>
+      </html>
+    `
+
+    const htmlWithDataOctodate = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Blog Post</title></head>
+        <body>
+          <article data-octodate="2024-06-15T10:00:00Z">Content</article>
+        </body>
+      </html>
+    `
+
+    const htmlWithNoDate = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Blog Post</title></head>
+        <body><p>Content</p></body>
+      </html>
+    `
+
+    it('should extract postDate from article:published_time meta tag', async () => {
+      const result = await harmonizeSource(htmlWithArticlePublishedTime)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should extract postDate from time[datetime] element', async () => {
+      const result = await harmonizeSource(htmlWithTimeDatetime)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should extract postDate from octo:postDate meta tag', async () => {
+      const result = await harmonizeSource(htmlWithOctoPostDate)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should extract postDate from data-octodate attribute', async () => {
+      const result = await harmonizeSource(htmlWithDataOctodate)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should return empty postDate when no date markup is present', async () => {
+      const result = await harmonizeSource(htmlWithNoDate)
+      expect(result.postDate).toBe('')
+    })
+  })
+
   describe('Default Harmonizer Schema - Terms Config', () => {
     it('should have terms extraction config for bookmark schema', async () => {
       const harmonizer = await getHarmonizer('default')

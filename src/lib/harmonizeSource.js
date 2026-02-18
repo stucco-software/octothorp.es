@@ -261,6 +261,9 @@ const extractValues = (html, rule) => {
   const values = elements
     .map((element) => {
       let value = element[attribute]
+      if (value === undefined || value === null) {
+        value = element.getAttribute(attribute)
+      }
       value = removeTrailingSlash(value)
       
       // If terms extraction is configured, return object with uri and terms
