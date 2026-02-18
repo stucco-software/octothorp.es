@@ -46,6 +46,7 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           description: null,
           image: null,
           date: null,
+          postDate: null,
           octothorpes: []
         };
       }
@@ -64,6 +65,9 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
       }
       if (binding.date?.value && !current.date) {
         current.date = parseInt(binding.date.value);
+      }
+      if (binding.postDate?.value && !current.postDate) {
+        current.postDate = parseInt(binding.postDate.value);
       }
       // Process octothorpe links
       if (binding.o?.value) {

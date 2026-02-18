@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getMultiPassFromParams } from '$lib/converters.js'
+import { getMultiPassFromParams, getBlobjectFromResponse } from '$lib/converters.js'
 
 describe('getMultiPassFromParams', () => {
   describe('+thorped modifier parsing', () => {
@@ -175,5 +175,65 @@ describe('getMultiPassFromParams', () => {
 
       expect(multiPass.filters.indexedRange).toBeNull()
     })
+  })
+})
+
+describe('getBlobjectFromResponse postDate', () => {
+  it('should include postDate in blobject when present in bindings', async () => {
+    const response = {
+      results: {
+        bindings: [{
+          s: { value: 'https://example.com/page' },
+          title: { value: 'Test' },
+          date: { value: '1700000000000' },
+          postDate: { value: '1695000000000' },
+          o: { value: 'https://octothorp.es/~/demo' },
+          oType: { value: 'octo:Term' }
+        }]
+      }
+    }
+    const result = await getBlobjectFromResponse(response)
+    expect(result[0].postDate).toBe(1695000000000)
+  })
+
+  it('should set postDate to null when not present in bindings', async () => {
+    const response = {
+      results: {
+        bindings: [{
+          s: { value: 'https://example.com/page' },
+          title: { value: 'Test' },
+          date: { value: '1700000000000' },
+          o: { value: 'https://octothorp.es/~/demo' },
+          oType: { value: 'octo:Term' }
+        }]
+      }
+    }
+    const result = await getBlobjectFromResponse(response)
+    expect(result[0].postDate).toBeNull()
+  })
+
+  it('should not overwrite postDate once set', async () => {
+    const response = {
+      results: {
+        bindings: [
+          {
+            s: { value: 'https://example.com/page' },
+            date: { value: '1700000000000' },
+            postDate: { value: '1695000000000' },
+            o: { value: 'https://octothorp.es/~/demo' },
+            oType: { value: 'octo:Term' }
+          },
+          {
+            s: { value: 'https://example.com/page' },
+            date: { value: '1700000000000' },
+            postDate: { value: '1690000000000' },
+            o: { value: 'https://octothorp.es/~/other' },
+            oType: { value: 'octo:Term' }
+          }
+        ]
+      }
+    }
+    const result = await getBlobjectFromResponse(response)
+    expect(result[0].postDate).toBe(1695000000000)
   })
 })
