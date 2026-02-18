@@ -2,6 +2,18 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## 0. PostDate: User-Defined Page Dates -- #170
+
+Added `octo:postDate` to the OP vocabulary so pages can carry their publication date. The default harmonizer extracts dates from `article:published_time`, `<time datetime>`, `meta[property='octo:postDate']`, and `[data-octodate]`. The `?when` API filter now targets `postDate` instead of the relationship timestamp. New `?created` and `?indexed` API params provide expert access to index timestamps. Blobjects include a new `postDate` field alongside the existing `date`.
+
+**What changed:**
+- **`getHarmonizer.js`**: Added postDate selectors to default harmonizer subject schema
+- **`harmonizeSource.js`**: Added `getAttribute` fallback in `extractValues` for HTML attributes not exposed as DOM properties
+- **`indexing.js`**: Added `recordPostDate` function, called from `handleHTML`
+- **`converters.js`**: Parse `?created`/`?indexed` params into MultiPass filters, add `postDate` to blobject output shape
+- **`sparql.js`**: Add `?postDate` OPTIONAL to queries, repoint `createDateFilter` to use variable names, add created/indexed filter support
+- **Tests**: 26 new tests across harmonizer, indexing, converters, and SPARQL test files
+
 ## 1. Terms on Link-Type Octothorpes (Feature) -- #118, PR #187
 
 The biggest feature in this release. Page-to-page relationships (bookmarks, citations, links) can now carry their own hashtag terms, stored as data on the RDF blank node.
