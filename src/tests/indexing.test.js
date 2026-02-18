@@ -40,6 +40,7 @@ import {
   handleHTML,
   handler,
   resolveSubtype,
+  recordPostDate,
 } from '$lib/indexing.js'
 
 import { queryArray, queryBoolean, insert, query } from '$lib/sparql.js'
@@ -648,6 +649,30 @@ describe('Indexing Business Logic', () => {
       expect(termCreation).toBeDefined()
     })
 
+    it('should record postDate from harmonized output', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        postDate: '2024-06-15T10:00:00Z',
+        octothorpes: [],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(true) // page exists
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+      const postDateInsert = insertCalls.find(c => c.includes('octo:postDate'))
+      expect(postDateInsert).toBeDefined()
+      expect(postDateInsert).toContain('1718445600000')
+    })
+
     it('should handle typed object with no uri gracefully', async () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
@@ -666,6 +691,67 @@ describe('Indexing Business Logic', () => {
       query.mockResolvedValue({})
 
       await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+    })
+  })
+
+  describe('recordPostDate', () => {
+    it('should parse ISO date string and insert as Unix timestamp', async () => {
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      await recordPostDate('https://example.com/page', '2024-06-15T10:00:00Z')
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('octo:postDate')
+      )
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('octo:postDate')
+      expect(insertCall).toContain('1718445600000')
+    })
+
+    it('should parse date-only ISO string', async () => {
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      await recordPostDate('https://example.com/page', '2024-06-15')
+      const insertCall = insert.mock.calls[0][0]
+      expect(insertCall).toContain('octo:postDate')
+      const match = insertCall.match(/octo:postDate (\d+)/)
+      expect(match).not.toBeNull()
+      expect(parseInt(match[1])).toBeGreaterThan(0)
+    })
+
+    it('should skip null values', async () => {
+      await recordPostDate('https://example.com/page', null)
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should skip undefined values', async () => {
+      await recordPostDate('https://example.com/page', undefined)
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should skip empty string values', async () => {
+      await recordPostDate('https://example.com/page', '')
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should skip unparseable date strings', async () => {
+      await recordPostDate('https://example.com/page', 'not-a-date')
+      expect(query).not.toHaveBeenCalled()
+      expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('should delete old postDate before inserting new one', async () => {
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      await recordPostDate('https://example.com/page', '2024-06-15')
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('delete')
+      )
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('octo:postDate')
+      )
     })
   })
 

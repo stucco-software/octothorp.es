@@ -353,6 +353,26 @@ export const recordTitle = (s, title) => recordProperty(s, 'octo:title', title)
 export const recordDescription = (s, description) => recordProperty(s, 'octo:description', description)
 export const recordImage = (s, image) => recordProperty(s, 'octo:image', image)
 
+export const recordPostDate = async (s, value) => {
+  if (!value) {
+    return
+  }
+  const timestamp = new Date(value).getTime()
+  if (isNaN(timestamp)) {
+    return
+  }
+  await query(`
+    delete {
+      <${s}> octo:postDate ?o .
+    } where {
+      <${s}> octo:postDate ?o .
+    }
+  `)
+  return await insert(`
+    <${s}> octo:postDate ${timestamp} .
+  `)
+}
+
 export const recordUsage = async (s, o, { instance }) => {
   let now = Date.now()
   return await insert(`
@@ -563,6 +583,7 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   await recordTitle(s, harmed.title)
   await recordDescription(s, harmed.description)
   await recordImage(s, harmed.image)
+  await recordPostDate(s, harmed.postDate)
 
   console.log("done")
   return new Response(200)
