@@ -459,6 +459,11 @@ export const getMultiPassFromParams  = (
       // set dateFilter from ?when
       const dateFilter = parseDateStrings(whenParam)
 
+      const createdParam = searchParams.get('created') ? searchParams.get('created') : []
+      const indexedParam = searchParams.get('indexed') ? searchParams.get('indexed') : []
+      const createdFilter = parseDateStrings(createdParam)
+      const indexedFilter = parseDateStrings(indexedParam)
+
       const MultiPass = {
           meta: {
               title: `${feedTitle}`,
@@ -485,7 +490,9 @@ export const getMultiPassFromParams  = (
               relationTerms: relationTerms,
               limitResults: limitParams,
               offsetResults: offsetParams,
-              dateRange: dateFilter
+              dateRange: dateFilter,
+              createdRange: Object.keys(createdFilter).length ? createdFilter : null,
+              indexedRange: Object.keys(indexedFilter).length ? indexedFilter : null
           }
       }
 

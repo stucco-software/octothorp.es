@@ -114,4 +114,66 @@ describe('getMultiPassFromParams', () => {
       expect(multiPass.objects.include).toContain('https://b.com')
     })
   })
+
+  describe('?created filter parameter', () => {
+    it('should parse ?created=recent into createdRange', () => {
+      const params = { what: 'everything', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/everything/thorped?o=demo&created=recent')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.createdRange).toBeDefined()
+      expect(multiPass.filters.createdRange.after).toBeDefined()
+    })
+
+    it('should parse ?created=after-2024-01-01 into createdRange', () => {
+      const params = { what: 'everything', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/everything/thorped?o=demo&created=after-2024-01-01')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.createdRange).toBeDefined()
+      expect(multiPass.filters.createdRange.after).toBeGreaterThan(0)
+    })
+
+    it('should default createdRange to null when ?created is absent', () => {
+      const params = { what: 'everything', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/everything/thorped?o=demo')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.createdRange).toBeNull()
+    })
+  })
+
+  describe('?indexed filter parameter', () => {
+    it('should parse ?indexed=recent into indexedRange', () => {
+      const params = { what: 'everything', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/everything/thorped?o=demo&indexed=recent')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.indexedRange).toBeDefined()
+      expect(multiPass.filters.indexedRange.after).toBeDefined()
+    })
+
+    it('should parse ?indexed=before-2024-06-01 into indexedRange', () => {
+      const params = { what: 'everything', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/everything/thorped?o=demo&indexed=before-2024-06-01')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.indexedRange).toBeDefined()
+      expect(multiPass.filters.indexedRange.before).toBeGreaterThan(0)
+    })
+
+    it('should default indexedRange to null when ?indexed is absent', () => {
+      const params = { what: 'everything', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/everything/thorped?o=demo')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.indexedRange).toBeNull()
+    })
+  })
 })
