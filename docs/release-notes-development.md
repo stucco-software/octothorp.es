@@ -22,6 +22,17 @@ API results now sort by `postDate` first, falling back to the relationship times
 - **`sparql.js`**: Updated ORDER BY in `buildSimpleQuery` and `buildEverythingQuery`
 - **Tests**: 1 new test in `sparql.test.js`
 
+## 0b. Display PostDate in UI -- #172
+
+Dates now appear on `/explore`, `/domains/[uri]`, and `/~/[thorpe]` pages. Shows the author's published date (`postDate`) when available, otherwise falls back to indexed date with an "Indexed" prefix. Subtle styling below the URL line.
+
+**What changed:**
+- **`src/routes/explore/+page.svelte`**: Date line in blobject and pages results
+- **`src/routes/domains/[uri]/+page.server.js`**: Added `postDate` to SPARQL query and data shape
+- **`src/routes/domains/[uri]/+page.svelte`**: Date line in page items
+- **`src/routes/~/[thorpe]/load.js`**: Added `postDate` and indexed date to SPARQL queries
+- **`src/routes/~/[thorpe]/+page.svelte`**: Date line in thorpe and bookmark lists
+
 ## 1. Terms on Link-Type Octothorpes (Feature) -- #118, PR #187
 
 The biggest feature in this release. Page-to-page relationships (bookmarks, citations, links) can now carry their own hashtag terms, stored as data on the RDF blank node.
