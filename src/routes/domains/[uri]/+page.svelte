@@ -205,6 +205,15 @@
                     </a>
                   </h3>
                   <div class="page-url">{pg['@id'] || pg.uri}</div>
+                  {#if pg.postDate || pg.date}
+                    <div class="page-date">
+                      {#if pg.postDate}
+                        {new Date(pg.postDate).toLocaleDateString()}
+                      {:else}
+                        Indexed {new Date(pg.date).toLocaleDateString()}
+                      {/if}
+                    </div>
+                  {/if}
                   {#if pg.description}
                     <p class="page-description">{pg.description}</p>
                   {/if}
@@ -420,6 +429,13 @@
     color: #666;
     margin-block-end: 0.5rem;
     word-break: break-all;
+  }
+
+  .page-date {
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    color: #999;
+    margin-block-end: 0.5rem;
   }
 
   .page-description {

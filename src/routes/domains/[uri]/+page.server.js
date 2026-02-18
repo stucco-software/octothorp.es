@@ -15,7 +15,7 @@ export async function load({ params }) {
   }
 
   const response = await queryArray(`
-    SELECT DISTINCT ?s ?title ?description ?image ?date ?o ?oType ?blankNodeObj
+    SELECT DISTINCT ?s ?title ?description ?image ?date ?postDate ?o ?oType ?blankNodeObj
     WHERE {
       ?s rdf:type <octo:Page> .
       FILTER(CONTAINS(STR(?s), "${domainForQuery}"))
@@ -23,6 +23,7 @@ export async function load({ params }) {
       OPTIONAL { ?s octo:description ?description . }
       OPTIONAL { ?s octo:image ?image . }
       OPTIONAL { ?s octo:indexed ?date . }
+      OPTIONAL { ?s octo:postDate ?postDate . }
       OPTIONAL {
         ?s octo:octothorpes ?o .
         OPTIONAL { ?o rdf:type ?oType . }
@@ -50,6 +51,7 @@ export async function load({ params }) {
         description: null,
         image: null,
         date: null,
+        postDate: null,
         octothorpes: []
       }
     }
@@ -67,6 +69,9 @@ export async function load({ params }) {
     }
     if (binding.date?.value && !current.date) {
       current.date = parseInt(binding.date.value)
+    }
+    if (binding.postDate?.value && !current.postDate) {
+      current.postDate = parseInt(binding.postDate.value)
     }
 
     // Process octothorpes
