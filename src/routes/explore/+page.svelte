@@ -4,7 +4,7 @@
   import { page } from '$app/stores'
   import Loading from '$lib/components/Loading.svelte'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
-  import PreviewImage from '$lib/components/PreviewImage.svelte'
+  import ResultCard from '$lib/components/ResultCard.svelte'
   import MultiPassEncoder from '$lib/components/MultiPassEncoder.svelte'
   import { extractMultipassFromGif } from '$lib/utils.js'
 
@@ -930,73 +930,39 @@
           <!-- Formatted blobjects display -->
           <div class="result-list">
             {#each results.results || [] as item}
-              <article class="result-item">
-                <PreviewImage
-                  url={item['@id']}
-                  image={item.image}
-                  title={item.title || item['@id']}
-                />
-                <div class="result-content">
-                  <h4 class="result-title">
-                    <a href={item['@id']} target="_blank" rel="noopener noreferrer">
-                      {item.title || item['@id']}
-                    </a>
-                  </h4>
-                  <div class="result-url">{item['@id']}</div>
-                  {#if item.postDate || item.date}
-                    <div class="result-date">
-                      {#if item.postDate}
-                        {new Date(item.postDate).toLocaleDateString()}
-                      {:else}
-                        Indexed {new Date(item.date).toLocaleDateString()}
+              <ResultCard
+                url={item['@id']}
+                title={item.title}
+                description={item.description}
+                image={item.image}
+                postDate={item.postDate}
+                date={item.date}
+              >
+                {#if item.octothorpes && item.octothorpes.length > 0}
+                  <div class="result-tags">
+                    {#each item.octothorpes as thorpe}
+                      {#if typeof thorpe === 'string'}
+                        <a href="/~/{thorpe}" class="tag">#{thorpe}</a>
+                      {:else if thorpe.type}
+                        <span class="tag tag-{thorpe.type.toLowerCase()}">{thorpe.type}</span>
                       {/if}
-                    </div>
-                  {/if}
-                  {#if item.description}
-                    <p class="result-description">{item.description}</p>
-                  {/if}
-                  {#if item.octothorpes && item.octothorpes.length > 0}
-                    <div class="result-tags">
-                      {#each item.octothorpes as thorpe}
-                        {#if typeof thorpe === 'string'}
-                          <a href="/~/{thorpe}" class="tag">#{thorpe}</a>
-                        {:else if thorpe.type}
-                          <span class="tag tag-{thorpe.type.toLowerCase()}">{thorpe.type}</span>
-                        {/if}
-                      {/each}
-                    </div>
-                  {/if}
-                </div>
-              </article>
+                    {/each}
+                  </div>
+                {/if}
+              </ResultCard>
             {/each}
           </div>
         {:else if what === 'pages'}
           <!-- Formatted pages display -->
           <div class="result-list">
             {#each results.results || [] as item}
-              <article class="result-item">
-                <PreviewImage
-                  url={item.uri}
-                  image={item.image}
-                  title={item.title || item.uri}
-                />
-                <div class="result-content">
-                  <h4 class="result-title">
-                    <a href={item.uri} target="_blank" rel="noopener noreferrer">
-                      {item.title || item.uri}
-                    </a>
-                  </h4>
-                  <div class="result-url">{item.uri}</div>
-                  {#if item.date}
-                    <div class="result-date">
-                      Indexed {new Date(item.date).toLocaleDateString()}
-                    </div>
-                  {/if}
-                  {#if item.description}
-                    <p class="result-description">{item.description}</p>
-                  {/if}
-                </div>
-              </article>
+              <ResultCard
+                url={item.uri}
+                title={item.title}
+                description={item.description}
+                image={item.image}
+                date={item.date}
+              />
             {/each}
           </div>
         {:else if what === 'thorpes'}
@@ -1640,71 +1606,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-  }
-
-  .result-item {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.75rem;
-    border-bottom: 1px solid #e0e0e0;
-    padding-block-end: 0.75rem;
-    align-items: start;
-  }
-
-  .result-item:has(.preview-image[style*="display: none"]) {
-    grid-template-columns: 1fr;
-  }
-
-  .result-item:last-child {
-    border-bottom: none;
-    padding-block-end: 0;
-  }
-
-  .result-content {
-    min-width: 0; /* Allow text truncation */
-  }
-
-  .result-title {
-    margin: 0 0 0.125rem 0;
-    font-family: var(--serif-stack);
-    font-size: var(--txt-0);
-    font-weight: normal;
-    line-height: 1.2;
-
-  }
-
-  .result-title a {
-    color: var(--txt-color);
-    text-decoration: none;
-  }
-
-  .result-title a:hover {
-    text-decoration: underline;
-    background-color: yellow;
-  }
-
-  .result-url {
-    font-family: var(--mono-stack);
-    font-size: var(--txt--2);
-    color: #666;
-    margin-block-end: 0.25rem;
-    word-break: break-all;
-  }
-
-  .result-date {
-    font-family: OCRA;
-    font-size: var(--txt--2);
-    color: #999;
-    margin-block-start: -0.125rem;
-    margin-block-end: 0.25rem;
-
-  }
-
-  .result-description {
-    margin: 0.25rem 0;
-    font-size: var(--txt--2);
-    line-height: 1.4;
-    color: #333;
   }
 
   .result-tags {

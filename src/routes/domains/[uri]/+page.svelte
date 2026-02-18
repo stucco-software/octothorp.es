@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation'
   import { browser } from '$app/environment'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
-  import PreviewImage from '$lib/components/PreviewImage.svelte'
+  import ResultCard from '$lib/components/ResultCard.svelte'
 
   export let data
 
@@ -192,44 +192,26 @@
         {#if filteredPages.length > 0}
           <div class="page-list">
             {#each filteredPages as pg}
-              <article class="page-item">
-                  <PreviewImage
-                        url={pg['@id'] || pg.uri}
-                        image={pg.image}
-                        title={pg.title || pg['@id'] || pg.uri}
-                      />
-                <div class="page-content">
-                  <h3 class="page-title">
-                    <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">
-                      {pg.title || pg['@id'] || pg.uri}
-                    </a>
-                  </h3>
-                  <div class="page-url">{pg['@id'] || pg.uri}</div>
-                  {#if pg.postDate || pg.date}
-                    <div class="page-date">
-                      {#if pg.postDate}
-                        {new Date(pg.postDate).toLocaleDateString()}
-                      {:else}
-                        Indexed {new Date(pg.date).toLocaleDateString()}
+              <ResultCard
+                url={pg['@id'] || pg.uri}
+                title={pg.title}
+                description={pg.description}
+                image={pg.image}
+                postDate={pg.postDate}
+                date={pg.date}
+              >
+                {#if pg.octothorpes && pg.octothorpes.length > 0}
+                  <div class="page-tags">
+                    {#each pg.octothorpes as thorpe}
+                      {#if typeof thorpe === 'string'}
+                        <a href="/~/{thorpe}" class="tag-small">#{thorpe}</a>
+                      {:else if thorpe.term}
+                        <a href="/~/{thorpe.term}" class="tag-small tag-{thorpe.type?.toLowerCase()}">{thorpe.type}: #{thorpe.term}</a>
                       {/if}
-                    </div>
-                  {/if}
-                  {#if pg.description}
-                    <p class="page-description">{pg.description}</p>
-                  {/if}
-                  {#if pg.octothorpes && pg.octothorpes.length > 0}
-                    <div class="page-tags">
-                      {#each pg.octothorpes as thorpe}
-                        {#if typeof thorpe === 'string'}
-                          <a href="/~/{thorpe}" class="tag-small">#{thorpe}</a>
-                        {:else if thorpe.term}
-                          <a href="/~/{thorpe.term}" class="tag-small tag-{thorpe.type?.toLowerCase()}">{thorpe.type}: #{thorpe.term}</a>
-                        {/if}
-                      {/each}
-                    </div>
-                  {/if}
-                </div>
-              </article>
+                    {/each}
+                  </div>
+                {/if}
+              </ResultCard>
             {/each}
           </div>
         {:else if selectedTerm}
@@ -382,68 +364,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-  }
-
-  .page-item {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.75rem;
-    border-bottom: 1px solid #e0e0e0;
-    padding-block-end: 0.75rem;
-    align-items: start;
-  }
-
-  .page-item:has(.preview-image[style*="display: none"]) {
-    grid-template-columns: 1fr;
-  }
-
-  .page-item:last-child {
-    border-bottom: none;
-    padding-block-end: 0;
-  }
-
-  .page-content {
-    min-width: 0; /* Allow text truncation */
-  }
-
-  .page-title {
-    margin: 0 0 0.25rem 0;
-    font-family: var(--serif-stack);
-    font-size: var(--txt-0);
-    font-weight: normal;
-    line-height: 1.3;
-  }
-
-  .page-title a {
-    color: var(--txt-color);
-    text-decoration: none;
-  }
-
-  .page-title a:hover {
-    background-color: yellow;
-  }
-
-  .page-url {
-    font-family: var(--mono-stack);
-    font-size: var(--txt--2);
-    color: #666;
-    margin-block-end: 0.5rem;
-    word-break: break-all;
-  }
-
-  .page-date {
-    font-family: OCRA;
-    font-size: var(--txt--2);
-    color: #999;
-    margin-block-start: -0.25rem;
-    margin-block-end: 0.5rem;
-  }
-
-  .page-description {
-    margin: 0.5rem 0;
-    font-size: var(--txt--1);
-    line-height: 1.5;
-    color: #333;
   }
 
   .page-tags {
