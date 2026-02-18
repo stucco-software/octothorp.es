@@ -155,6 +155,27 @@ describe('postDate in SPARQL queries', () => {
   })
 })
 
+describe('postDate sort order', () => {
+  it('should sort by COALESCE of postDate and date in buildSimpleQuery', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: ['https://example.com'], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['demo'], exclude: [] },
+      filters: {
+        subtype: '',
+        relationTerms: undefined,
+        limitResults: '100',
+        offsetResults: '0',
+        dateRange: null,
+        createdRange: null,
+        indexedRange: null
+      }
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toContain('ORDER BY DESC(COALESCE(?postDate, ?date))')
+  })
+})
+
 describe('buildSimpleQuery with match-all', () => {
   it('should produce SPARQL with VALUES and FILTER EXISTS for match=all terms', () => {
     const multiPass = {

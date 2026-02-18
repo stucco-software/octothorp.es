@@ -638,7 +638,7 @@ export const buildEverythingQuery = async ({
     }
     ${noObjectHandler}
   }
-  ORDER BY DESC(?date)
+  ORDER BY DESC(COALESCE(?postDate, ?date))
   `
   return cleanQuery(query)
 }
@@ -695,7 +695,7 @@ export const buildSimpleQuery = ({
     OPTIONAL { ?s octo:image ?image . }
     OPTIONAL { ?s octo:description ?description . }
   }
-    ORDER BY DESC(?date)
+    ORDER BY DESC(COALESCE(?postDate, ?date))
     ${statements.limitFilter}
     ${statements.offsetFilter}
   `
