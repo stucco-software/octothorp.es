@@ -1692,9 +1692,10 @@
   }
 
   .result-date {
-    font-family: var(--sans-stack);
+    font-family: OCRA;
     font-size: var(--txt--2);
     color: #999;
+    margin-block-start: -0.125rem;
     margin-block-end: 0.25rem;
 
   }

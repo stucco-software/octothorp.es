@@ -95,13 +95,16 @@
   }
   p.gray {
     color: var(--dark-gray);
+    font-family: var(--sans-stack);
     font-size: .8rem;
+    margin-top: 0px;
   }
   p.date {
-    font-family: var(--sans-stack);
+    font-family: OCRA;
     font-size: var(--txt--2);
     color: #999;
     margin: 0;
+    margin-block-start: -0.25rem;
   }
   #follow-links {
       width: 100%;
