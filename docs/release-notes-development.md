@@ -14,6 +14,14 @@ Added `octo:postDate` to the OP vocabulary so pages can carry their publication 
 - **`sparql.js`**: Add `?postDate` OPTIONAL to queries, repoint `createDateFilter` to use variable names, add created/indexed filter support
 - **Tests**: 26 new tests across harmonizer, indexing, converters, and SPARQL test files
 
+## 0a. Sort on PostDate by Default -- #171
+
+API results now sort by `postDate` first, falling back to the relationship timestamp when `postDate` is null. Uses `ORDER BY DESC(COALESCE(?postDate, ?date))` in `buildSimpleQuery` and `buildEverythingQuery`. The thorpe query (`buildThorpeQuery`) is unchanged since it lists terms, not pages.
+
+**What changed:**
+- **`sparql.js`**: Updated ORDER BY in `buildSimpleQuery` and `buildEverythingQuery`
+- **Tests**: 1 new test in `sparql.test.js`
+
 ## 1. Terms on Link-Type Octothorpes (Feature) -- #118, PR #187
 
 The biggest feature in this release. Page-to-page relationships (bookmarks, citations, links) can now carry their own hashtag terms, stored as data on the RDF blank node.
