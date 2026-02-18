@@ -74,6 +74,87 @@ describe('buildObjectStatement via testQueryFromMultiPass', () => {
   })
 })
 
+describe('postDate in SPARQL queries', () => {
+  it('should include postDate OPTIONAL in buildSimpleQuery', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: ['https://example.com'], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['demo'], exclude: [] },
+      filters: {
+        subtype: '',
+        relationTerms: undefined,
+        limitResults: '100',
+        offsetResults: '0',
+        dateRange: null,
+        createdRange: null,
+        indexedRange: null
+      }
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toContain('octo:postDate')
+    expect(query).toContain('?postDate')
+  })
+
+  it('should filter on ?postDate when dateRange is set', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: ['https://example.com'], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['demo'], exclude: [] },
+      filters: {
+        subtype: '',
+        relationTerms: undefined,
+        limitResults: '100',
+        offsetResults: '0',
+        dateRange: { after: 1700000000000 },
+        createdRange: null,
+        indexedRange: null
+      }
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toContain('?postDate >= 1700000000000')
+  })
+
+  it('should filter on ?createdDate when createdRange is set', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: ['https://example.com'], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['demo'], exclude: [] },
+      filters: {
+        subtype: '',
+        relationTerms: undefined,
+        limitResults: '100',
+        offsetResults: '0',
+        dateRange: null,
+        createdRange: { after: 1700000000000 },
+        indexedRange: null
+      }
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toContain('octo:created')
+    expect(query).toContain('?createdDate >= 1700000000000')
+  })
+
+  it('should filter on ?indexedDate when indexedRange is set', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: ['https://example.com'], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['demo'], exclude: [] },
+      filters: {
+        subtype: '',
+        relationTerms: undefined,
+        limitResults: '100',
+        offsetResults: '0',
+        dateRange: null,
+        createdRange: null,
+        indexedRange: { before: 1700000000000 }
+      }
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toContain('octo:indexed')
+    expect(query).toContain('?indexedDate <= 1700000000000')
+  })
+})
+
 describe('buildSimpleQuery with match-all', () => {
   it('should produce SPARQL with VALUES and FILTER EXISTS for match=all terms', () => {
     const multiPass = {

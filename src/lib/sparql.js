@@ -393,13 +393,13 @@ function buildObjectStatement(blob) {
 
   // Date filter
 
-  function createDateFilter(dR) {
+  function createDateFilter(dR, varName = 'postDate') {
     const filters = [];
     if (dR.after) {
-      filters.push(`?date >= ${dR.after}`);
+      filters.push(`?${varName} >= ${dR.after}`);
     }
     if (dR.before) {
-      filters.push(`?date <= ${dR.before}`);
+      filters.push(`?${varName} <= ${dR.before}`);
     }
     return filters.length ? `FILTER (${filters.join(' && ')})` : '';
   }
@@ -462,7 +462,9 @@ function getStatements (subjects, objects, filters, resultMode) {
 
   const subjectStatement = buildSubjectStatement(subjects)
   const objectStatement = buildObjectStatement(objects)
-  const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange) : ""
+  const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange, 'postDate') : ""
+  const createdFilter = filters.createdRange ? createDateFilter(filters.createdRange, 'createdDate') : ""
+  const indexedFilter = filters.indexedRange ? createDateFilter(filters.indexedRange, 'indexedDate') : ""
   let subtypeFilter = ""
   if (filters.subtype ) {
      subtypeFilter = `FILTER EXISTS {
@@ -511,6 +513,8 @@ function getStatements (subjects, objects, filters, resultMode) {
     subtypeFilter: subtypeFilter,
     relationTermsFilter: relationTermsFilter,
     dateFilter: dateFilter,
+    createdFilter: createdFilter,
+    indexedFilter: indexedFilter,
     limitFilter: limitFilter,
     offsetFilter: offsetFilter
   }
@@ -589,6 +593,7 @@ export const buildEverythingQuery = async ({
       OPTIONAL { ?s octo:title ?title }
       OPTIONAL { ?s octo:image ?image }
       OPTIONAL { ?s octo:description ?description }
+      OPTIONAL { ?s octo:postDate ?postDate }
       OPTIONAL {
         ?s ?blankNodePred ?blankNode .
         FILTER(isBlank(?blankNode))
@@ -605,7 +610,7 @@ export const buildEverythingQuery = async ({
       }
     }`;
   }
-  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
+  const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
   WHERE {
     {
       ${statements.subjectStatement}
@@ -618,6 +623,7 @@ export const buildEverythingQuery = async ({
       OPTIONAL { ?s octo:title ?title }
       OPTIONAL { ?s octo:image ?image }
       OPTIONAL { ?s octo:description ?description }
+      OPTIONAL { ?s octo:postDate ?postDate }
       OPTIONAL { ?o octo:title ?ot }
       OPTIONAL { ?o octo:description ?od }
       OPTIONAL { ?o octo:image ?oimg }
@@ -627,6 +633,8 @@ export const buildEverythingQuery = async ({
         ?blankNode ?bnp ?blankNodeObj .
         FILTER(!isBlank(?blankNodeObj))
       }
+      ${statements.createdFilter ? `OPTIONAL { ?s octo:created ?createdDate . } ${statements.createdFilter}` : ''}
+      ${statements.indexedFilter ? `OPTIONAL { ?s octo:indexed ?indexedDate . } ${statements.indexedFilter}` : ''}
     }
     ${noObjectHandler}
   }
@@ -655,8 +663,8 @@ export const buildSimpleQuery = ({
 
   // Build SELECT clause conditionally
   const selectClause = includeObjects
-    ? 'SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?pageType ?ot ?od ?oimg'
-    : 'SELECT DISTINCT ?s ?title ?description ?image ?date ?pageType'
+    ? 'SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg'
+    : 'SELECT DISTINCT ?s ?title ?description ?image ?date ?postDate ?pageType'
 
   // Build object-related clauses conditionally
   const objectClauses = includeObjects ? `
@@ -677,7 +685,10 @@ export const buildSimpleQuery = ({
   WHERE {
     ${statements.subjectStatement}
     ${objectClauses}
+    OPTIONAL { ?s octo:postDate ?postDate . }
     ${statements.dateFilter}
+    ${statements.createdFilter ? `OPTIONAL { ?s octo:created ?createdDate . } ${statements.createdFilter}` : ''}
+    ${statements.indexedFilter ? `OPTIONAL { ?s octo:indexed ?indexedDate . } ${statements.indexedFilter}` : ''}
     ?s rdf:type ?pageType .
 
     OPTIONAL { ?s octo:title ?title . }
