@@ -943,6 +943,15 @@
                     </a>
                   </h4>
                   <div class="result-url">{item['@id']}</div>
+                  {#if item.postDate || item.date}
+                    <div class="result-date">
+                      {#if item.postDate}
+                        {new Date(item.postDate).toLocaleDateString()}
+                      {:else}
+                        Indexed {new Date(item.date).toLocaleDateString()}
+                      {/if}
+                    </div>
+                  {/if}
                   {#if item.description}
                     <p class="result-description">{item.description}</p>
                   {/if}
@@ -978,6 +987,11 @@
                     </a>
                   </h4>
                   <div class="result-url">{item.uri}</div>
+                  {#if item.date}
+                    <div class="result-date">
+                      Indexed {new Date(item.date).toLocaleDateString()}
+                    </div>
+                  {/if}
                   {#if item.description}
                     <p class="result-description">{item.description}</p>
                   {/if}
@@ -1675,6 +1689,13 @@
     color: #666;
     margin-block-end: 0.25rem;
     word-break: break-all;
+  }
+
+  .result-date {
+    font-family: var(--sans-stack);
+    font-size: var(--txt--2);
+    color: #999;
+    margin-block-end: 0.25rem;
 
   }
 
