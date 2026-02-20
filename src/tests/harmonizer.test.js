@@ -350,6 +350,52 @@ describe('External Harmonizer Support', () => {
     })
   })
 
+  describe('Button Extraction', () => {
+    const htmlWithButton = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Test Page</title></head>
+        <body>
+          <a rel="octo:button" href="https://friend.example/button.gif">Friend Site</a>
+        </body>
+      </html>
+    `
+
+    it('should extract button links from rel=octo:button', async () => {
+      const result = await harmonizeSource(htmlWithButton)
+
+      const button = result.octothorpes.find(o => o.type === 'button')
+      expect(button).toBeDefined()
+      expect(button.uri).toBe('https://friend.example/button.gif')
+    })
+
+    it('should have button extraction config in default harmonizer schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.button).toBeDefined()
+      expect(harmonizer.schema.button.o).toBeDefined()
+      expect(Array.isArray(harmonizer.schema.button.o)).toBe(true)
+    })
+
+    it('should support data-octothorpes terms on button links', async () => {
+      const htmlWithTerms = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:button" data-octothorpes="friend,webring" href="https://friend.example/button.gif">Friend</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithTerms)
+
+      const button = result.octothorpes.find(o => o.type === 'button')
+      expect(button).toBeDefined()
+      expect(button.terms).toContain('friend')
+      expect(button.terms).toContain('webring')
+    })
+  })
+
   describe('PostDate Extraction', () => {
     const htmlWithArticlePublishedTime = `
       <!DOCTYPE html>

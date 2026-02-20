@@ -170,6 +170,18 @@ const localHarmonizers = {
                   }
                 }
               ]
+            },
+            "button": {
+              "s": "source",
+              "o": [
+                {
+                  "selector": `[rel~='octo:button']`,
+                  "attribute": "href",
+                  "terms": {
+                    "attribute": "data-octothorpes"
+                  }
+                }
+              ]
             }
           }
     },
