@@ -32,6 +32,7 @@ Dates now appear on `/explore`, `/domains/[uri]`, and `/~/[thorpe]` pages. Shows
 - **`src/routes/domains/[uri]/+page.svelte`**: Date line in page items
 - **`src/routes/~/[thorpe]/load.js`**: Added `postDate` and indexed date to SPARQL queries
 - **`src/routes/~/[thorpe]/+page.svelte`**: Date line in thorpe and bookmark lists
+- **`src/lib/components/ResultCard.svelte`**: New shared component extracted from `/explore` and `/domains/[uri]` pages, encapsulating result card rendering with OCRA font and tightened date spacing
 
 ## 1. Terms on Link-Type Octothorpes (Feature) -- #118, PR #187
 
@@ -107,7 +108,38 @@ New `<octo-badge>` web component added.
 - New `+page.server.js` for `domains/[uri]/` -- moves data loading server-side
 - Page template simplified, now displays richer domain information including images
 
-## 9. Debug / Developer Tooling
+## 9. Match-All Object Filtering -- #146
+
+New `match=all` mode for multi-value object queries. Previously, multiple `?o` values were matched with `VALUES` (OR logic). `match=all` instead generates one `octo:octothorpes` triple pattern per object, requiring a page to match every object -- AND logic.
+
+Example: `/get/pages/thorped?o=cats,tacos&match=all` returns only pages tagged with both `#cats` and `#tacos`.
+
+**What changed:**
+- **`converters.js`**: `getMultiPassFromParams()` recognizes `match=all` and sets `objects.mode` to `"all"`
+- **`sparql.js`**: `buildObjectStatement()` handles `"all"` mode by emitting chained triple patterns instead of a `VALUES` block
+- **Tests**: Failing tests then passing tests added in `converters.test.js` and SPARQL integration tests
+
+## 10. Phase 3 Blobject Enrichment -- PR #188
+
+Blobject output previously showed page-type octothorpe relationships only as `{ type: "link", uri: "..." }`, losing the richer subtype and terms data stored in blank nodes. Phase 3 enrichment fetches that metadata in a follow-up SPARQL query and merges it onto the blobject.
+
+**What changed:**
+- **`sparql.js`**: New `enrichBlobjectTargets()` function -- a Phase 3 SPARQL query that looks up backlink blank node metadata (subtype + terms) for a set of target URIs, returning merged objects with `type` (`Bookmark`, `Cite`, etc.) and a `terms` array
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: Calls `enrichBlobjectTargets()` after `getBlobjectFromResponse()`
+- **`src/routes/query/+page.server.js`**: Same treatment
+- **Tests**: `enrich.test.js` with 7 unit tests covering empty arrays, term-only blobjects, subtype merging, terms merging, mixed blobjects, subtype precedence, and no-terms case
+
+## 12. Button Vocabulary -- #179
+
+Added `octo:button` as a first-class relationship type. Pages can now declare buttons they display using `<a rel="octo:button" href="...">` markup. Buttons are indexed as typed page-to-page relationships (subtype `Button`) and support `data-octothorpes` terms like other relationship types.
+
+**What changed:**
+- **`src/lib/getHarmonizer.js`**: Added `button` schema entry to default harmonizer
+- **`src/lib/indexing.js`**: Added `button`/`Button` to `subtypeMap`
+- **`src/tests/harmonizer.test.js`**: 3 new tests for button extraction
+- **`src/tests/indexing.test.js`**: New test for `resolveSubtype('button')`
+
+## 11. Debug / Developer Tooling
 
 - **Rolodex** (`debug/rolodex/+server.js`): New debug endpoint for testing indexing speeds across URI pages (renamed from `test-index`)
 - **Endpoint selector**: Added to the debug test-index page before rename
