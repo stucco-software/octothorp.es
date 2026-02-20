@@ -18,6 +18,8 @@ const subtypeMap = {
   cite: 'Cite',
   citation: 'Cite',
   Cite: 'Cite',
+  button: 'Button',
+  Button: 'Button',
 }
 
 export const resolveSubtype = (type) => subtypeMap[type] || 'Backlink'

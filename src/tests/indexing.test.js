@@ -887,6 +887,11 @@ describe('Indexing Business Logic', () => {
       expect(resolveSubtype('Cite')).toBe('Cite')
     })
 
+    it('should resolve button to Button', () => {
+      expect(resolveSubtype('button')).toBe('Button')
+      expect(resolveSubtype('Button')).toBe('Button')
+    })
+
     it('should default to Backlink for unknown types', () => {
       expect(resolveSubtype('link')).toBe('Backlink')
       expect(resolveSubtype('unknown')).toBe('Backlink')
