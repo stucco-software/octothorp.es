@@ -139,6 +139,17 @@ Added `octo:button` as a first-class relationship type. Pages can now declare bu
 - **`src/tests/harmonizer.test.js`**: 3 new tests for button extraction
 - **`src/tests/indexing.test.js`**: New test for `resolveSubtype('button')`
 
+## 13. On-Page Indexing Policy -- #157
+
+Added on-page indexing consent declarations. Pages can now opt in to indexing without requiring browser Origin headers by embedding `<meta name="octo-policy" content="index">` or `<link rel="octo:index" href="https://octothorp.es/">` in their HTML. This enables indexing from server-side scripts, CLI tools, and platforms that don't send origin headers.
+
+When no Origin header is present, the server fetches the page, runs it through the harmonizer to extract policy fields, and checks for opt-in before proceeding. On-page harmonizer declarations (`octo-harmonizer` meta/link) override the request's `?as=` parameter. Domain registration is still required.
+
+**What changed:**
+- **`src/lib/getHarmonizer.js`**: Added `indexPolicy`, `indexServer`, and `indexHarmonizer` selectors to default harmonizer subject schema
+- **`src/lib/indexing.js`**: Added `checkIndexingPolicy()` function; updated `handler()` to branch on null `requestingOrigin` -- fetches and harmonizes the page to check policy, skips harmonizer allowlist when no origin header
+- **`src/tests/indexing.test.js`**: 14 new tests covering `checkIndexingPolicy` (10 tests) and handler no-origin path (4 tests)
+
 ## 11. Debug / Developer Tooling
 
 - **Rolodex** (`debug/rolodex/+server.js`): New debug endpoint for testing indexing speeds across URI pages (renamed from `test-index`)

@@ -441,6 +441,25 @@ export const checkEndorsement = async (s, o, flag) => {
   }
 }
 
+////////// on-page indexing policy //////////
+
+export const checkIndexingPolicy = (harmed, instance) => {
+  const optedIn =
+    harmed.indexPolicy === 'index' ||
+    (harmed.indexServer && harmed.indexServer.split(',').some(href => {
+      try {
+        return new URL(href.trim()).origin === new URL(instance).origin
+      } catch (_) {
+        return false
+      }
+    }))
+
+  // Meta tag harmonizer takes precedence (it appears first in the schema)
+  const harmonizer = harmed.indexHarmonizer || null
+
+  return { optedIn: !!optedIn, harmonizer }
+}
+
 ////////// handlers //////////
 
 export const handleThorpe = async (s, o, { instance }) => {
@@ -598,7 +617,25 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
   const parsed = parseUri(uri)
 
   // 2. Cross-origin check
-  validateSameOrigin(parsed, requestingOrigin)
+  if (requestingOrigin) {
+    // Header present: existing check unchanged
+    validateSameOrigin(parsed, requestingOrigin)
+  } else {
+    // No header: fetch page and check on-page policy
+    const policyResponse = await fetch(parsed.normalized)
+    const policyHtml = await policyResponse.text()
+    const policyHarmed = await harmonizeSource(policyHtml, harmonizer)
+    const policy = checkIndexingPolicy(policyHarmed, instance)
+
+    if (!policy.optedIn) {
+      throw new Error('Page has not opted in to indexing.')
+    }
+
+    // On-page harmonizer overrides request param
+    if (policy.harmonizer) {
+      harmonizer = policy.harmonizer
+    }
+  }
 
   // 3. Origin verification
   const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
@@ -616,8 +653,10 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
   }
 
   // 5. Harmonizer check
-  if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
-    throw new Error('Harmonizer not allowed for this origin.')
+  if (requestingOrigin) {
+    if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
+      throw new Error('Harmonizer not allowed for this origin.')
+    }
   }
 
   // 6. Cooldown

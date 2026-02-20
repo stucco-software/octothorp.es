@@ -90,6 +90,31 @@ const localHarmonizers = {
                   "selector": "[data-octodate]",
                   "attribute": "data-octodate"
                 }
+              ],
+            "indexPolicy":
+              [
+                {
+                  "selector": "meta[name='octo-policy']",
+                  "attribute": "content"
+                }
+              ],
+            "indexServer":
+              [
+                {
+                  "selector": "link[rel='octo:index']",
+                  "attribute": "href"
+                }
+              ],
+            "indexHarmonizer":
+              [
+                {
+                  "selector": "meta[name='octo-harmonizer']",
+                  "attribute": "content"
+                },
+                {
+                  "selector": "link[rel='octo:harmonizer']",
+                  "attribute": "href"
+                }
               ]
             },
 
