@@ -1,5 +1,5 @@
 import normalizeUrl from "normalize-url";
-import { arrayify } from "./arrayify";
+import { arrayify } from "./arrayify.js";
 
 /**
  * Removes trailing slashes from URLs
