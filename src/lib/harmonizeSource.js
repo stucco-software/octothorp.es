@@ -5,12 +5,9 @@
  * @todo Add support for type=json
  * @todo Add support for type=xpath
  */
-import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import normalizeUrl from 'normalize-url'
-
-// import { json } from '@sveltejs/kit'
-import { getHarmonizer } from "$lib/getHarmonizer"
+import { getHarmonizer as defaultGetHarmonizer } from "./getHarmonizer.js"
 
 
 
@@ -550,7 +547,8 @@ export async function remoteHarmonizer(url) {
  * @returns {string|Object} octothorpes[] - Either string (hashtag) or object with type and uri properties
  * @throws {Error} If harmonizer is invalid or processing fails
  */
-export async function harmonizeSource(html, harmonizer = "default") {
+export async function harmonizeSource(html, harmonizer = "default", options = {}) {
+  const getHarmonizer = options.getHarmonizer ?? defaultGetHarmonizer
   let schema = {}
   const d = await getHarmonizer("default")
 
