@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { testQueryFromMultiPass, buildSimpleQuery } from '$lib/sparql.js'
+import { createQueryBuilders } from '$lib/queryBuilders.js'
 
 describe('buildObjectStatement via testQueryFromMultiPass', () => {
   describe('mode "all" with terms', () => {
@@ -205,5 +206,29 @@ describe('buildSimpleQuery with match-all', () => {
 
     expect(query).toContain('VALUES ?o')
     expect(query).not.toContain('FILTER EXISTS')
+  })
+})
+
+describe('createQueryBuilders', () => {
+  const instance = 'https://test.example.com/'
+  const builders = createQueryBuilders(instance)
+
+  it('should use the provided instance for thorpePath', () => {
+    const result = builders.testQueryFromMultiPass({
+      meta: { resultMode: 'blobjects' },
+      subjects: { mode: 'exact', include: [], exclude: [] },
+      objects: { type: 'termsOnly', mode: 'exact', include: ['cats'], exclude: [] },
+      filters: { dateRange: {}, limitResults: '100', offsetResults: '0' }
+    })
+    expect(result.processedObjs).toContain('https://test.example.com/~/cats')
+  })
+
+  it('should export all query builder functions', () => {
+    expect(typeof builders.buildSimpleQuery).toBe('function')
+    expect(typeof builders.buildEverythingQuery).toBe('function')
+    expect(typeof builders.buildThorpeQuery).toBe('function')
+    expect(typeof builders.buildDomainQuery).toBe('function')
+    expect(typeof builders.getStatements).toBe('function')
+    expect(typeof builders.prepEverything).toBe('function')
   })
 })
