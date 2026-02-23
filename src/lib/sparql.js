@@ -1,57 +1,22 @@
 import { sparql_endpoint, sparql_user, sparql_password } from '$env/static/private'
 import { instance } from '$env/static/private'
-// import { error, redirect, json } from '@sveltejs/kit';
-// import jsonld from 'jsonld'
-// import context from '$lib/ld/context'
-import prefixes from '$lib/ld/prefixes'
 import { getFuzzyTags } from '$lib/utils';
+import { createSparqlClient } from '$lib/sparqlClient.js'
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest
   it.skip('Returns an empty array if input is false', () => {
-    // TEST TK: Not sure how I want to unit test these buddies yet.
-    //   They might neeed to be refactored to seperate the unit logic
-    //   from the side effect `fetch`?
     expect('a').toStrictEqual('b')
   })
 }
 
-const headers = new Headers()
-headers.set('Authorization', 'Basic ' + btoa(sparql_user + ":" + sparql_password));
-
-const getTriples = (accept) => async (query) => await fetch(`${sparql_endpoint}/query`, {
-  method: 'POST',
-  headers: headers,
-  body: new URLSearchParams({
-    'query': `${prefixes}
-    ${query}`
-  })
+const client = createSparqlClient({
+  endpoint: sparql_endpoint,
+  user: sparql_user,
+  password: sparql_password,
 })
 
-/**
- * Executes a SPARQL SELECT query and returns results as an array of bindings
- * @param {string} query - The SPARQL SELECT query to execute
- * @returns {Promise<Object>} Promise resolving to SPARQL query results with bindings
- * @throws {Error} If the SPARQL query fails or response is not valid JSON
- * @example
- * const results = await queryArray('SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10')
- */
-export const queryArray = async query => {
-  let triples = await getTriples('application/sparql-results+json')(query)
-      .then(async result => {
-        if (!result.ok) {
-          const text = await result.text();
-          console.error('SPARQL Error:', text);
-          throw new Error(`SPARQL query failed: ${text}`);
-        }
-        return result.json();
-      })
-      .catch(error => {
-        console.error('JSON Parse Error:', error);
-        throw error;
-      });
-  return triples;
-}
+export const { queryArray, queryBoolean, query, insert } = client
 
 /**
  * Enriches blobjects by fetching backlink metadata (subtype and terms) for page-type targets.
@@ -130,68 +95,6 @@ export const enrichBlobjectTargets = async (blobjects) => {
   return blobjects
 }
 
-/**
- * Executes a SPARQL ASK query and returns a boolean result
- * @param {string} query - The SPARQL ASK query to execute
- * @returns {Promise<boolean>} Promise resolving to the boolean result of the ASK query
- * @throws {Error} If the SPARQL query fails
- * @example
- * const exists = await queryBoolean('ASK { <http://example.com/> octo:verified "true" }')
- */
-export const queryBoolean = async query => {
-  let triples = await getTriples('application/sparql-results+json')(query)
-  let json = await triples.json()
-  return json.boolean
-}
-
-/**
- * Inserts RDF data into the SPARQL database using INSERT DATA
- * @param {string} nquads - The RDF data to insert in N-Quads format
- * @returns {Promise<Response>} Promise resolving to the fetch response
- * @throws {Error} If the insert operation fails
- * @example
- * await insert('<http://example.com/page> octo:title "Example Page" .')
- */
-export const insert = async nquads => await fetch(`${sparql_endpoint}/update`, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + btoa(sparql_user + ":" + sparql_password),
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      'update': `${prefixes}
-        insert data {
-${nquads}
-      }`
-    })
-  }).catch((error) => {
-    console.error('Error:', error);
-  }
-)
-
-/**
- * Executes a SPARQL UPDATE query (INSERT, DELETE, etc.)
- * @param {string} nquads - The SPARQL UPDATE query to execute
- * @returns {Promise<Response>} Promise resolving to the fetch response
- * @throws {Error} If the update operation fails
- * @example
- * await query('DELETE { ?s ?p ?o } WHERE { ?s ?p ?o . FILTER(?s = <http://example.com/>) }')
- */
-export const query = async nquads => await fetch(`${sparql_endpoint}/update`, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + btoa(sparql_user + ":" + sparql_password),
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      'update': `${prefixes}
-${nquads}
-      `
-    })
-  }).catch((error) => {
-    console.error('Error:', error);
-  }
-)
 
 
 
