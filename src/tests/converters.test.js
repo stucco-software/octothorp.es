@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getMultiPassFromParams, getBlobjectFromResponse } from '$lib/converters.js'
+import { buildMultiPass } from '$lib/multipass.js'
 
 describe('getMultiPassFromParams', () => {
   describe('+thorped modifier parsing', () => {
@@ -235,5 +236,68 @@ describe('getBlobjectFromResponse postDate', () => {
     }
     const result = await getBlobjectFromResponse(response)
     expect(result[0].postDate).toBe(1695000000000)
+  })
+})
+
+describe('buildMultiPass', () => {
+  const instance = 'https://test.example.com/'
+
+  it('should build a MultiPass from plain parameters', () => {
+    const mp = buildMultiPass('everything', 'thorped', { o: 'indieweb' }, instance)
+    expect(mp.meta.resultMode).toBe('blobjects')
+    expect(mp.objects.type).toBe('termsOnly')
+    expect(mp.objects.include).toContain('indieweb')
+    expect(mp.meta.server).toBe(instance)
+  })
+
+  it('should handle comma-separated subjects and objects', () => {
+    const mp = buildMultiPass('pages', 'thorped', {
+      s: 'https://example.com',
+      o: 'cats,dogs'
+    }, instance)
+    expect(mp.objects.include).toContain('cats')
+    expect(mp.objects.include).toContain('dogs')
+    expect(mp.subjects.include).toContain('https://example.com')
+  })
+
+  it('should handle match parameter', () => {
+    const mp = buildMultiPass('pages', 'linked', {
+      s: 'example',
+      match: 'fuzzy'
+    }, instance)
+    expect(mp.subjects.mode).toBe('fuzzy')
+  })
+
+  it('should handle limit and offset', () => {
+    const mp = buildMultiPass('everything', 'thorped', {
+      o: 'test',
+      limit: '50',
+      offset: '10'
+    }, instance)
+    expect(mp.filters.limitResults).toBe('50')
+    expect(mp.filters.offsetResults).toBe('10')
+  })
+
+  it('should handle +thorped modifier', () => {
+    const mp = buildMultiPass('pages', 'bookmarked+thorped', {
+      o: 'gadgets'
+    }, instance)
+    expect(mp.filters.subtype).toBe('Bookmark')
+    expect(mp.filters.relationTerms).toContain('gadgets')
+  })
+
+  it('should handle posted/all with no objects', () => {
+    const mp = buildMultiPass('everything', 'posted', {
+      s: 'https://example.com'
+    }, instance)
+    expect(mp.objects.type).toBe('none')
+  })
+
+  it('should handle when parameter', () => {
+    const mp = buildMultiPass('pages', 'thorped', {
+      o: 'test',
+      when: 'recent'
+    }, instance)
+    expect(mp.filters.dateRange).toBeDefined()
   })
 })
