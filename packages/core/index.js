@@ -119,7 +119,7 @@ export const createClient = (config) => {
 
   return {
     indexSource,
-    get: api.get,
+    get: ({ what, by, ...rest } = {}) => api.get(what, by, rest),
     getfast: api.fast,
     harmonize,
     harmonizer: registry,

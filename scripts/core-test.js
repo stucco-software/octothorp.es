@@ -7,10 +7,10 @@ const client = createClient({
 
 console.log('=== @octothorpes/core alpha test ===\n')
 
-// Test 1: Fast API - list all terms
-console.log('1. fast.terms()')
+// Test 1: getfast.terms()
+console.log('1. getfast.terms()')
 try {
-  const terms = await client.api.fast.terms()
+  const terms = await client.getfast.terms()
   console.log(`   Found ${terms.length} term bindings`)
   if (terms.length > 0) {
     console.log(`   First: ${terms[0].t.value}`)
@@ -19,28 +19,28 @@ try {
   console.error(`   FAIL: ${e.message}`)
 }
 
-// Test 2: Fast API - single term
-console.log('\n2. fast.term("demo")')
+// Test 2: getfast.term()
+console.log('\n2. getfast.term("demo")')
 try {
-  const result = await client.api.fast.term('demo')
+  const result = await client.getfast.term('demo')
   console.log(`   Pages: ${result.pages.length}, Bookmarks: ${result.bookmarks.length}`)
 } catch (e) {
   console.error(`   FAIL: ${e.message}`)
 }
 
-// Test 3: Fast API - domains
-console.log('\n3. fast.domains()')
+// Test 3: getfast.domains()
+console.log('\n3. getfast.domains()')
 try {
-  const domains = await client.api.fast.domains()
+  const domains = await client.getfast.domains()
   console.log(`   Found ${domains.length} verified domains`)
 } catch (e) {
   console.error(`   FAIL: ${e.message}`)
 }
 
-// Test 4: General-purpose API - get everything thorped
-console.log('\n4. api.get("everything", "thorped", { o: "demo", limit: "5" })')
+// Test 4: get() with flat params
+console.log('\n4. get({ what: "everything", by: "thorped", o: "demo", limit: "5" })')
 try {
-  const result = await client.api.get('everything', 'thorped', { o: 'demo', limit: '5' })
+  const result = await client.get({ what: 'everything', by: 'thorped', o: 'demo', limit: '5' })
   console.log(`   Results: ${result.results.length}`)
   if (result.results.length > 0) {
     console.log(`   First: ${result.results[0]['@id']}`)
@@ -49,23 +49,31 @@ try {
   console.error(`   FAIL: ${e.message}`)
 }
 
-// Test 5: General-purpose API - debug mode
-console.log('\n5. api.get("pages", "thorped", { o: "demo", as: "debug" })')
+// Test 5: get() debug mode
+console.log('\n5. get({ what: "pages", by: "thorped", o: "demo", as: "debug" })')
 try {
-  const result = await client.api.get('pages', 'thorped', { o: 'demo', as: 'debug' })
+  const result = await client.get({ what: 'pages', by: 'thorped', o: 'demo', as: 'debug' })
   console.log(`   MultiPass resultMode: ${result.multiPass.meta.resultMode}`)
-  console.log(`   Query length: ${result.query.length} chars`)
   console.log(`   Results: ${result.actualResults.length}`)
 } catch (e) {
   console.error(`   FAIL: ${e.message}`)
 }
 
-// Test 6: Harmonizer
+// Test 6: harmonizer.getHarmonizer()
 console.log('\n6. harmonizer.getHarmonizer("default")')
 try {
-  const h = await client.harmonizer.getHarmonizer('default')
+  const h = client.harmonizer.getHarmonizer('default')
   console.log(`   Title: ${h.title}`)
   console.log(`   Schema keys: ${Object.keys(h.schema).join(', ')}`)
+} catch (e) {
+  console.error(`   FAIL: ${e.message}`)
+}
+
+// Test 7: harmonizer.list()
+console.log('\n7. harmonizer.list()')
+try {
+  const all = client.harmonizer.list()
+  console.log(`   Keys: ${Object.keys(all).join(', ')}`)
 } catch (e) {
   console.error(`   FAIL: ${e.message}`)
 }

@@ -40,6 +40,15 @@ describe('harmonizer registry', () => {
   })
 })
 
+describe('op.get()', () => {
+  it('should accept a flat params object', async () => {
+    const { buildMultiPass } = await import('../../src/lib/multipass.js')
+    const mp = buildMultiPass('everything', 'thorped', { o: 'demo', limit: '5' }, 'http://localhost:5173/')
+    expect(mp.meta.resultMode).toBe('blobjects')
+    expect(mp.objects.include).toContain('demo')
+  })
+})
+
 describe('op.indexSource()', () => {
   it('should be a function on the returned client', () => {
     const op = createClient({
