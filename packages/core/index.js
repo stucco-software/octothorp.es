@@ -21,6 +21,7 @@ export { verifiedOrigin } from '../../src/lib/origin.js'
 export { parseBindings, deslash, getFuzzyTags, isSparqlSafe } from '../../src/lib/utils.js'
 export { rss } from '../../src/lib/rssify.js'
 export { arrayify } from '../../src/lib/arrayify.js'
+export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, parseRequestBody, isURL } from './indexer.js'
 
 const normalizeSparqlConfig = (sparql) => {
   if (!sparql) return {}
