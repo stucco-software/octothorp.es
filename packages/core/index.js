@@ -21,18 +21,29 @@ export { parseBindings, deslash, getFuzzyTags, isSparqlSafe } from '../../src/li
 export { rss } from '../../src/lib/rssify.js'
 export { arrayify } from '../../src/lib/arrayify.js'
 
+const normalizeSparqlConfig = (sparql) => {
+  if (!sparql) return {}
+  // If it already has 'endpoint', treat as explicit config
+  if (sparql.endpoint) return sparql
+  // Treat as env object — extract known keys
+  return {
+    endpoint: sparql.sparql_endpoint,
+    user: sparql.sparql_user,
+    password: sparql.sparql_password,
+  }
+}
+
 /**
  * Creates a fully configured OP client.
  * @param {Object} config
  * @param {string} config.instance - OP instance URL (with trailing slash)
- * @param {Object} config.sparql
- * @param {string} config.sparql.endpoint - SPARQL endpoint URL
- * @param {string} [config.sparql.user] - SPARQL auth user
- * @param {string} [config.sparql.password] - SPARQL auth password
+ * @param {Object} config.sparql - Explicit sparql config ({ endpoint, user, password })
+ *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
  * @returns {{ api: Object, sparql: Object, harmonizer: Object, harmonizeSource: Function }}
  */
 export const createClient = (config) => {
-  const sparql = createSparqlClient(config.sparql)
+  const sparqlConfig = normalizeSparqlConfig(config.sparql)
+  const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance)
 
   const api = createApi({

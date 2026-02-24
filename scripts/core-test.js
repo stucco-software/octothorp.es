@@ -2,11 +2,7 @@ import { createClient } from '../packages/core/index.js'
 
 const client = createClient({
   instance: process.env.instance,
-  sparql: {
-    endpoint: process.env.sparql_endpoint,
-    user: process.env.sparql_user,
-    password: process.env.sparql_password,
-  },
+  sparql: process.env,
 })
 
 console.log('=== @octothorpes/core alpha test ===\n')
