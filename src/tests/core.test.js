@@ -39,3 +39,21 @@ describe('harmonizer registry', () => {
     expect(all.ghost).toBeDefined()
   })
 })
+
+describe('op.indexSource()', () => {
+  it('should be a function on the returned client', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    expect(typeof op.indexSource).toBe('function')
+  })
+
+  it('should throw on invalid URI', async () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    await expect(op.indexSource('not-a-uri')).rejects.toThrow()
+  })
+})
