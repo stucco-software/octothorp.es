@@ -25,6 +25,19 @@ Extracted OP's framework-agnostic business logic into `packages/core/` as `@octo
 - **`src/tests/api.test.js`** (new): 11 tests
 - **`docs/core-api-guide.md`** (new): Developer guide and quick reference
 
+### OP Core alpha — client API extension -- #178 (continued)
+
+Extended `@octothorpes/core` with a unified client API and extracted indexing pipeline.
+
+**What changed:**
+- **`packages/core/index.js`**: `createClient` now accepts flat env object for `sparql` config (via `normalizeSparqlConfig`); returns `{ indexSource(), get(), getfast, harmonize(), harmonizer }` with `indexPolicy` support; `get()` takes a flat `{ what, by, ...rest }` params object
+- **`packages/core/indexer.js`** (new): Full indexing pipeline extracted as `createIndexer(deps)` factory — all business logic from `src/lib/indexing.js` with injected `insert`, `query`, `queryBoolean`, `queryArray`, `harmonizeSource`, `instance`
+- **`src/lib/harmonizers.js`**: Added `list()` to `createHarmonizerRegistry` return value
+- **`src/tests/core.test.js`** (new): Tests for `createClient`, `harmonizer.list()`, `op.get()`, `op.indexSource()`
+- **`src/tests/indexer.test.js`** (new): Tests for `createIndexer` factory
+- **`scripts/core-test.js`**: Updated to use new API (`getfast`, flat `get()`, `harmonizer.list()`)
+- **`docs/core-api-guide.md`**: Added route adapter cutover requirements section
+
 ## 0. PostDate: User-Defined Page Dates -- #170
 
 Added `octo:postDate` to the OP vocabulary so pages can carry their publication date. The default harmonizer extracts dates from `article:published_time`, `<time datetime>`, `meta[property='octo:postDate']`, and `[data-octodate]`. The `?when` API filter now targets `postDate` instead of the relationship timestamp. New `?created` and `?indexed` API params provide expert access to index timestamps. Blobjects include a new `postDate` field alongside the existing `date`.
