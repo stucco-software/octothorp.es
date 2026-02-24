@@ -11,10 +11,12 @@ Work is driven by GitHub issues on `stucco-software/octothorp.es`. When directed
 
 ## Repository Structure
 
-- `/src/lib/` - Core libraries (SPARQL, converters, harmonizers, utils)
+- `/packages/core/` - `@octothorpes/core` — framework-agnostic package (installed via npm workspaces)
+- `/src/lib/` - Core libraries (SPARQL, converters, harmonizers, utils). Extracted logic lives here; adapter files inject `$env` and delegate.
 - `/src/lib/components/` - Svelte UI components
 - `/src/routes/` - SvelteKit file-based routing (API and pages)
 - `/src/tests/` - Test files (Vitest)
+- `/scripts/` - Standalone Node.js scripts (e.g. `core-test.js`)
 
 ## Environment & Configuration
 
@@ -627,16 +629,45 @@ GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
 
 ---
 
-## Core Extraction Readiness
+## `@octothorpes/core` package
 
-OP is moving toward a monorepo where framework-agnostic business logic lives in a shared `@octothorpes/core` package, consumed by both SvelteKit and a future CLI. All new code should be written with this in mind.
+The framework-agnostic business logic lives in `packages/core/`. It is installed as a workspace package (`npm workspaces`) and importable as `@octothorpes/core` in both the SvelteKit app and any external JS project.
 
-**The rule:** Business logic must not depend on SvelteKit. Route handlers (`+server.js`) are the boundary. Everything in `src/lib/` below that boundary should be extractable.
+See `docs/core-api-guide.md` for the full API reference.
+
+### Package structure
+
+| File | Purpose |
+|------|---------|
+| `packages/core/index.js` | Entry point. Re-exports all modules. Exports `createClient`. |
+| `packages/core/package.json` | `@octothorpes/core` v0.1.0-alpha.1 |
+| `src/lib/sparqlClient.js` | `createSparqlClient(config)` — SPARQL client factory |
+| `src/lib/queryBuilders.js` | `createQueryBuilders(instance, queryArray)` — all query builders |
+| `src/lib/multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
+| `src/lib/blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
+| `src/lib/harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
+| `src/lib/api.js` | `createApi(config)` — `get()` and `fast.*` service layer |
+
+### Adapter files (do not add logic here)
+
+These SvelteKit files inject `$env` and delegate to the extracted modules. They exist so the existing routes keep working unchanged.
+
+| File | Delegates to |
+|------|-------------|
+| `src/lib/sparql.js` | `sparqlClient.js`, `queryBuilders.js` |
+| `src/lib/converters.js` | `multipass.js`, `blobject.js` |
+| `src/lib/getHarmonizer.js` | `harmonizers.js` |
+
+### Rules for new code
 
 **In `src/lib/`, do not use:**
 - `$env/static/private` -- accept config as parameters instead
-- `@sveltejs/kit` (`error()`, `json()`) -- throw plain JS errors; route handlers catch and convert
+- `@sveltejs/kit` (`error()`, `json()`) -- throw plain `Error`; route handlers catch and convert
 - `import.meta.glob()` -- use standard Node.js APIs or accept data as parameters
+
+**Keep route handlers thin:** parse the request, inject config from `$env`, call library functions, format the response.
+
+**Don't add logic to adapter files.** If you need new business logic, add it to the extracted module and re-export from the adapter if needed.
 
 ```javascript
 // BAD -- coupled to SvelteKit
@@ -655,8 +686,31 @@ export function buildTermUri(term, instance) {
 }
 ```
 
-**Keep route handlers thin:** parse the request, inject config from `$env`, call library functions, format the response. Accept dependencies (like `queryArray`) as parameters rather than importing singletons that carry their own `$env` imports.
+### `harmonizeSource` lazy import
 
-**When modifying existing coupled files** (e.g., `sparql.js` which imports `$env`), follow the file's existing patterns -- don't refactor the whole file for a feature addition. But write any **new functions** to accept config as parameters. **New files** in `src/lib/` should be fully extractable from day one.
+`harmonizeSource.js` loads `getHarmonizer.js` (the SvelteKit adapter) lazily via `await import()` so it doesn't pull `$env` into non-Vite environments. Outside SvelteKit, always pass `getHarmonizer` via options or use `client.harmonizeSource()` from `createClient`, which wires the registry automatically.
 
-Many `src/lib/` files are already framework-agnostic (`utils.js`, `rssify.js`, `arrayify.js`, etc.). Others need refactoring to remove `$env` or `@sveltejs/kit` imports (`sparql.js`, `converters.js`, `harmonizeSource.js`, `origin.js`). See `.claude/plans/cli/CORE_EXTRACTION_PLAN.md` for the file-by-file status and refactoring patterns, and `MONOREPO_SPEC.md` for the target package structure and public API.
+### Testing the core package
+
+```bash
+# Unit tests (no live services needed)
+npx vitest run src/tests/sparqlClient.test.js src/tests/api.test.js
+
+# Live proof script (requires SPARQL + dev server)
+node --env-file=.env scripts/core-test.js
+
+# Debug endpoint (requires dev server running)
+# GET {instance}/debug/core
+# GET {instance}/debug/core?what=pages&by=thorped&o=demo&limit=5
+# GET {instance}/debug/core?method=fast&fast=terms
+```
+
+### Publishing
+
+When ready to cut a release:
+```bash
+cd packages/core
+npm publish --access public
+```
+
+Until then, the workspace symlink in `node_modules/@octothorpes/core` makes the package available locally.
