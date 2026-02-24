@@ -2,6 +2,29 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## OP Core alpha extraction -- #178
+
+Extracted OP's framework-agnostic business logic into `packages/core/` as `@octothorpes/core`. The SvelteKit app is unchanged; route handlers now delegate to the extracted modules through thin adapter files.
+
+**What changed:**
+- **`src/lib/sparqlClient.js`** (new): Framework-agnostic SPARQL client factory (`createSparqlClient`)
+- **`src/lib/queryBuilders.js`** (new): All SPARQL query builders extracted from `sparql.js` (`createQueryBuilders`)
+- **`src/lib/multipass.js`** (new): Plain-JS MultiPass builder (`buildMultiPass`), replaces `getMultiPassFromParams` for non-SvelteKit use
+- **`src/lib/blobject.js`** (new): `getBlobjectFromResponse` extracted from `converters.js`
+- **`src/lib/harmonizers.js`** (new): All local harmonizer schemas extracted from `getHarmonizer.js` (`createHarmonizerRegistry`)
+- **`src/lib/api.js`** (new): Full API service layer (`createApi`) with `get()` and `fast.*` methods
+- **`packages/core/index.js`** (new): Package entry point with `createClient` factory
+- **`packages/core/package.json`** (new): `@octothorpes/core` v0.1.0-alpha.1
+- **`scripts/core-test.js`** (new): Standalone proof script; run with `node --env-file=.env scripts/core-test.js`
+- **`src/lib/sparql.js`**: Thinned to adapter; delegates to `sparqlClient.js` and `queryBuilders.js`
+- **`src/lib/converters.js`**: Thinned to adapter; delegates to `multipass.js` and `blobject.js`
+- **`src/lib/getHarmonizer.js`**: Thinned to adapter; delegates to `harmonizers.js`
+- **`src/lib/harmonizeSource.js`**: Changed static `getHarmonizer` import to lazy dynamic import so non-Vite environments don't pull in the SvelteKit adapter
+- **`src/lib/utils.js`**: Fixed missing `.js` extension on `arrayify` import (broke Node resolution outside Vite)
+- **`src/tests/sparqlClient.test.js`** (new): 7 tests
+- **`src/tests/api.test.js`** (new): 11 tests
+- **`docs/core-api-guide.md`** (new): Developer guide and quick reference
+
 ## 0. PostDate: User-Defined Page Dates -- #170
 
 Added `octo:postDate` to the OP vocabulary so pages can carry their publication date. The default harmonizer extracts dates from `article:published_time`, `<time datetime>`, `meta[property='octo:postDate']`, and `[data-octodate]`. The `?when` API filter now targets `postDate` instead of the relationship timestamp. New `?created` and `?indexed` API params provide expert access to index timestamps. Blobjects include a new `postDate` field alongside the existing `date`.
