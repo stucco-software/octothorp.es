@@ -510,3 +510,14 @@ Import them directly from `@octothorpes/core` or from their source paths.
 **Don't add logic to the adapter files.** `src/lib/sparql.js`, `src/lib/converters.js`, and `src/lib/getHarmonizer.js` are thin wrappers. If you need new logic, add it to the extracted module.
 
 **`harmonizeSource.js` uses a lazy import.** It only loads `getHarmonizer.js` (the SvelteKit adapter) if `options.getHarmonizer` isn't supplied. Outside Vite, always pass your own `getHarmonizer` via options, or use `client.harmonizeSource()` from `createClient`, which wires the registry automatically.
+
+---
+
+## Route adapter cutover requirements
+
+When the live server is cut over to use `@octothorpes/core`, the route adapter (`indexwrapper/+server.js`) must:
+
+1. Pass `null` as `requestingOrigin` for GET requests (current code incorrectly passes `uri`) to correctly trigger on-page policy mode.
+2. Map `indexPolicy` config from `$env` into `createClient` at module load time.
+3. Map thrown errors from `op.indexSource()` to appropriate HTTP status codes (existing `mapErrorToStatus` logic handles this).
+4. Pass `origin` option when Referer/Origin header is present on POST requests.
