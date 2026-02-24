@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { createClient } from '../../packages/core/index.js'
 
 describe('createClient', () => {
@@ -23,5 +23,19 @@ describe('createClient', () => {
     })
     // We can't directly inspect sparql internals, but it should not throw
     expect(op).toBeDefined()
+  })
+})
+
+describe('harmonizer registry', () => {
+  it('should list all local harmonizers', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const all = op.harmonizer.list()
+    expect(typeof all).toBe('object')
+    expect(all.default).toBeDefined()
+    expect(all.openGraph).toBeDefined()
+    expect(all.ghost).toBeDefined()
   })
 })

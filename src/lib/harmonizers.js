@@ -260,5 +260,5 @@ export const createHarmonizerRegistry = (instance) => {
     return harmonizer
   }
 
-  return { getHarmonizer, localHarmonizers }
+  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers }
 }
