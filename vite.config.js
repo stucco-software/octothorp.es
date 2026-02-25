@@ -5,6 +5,6 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		include: ['src/**/*.{test,spec}.js'],
-	    includeSource: ['src/**/*.js'], 
+	    includeSource: ['src/**/*.js'],
 	}
 });

@@ -2,6 +2,42 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## OP Core alpha extraction -- #178
+
+Extracted OP's framework-agnostic business logic into `packages/core/` as `@octothorpes/core`. The SvelteKit app is unchanged; route handlers now delegate to the extracted modules through thin adapter files.
+
+**What changed:**
+- **`src/lib/sparqlClient.js`** (new): Framework-agnostic SPARQL client factory (`createSparqlClient`)
+- **`src/lib/queryBuilders.js`** (new): All SPARQL query builders extracted from `sparql.js` (`createQueryBuilders`)
+- **`src/lib/multipass.js`** (new): Plain-JS MultiPass builder (`buildMultiPass`), replaces `getMultiPassFromParams` for non-SvelteKit use
+- **`src/lib/blobject.js`** (new): `getBlobjectFromResponse` extracted from `converters.js`
+- **`src/lib/harmonizers.js`** (new): All local harmonizer schemas extracted from `getHarmonizer.js` (`createHarmonizerRegistry`)
+- **`src/lib/api.js`** (new): Full API service layer (`createApi`) with `get()` and `fast.*` methods
+- **`packages/core/index.js`** (new): Package entry point with `createClient` factory
+- **`packages/core/package.json`** (new): `@octothorpes/core` v0.1.0-alpha.1
+- **`scripts/core-test.js`** (new): Standalone proof script; run with `node --env-file=.env scripts/core-test.js`
+- **`src/lib/sparql.js`**: Thinned to adapter; delegates to `sparqlClient.js` and `queryBuilders.js`
+- **`src/lib/converters.js`**: Thinned to adapter; delegates to `multipass.js` and `blobject.js`
+- **`src/lib/getHarmonizer.js`**: Thinned to adapter; delegates to `harmonizers.js`
+- **`src/lib/harmonizeSource.js`**: Changed static `getHarmonizer` import to lazy dynamic import so non-Vite environments don't pull in the SvelteKit adapter
+- **`src/lib/utils.js`**: Fixed missing `.js` extension on `arrayify` import (broke Node resolution outside Vite)
+- **`src/tests/sparqlClient.test.js`** (new): 7 tests
+- **`src/tests/api.test.js`** (new): 11 tests
+- **`docs/core-api-guide.md`** (new): Developer guide and quick reference
+
+### OP Core alpha — client API extension -- #178 (continued)
+
+Extended `@octothorpes/core` with a unified client API and extracted indexing pipeline.
+
+**What changed:**
+- **`packages/core/index.js`**: `createClient` now accepts flat env object for `sparql` config (via `normalizeSparqlConfig`); returns `{ indexSource(), get(), getfast, harmonize(), harmonizer }` with `indexPolicy` support; `get()` takes a flat `{ what, by, ...rest }` params object
+- **`packages/core/indexer.js`** (new): Full indexing pipeline extracted as `createIndexer(deps)` factory — all business logic from `src/lib/indexing.js` with injected `insert`, `query`, `queryBoolean`, `queryArray`, `harmonizeSource`, `instance`
+- **`src/lib/harmonizers.js`**: Added `list()` to `createHarmonizerRegistry` return value
+- **`src/tests/core.test.js`** (new): Tests for `createClient`, `harmonizer.list()`, `op.get()`, `op.indexSource()`
+- **`src/tests/indexer.test.js`** (new): Tests for `createIndexer` factory
+- **`scripts/core-test.js`**: Updated to use new API (`getfast`, flat `get()`, `harmonizer.list()`)
+- **`docs/core-api-guide.md`**: Added route adapter cutover requirements section
+
 ## 0. PostDate: User-Defined Page Dates -- #170
 
 Added `octo:postDate` to the OP vocabulary so pages can carry their publication date. The default harmonizer extracts dates from `article:published_time`, `<time datetime>`, `meta[property='octo:postDate']`, and `[data-octodate]`. The `?when` API filter now targets `postDate` instead of the relationship timestamp. New `?created` and `?indexed` API params provide expert access to index timestamps. Blobjects include a new `postDate` field alongside the existing `date`.
@@ -149,6 +185,25 @@ When no Origin header is present, the server fetches the page, runs it through t
 - **`src/lib/getHarmonizer.js`**: Added `indexPolicy`, `indexServer`, and `indexHarmonizer` selectors to default harmonizer subject schema
 - **`src/lib/indexing.js`**: Added `checkIndexingPolicy()` function; updated `handler()` to branch on null `requestingOrigin` -- fetches and harmonizes the page to check policy, skips harmonizer allowlist when no origin header
 - **`src/tests/indexing.test.js`**: 14 new tests covering `checkIndexingPolicy` (10 tests) and handler no-origin path (4 tests)
+
+## 14. OP Core Alpha Extraction -- #178
+
+Extracted the framework-agnostic OP business logic into a standalone `@octothorpes/core` package (`packages/core/`). A codeveloper can now install it via git and build feeds or routes in any JS app without SvelteKit. All existing SvelteKit routes are unchanged -- they use thin adapter wrappers that inject config from `$env` and delegate to core.
+
+**What changed:**
+- **`src/lib/sparqlClient.js`** (new): `createSparqlClient(config)` factory -- framework-agnostic SPARQL client with no `$env` dependency
+- **`src/lib/queryBuilders.js`** (new): `createQueryBuilders(instance, queryArray)` factory -- all SPARQL query builders parameterized on `instance`
+- **`src/lib/multipass.js`** (new): `buildMultiPass(what, by, options, instance)` -- plain-JS equivalent of `getMultiPassFromParams`
+- **`src/lib/blobject.js`** (new): `getBlobjectFromResponse()` extracted as a pure function
+- **`src/lib/harmonizers.js`** (new): `createHarmonizerRegistry(instance)` factory -- all local harmonizer schemas parameterized on `instance`
+- **`src/lib/api.js`** (new): `createApi(config)` service layer with `get(what, by, options)` (full MultiPass pipeline) and `fast.*` (direct SPARQL queries)
+- **`packages/core/index.js`** (new): `createClient(config)` convenience factory wiring SPARQL + API + harmonizers together
+- **`src/lib/sparql.js`**: Refactored to thin adapter -- delegates to `createSparqlClient` and `createQueryBuilders`
+- **`src/lib/converters.js`**: Refactored to thin adapter -- delegates to `buildMultiPass` and `getBlobjectFromResponse`
+- **`src/lib/getHarmonizer.js`**: Refactored to thin adapter -- delegates to `createHarmonizerRegistry`
+- **`src/lib/harmonizeSource.js`**: Removed dead `@sveltejs/kit` import; `getHarmonizer` now lazily loaded so it doesn't break non-Vite consumers
+- **`scripts/core-test.js`** (new): Standalone Node.js script proving the full API works outside SvelteKit
+- **Tests**: 18 new tests across `sparqlClient.test.js`, `api.test.js`, and additions to `sparql.test.js` and `converters.test.js`
 
 ## 11. Debug / Developer Tooling
 
