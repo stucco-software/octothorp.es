@@ -629,28 +629,67 @@ GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
 
 ---
 
-## `@octothorpes/core` package
+## `octothorpes` package
 
-The framework-agnostic business logic lives in `packages/core/`. It is installed as a workspace package (`npm workspaces`) and importable as `@octothorpes/core` in both the SvelteKit app and any external JS project.
+The framework-agnostic business logic lives in `packages/core/`. It is a self-contained ESM package with no SvelteKit dependencies. Installed via npm workspaces and importable as `octothorpes`.
 
 See `docs/core-api-guide.md` for the full API reference.
 
 ### Package structure
 
+All source files live directly in `packages/core/` (flat layout, no build step).
+
 | File | Purpose |
 |------|---------|
-| `packages/core/index.js` | Entry point. Re-exports all modules. Exports `createClient`. |
-| `packages/core/package.json` | `@octothorpes/core` v0.1.0-alpha.1 |
-| `src/lib/sparqlClient.js` | `createSparqlClient(config)` — SPARQL client factory |
-| `src/lib/queryBuilders.js` | `createQueryBuilders(instance, queryArray)` — all query builders |
-| `src/lib/multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
-| `src/lib/blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
-| `src/lib/harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
-| `src/lib/api.js` | `createApi(config)` — `get()` and `fast.*` service layer |
+| `index.js` | Entry point. Re-exports all modules. Exports `createClient`. |
+| `package.json` | `octothorpes` v0.1.0-alpha.2 |
+| `api.js` | `createApi(config)` — `get()` and `fast.*` service layer |
+| `sparqlClient.js` | `createSparqlClient(config)` — SPARQL client factory |
+| `queryBuilders.js` | `createQueryBuilders(instance, queryArray)` — all query builders |
+| `multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
+| `blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
+| `harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
+| `harmonizeSource.js` | HTML metadata extraction engine |
+| `indexer.js` | Framework-agnostic indexing pipeline |
+| `origin.js` | Origin verification (accepts config, no $env) |
+| `uri.js` | URI validation (HTTP, AT Protocol) |
+| `utils.js` | Shared utilities (parsing, dates, tags) |
+| `rssify.js` | RSS feed generation |
+| `arrayify.js` | Array coercion utility |
+| `badge.js` | Badge rendering |
+| `ld/` | Linked data utilities (prefixes, context, graph, RDFa) |
 
-### Adapter files (do not add logic here)
+### Using the package
 
-These SvelteKit files inject `$env` and delegate to the extracted modules. They exist so the existing routes keep working unchanged.
+```javascript
+import { createClient } from 'octothorpes'
+
+const op = createClient({
+  instance: 'https://octothorp.es/',
+  sparql: { endpoint: 'http://0.0.0.0:7878' }
+})
+
+// Query
+const results = await op.get({ what: 'everything', by: 'thorped', o: 'demo' })
+
+// Fast queries (raw SPARQL, lighter weight)
+const terms = await op.getfast.terms()
+const pages = await op.getfast.term('demo')
+const domains = await op.getfast.domains()
+
+// Harmonize HTML
+const metadata = await op.harmonize(html, 'default')
+
+// Index a page
+await op.indexSource('https://example.com/page', { harmonizer: 'default' })
+
+// List available harmonizers
+const harmonizers = op.harmonizer.list()
+```
+
+### Adapter files in src/lib/ (do not add logic here)
+
+These SvelteKit files inject `$env` and delegate to the package modules. They exist so the existing routes keep working unchanged.
 
 | File | Delegates to |
 |------|-------------|
@@ -660,17 +699,18 @@ These SvelteKit files inject `$env` and delegate to the extracted modules. They 
 
 ### Rules for new code
 
-**In `src/lib/`, do not use:**
-- `$env/static/private` -- accept config as parameters instead
-- `@sveltejs/kit` (`error()`, `json()`) -- throw plain `Error`; route handlers catch and convert
-- `import.meta.glob()` -- use standard Node.js APIs or accept data as parameters
+**In `packages/core/`, never use:**
+- `$env/static/private` — accept config as parameters
+- `$lib/` imports — use relative `./` paths
+- `@sveltejs/kit` (`error()`, `json()`) — throw plain `Error`
+- `import.meta.glob()` — use standard Node.js APIs
+
+**In `src/lib/` adapter files:** only inject `$env` and delegate. No business logic.
 
 **Keep route handlers thin:** parse the request, inject config from `$env`, call library functions, format the response.
 
-**Don't add logic to adapter files.** If you need new business logic, add it to the extracted module and re-export from the adapter if needed.
-
 ```javascript
-// BAD -- coupled to SvelteKit
+// BAD — coupled to SvelteKit
 import { instance } from '$env/static/private'
 import { error } from '@sveltejs/kit'
 
@@ -679,7 +719,7 @@ export function buildTermUri(term) {
   return `${instance}~/${term}`
 }
 
-// GOOD -- extractable
+// GOOD — framework-agnostic
 export function buildTermUri(term, instance) {
   if (!term) throw new Error('Missing term')
   return `${instance}~/${term}`
@@ -688,16 +728,19 @@ export function buildTermUri(term, instance) {
 
 ### `harmonizeSource` lazy import
 
-`harmonizeSource.js` loads `getHarmonizer.js` (the SvelteKit adapter) lazily via `await import()` so it doesn't pull `$env` into non-Vite environments. Outside SvelteKit, always pass `getHarmonizer` via options or use `client.harmonizeSource()` from `createClient`, which wires the registry automatically.
+`harmonizeSource.js` has a fallback `await import("./getHarmonizer.js")` for SvelteKit contexts. Outside SvelteKit, always pass `getHarmonizer` via options or use `client.harmonize()` from `createClient`, which wires the registry automatically.
 
 ### Testing the core package
 
 ```bash
 # Unit tests (no live services needed)
-npx vitest run src/tests/sparqlClient.test.js src/tests/api.test.js
+npx vitest run src/tests/core.test.js src/tests/indexer.test.js src/tests/api.test.js
 
-# Live proof script (requires SPARQL + dev server)
+# Live proof script (requires SPARQL endpoint running)
 node --env-file=.env scripts/core-test.js
+
+# Test package resolution via npm name
+node -e "import('octothorpes').then(m => console.log(Object.keys(m)))"
 
 # Debug endpoint (requires dev server running)
 # GET {instance}/debug/core
@@ -707,10 +750,9 @@ node --env-file=.env scripts/core-test.js
 
 ### Publishing
 
-When ready to cut a release:
 ```bash
 cd packages/core
 npm publish --access public
 ```
 
-Until then, the workspace symlink in `node_modules/@octothorpes/core` makes the package available locally.
+Until published, the workspace symlink in `node_modules/octothorpes` makes the package available locally.
