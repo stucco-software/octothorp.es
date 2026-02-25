@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import { instance, sparql_endpoint, sparql_user, sparql_password } from '$env/static/private'
-import { createClient } from '@octothorpes/core'
+import { createClient } from 'octothorpes'
 
 const client = createClient({
   instance,
@@ -12,7 +12,7 @@ const client = createClient({
 })
 
 /**
- * Debug endpoint for exercising @octothorpes/core directly.
+ * Debug endpoint for exercising octothorpes directly.
  *
  * Query params:
  *   method  - 'get' (default) or 'fast'

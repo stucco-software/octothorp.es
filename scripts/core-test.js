@@ -5,7 +5,7 @@ const client = createClient({
   sparql: process.env,
 })
 
-console.log('=== @octothorpes/core alpha test ===\n')
+console.log('=== octothorpes alpha test ===\n')
 
 // Test 1: getfast.terms()
 console.log('1. getfast.terms()')
