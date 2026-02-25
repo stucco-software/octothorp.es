@@ -3,9 +3,9 @@
 // Framework-agnostic indexing pipeline.
 // All SPARQL functions and harmonizeSource are injected — no $lib imports.
 
-import { deslash } from '../../src/lib/utils.js'
-import { parseUri, validateSameOrigin } from '../../src/lib/uri.js'
-import { verifiedOrigin } from '../../src/lib/origin.js'
+import { deslash } from './utils.js'
+import { parseUri, validateSameOrigin } from './uri.js'
+import { verifiedOrigin } from './origin.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
