@@ -211,32 +211,38 @@ A generic "render blobjects from multiple OP and RSS sources" component. Useful 
 
 ### Epic 2: Protocol Bridge Handlers
 
-Adds social network sources and cross-posting. Builds on Epic 1's vocabulary and handler patterns.
+Adds social network sources and cross-posting. Builds on Epic 1's vocabulary and handler patterns. ATProto is the priority — its API is designed for third-party clients with full interaction support. ActivityPub is higher effort due to HTTP Signatures and the Mastodon REST API dependency.
 
-**ATProto inbound:**
-- Jetstream subscriber or feed poll
-- Harmonizer: `app.bsky.feed.post` -> blobject + DR
-- Facet parsing (hashtags, links, mentions)
-- Media/embed extraction into DR `content` block
-- Auth session management (shared with outbound)
+**ATProto handler (priority):**
 
-**ATProto outbound:**
-- Publisher: blobject -> `app.bsky.feed.post` or `site.standard.document`
-- POST to user's PDS
-- Store returned AT-URI as `sameAs`
+ATProto is the most embeddable protocol. The `@atproto/api` npm package provides a complete client — auth, reading, and all interactions are standard API calls. Third-party actions (like, repost, reply) are indistinguishable from first-party.
 
-**ActivityPub inbound:**
-- Follow actor, receive activities at local inbox
-- HTTP Signature verification
-- Harmonizer: Note/Article -> blobject + DR
-- Hashtag tag parsing, `inReplyTo` mapping
+- Auth: App password or OAuth session via `@atproto/api`. User signs into their Bluesky account within the app. Token stored for subsequent calls.
+- Inbound: Jetstream subscriber or feed poll. Harmonizer maps `app.bsky.feed.post` -> blobject + DR. Facets become octothorpes (hashtag facets -> terms, link facets -> link-type). Media/embeds extracted into DR `content` block. AT-URI becomes `sameAs`.
+- Outbound: Publisher creates `app.bsky.feed.post` or `site.standard.document` records on user's PDS. Stores returned AT-URI as `sameAs`.
+- Embedded interactions: `agent.like()`, `agent.repost()`, `agent.post()` (with `reply` ref) — these are record writes to the user's AT repo. The app can offer inline like/repost/reply without leaving the UI. OP records the resulting AT-URIs as interaction pointers in the DR.
 
-**ActivityPub outbound:**
-- Wrap blobject in Create activity
-- HTTP Signature signing
-- Keypair management
-- Inbox discovery and delivery
-- Overlaps with existing AP bridge design — the bridge pushes OP content out, this handler does the same but from the app's perspective
+**ActivityPub handler:**
+
+ActivityPub federation uses the S2S protocol (HTTP Signatures, inbox delivery), but user-facing interactions use the **Mastodon Client REST API** — a separate, Mastodon-specific REST API that most fediverse servers implement for client compatibility. This means:
+
+- Auth: OAuth 2.0 per-instance. Register app, get token, `Authorization: Bearer <token>`. User provides their instance URL + authorizes.
+- Inbound: Follow an AP actor via Mastodon REST API (`POST /api/v1/accounts/:id/follow`). Receive statuses via streaming or polling the home timeline. Harmonizer maps Note/Article -> blobject + DR. Hashtag tags become terms, `inReplyTo` becomes a link-type octothorpe, `attributedTo` becomes `contact`. AP object `id` becomes `sameAs`.
+- Outbound: `POST /api/v1/statuses` to compose. The Mastodon API handles federation — the app doesn't need to sign activities or discover inboxes.
+- Embedded interactions: `POST /api/v1/statuses/:id/favourite`, `POST /api/v1/statuses/:id/reblog`, `POST /api/v1/statuses` with `in_reply_to_id` for replies. Feasible but instance-dependent — the app targets the Mastodon REST API as de facto standard.
+- Caveat: Mastodon does not implement ActivityPub's Client-to-Server (C2S) spec. The app always speaks Mastodon REST API for user interactions, AP S2S only for server-level federation (the bridge design).
+
+**Protocol interaction comparison:**
+
+| Capability | ATProto | Mastodon REST API | RSS/Web | OP Native |
+|------------|---------|-------------------|---------|-----------|
+| Auth model | App password / OAuth | OAuth 2.0 per instance | None | None (or API key) |
+| Read feed | `agent.getTimeline()` | `GET /api/v1/timelines/home` | Poll XML | `op.get()` |
+| Like | `agent.like()` | `POST .../favourite` | N/A | N/A |
+| Repost/boost | `agent.repost()` | `POST .../reblog` | N/A | N/A |
+| Reply | `agent.post({ reply })` | `POST /api/v1/statuses` | N/A | Index with octothorpe link |
+| Compose | `agent.post()` | `POST /api/v1/statuses` | N/A | Index at app URI |
+| In-app viable? | Yes (first-class) | Yes (de facto standard) | Deep-link only | Yes (native) |
 
 **Depends on:** Epic 1 (core vocab, handler pattern, feed reader).
 
@@ -250,16 +256,22 @@ The full multi-network client. Builds on Epic 1 + 2.
 - Collect `sameAs` URIs from each publisher's response
 - Support text, images, links as input
 
-**Interaction routing:**
-- Read `source.protocol` from DR
-- Deep-link to native platform compose (lightweight path)
-- In-app compose via protocol handler publisher (full-featured path)
-- Record interaction pointers in OP (`octothorpes` link + `sameAs`)
+**Interaction UI:**
+
+The app reads `source.protocol` from the DR and offers protocol-appropriate actions:
+
+- **ATProto posts**: Inline like, repost, reply via `@atproto/api`. All actions happen in-app. Results stored as `sameAs` / interaction pointers in DR.
+- **Mastodon/Fediverse posts**: Inline favourite, reblog, reply via Mastodon REST API (requires OAuth token for user's instance). Fallback: deep-link to post on the user's instance.
+- **RSS/Web content**: Deep-link to source page. No interaction protocol available.
+- **OP native content**: Inline interaction — create an octothorpe linking your URI to theirs.
+
+All interactions are recorded in OP: `<my-action-uri> octothorpes <target-uri>` plus `<my-action-uri> sameAs <protocol://result-uri>`.
 
 **Follow management:**
 - Unified subscription UI across all protocols
 - Handler config storage and editing
 - Visual indicator of source protocol per subscription
+- Account connection management (Bluesky login, Mastodon OAuth per instance)
 
 **Subscription orchestration:**
 - Scheduler running all poll/subscribe handlers
@@ -279,13 +291,14 @@ The full multi-network client. Builds on Epic 1 + 2.
 | RSS inbound handler | 1 | Small | Feed parsing + poll scheduler, harmonizer pattern established |
 | OP-to-OP handler | 1 | Small | Thin wrapper around `op.get()` |
 | Feed reader UI | 1 | Medium | Web component, multi-source aggregation, filtering |
-| ATProto inbound | 2 | Medium | Jetstream/feed polling, facet parsing, auth |
-| ATProto outbound | 2 | Medium | PDS posting, shared auth with inbound |
-| AP inbound | 2 | Medium-Large | HTTP Signatures, inbox endpoint, actor management |
-| AP outbound | 2 | Large | Signing, keypair management, delivery, retry |
+| ATProto auth + inbound | 2 | Medium | `@atproto/api` session mgmt, Jetstream/feed polling, facet parsing |
+| ATProto outbound + interactions | 2 | Medium | PDS posting, like/repost/reply via `agent.*` — API is straightforward |
+| Mastodon auth + inbound | 2 | Medium | OAuth per-instance, REST API polling, status harmonizer |
+| Mastodon outbound + interactions | 2 | Medium | REST API for compose/favourite/reblog — simpler than AP S2S |
+| AP S2S federation (bridge) | 2 | Large | HTTP Signatures, keypair mgmt, inbox delivery, retry — only needed for server-level federation, not user interactions |
 | Compose + cross-post | 3 | Medium | URI minting, multi-publisher dispatch |
-| Interaction routing | 3 | Medium | Protocol detection, deep-link generation, in-app compose |
-| Follow management | 3 | Small-Medium | Unified UI over handler configs |
+| Interaction UI | 3 | Medium | ATProto inline (easy), Mastodon inline (moderate), RSS deep-link, OP native |
+| Follow management | 3 | Small-Medium | Unified UI, account connection (Bluesky login, Mastodon OAuth) |
 | Subscription orchestration | 3 | Medium | Scheduler, dedup, rate limiting |
 
 ### Smallest useful slice
@@ -294,7 +307,9 @@ Epic 1 alone — a multi-source feed reader that aggregates OP relays and RSS fe
 
 ### Incremental additions
 
-Add ATProto inbound (Epic 2, partial) to get Bluesky posts in the same timeline. Add compose (Epic 3, partial) to post from the app. Each piece is independently useful.
+ATProto is the natural first protocol to add after Epic 1. `@atproto/api` is a single npm dependency that gives you auth, reading, and full interaction support — no federation infrastructure needed. A timeline that reads OP + RSS + Bluesky with inline like/repost/reply is achievable with Epic 1 + ATProto handler + basic interaction UI.
+
+Mastodon interactions via the REST API are a similar level of effort per-instance, but the OAuth-per-instance model adds UX complexity. AP S2S federation (the bridge) is separate and much larger — it's only needed if you want server-to-server delivery, not for user-facing interactions.
 
 ## Existing Work to Build On
 
