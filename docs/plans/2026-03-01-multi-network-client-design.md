@@ -258,14 +258,25 @@ The full multi-network client. Builds on Epic 1 + 2.
 
 **Interaction UI:**
 
+Interactions are a two-layer operation: the **protocol layer** executes the action natively (ATProto record write, Mastodon REST call), and the **OP layer** records the relationship in the alias graph. The protocol APIs are the hands; OP is the memory.
+
 The app reads `source.protocol` from the DR and offers protocol-appropriate actions:
 
-- **ATProto posts**: Inline like, repost, reply via `@atproto/api`. All actions happen in-app. Results stored as `sameAs` / interaction pointers in DR.
+- **ATProto posts**: Inline like, repost, reply via `@atproto/api`. All actions happen in-app.
 - **Mastodon/Fediverse posts**: Inline favourite, reblog, reply via Mastodon REST API (requires OAuth token for user's instance). Fallback: deep-link to post on the user's instance.
 - **RSS/Web content**: Deep-link to source page. No interaction protocol available.
 - **OP native content**: Inline interaction — create an octothorpe linking your URI to theirs.
 
-All interactions are recorded in OP: `<my-action-uri> octothorpes <target-uri>` plus `<my-action-uri> sameAs <protocol://result-uri>`.
+After every interaction, OP records the relationship:
+
+```
+<my-app/actions/abc>  rdf:type          octo:Page
+<my-app/actions/abc>  octo:octothorpes  <my-app/cached/original-post>
+<my-app/actions/abc>  octo:sameAs       <at://did:plc:me/.../reply-record>
+<my-app/actions/abc>  octo:type         "reply"
+```
+
+This means OP can answer questions like "what have I replied to?", "show me all my interactions with posts tagged #indieweb", or "which of my bookmarks also exist on Bluesky?" — all through standard `op.get()` queries against the alias graph. The protocol-specific URIs in `sameAs` are pointers back to where the real interaction lives, but the relationship topology is OP-native.
 
 **Follow management:**
 - Unified subscription UI across all protocols
