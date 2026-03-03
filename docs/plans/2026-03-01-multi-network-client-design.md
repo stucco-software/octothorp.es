@@ -322,6 +322,18 @@ ATProto is the natural first protocol to add after Epic 1. `@atproto/api` is a s
 
 Mastodon interactions via the REST API are a similar level of effort per-instance, but the OAuth-per-instance model adds UX complexity. AP S2S federation (the bridge) is separate and much larger — it's only needed if you want server-to-server delivery, not for user-facing interactions.
 
+## Sequencing
+
+**Phase 0 (current):** Complete OP Core foundation — publishers in core, CLI. These finish the full in/out cycle that everything else depends on.
+
+**Phase 1 — Epic 1:** Multi-source feed reader. Design session to nail down DR schema and `sameAs` against the real triplestore. Build RSS inbound handler first (simplest, validates the pattern), then OP-to-OP, then the feed reader UI as an evolution of `/explore`. This phase is independently useful and proves the data model.
+
+**Phase 2 — Epic 2, ATProto first:** `@atproto/api` is one npm dependency with no infrastructure requirements. Build it right after Epic 1 to get OP + RSS + Bluesky in the timeline. Mastodon REST API handler follows — similar pattern, more OAuth plumbing. AP S2S (the bridge) is separate and waits.
+
+**Phase 3 — Epic 3:** By this point the data layer and protocol handlers exist. Epic 3 is UI and orchestration — compose, interactions, follow management — composing over what's already built. Can start as a thin wrapper over the feed reader, incrementally adding features.
+
+Design Epics 2 and 3 in detail only after Epic 1 is built. The DR schema and handler interface will evolve with real data flowing through.
+
 ## Existing Work to Build On
 
 - **Publisher system** (in core, in progress): rss2 and atproto resolvers/renderers
