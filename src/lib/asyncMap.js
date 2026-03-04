@@ -1,4 +1,4 @@
-import { arrayify } from "$lib/arrayify"
+import { arrayify } from 'octothorpes'
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest

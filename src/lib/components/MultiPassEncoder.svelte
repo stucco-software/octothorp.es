@@ -12,7 +12,7 @@
   let isDraggingMultiPass = false;
   let isDraggingGif = false;
 
-  import { injectMultipassIntoGif, isValidMultipass } from '$lib/utils.js';
+  import { injectMultipassIntoGif, isValidMultipass } from 'octothorpes';
   import { onMount, onDestroy } from 'svelte';
   import Loading from '$lib/components/Loading.svelte';
 
