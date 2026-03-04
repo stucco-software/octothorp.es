@@ -4,9 +4,7 @@ import { instance } from '$env/static/private'
 import { asyncMap} from '$lib/asyncMap.js'
 import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'
-import { verifiedOrigin } from '$lib/origin.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js';
-import { deslash } from '$lib/utils.js'
+import { verifiedOrigin, harmonizeSource, deslash } from 'octothorpes'
 
 import emailAdministrator from "$lib/emails/alertAdmin.js"
 import normalizeUrl from 'normalize-url'

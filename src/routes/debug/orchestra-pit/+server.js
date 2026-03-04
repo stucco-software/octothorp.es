@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit'
-import { harmonizeSource, remoteHarmonizer } from '$lib/harmonizeSource.js'
+import { harmonizeSource, remoteHarmonizer } from 'octothorpes'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 // TKTK import testHarmonizer for more fun
 

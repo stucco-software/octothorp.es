@@ -1,6 +1,6 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { find } from '$lib/ld/find'
-import { countWebrings } from '$lib/utils.js'
+import { countWebrings } from 'octothorpes'
 import { instance } from '$env/static/private'
 import { server_name } from '$env/static/private'
 

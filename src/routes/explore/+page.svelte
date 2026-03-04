@@ -6,7 +6,7 @@
   import RSSFeed from '$lib/components/RSSFeed.svelte'
   import ResultCard from '$lib/components/ResultCard.svelte'
   import MultiPassEncoder from '$lib/components/MultiPassEncoder.svelte'
-  import { extractMultipassFromGif } from '$lib/utils.js'
+  import { extractMultipassFromGif } from 'octothorpes'
 
   // Initialize from URL params if available
   $: urlParams = browser ? new URLSearchParams($page.url.search) : new URLSearchParams()

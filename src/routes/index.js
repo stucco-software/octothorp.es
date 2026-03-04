@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit'
 import { instance } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { assert } from '$lib/assert.js'
-import { verifiedOrigin } from '$lib/origin.js'
+import { verifiedOrigin } from 'octothorpes'
 import normalizeUrl from 'normalize-url'
 
 export const index = async (req) => {

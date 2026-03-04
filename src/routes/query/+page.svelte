@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms'
   import PreviewImage from '$lib/components/PreviewImage.svelte'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
-  import { extractMultipassFromGif } from '$lib/utils.js'
+  import { extractMultipassFromGif } from 'octothorpes'
   
   export let form
 

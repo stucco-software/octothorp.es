@@ -1,5 +1,5 @@
 import { queryArray } from '$lib/sparql.js'
-import { isSparqlSafe } from '$lib/utils.js'
+import { isSparqlSafe } from 'octothorpes'
 import { error } from '@sveltejs/kit'
 
 const thorpePath = 'https://octothorp.es/~/'
