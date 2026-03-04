@@ -1,7 +1,7 @@
 import { instance } from '$env/static/private'
-import { buildMultiPass } from '$lib/multipass.js'
+import { buildMultiPass } from 'octothorpes'
 
-export { getBlobjectFromResponse } from '$lib/blobject.js'
+export { getBlobjectFromResponse } from 'octothorpes'
 
 export const getMultiPassFromParams = (params, url) => {
   const searchParams = url.searchParams

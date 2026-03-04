@@ -7,9 +7,10 @@ vi.mock('$lib/sparql.js', () => ({
   query: vi.fn(),
 }))
 
-vi.mock('$lib/harmonizeSource.js', () => ({
-  harmonizeSource: vi.fn(),
-}))
+vi.mock('octothorpes', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, harmonizeSource: vi.fn() }
+})
 
 vi.mock('$env/static/private', () => ({
   server_name: 'test-server',
@@ -45,8 +46,7 @@ import {
 } from '$lib/indexing.js'
 
 import { queryArray, queryBoolean, insert, query } from '$lib/sparql.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js'
-import { verifiedOrigin, verifyApprovedDomain } from 'octothorpes'
+import { harmonizeSource, verifiedOrigin, verifyApprovedDomain } from 'octothorpes'
 
 const instance = 'http://localhost:5173/'
 

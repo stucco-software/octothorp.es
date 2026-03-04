@@ -1,7 +1,6 @@
 import { sparql_endpoint, sparql_user, sparql_password } from '$env/static/private'
 import { instance } from '$env/static/private'
-import { createSparqlClient } from '$lib/sparqlClient.js'
-import { createQueryBuilders } from '$lib/queryBuilders.js'
+import { createSparqlClient, createQueryBuilders } from 'octothorpes'
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest

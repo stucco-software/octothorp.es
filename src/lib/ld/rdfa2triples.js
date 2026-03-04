@@ -1,4 +1,4 @@
-import { arrayify } from '$lib/arrayify.js'
+import { arrayify } from 'octothorpes'
 import { instance } from '$env/static/private'
 let p = 'octo:octothorpes'
 

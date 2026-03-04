@@ -1,8 +1,5 @@
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js'
-import { deslash } from '$lib/utils.js'
-import { parseUri, validateSameOrigin } from '$lib/uri.js'
-import { verifiedOrigin } from '$lib/origin.js'
+import { harmonizeSource, deslash, parseUri, validateSameOrigin, verifiedOrigin } from 'octothorpes'
 import normalizeUrl from 'normalize-url'
 
 ////////// globals

@@ -1,4 +1,4 @@
-import { isSparqlSafe } from '../utils.js'
+import { isSparqlSafe } from 'octothorpes'
 
 /**
  * Resolves a value from a source object using a path or array of fallback paths
