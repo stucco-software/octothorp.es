@@ -9,16 +9,16 @@ The app creates OP-native URIs that serve as canonical identifiers, with `sameAs
 ## System Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│                  Timeline App                     │
-│  (unified timeline, compose, follow management)   │
-├──────────────────────────────────────────────────┤
-│                Protocol Handlers                  │
-│  ATProto  │  ActivityPub  │  RSS/Web  │  OP Native│
-├──────────────────────────────────────────────────┤
-│                   OP Core                         │
-│  harmonize │ index │ get │ publish │ triplestore  │
-└──────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│                  Timeline App                      │
+│  (unified timeline, compose, follow management)    │
+├────────────────────────────────────────────────────┤
+│                Protocol Handlers                   │
+│  ATProto  │  ActivityPub  │  RSS/Web  │  OP Native │
+├────────────────────────────────────────────────────┤
+│                   OP Core                          │
+│  harmonize │ index │ get │ publish │  triplestore  │
+└────────────────────────────────────────────────────┘
 ```
 
 **OP Core**: The single query surface. Everything gets indexed here. Timeline queries, term lookups, and search all go through `op.get()`.
@@ -347,12 +347,24 @@ Design Epics 2 and 3 in detail only after Epic 1 is built. The DR schema and han
 
 1. **DR storage mechanism**: Store as a JSON blob on a single predicate, or decompose into individual triples? Blob is simpler and matches "opaque to core"; triples would allow future querying but adds complexity.
 
+1nk: My gut says decompose to triples. JSONB fields are gross, and it’s not _that_ much more complex. 
+
 2. **`sameAs` cardinality**: A cached post could map to multiple external URIs (cross-posted to both Bluesky and Mastodon). Single predicate with multiple values, or a structured object?
+
+2nk: I think single predicate with multiple values makes sense, in the bluesky/mastodon crosspost instance we can tell which is which by its protocol and payload.
 
 3. **Deduplication across protocols**: The same blog post might arrive via RSS *and* via someone sharing it on Bluesky. How to detect and merge? `sameAs` + URL normalization could help, but edge cases abound.
 
+3nk: do we store a key thats a content hash and use that to dedupe?
+
 4. **Auth credential storage**: Protocol handlers need credentials (ATProto app passwords, AP keypairs). Where do these live? Env vars, encrypted config, OS keychain?
+
+4nk. No idea. Ideally not anywhere with us. If this app needs to authorize as an AP actor or AT agent, we oAuth that and store session tokens in browser.
 
 5. **Real-time vs polling**: Jetstream (ATProto) is real-time. AP can be real-time (inbox receives). RSS is poll-only. How much real-time infrastructure to build vs polling everything?
 
+5nk: I kind of like defaulting to polling for everything. I think it comes down to conceptually what experience are we building for?
+
 6. **Content freshness**: When does a cached DR become stale? Should handlers re-check canonical URIs periodically? Edits and deletions on the source platform need a propagation story.
+
+6nk: Great Q.
