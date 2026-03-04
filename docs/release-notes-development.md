@@ -2,6 +2,18 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## #178 — Collapse src/lib duplicates into core package
+
+Eliminated 13 duplicate files in `src/lib/` that were byte-for-byte copies of `packages/core/` files. All routes, tests, and adapters now import directly from `octothorpes`.
+
+- Expanded `packages/core/index.js` re-exports to cover all utils, origin, badge, and harmonizeSource functions
+- Updated 15 route files, 10 test files, and 6 internal lib files to import from `octothorpes`
+- Deleted 13 duplicate files: api.js, sparqlClient.js, queryBuilders.js, multipass.js, blobject.js, harmonizeSource.js, harmonizers.js, uri.js, origin.js, utils.js, arrayify.js, badge.js, rssify.js
+- Added `packages/core/getHarmonizer.js` to support `harmonizeSource`'s lazy import fallback in non-SvelteKit contexts
+- 4 real adapters remain in `src/lib/`: sparql.js, getHarmonizer.js, converters.js, indexing.js
+
+**Files affected:** `packages/core/index.js`, `packages/core/getHarmonizer.js`, `src/lib/sparql.js`, `src/lib/converters.js`, `src/lib/getHarmonizer.js`, `src/lib/indexing.js`, `src/lib/publish/resolve.js`, `src/lib/ld/rdfa2triples.js`, `src/lib/asyncMap.js`, `src/lib/components/MultiPassEncoder.svelte`, all modified route files, all modified test files, 13 deleted duplicates
+
 ## OP Core alpha extraction -- #178
 
 Extracted OP's framework-agnostic business logic into `packages/core/` as `@octothorpes/core`. The SvelteKit app is unchanged; route handlers now delegate to the extracted modules through thin adapter files.

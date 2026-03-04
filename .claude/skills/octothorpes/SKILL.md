@@ -887,15 +887,18 @@ const harmonizers = op.harmonizer.list()
 
 ### Adapter files in src/lib/ (do not add logic here)
 
-These SvelteKit files inject `$env` and delegate to the package modules. They exist so the existing routes keep working unchanged.
+These 4 SvelteKit files inject `$env` and delegate to the `octothorpes` package. They exist so routes keep working with SvelteKit's environment. All other `src/lib/` files that were duplicates of `packages/core/` have been deleted — use `octothorpes` directly instead.
 
-| File | Delegates to |
-|------|-------------|
-| `src/lib/sparql.js` | `sparqlClient.js`, `queryBuilders.js` |
-| `src/lib/converters.js` | `multipass.js`, `blobject.js` |
-| `src/lib/getHarmonizer.js` | `harmonizers.js` |
+| File | Purpose |
+|------|---------|
+| `src/lib/sparql.js` | Injects `$env` SPARQL config, exposes client and query builders |
+| `src/lib/converters.js` | Injects `instance` from `$env`, wraps MultiPass and blobject |
+| `src/lib/getHarmonizer.js` | Injects `instance` from `$env`, creates harmonizer registry |
+| `src/lib/indexing.js` | Full indexing pipeline adapter with SPARQL injection |
 
 ### Rules for new code
+
+**Import from `octothorpes` for all core functions.** Only use `$lib/` for the 4 adapter files above (`sparql.js`, `getHarmonizer.js`, `converters.js`, `indexing.js`).
 
 **In `packages/core/`, never use:**
 - `$env/static/private` — accept config as parameters
