@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { harmonizeSource } from '$lib/harmonizeSource.js'
+import { harmonizeSource } from 'octothorpes'
 
 describe('Terms on Relationships - Integration', () => {
   const fullHtml = `

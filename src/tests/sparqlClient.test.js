@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createSparqlClient } from '$lib/sparqlClient.js'
+import { createSparqlClient } from 'octothorpes'
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)

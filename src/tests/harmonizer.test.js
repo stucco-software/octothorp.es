@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { harmonizeSource, remoteHarmonizer } from '$lib/harmonizeSource.js'
+import { harmonizeSource, remoteHarmonizer } from 'octothorpes'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 
 describe('External Harmonizer Support', () => {

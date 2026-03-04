@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { testQueryFromMultiPass, buildSimpleQuery } from '$lib/sparql.js'
-import { createQueryBuilders } from '$lib/queryBuilders.js'
+import { createQueryBuilders } from 'octothorpes'
 
 describe('buildObjectStatement via testQueryFromMultiPass', () => {
   describe('mode "all" with terms', () => {

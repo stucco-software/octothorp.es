@@ -46,7 +46,7 @@ import {
 
 import { queryArray, queryBoolean, insert, query } from '$lib/sparql.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js'
-import { verifiedOrigin, verifyApprovedDomain } from '$lib/origin.js'
+import { verifiedOrigin, verifyApprovedDomain } from 'octothorpes'
 
 const instance = 'http://localhost:5173/'
 
