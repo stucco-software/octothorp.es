@@ -67,6 +67,86 @@ describe('op.indexSource()', () => {
   })
 })
 
+describe('publisher registry', () => {
+  it('should list all built-in publishers', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const names = op.publisher.listPublishers()
+    expect(names).toContain('rss2')
+    expect(names).toContain('atproto')
+  })
+
+  it('should get a publisher by name', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const pub = op.publisher.getPublisher('rss2')
+    expect(pub).not.toBeNull()
+    expect(pub.contentType).toBe('application/rss+xml')
+  })
+
+  it('should allow registering a custom publisher', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    op.publisher.register('markdown', {
+      schema: {
+        '@context': 'http://example.com',
+        '@id': 'http://example.com/md',
+        '@type': 'resolver',
+        schema: { title: { from: 'title', required: true } }
+      },
+      contentType: 'text/markdown',
+      meta: {},
+      render: (items) => items.map(i => `# ${i.title}`).join('\n'),
+    })
+    expect(op.publisher.listPublishers()).toContain('markdown')
+    const result = op.publish([{ title: 'Hello' }], 'markdown')
+    expect(result).toBe('# Hello')
+  })
+})
+
+describe('op.publish()', () => {
+  it('should resolve data through a named publisher', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const data = [
+      { '@id': 'https://example.com', title: 'Test', date: 1719057600000 }
+    ]
+    const xml = op.publish(data, 'rss2', { title: 'My Feed', link: 'https://example.com/feed' })
+    expect(typeof xml).toBe('string')
+    expect(xml).toContain('<rss')
+    expect(xml).toContain('My Feed')
+  })
+
+  it('should accept a publisher object directly', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const customPublisher = {
+      schema: {
+        '@context': 'http://example.com',
+        '@id': 'http://example.com/custom',
+        '@type': 'resolver',
+        schema: { name: { from: 'title', required: true } }
+      },
+      contentType: 'application/json',
+      meta: {},
+      render: (items) => JSON.stringify(items),
+    }
+    const data = [{ title: 'Hello' }]
+    const result = op.publish(data, customPublisher)
+    expect(result).toContain('Hello')
+  })
+})
+
 describe('package exports completeness', () => {
   it('should export all utils functions', async () => {
     const m = await import('octothorpes')

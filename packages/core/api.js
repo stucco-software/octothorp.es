@@ -2,6 +2,8 @@ import { buildMultiPass } from './multipass.js'
 import { getBlobjectFromResponse } from './blobject.js'
 import { createQueryBuilders } from './queryBuilders.js'
 import { parseBindings } from './utils.js'
+import { publish } from './publish.js'
+import { createPublisherRegistry } from './publishers.js'
 
 /**
  * Creates the OP API service layer.
@@ -14,8 +16,9 @@ import { parseBindings } from './utils.js'
  * @returns {Object} API with get() and fast.*
  */
 export const createApi = (config) => {
-  const { instance, queryArray, queryBoolean, insert, query: sparqlQuery } = config
+  const { instance, queryArray, queryBoolean, insert, query: sparqlQuery, publisherRegistry: externalRegistry } = config
   const builders = createQueryBuilders(instance, queryArray)
+  const publisherRegistry = externalRegistry ?? createPublisherRegistry()
 
   /**
    * General-purpose query API (MultiPass pipeline).
@@ -99,6 +102,24 @@ export const createApi = (config) => {
 
     if (as === 'debug') {
       return { multiPass, query, actualResults }
+    }
+
+    // Publisher handling
+    const publisher = publisherRegistry.getPublisher(as)
+    if (publisher) {
+      const resolved = publish(actualResults, publisher.schema)
+      const channelMeta = {
+        ...publisher.meta.channel,
+        title: multiPass.meta.title,
+        description: multiPass.meta.description,
+        pubDate: new Date().toUTCString(),
+      }
+      const output = publisher.render(resolved, channelMeta)
+
+      if (options.debug) {
+        return { output, contentType: publisher.contentType, publisher: as, results: actualResults, multiPass, query }
+      }
+      return output
     }
 
     return { results: actualResults }

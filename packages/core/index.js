@@ -2,6 +2,8 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
+import { createPublisherRegistry } from './publishers.js'
+import { publish as publishEngine } from './publish.js'
 
 // harmonizeSource is intentionally NOT re-exported directly here because
 // its default import of getHarmonizer.js is a SvelteKit adapter (uses $env).
@@ -19,6 +21,8 @@ export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
 export { verifiyContent, verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin.js'
 export { parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
+export { publish, resolve, validateResolver, loadResolver } from './publish.js'
+export { createPublisherRegistry } from './publishers.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
 export { badgeVariant, determineBadgeUri } from './badge.js'
@@ -58,6 +62,7 @@ export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance)
+  const publisherReg = createPublisherRegistry()
   const policy = normalizeIndexPolicy(config.indexPolicy)
 
   // Import harmonizeSource lazily so the SvelteKit adapter
@@ -85,6 +90,7 @@ export const createClient = (config) => {
     queryBoolean: sparql.queryBoolean,
     insert: sparql.insert,
     query: sparql.query,
+    publisherRegistry: publisherReg,
   })
 
   const indexSource = async (uri, options = {}) => {
@@ -120,12 +126,27 @@ export const createClient = (config) => {
     return { uri, indexed_at: Date.now() }
   }
 
+  const clientPublish = (data, publisherOrName, meta = {}) => {
+    let pub
+    if (typeof publisherOrName === 'string') {
+      pub = publisherReg.getPublisher(publisherOrName)
+      if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
+    } else {
+      pub = publisherOrName
+    }
+    const resolved = publishEngine(data, pub.schema)
+    const channelMeta = { ...pub.meta?.channel, ...meta, pubDate: new Date().toUTCString() }
+    return pub.render(resolved, channelMeta)
+  }
+
   return {
     indexSource,
     get: ({ what, by, ...rest } = {}) => api.get(what, by, rest),
     getfast: api.fast,
+    publish: clientPublish,
     harmonize,
     harmonizer: registry,
+    publisher: publisherReg,
     // Keep legacy paths working during transition
     sparql,
     api,

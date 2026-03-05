@@ -25,7 +25,7 @@ Understanding these terms is essential for working on OP:
 
 - **Dashboard**: A future user-facing client for individuals to manage their OP presence, link external identities (Bluesky, Mastodon), and configure cross-posting. This is where "accounts" would live -- OP Core and Relays don't have user accounts.
 
-- **Publisher**: Transforms blobjects into output formats (RSS, ATProto records, ActivityStreams). Publishers are stateless formatters. See `/src/lib/publish/`.
+- **Publisher**: Transforms blobjects into output formats (RSS, ATProto records, ActivityStreams). Publishers are stateless formatters. Defined in `packages/core/publishers.js`; register custom publishers via `op.publisher.register()`.
 
 - **Indexer**: Fetches content from a URI and produces a blobject via harmonization. Indexers are protocol-specific (HTTP, ATProto, ActivityPub) and pluggable. The current implementation only has an HTTP indexer.
 
@@ -606,53 +606,128 @@ See `/src/lib/web-components/README.md` for the full guide on creating new compo
 
 Publishers transform blobjects into output formats. They are stateless formatters used by the API's `[[as]]` parameter and by Bridges.
 
-**Location:** `/src/lib/publish/`
+**Location:** `packages/core/publish.js` (engine) + `packages/core/publishers.js` (registry + built-ins)
 
-### Structure
+### Built-in publishers
 
+| Name | Alias | Output | contentType |
+|------|-------|--------|-------------|
+| `rss2` | `rss` | RSS 2.0 XML | `application/rss+xml` |
+| `atproto` | — | `site.standard.document` JSON | `application/json` |
+
+### Publisher shape
+
+Each publisher is a plain object with four properties:
+
+```javascript
+{
+  schema: {
+    '@context': 'http://...',        // JSON-LD context URL
+    '@id': 'https://...',            // Publisher identifier
+    '@type': 'resolver',
+    schema: {                        // Field mapping rules
+      fieldName: {
+        from: 'sourceField',         // or ['field1', 'field2'] for fallbacks
+        required: true,              // return null for item if missing
+        postProcess: {               // optional transform
+          method: 'date',            // 'date', 'encode', 'prefix', 'suffix', 'default', 'extractTags'
+          params: 'rfc822'           // method-specific params
+        }
+      }
+    }
+  },
+  contentType: 'application/rss+xml',
+  meta: {
+    name: 'RSS 2.0 Feed',
+    channel: {                       // optional default channel metadata
+      title: '...',
+      description: '...',
+      link: '...'
+    }
+  },
+  render: (items, channelMeta) => string   // produce final output
+}
 ```
-src/lib/publish/
-├── index.js              # exports publish(), getPublisher(), listPublishers()
-├── resolve.js            # core resolve() function + transforms
-├── getPublisher.js       # publisher registry
-└── publishers/
-    ├── rss2/
-    │   ├── resolver.json # schema mapping blobject → RSS item fields
-    │   └── renderer.js   # XML rendering + contentType + meta
-    └── atproto/
-        ├── resolver.json # schema mapping blobject → site.standard.document
-        └── renderer.js   # passthrough (returns items directly)
+
+### postProcess transforms
+
+| method | params | effect |
+|--------|--------|--------|
+| `date` | `'rfc822'` \| `'iso8601'` \| `'unix'` | Format timestamp |
+| `encode` | `'xml'` \| `'uri'` \| `'json'` | Encode value |
+| `prefix` | string | Prepend string to value |
+| `suffix` | string | Append string to value |
+| `default` | string | Use params if value is null/empty |
+| `extractTags` | — | Extract string terms from blobject `octothorpes` array |
+
+### Writing a custom publisher
+
+```javascript
+const myPublisher = {
+  schema: {
+    '@context': 'https://schema.org/',
+    '@id': 'https://myapp.com/publishers/json-feed',
+    '@type': 'resolver',
+    schema: {
+      id:          { from: '@id', required: true },
+      title:       { from: ['title', '@id'], required: true },
+      date_published: { from: 'date', postProcess: { method: 'date', params: 'iso8601' }, required: true },
+      summary:     { from: 'description' },
+      tags:        { from: 'octothorpes', postProcess: { method: 'extractTags' } },
+      image:       { from: 'image' },
+    }
+  },
+  contentType: 'application/feed+json',
+  meta: { name: 'JSON Feed 1.1' },
+  render: (items, channelMeta) => JSON.stringify({
+    version: 'https://jsonfeed.org/version/1.1',
+    title: channelMeta.title ?? 'Feed',
+    home_page_url: channelMeta.link,
+    items,
+  }, null, 2)
+}
 ```
 
-### Publisher Components
+### Registering a custom publisher
 
-Each publisher has:
-- **Resolver schema** (`resolver.json`): Maps blobject fields to output format fields, with optional transforms
-- **Renderer** (`renderer.js`): Produces final output (XML string, JSON, etc.) and declares `contentType`
+```javascript
+import { createClient } from 'octothorpes'
 
-### Adding a New Publisher
+const op = createClient({ instance, sparql })
 
-1. Create `publishers/<format>/resolver.json` with schema
-2. Create `publishers/<format>/renderer.js` exporting:
-   - `default` - the imported resolver schema
-   - `contentType` - MIME type string
-   - `meta` - publisher metadata
-   - `render(items, meta)` - render function
-3. Register in `getPublisher.js`
+// Register once — then available via op.publish() and op.get({ as: 'json-feed' })
+op.publisher.register('json-feed', myPublisher)
+
+// Use via op.publish()
+const feed = op.publish(blobjects, 'json-feed', { title: 'My Feed', link: 'https://example.com' })
+
+// Or via get()
+const feed = await op.get({ what: 'everything', by: 'thorped', o: 'demo', as: 'json-feed' })
+```
+
+### Adding a built-in publisher to core
+
+Add to `createPublisherRegistry()` in `packages/core/publishers.js` following the rss2/atproto pattern. Built-in publishers cannot be overwritten by `register()`.
 
 ### Key APIs
 
 ```javascript
-import { publish, getPublisher, listPublishers } from '$lib/publish'
+import { publish, resolve, validateResolver, loadResolver, createPublisherRegistry } from 'octothorpes'
 
-// Transform blobjects using a resolver schema
-const items = publish(blobjects, resolver.schema)
+// Resolve blobjects using a publisher's schema (returns array of resolved items)
+const items = publish(blobjects, publisher.schema)
 
-// Get publisher by format
-const publisher = await getPublisher('rss2')  // or 'rss', 'atproto'
+// Resolve a single blobject (returns resolved object or null if required field missing)
+const item = resolve(blobject, publisher.schema)
 
-// List available formats
-const formats = listPublishers()  // ['rss2', 'rss', 'atproto']
+// Validate a resolver schema
+const { valid, error } = validateResolver(schema)
+
+// Parse and validate a JSON string as a resolver
+const { resolver, valid, error } = loadResolver(jsonString)
+
+// Create a registry (built-ins included)
+const { getPublisher, listPublishers, register } = createPublisherRegistry()
 ```
 
 ---
@@ -725,9 +800,10 @@ op-bridge-activitypub \
 | `/src/lib/getHarmonizer.js` | Local harmonizer definitions and lookup |
 | `/src/lib/uri.js` | Modular URI validation (HTTP, AT Protocol) |
 | `/src/lib/origin.js` | Origin verification (decoupled, accepts config) |
-| `/src/lib/publish/` | Publisher system (resolve, render, publisher registry) |
+| `packages/core/publish.js` | Publisher resolve engine (field mapping, transforms, validation) |
+| `packages/core/publishers.js` | Publisher registry factory with rss2 and atproto built-ins |
 | `/src/lib/utils.js` | Validation, dates, tags |
-| `/src/lib/rssify.js` | RSS generation (legacy, being replaced by publishers) |
+| `/src/lib/rssify.js` | RSS generation (legacy, still used by SvelteKit route; publishers in core are the future path) |
 | `/src/routes/harmonizer/[id]/+server.js` | API endpoint to retrieve harmonizer schemas |
 | `/src/routes/debug/harmsource/[id]/+server.js` | Debug endpoint to test harmonization |
 | `/src/routes/debug/orchestra-pit/+server.js` | Debug endpoint to test indexing any URL without registration |
@@ -847,6 +923,8 @@ All source files live directly in `packages/core/` (flat layout, no build step).
 | `multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
 | `blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
 | `harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
+| `publish.js` | Resolve engine: field mapping, transforms, validation |
+| `publishers.js` | `createPublisherRegistry()` — built-in publisher definitions |
 | `harmonizeSource.js` | HTML metadata extraction engine |
 | `indexer.js` | Framework-agnostic indexing pipeline |
 | `origin.js` | Origin verification (accepts config, no $env) |
@@ -883,6 +961,15 @@ await op.indexSource('https://example.com/page', { harmonizer: 'default' })
 
 // List available harmonizers
 const harmonizers = op.harmonizer.list()
+
+// Publish query results as RSS
+const xml = op.publish(results.results, 'rss2', { title: 'My Feed' })
+
+// Or use get() directly with as parameter
+const rssXml = await op.get({ what: 'everything', by: 'thorped', o: 'demo', as: 'rss' })
+
+// List available publishers
+const publishers = op.publisher.listPublishers()
 ```
 
 ### Adapter files in src/lib/ (do not add logic here)

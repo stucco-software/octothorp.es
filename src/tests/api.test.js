@@ -147,4 +147,70 @@ describe('createApi', () => {
       expect(result).toEqual([])
     })
   })
+
+  describe('get() with publisher as', () => {
+    it('should return rendered output when as matches a publisher', async () => {
+      mockQueryArray.mockResolvedValue({ results: { bindings: [
+        { s: { value: 'https://example.com/page' }, title: { value: 'Test' }, description: { value: 'Desc' }, date: { value: '1719057600000' }, image: { value: '' } }
+      ] } })
+
+      const api = createApi(config)
+      const result = await api.get('pages', 'thorped', { o: 'demo', as: 'rss' })
+
+      // Default: rendered output directly (string)
+      expect(typeof result).toBe('string')
+      expect(result).toContain('<rss')
+    })
+
+    it('should return debug envelope when debug flag is set', async () => {
+      mockQueryArray.mockResolvedValue({ results: { bindings: [
+        { s: { value: 'https://example.com/page' }, title: { value: 'Test' }, description: { value: 'Desc' }, date: { value: '1719057600000' }, image: { value: '' } }
+      ] } })
+
+      const api = createApi(config)
+      const result = await api.get('pages', 'thorped', { o: 'demo', as: 'rss', debug: true })
+
+      expect(result).toHaveProperty('output')
+      expect(result).toHaveProperty('contentType', 'application/rss+xml')
+      expect(result).toHaveProperty('publisher', 'rss')
+      expect(result).toHaveProperty('results')
+      expect(result).toHaveProperty('multiPass')
+      expect(result).toHaveProperty('query')
+    })
+
+    it('should fall through to normal return for unknown as values', async () => {
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+      const api = createApi(config)
+      const result = await api.get('pages', 'thorped', { o: 'demo', as: 'nonexistent' })
+
+      expect(result).toHaveProperty('results')
+    })
+
+    it('should use a custom publisher registered on a shared registry', async () => {
+      const { createPublisherRegistry } = await import('octothorpes')
+      const reg = createPublisherRegistry()
+      reg.register('csv', {
+        schema: {
+          '@context': 'http://example.com',
+          '@id': 'http://example.com/csv',
+          '@type': 'resolver',
+          schema: { title: { from: ['title', 's'], required: true } }
+        },
+        contentType: 'text/csv',
+        meta: {},
+        render: (items) => items.map(i => i.title).join(','),
+      })
+
+      mockQueryArray.mockResolvedValue({ results: { bindings: [
+        { s: { value: 'https://example.com/page' }, title: { value: 'Hello' }, description: { value: '' }, date: { value: '1719057600000' }, image: { value: '' } }
+      ] } })
+
+      const api = createApi({ ...config, publisherRegistry: reg })
+      const result = await api.get('pages', 'thorped', { o: 'demo', as: 'csv' })
+
+      expect(typeof result).toBe('string')
+      expect(result).toBe('Hello')
+    })
+  })
 })

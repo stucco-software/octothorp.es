@@ -2,6 +2,18 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## #161 — Publishers in Core
+
+Moved the publisher system into `packages/core/` as framework-agnostic modules.
+
+- `packages/core/publish.js` — standalone resolve engine (field mapping, transforms, validation)
+- `packages/core/publishers.js` — `createPublisherRegistry()` with rss2 and atproto publishers
+- `api.js` `get()` now supports `as` parameter for publisher output (e.g. `as: 'rss'`)
+- `createClient()` exposes `op.publish()` for standalone use and `op.publisher` registry
+- Default return from `get()` with publisher `as` is rendered output; `debug: true` returns envelope
+
+**Files affected:** `packages/core/publish.js`, `packages/core/publishers.js`, `packages/core/api.js`, `packages/core/index.js`, `src/tests/publish-core.test.js`, `src/tests/api.test.js`, `src/tests/core.test.js`
+
 ## #178 — Collapse src/lib duplicates into core package
 
 Eliminated 13 duplicate files in `src/lib/` that were byte-for-byte copies of `packages/core/` files. All routes, tests, and adapters now import directly from `octothorpes`.

@@ -1,18 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { 
-  resolve, 
+import {
+  resolve,
   validateResolver,
   loadResolver,
-  resolveFrom, 
-  resolvePath, 
-  applyPostProcess, 
-  formatDate, 
+  resolveFrom,
+  resolvePath,
+  applyPostProcess,
+  formatDate,
   encodeValue,
-  extractTags
-} from '../lib/publish/resolve.js'
-import { publish, getPublisher, listPublishers } from '../lib/publish/index.js'
-import rssResolver from '../lib/publish/publishers/rss2/resolver.json'
-import atprotoDocument from '../lib/publish/publishers/atproto/resolver.json'
+  extractTags,
+  publish
+} from '../../packages/core/publish.js'
+import { createPublisherRegistry } from '../../packages/core/publishers.js'
+
+const registry = createPublisherRegistry()
+const { getPublisher, listPublishers } = registry
+const rssResolver = registry.getPublisher('rss2').schema
+const atprotoDocument = registry.getPublisher('atproto').schema
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {
