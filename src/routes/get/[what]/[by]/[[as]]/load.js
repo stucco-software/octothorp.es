@@ -1,6 +1,6 @@
 import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
-import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
-import { parseBindings, rss } from 'octothorpes'
+import { getMultiPassFromParams } from '$lib/converters.js'
+import { getBlobjectFromResponse, parseBindings, rss } from 'octothorpes'
 import { error, redirect, json } from '@sveltejs/kit';
 
 

@@ -10,9 +10,15 @@ Eliminated 13 duplicate files in `src/lib/` that were byte-for-byte copies of `p
 - Updated 15 route files, 10 test files, and 6 internal lib files to import from `octothorpes`
 - Deleted 13 duplicate files: api.js, sparqlClient.js, queryBuilders.js, multipass.js, blobject.js, harmonizeSource.js, harmonizers.js, uri.js, origin.js, utils.js, arrayify.js, badge.js, rssify.js
 - Added `packages/core/getHarmonizer.js` to support `harmonizeSource`'s lazy import fallback in non-SvelteKit contexts
-- 4 real adapters remain in `src/lib/`: sparql.js, getHarmonizer.js, converters.js, indexing.js
+- 3 real adapters remain in `src/lib/`: sparql.js, getHarmonizer.js, converters.js
+- Deleted `src/lib/indexing.js` entirely — 3 route consumers (`indexwrapper`, `badge`, `rolodex`) now create their own indexer via `createIndexer` from core
+- Moved `enrichBlobjectTargets` into `packages/core/blobject.js` as `createEnrichBlobjectTargets` factory; adapter in `sparql.js` wires it
+- Removed pointless `getBlobjectFromResponse` re-export from `converters.js`; 4 consumers now import directly from `octothorpes`
+- Rewired 6 remaining route files that still imported `rss`, `arrayify`, and `parseBindings` from deleted `$lib/` paths
+- Refactored `indexing.test.js` (99 tests) to test core's `createIndexer` directly with explicit mock injection instead of `$lib` adapter mocks
+- Deleted redundant `indexer.test.js` (3 tests already covered by `indexing.test.js`)
 
-**Files affected:** `packages/core/index.js`, `packages/core/getHarmonizer.js`, `src/lib/sparql.js`, `src/lib/converters.js`, `src/lib/getHarmonizer.js`, `src/lib/indexing.js`, `src/lib/publish/resolve.js`, `src/lib/ld/rdfa2triples.js`, `src/lib/asyncMap.js`, `src/lib/components/MultiPassEncoder.svelte`, all modified route files, all modified test files, 13 deleted duplicates
+**Files affected:** `packages/core/index.js`, `packages/core/blobject.js`, `packages/core/getHarmonizer.js`, `src/lib/sparql.js`, `src/lib/converters.js`, `src/lib/getHarmonizer.js`, `src/lib/publish/resolve.js`, `src/lib/ld/rdfa2triples.js`, `src/lib/asyncMap.js`, `src/lib/components/MultiPassEncoder.svelte`, all modified route files, all modified test files, 14 deleted files (13 duplicates + indexing.js adapter)
 
 ## OP Core alpha extraction -- #178
 

@@ -1,7 +1,9 @@
 import { error } from '@sveltejs/kit'
 import { instance, server_name } from '$env/static/private'
-import { queryBoolean } from '$lib/sparql.js'
-import { handler } from '$lib/indexing.js'
+import { createIndexer, harmonizeSource } from 'octothorpes'
+import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
+
+const { handler } = createIndexer({ insert, query, queryBoolean, queryArray, harmonizeSource, instance })
 
 const allowedDomains = [
   'localhost',

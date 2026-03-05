@@ -1,6 +1,5 @@
 import { queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
-import { getBlobjectFromResponse } from '$lib/converters.js'
-import { parseBindings } from '$lib/utils'
+import { getBlobjectFromResponse, parseBindings } from 'octothorpes'
 
 export const actions = {
   default: async ({ request }) => {

@@ -1,5 +1,5 @@
 <script type="text/javascript">
-  import { arrayify } from '$lib/arrayify'
+  import { arrayify } from 'octothorpes'
   import { page } from '$app/stores'
   
   let showDraft = Boolean($page.url.searchParams.get('draft'))

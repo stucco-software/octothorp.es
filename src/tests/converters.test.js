@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { getMultiPassFromParams, getBlobjectFromResponse } from '$lib/converters.js'
-import { buildMultiPass } from 'octothorpes'
+import { getMultiPassFromParams } from '$lib/converters.js'
+import { buildMultiPass, getBlobjectFromResponse } from 'octothorpes'
 
 describe('getMultiPassFromParams', () => {
   describe('+thorped modifier parsing', () => {

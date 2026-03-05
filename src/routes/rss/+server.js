@@ -1,7 +1,7 @@
 import { queryArray } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 import { json, error } from '@sveltejs/kit'
-import { rss } from "$lib/rssify"
+import { rss } from "octothorpes"
 
 export async function GET({ request, params }) {
 

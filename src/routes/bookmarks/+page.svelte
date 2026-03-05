@@ -1,6 +1,6 @@
 <script type="text/javascript">
   import { page } from '$app/stores'
-  import {arrayify} from "$lib/arrayify"
+  import {arrayify} from "octothorpes"
   import LayoutSidebar from '$lib/components/LayoutSidebar.svelte'
   export let data
   let filter = null

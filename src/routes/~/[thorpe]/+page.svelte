@@ -1,5 +1,5 @@
 <script type="text/javascript">
-  import {arrayify} from "$lib/arrayify"
+  import {arrayify} from "octothorpes"
   export let data
 </script>
 

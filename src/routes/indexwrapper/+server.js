@@ -1,8 +1,9 @@
 import { json, error } from '@sveltejs/kit'
 import { instance, server_name } from '$env/static/private'
-import { queryBoolean } from '$lib/sparql.js'
-import { handler, parseRequestBody } from '$lib/indexing.js'
-import { parseUri } from 'octothorpes'
+import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
+import { createIndexer, harmonizeSource, parseUri, parseRequestBody } from 'octothorpes'
+
+const { handler } = createIndexer({ insert, query, queryBoolean, queryArray, harmonizeSource, instance })
 
 const knownErrors = [
   'not registered',
