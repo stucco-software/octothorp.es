@@ -1,0 +1,12 @@
+{
+  "@context": "https://docs.cosmik.network/",
+  "@id": "https://octothorp.es/publishers/semble",
+  "@type": "resolver",
+  "schema": {
+    "url": { "from": "@id", "required": true },
+    "title": { "from": "title" },
+    "description": { "from": "description" },
+    "image": { "from": "image" },
+    "createdAt": { "from": "date", "postProcess": { "method": "date", "params": "iso8601" }, "required": true }
+  }
+}

@@ -662,41 +662,63 @@ Each publisher is a plain object with four properties:
 
 ### Writing a custom publisher
 
-```javascript
-const myPublisher = {
-  schema: {
-    '@context': 'https://schema.org/',
-    '@id': 'https://myapp.com/publishers/json-feed',
-    '@type': 'resolver',
-    schema: {
-      id:          { from: '@id', required: true },
-      title:       { from: ['title', '@id'], required: true },
-      date_published: { from: 'date', postProcess: { method: 'date', params: 'iso8601' }, required: true },
-      summary:     { from: 'description' },
-      tags:        { from: 'octothorpes', postProcess: { method: 'extractTags' } },
-      image:       { from: 'image' },
-    }
-  },
-  contentType: 'application/feed+json',
-  meta: { name: 'JSON Feed 1.1' },
-  render: (items, channelMeta) => JSON.stringify({
-    version: 'https://jsonfeed.org/version/1.1',
-    title: channelMeta.title ?? 'Feed',
-    home_page_url: channelMeta.link,
-    items,
-  }, null, 2)
+Custom publishers live in `src/lib/publishers/` using a directory-per-publisher convention that separates the declarative schema from the rendering logic:
+
+```
+src/lib/publishers/
+  my-format/
+    resolver.json    — field mapping schema (pure data, no JS)
+    renderer.js      — contentType, meta, render function
+```
+
+**resolver.json** — the schema that maps blobject fields to output fields:
+
+```json
+{
+  "@context": "https://schema.org/",
+  "@id": "https://myapp.com/publishers/json-feed",
+  "@type": "resolver",
+  "schema": {
+    "id":             { "from": "@id", "required": true },
+    "title":          { "from": ["title", "@id"], "required": true },
+    "date_published": { "from": "date", "postProcess": { "method": "date", "params": "iso8601" }, "required": true },
+    "summary":        { "from": "description" },
+    "tags":           { "from": "octothorpes", "postProcess": { "method": "extractTags" } },
+    "image":          { "from": "image" }
+  }
 }
 ```
 
+**renderer.js** — the JS that shapes resolved items into final output:
+
+```javascript
+export const contentType = 'application/feed+json'
+
+export const meta = { name: 'JSON Feed 1.1' }
+
+export const render = (items, channelMeta) => JSON.stringify({
+  version: 'https://jsonfeed.org/version/1.1',
+  title: channelMeta.title ?? 'Feed',
+  home_page_url: channelMeta.link,
+  items,
+}, null, 2)
+```
+
+When the output format requires reshaping resolved items into a nested structure (e.g. wrapping flat fields into a nested object), do that in `render()`. The resolver produces flat key-value pairs; `render()` assembles the final shape.
+
 ### Registering a custom publisher
+
+Assemble the publisher from its two files and register it with the client:
 
 ```javascript
 import { createClient } from 'octothorpes'
+import schema from '$lib/publishers/json-feed/resolver.json'
+import { contentType, meta, render } from '$lib/publishers/json-feed/renderer.js'
 
 const op = createClient({ instance, sparql })
 
 // Register once — then available via op.publish() and op.get({ as: 'json-feed' })
-op.publisher.register('json-feed', myPublisher)
+op.publisher.register('json-feed', { schema, contentType, meta, render })
 
 // Use via op.publish()
 const feed = op.publish(blobjects, 'json-feed', { title: 'My Feed', link: 'https://example.com' })
@@ -704,6 +726,12 @@ const feed = op.publish(blobjects, 'json-feed', { title: 'My Feed', link: 'https
 // Or via get()
 const feed = await op.get({ what: 'everything', by: 'thorped', o: 'demo', as: 'json-feed' })
 ```
+
+### Existing custom publishers
+
+| Directory | Lexicon | Output |
+|-----------|---------|--------|
+| `src/lib/publishers/semble/` | `network.cosmik.card` | Semble URL card records |
 
 ### Adding a built-in publisher to core
 
