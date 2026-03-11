@@ -117,14 +117,16 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
   });
 
   // Filter by date range if specified
+  // Use postDate when available, falling back to date (matches SPARQL ORDER BY behavior)
   let filteredMap = urlMap;
   if (filters.dateRange) {
     const { after, before } = filters.dateRange;
     filteredMap = Object.fromEntries(
       Object.entries(urlMap).filter(([_, item]) => {
-        if (!item.date) return false;
-        if (after && item.date < after) return false;
-        if (before && item.date > before) return false;
+        const effectiveDate = item.postDate || item.date;
+        if (!effectiveDate) return false;
+        if (after && effectiveDate < after) return false;
+        if (before && effectiveDate > before) return false;
         return true;
       })
     );
