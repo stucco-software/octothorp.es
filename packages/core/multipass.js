@@ -32,15 +32,6 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   let objectType = "all"
   let relationTerms = undefined
 
-  // Parse +thorped modifier
-  if (matchByParams.includes('+thorped')) {
-    const parts = matchByParams.split('+')
-    matchByParams = parts[0]
-    if (options.o) {
-      relationTerms = options.o.split(',').map(t => t.trim())
-    }
-  }
-
   // default to exact matches
   let subjectMode = "exact"
   let objectMode = "exact"
@@ -103,6 +94,12 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
       break
     default:
       throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
+  }
+
+  // Parse rt (relationship terms) -- only valid on link-type [by] values
+  const linkTypes = ['linked', 'mentioned', 'backlinked', 'cited', 'bookmarked']
+  if (options.rt && linkTypes.includes(matchByParams)) {
+    relationTerms = options.rt.split(',').map(t => t.trim())
   }
 
   if (subjectMode != "byParent") {

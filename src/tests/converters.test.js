@@ -3,31 +3,30 @@ import { getMultiPassFromParams, getBlobjectFromResponse } from '$lib/converters
 import { buildMultiPass } from '$lib/multipass.js'
 
 describe('getMultiPassFromParams', () => {
-  describe('+thorped modifier parsing', () => {
-    it('should parse bookmarked+thorped as Bookmark with relationTerms', () => {
-      const params = { what: 'pages', by: 'bookmarked+thorped' }
-      const url = new URL('http://localhost:5173/get/pages/bookmarked+thorped?o=gadgets')
+  describe('rt parameter parsing', () => {
+    it('should parse rt into relationTerms for bookmarked', () => {
+      const params = { what: 'pages', by: 'bookmarked' }
+      const url = new URL('http://localhost:5173/get/pages/bookmarked?rt=gadgets')
 
       const multiPass = getMultiPassFromParams(params, url)
 
       expect(multiPass.filters.subtype).toBe('Bookmark')
-      expect(multiPass.filters.relationTerms).toBeDefined()
       expect(multiPass.filters.relationTerms).toContain('gadgets')
     })
 
-    it('should parse linked+thorped with multiple relation terms', () => {
-      const params = { what: 'pages', by: 'linked+thorped' }
-      const url = new URL('http://localhost:5173/get/pages/linked+thorped?o=dev-tools,recipes')
+    it('should parse multiple rt values', () => {
+      const params = { what: 'pages', by: 'bookmarked' }
+      const url = new URL('http://localhost:5173/get/pages/bookmarked?rt=gadgets,bikes')
 
       const multiPass = getMultiPassFromParams(params, url)
 
-      expect(multiPass.filters.relationTerms).toContain('dev-tools')
-      expect(multiPass.filters.relationTerms).toContain('recipes')
+      expect(multiPass.filters.relationTerms).toContain('gadgets')
+      expect(multiPass.filters.relationTerms).toContain('bikes')
     })
 
-    it('should parse cited+thorped with relation terms', () => {
-      const params = { what: 'pages', by: 'cited+thorped' }
-      const url = new URL('http://localhost:5173/get/pages/cited+thorped?o=methodology')
+    it('should parse rt for cited', () => {
+      const params = { what: 'pages', by: 'cited' }
+      const url = new URL('http://localhost:5173/get/pages/cited?rt=methodology')
 
       const multiPass = getMultiPassFromParams(params, url)
 
@@ -35,9 +34,9 @@ describe('getMultiPassFromParams', () => {
       expect(multiPass.filters.relationTerms).toContain('methodology')
     })
 
-    it('should parse backlinked+thorped with relation terms', () => {
-      const params = { what: 'pages', by: 'backlinked+thorped' }
-      const url = new URL('http://localhost:5173/get/pages/backlinked+thorped?o=bikes')
+    it('should parse rt for backlinked', () => {
+      const params = { what: 'pages', by: 'backlinked' }
+      const url = new URL('http://localhost:5173/get/pages/backlinked?rt=bikes')
 
       const multiPass = getMultiPassFromParams(params, url)
 
@@ -45,32 +44,72 @@ describe('getMultiPassFromParams', () => {
       expect(multiPass.filters.relationTerms).toContain('bikes')
     })
 
-    it('should not set relationTerms for plain bookmarked', () => {
+    it('should parse rt for linked (no subtype)', () => {
+      const params = { what: 'pages', by: 'linked' }
+      const url = new URL('http://localhost:5173/get/pages/linked?rt=tools')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.subtype).toBe('')
+      expect(multiPass.filters.relationTerms).toContain('tools')
+    })
+
+    it('should parse rt for mentioned (no subtype)', () => {
+      const params = { what: 'pages', by: 'mentioned' }
+      const url = new URL('http://localhost:5173/get/pages/mentioned?rt=tools')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.filters.subtype).toBe('')
+      expect(multiPass.filters.relationTerms).toContain('tools')
+    })
+
+    it('should not set relationTerms when rt is absent', () => {
       const params = { what: 'pages', by: 'bookmarked' }
       const url = new URL('http://localhost:5173/get/pages/bookmarked?o=example.com')
 
       const multiPass = getMultiPassFromParams(params, url)
 
-      expect(multiPass.filters.subtype).toBe('Bookmark')
       expect(multiPass.filters.relationTerms).toBeUndefined()
     })
 
-    it('should not set relationTerms for plain linked', () => {
-      const params = { what: 'pages', by: 'linked' }
-      const url = new URL('http://localhost:5173/get/pages/linked?o=example.com')
+    it('should keep o as target filter when rt is also present', () => {
+      const params = { what: 'pages', by: 'bookmarked' }
+      const url = new URL('http://localhost:5173/get/pages/bookmarked?o=https://example.com&rt=gadgets')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.objects.include).toContain('https://example.com')
+      expect(multiPass.filters.relationTerms).toContain('gadgets')
+    })
+
+    it('should allow rt without s or o', () => {
+      const params = { what: 'pages', by: 'bookmarked' }
+      const url = new URL('http://localhost:5173/get/pages/bookmarked?rt=gadgets')
+
+      const multiPass = getMultiPassFromParams(params, url)
+
+      expect(multiPass.subjects.include).toEqual([])
+      expect(multiPass.objects.include).toEqual([])
+      expect(multiPass.filters.relationTerms).toContain('gadgets')
+    })
+
+    it('should silently ignore rt on thorped queries', () => {
+      const params = { what: 'pages', by: 'thorped' }
+      const url = new URL('http://localhost:5173/get/pages/thorped?o=demo&rt=gadgets')
 
       const multiPass = getMultiPassFromParams(params, url)
 
       expect(multiPass.filters.relationTerms).toBeUndefined()
+      expect(multiPass.objects.include).toContain('demo')
     })
 
-    it('should handle +thorped with no o parameter gracefully', () => {
-      const params = { what: 'pages', by: 'bookmarked+thorped' }
-      const url = new URL('http://localhost:5173/get/pages/bookmarked+thorped')
+    it('should silently ignore rt on posted queries', () => {
+      const params = { what: 'everything', by: 'posted' }
+      const url = new URL('http://localhost:5173/get/everything/posted?s=https://example.com&rt=gadgets')
 
       const multiPass = getMultiPassFromParams(params, url)
 
-      expect(multiPass.filters.subtype).toBe('Bookmark')
       expect(multiPass.filters.relationTerms).toBeUndefined()
     })
   })
@@ -278,12 +317,18 @@ describe('buildMultiPass', () => {
     expect(mp.filters.offsetResults).toBe('10')
   })
 
-  it('should handle +thorped modifier', () => {
-    const mp = buildMultiPass('pages', 'bookmarked+thorped', {
-      o: 'gadgets'
+  it('should handle rt option', () => {
+    const mp = buildMultiPass('pages', 'bookmarked', {
+      rt: 'gadgets'
     }, instance)
     expect(mp.filters.subtype).toBe('Bookmark')
     expect(mp.filters.relationTerms).toContain('gadgets')
+  })
+
+  it('should reject +thorped modifier (removed)', () => {
+    expect(() => {
+      buildMultiPass('pages', 'bookmarked+thorped', { o: 'gadgets' }, instance)
+    }).toThrow(/Invalid/)
   })
 
   it('should handle posted/all with no objects', () => {
