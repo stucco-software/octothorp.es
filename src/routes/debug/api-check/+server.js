@@ -58,6 +58,7 @@ export async function GET() {
   <div class="controls">
     <label>s=</label><input id="subjects" value="localhost,demo.ideastore.dev" size="35">
     <label>o=</label><input id="objects" value="demo" size="15">
+    <label>rt=</label><input id="relterms" value="" size="15" placeholder="(relationship terms)">
     <button onclick="runAll()">Run All</button>
   </div>
   <div class="global-summary" id="global-summary"></div>
@@ -68,12 +69,12 @@ const BASE = '${base}'
 
 const whats = ['everything', 'pages', 'thorpes', 'domains']
 const bys = [
-  { by: 'thorped',    needsObject: true },
-  { by: 'linked',     needsObject: true },
-  { by: 'backlinked', needsObject: true },
-  { by: 'cited',      needsObject: true },
-  { by: 'bookmarked', needsObject: true },
-  { by: 'posted',     needsObject: false },
+  { by: 'thorped',    needsObject: true,  isLinkType: false },
+  { by: 'linked',     needsObject: true,  isLinkType: true },
+  { by: 'backlinked', needsObject: true,  isLinkType: true },
+  { by: 'cited',      needsObject: true,  isLinkType: true },
+  { by: 'bookmarked', needsObject: true,  isLinkType: true },
+  { by: 'posted',     needsObject: false, isLinkType: false },
 ]
 const formats = ['', 'debug', 'rss']
 const extras = [
@@ -83,12 +84,14 @@ const extras = [
   { when: 'after-2024-01-01' },
   { match: 'all' },
   { limit: '1' },
+  { rt: 'demo' },
 ]
 
 function getParams() {
   return {
     s: document.getElementById('subjects').value,
     o: document.getElementById('objects').value,
+    rt: document.getElementById('relterms').value,
   }
 }
 
@@ -123,9 +126,10 @@ async function runOne(rowId, what, by, as, extraParams) {
   msCell.textContent = ''
   sparqlCell.innerHTML = ''
 
-  const { s, o } = getParams()
+  const { s, o, rt } = getParams()
   const params = { s }
   if (by !== 'posted') params.o = o
+  if (rt) params.rt = rt
   Object.assign(params, extraParams)
 
   // Always fetch the debug endpoint to get SPARQL + results
@@ -241,7 +245,7 @@ function buildSections() {
   let rowIdx = 0
 
   for (const what of whats) {
-    for (const { by, needsObject } of bys) {
+    for (const { by, needsObject, isLinkType } of bys) {
       if (what === 'domains' && by !== 'posted') continue
 
       const sectionId = 'section-' + what + '-' + by
@@ -259,6 +263,7 @@ function buildSections() {
           for (const extra of extras) {
             if (Object.keys(extra).length === 0) continue
             if (extra.match === 'all' && !needsObject) continue
+            if (extra.rt && !isLinkType) continue
             variations.push(extra)
           }
         }
@@ -270,6 +275,7 @@ function buildSections() {
           // Build a display URL pointing to debug variant
           const displayParams = { s: '{s}' }
           if (needsObject) displayParams.o = '{o}'
+          if (extra.rt) displayParams.rt = extra.rt
           Object.assign(displayParams, extra)
           const debugAs = as || 'debug'
           const displayUrl = buildUrl(what, by, debugAs, displayParams)
