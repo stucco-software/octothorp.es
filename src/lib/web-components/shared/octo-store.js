@@ -53,7 +53,8 @@ export function createOctoQuery(what, by) {
       match = '',
       limit = '10',
       offset = '0',
-      when = ''
+      when = '',
+      rt = ''
     } = params;
 
     // Set loading state
@@ -71,6 +72,7 @@ export function createOctoQuery(what, by) {
       if (limit) searchParams.set('limit', limit);
       if (offset) searchParams.set('offset', offset);
       if (when) searchParams.set('when', when);
+      if (rt) searchParams.set('rt', Array.isArray(rt) ? rt.join(',') : rt);
 
       const queryString = searchParams.toString();
       
