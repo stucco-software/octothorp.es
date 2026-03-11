@@ -284,6 +284,10 @@ describe('Indexing Business Logic', () => {
       await createBacklink('https://example.com/page', 'https://other.com/page')
       const insertCall = insert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Backlink>')
+      // Source-anchored: blank node hangs off source
+      expect(insertCall).toContain('<https://example.com/page> octo:octothorpes _:backlink')
+      // URL points to target
+      expect(insertCall).toContain('_:backlink octo:url <https://other.com/page>')
     })
 
     it('should use provided subtype', async () => {

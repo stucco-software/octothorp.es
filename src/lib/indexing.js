@@ -220,8 +220,8 @@ export const extantMention = async (s, o) => {
 export const extantBacklink = async (s, o) => {
   return await queryBoolean(`
     ask {
-      <${o}> ${p} _:backlink .
-        _:backlink octo:url <${s}> .
+      <${s}> ${p} _:backlink .
+        _:backlink octo:url <${o}> .
     }
   `)
 }
@@ -279,9 +279,9 @@ export const createBacklink = async (s, o, subtype = 'Backlink', terms = [], { i
 
   // Build base triples
   let triples = `
-    <${o}> ${p} _:backlink .
+    <${s}> ${p} _:backlink .
       _:backlink octo:created ${now} .
-      _:backlink octo:url <${s}> .
+      _:backlink octo:url <${o}> .
       _:backlink rdf:type <octo:${subtype}> .
   `
 
