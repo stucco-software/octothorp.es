@@ -219,3 +219,15 @@ Extracted the framework-agnostic OP business logic into a standalone `@octothorp
 **What changed:** Relationship blank nodes (bookmarks, citations, links with terms) are now anchored on the source page instead of the target page. `createBacklink` inserts `<source> octo:octothorpes _:bn . _:bn octo:url <target>` instead of the reverse. Query builders, subtype filters, relation term filters, and the enrichment pipeline updated to match.
 **Files affected:** `packages/core/indexer.js`, `packages/core/queryBuilders.js`, `src/lib/indexing.js`, `src/lib/queryBuilders.js`, `src/lib/sparql.js`
 **Breaking:** Existing data in the triplestore with target-anchored blank nodes will not be queryable via the new filters. Pages must be re-indexed.
+
+## #118 — Dedicated `?rt` parameter for relationship term filtering
+
+Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Relationship terms are now filtered via `?rt=term1,term2` on link-type queries (`bookmarked`, `backlinked`, `cited`, `linked`, `mentioned`). The `?o` parameter always means target page/term, and `?rt` can be used without `?s` or `?o`. When both a subtype and relationship terms are present, the SPARQL filter constrains a single blank node (ensuring "bookmarks with this term" rather than "bookmarks on a page with this term somewhere").
+
+**Files changed:**
+- `packages/core/multipass.js` / `src/lib/multipass.js` — Parse `?rt`, remove `+thorped`
+- `packages/core/queryBuilders.js` / `src/lib/queryBuilders.js` — Merge filters, relax guard
+- `src/lib/converters.js` — Pass `rt` from URL params
+- `src/lib/web-components/shared/octo-store.js` — Accept `rt` in web components
+- `src/routes/debug/api-check/+server.js` — Add `rt` test coverage
+- `docs/testing/terms-on-relationships-guide.md` — Updated examples
