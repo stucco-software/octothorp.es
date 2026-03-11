@@ -234,10 +234,10 @@ export const createQueryBuilders = (instance, queryArray) => {
     let subtypeFilter = ""
     if (filters.subtype) {
       subtypeFilter = `FILTER EXISTS {
-        ?o ?blankNodePred ?blankNode .
-        FILTER(isBlank(?blankNode))
-        ?blankNode ?bnp ?blankNodeObj .
-        FILTER(!isBlank(?blankNodeObj) && ?blankNodeObj = <octo:${filters.subtype}>)
+        ?s octo:octothorpes ?_stBn .
+        FILTER(isBlank(?_stBn))
+        ?_stBn octo:url ?o .
+        ?_stBn rdf:type <octo:${filters.subtype}> .
       }`
       console.log(subtypeFilter)
     }
@@ -247,10 +247,10 @@ export const createQueryBuilders = (instance, queryArray) => {
     if (filters.relationTerms && filters.relationTerms.length > 0) {
       const termUris = filters.relationTerms.map(t => `<${instance}~/${t}>`).join(' ')
       relationTermsFilter = `FILTER EXISTS {
-        ?o ?blankNodePred ?blankNode .
-        FILTER(isBlank(?blankNode))
+        ?s octo:octothorpes ?_rtBn .
+        FILTER(isBlank(?_rtBn))
         VALUES ?relationTerm { ${termUris} }
-        ?blankNode octo:octothorpes ?relationTerm .
+        ?_rtBn octo:octothorpes ?relationTerm .
       }`
       console.log(relationTermsFilter)
     }

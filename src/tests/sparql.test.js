@@ -209,6 +209,61 @@ describe('buildSimpleQuery with match-all', () => {
   })
 })
 
+describe('subtypeFilter - source-anchored', () => {
+  const instance = 'http://localhost:5173/'
+  const builders = createQueryBuilders(instance)
+
+  it('should generate source-anchored subtype filter', () => {
+    const result = builders.getStatements(
+      { include: ['https://example.com'], exclude: [], mode: 'exact' },
+      { include: [], exclude: [], mode: 'exact', type: 'notTerms' },
+      { subtype: 'Bookmark', limitResults: '100', offsetResults: '0' },
+      'links'
+    )
+
+    expect(result.subtypeFilter).toContain('?s octo:octothorpes ?_stBn')
+    expect(result.subtypeFilter).toContain('?_stBn octo:url ?o')
+    expect(result.subtypeFilter).toContain('?_stBn rdf:type <octo:Bookmark>')
+    // Should NOT traverse from ?o to blank node
+    expect(result.subtypeFilter).not.toContain('?o ?blankNodePred')
+  })
+})
+
+describe('relationTermsFilter - source-anchored', () => {
+  const instance = 'http://localhost:5173/'
+  const builders = createQueryBuilders(instance)
+
+  it('should traverse directly from source to blank node to term', () => {
+    const result = builders.getStatements(
+      { include: ['https://example.com'], exclude: [], mode: 'exact' },
+      { include: [], exclude: [], mode: 'exact', type: 'notTerms' },
+      { subtype: '', relationTerms: ['gadgets'], limitResults: '100', offsetResults: '0' },
+      'links'
+    )
+
+    expect(result.relationTermsFilter).toContain('?s octo:octothorpes ?_rtBn')
+    expect(result.relationTermsFilter).toContain('FILTER(isBlank(?_rtBn))')
+    expect(result.relationTermsFilter).toContain('?_rtBn octo:octothorpes ?relationTerm')
+    expect(result.relationTermsFilter).toContain(`${instance}~/gadgets>`)
+    // Should NOT traverse through an intermediate target
+    expect(result.relationTermsFilter).not.toContain('?_rtTarget')
+    // Should NOT traverse from ?o
+    expect(result.relationTermsFilter).not.toContain('?o ?blankNodePred')
+  })
+
+  it('should include all terms in VALUES clause', () => {
+    const result = builders.getStatements(
+      { include: ['https://example.com'], exclude: [], mode: 'exact' },
+      { include: [], exclude: [], mode: 'exact', type: 'notTerms' },
+      { subtype: '', relationTerms: ['gadgets', 'bikes'], limitResults: '100', offsetResults: '0' },
+      'links'
+    )
+
+    expect(result.relationTermsFilter).toContain(`~/gadgets>`)
+    expect(result.relationTermsFilter).toContain(`~/bikes>`)
+  })
+})
+
 describe('createQueryBuilders', () => {
   const instance = 'https://test.example.com/'
   const builders = createQueryBuilders(instance)
