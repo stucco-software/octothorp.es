@@ -22,7 +22,7 @@ curl -X POST "http://localhost:5173/index" \
   -d '{"uri": "https://your-site.com/test-page"}'
 ```
 
-**Expected:** Page is indexed, terms are extracted and attached to relationship blank nodes.
+**Expected:** Page is indexed, terms are extracted and attached to source-anchored relationship blank nodes (`<source> octo:octothorpes _:bn . _:bn octo:url <target> . _:bn rdf:type <octo:Bookmark>`).
 
 ## Step 2: Verify Harmonizer Output
 
@@ -166,7 +166,23 @@ curl "http://localhost:5173/get/blobjects/thorped?s=https://your-site.com/test-p
 ### +thorped queries returning empty
 - Ensure the page has been indexed after adding `data-octothorpes`
 - Verify terms were created (check `/get/terms/thorped?s=your-page`)
+- If data was indexed before the source-anchored migration, re-index to update blank node direction
 
 ### Backlinks missing terms
 - Re-index the source page
 - Check that the target page exists in the index
+
+## Storage Model
+
+Relationship blank nodes are **source-anchored**: the blank node hangs off the source page (the page doing the linking), and `octo:url` points to the target.
+
+```sparql
+# Source-anchored blank node (current)
+<source> octo:octothorpes _:bn .
+  _:bn octo:url <target> .
+  _:bn rdf:type <octo:Bookmark> .
+  _:bn octo:octothorpes <~/gadgets> .
+  _:bn octo:created 1700000000000 .
+```
+
+The direct triple from `createMention` (`<source> octo:octothorpes <target>`) coexists — it provides the flat fact for simple query joins.

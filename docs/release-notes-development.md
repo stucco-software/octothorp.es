@@ -212,3 +212,10 @@ Extracted the framework-agnostic OP business logic into a standalone `@octothorp
 - **Umami analytics**: Added tracking script to `app.html`
 - **`vercel.json`**: New Vercel configuration file
 - **`.worktrees`** added to `.gitignore`
+
+## Relationship Term Storage Migration
+
+**Issue:** Structural fix for terms on relationships
+**What changed:** Relationship blank nodes (bookmarks, citations, links with terms) are now anchored on the source page instead of the target page. `createBacklink` inserts `<source> octo:octothorpes _:bn . _:bn octo:url <target>` instead of the reverse. Query builders, subtype filters, relation term filters, and the enrichment pipeline updated to match.
+**Files affected:** `packages/core/indexer.js`, `packages/core/queryBuilders.js`, `src/lib/indexing.js`, `src/lib/queryBuilders.js`, `src/lib/sparql.js`
+**Breaking:** Existing data in the triplestore with target-anchored blank nodes will not be queryable via the new filters. Pages must be re-indexed.
