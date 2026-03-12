@@ -83,7 +83,7 @@ const extras = [
   { when: 'before-2025-01-01' },
   { when: 'after-2024-01-01' },
   { match: 'all' },
-  { limit: '1' },
+  { limit: '1000' },
   { rt: 'demo' },
 ]
 

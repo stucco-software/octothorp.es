@@ -10,8 +10,9 @@ import normalizeUrl from 'normalize-url'
 const p = 'octo:octothorpes'
 const indexCooldown = 300000 // 5min
 
-// Map harmonizer type values to RDF subtype names.
-// Types not listed here default to Backlink (generic page-to-page link).
+// Map harmonizer type values to normalized RDF subtype names.
+// Types not listed here pass through as capitalized subtypes, allowing
+// harmonizers to define their own link vocabularies (e.g. sameas → Sameas).
 const subtypeMap = {
   bookmark: 'Bookmark',
   Bookmark: 'Bookmark',
@@ -22,7 +23,7 @@ const subtypeMap = {
   Button: 'Button',
 }
 
-export const resolveSubtype = (type) => subtypeMap[type] || 'Backlink'
+export const resolveSubtype = (type) => subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))
 
 ////////// harmonizer validation //////////
 

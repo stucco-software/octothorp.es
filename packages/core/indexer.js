@@ -29,7 +29,7 @@ const subtypeMap = {
   Button: 'Button',
 }
 
-export const resolveSubtype = (type) => subtypeMap[type] || 'Backlink'
+export const resolveSubtype = (type) => subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))
 
 ////////// stateless exports (no deps, safe to export directly) //////////
 
