@@ -7,6 +7,7 @@
  */
 import { JSDOM } from 'jsdom'
 import normalizeUrl from 'normalize-url'
+import { createHarmonizerRegistry } from './harmonizers.js'
 
 
 
@@ -547,7 +548,7 @@ export async function remoteHarmonizer(url) {
  * @throws {Error} If harmonizer is invalid or processing fails
  */
 export async function harmonizeSource(html, harmonizer = "default", options = {}) {
-  const getHarmonizer = options.getHarmonizer ?? (await import("./getHarmonizer.js")).getHarmonizer
+  const getHarmonizer = options.getHarmonizer ?? createHarmonizerRegistry(options.instance ?? '').getHarmonizer
   let schema = {}
   const d = await getHarmonizer("default")
 

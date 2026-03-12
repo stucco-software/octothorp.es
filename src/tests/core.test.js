@@ -49,6 +49,16 @@ describe('op.get()', () => {
   })
 })
 
+describe('harmonizeSource direct import', () => {
+  it('should work without options.getHarmonizer when options.instance is provided', async () => {
+    const { harmonizeSource } = await import('../../packages/core/harmonizeSource.js')
+    const html = '<html><head><title>Test</title></head><body><octo-thorpe>demo</octo-thorpe></body></html>'
+    const result = await harmonizeSource(html, 'default', { instance: 'http://localhost:5173/' })
+    expect(result).toBeDefined()
+    expect(result.title).toBe('Test')
+  })
+})
+
 describe('op.indexSource()', () => {
   it('should be a function on the returned client', () => {
     const op = createClient({
