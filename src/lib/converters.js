@@ -16,6 +16,7 @@ export const getMultiPassFromParams = (params, url) => {
     when: searchParams.get('when') || undefined,
     created: searchParams.get('created') || undefined,
     indexed: searchParams.get('indexed') || undefined,
+    rt: searchParams.get('rt') || undefined,
     feedtitle: searchParams.get('feedtitle') || undefined,
     feeddescription: searchParams.get('feeddescription') || undefined,
     feedauthor: searchParams.get('feedauthor') || undefined,

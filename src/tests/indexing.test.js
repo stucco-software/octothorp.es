@@ -284,6 +284,10 @@ describe('Indexing Business Logic', () => {
       await createBacklink('https://example.com/page', 'https://other.com/page')
       const insertCall = insert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Backlink>')
+      // Source-anchored: blank node hangs off source
+      expect(insertCall).toContain('<https://example.com/page> octo:octothorpes _:backlink')
+      // URL points to target
+      expect(insertCall).toContain('_:backlink octo:url <https://other.com/page>')
     })
 
     it('should use provided subtype', async () => {
@@ -578,6 +582,39 @@ describe('Indexing Business Logic', () => {
       expect(backlinkInsert).not.toContain('rdf:type <octo:Backlink>')
     })
 
+    it('should treat a completely unknown typed object with a uri as a generic Backlink mention', async () => {
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>')
+      }
+      harmonizeSource.mockResolvedValue({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          { type: 'sameas', uri: 'https://other.com/equivalent' },
+        ],
+        type: null,
+      })
+      queryBoolean.mockResolvedValue(false)
+      insert.mockResolvedValue({})
+      query.mockResolvedValue({})
+
+      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+
+      const insertCalls = insert.mock.calls.map(c => c[0])
+      // Should not stringify the object into a term URI
+      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
+      termCreations.forEach(call => {
+        expect(call).not.toContain('[object Object]')
+        expect(call).not.toContain('~/sameas')
+      })
+      // Should write a backlink blank node using the harmonizer-defined subtype
+      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      expect(backlinkInsert).toBeDefined()
+      expect(backlinkInsert).toContain('rdf:type <octo:Sameas>')
+      expect(backlinkInsert).toContain('https://other.com/equivalent')
+    })
+
     it('should write octo:Bookmark subtype for bookmark octothorpes', async () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
@@ -602,7 +639,7 @@ describe('Indexing Business Logic', () => {
       expect(backlinkInsert).toContain('rdf:type <octo:Bookmark>')
     })
 
-    it('should write octo:Backlink subtype for link octothorpes', async () => {
+    it('should write octo:Link subtype for link octothorpes', async () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
@@ -623,7 +660,7 @@ describe('Indexing Business Logic', () => {
 
       const insertCalls = insert.mock.calls.map(c => c[0])
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
-      expect(backlinkInsert).toContain('rdf:type <octo:Backlink>')
+      expect(backlinkInsert).toContain('rdf:type <octo:Link>')
     })
 
     it('should handle plain string octothorpes', async () => {
@@ -893,9 +930,14 @@ describe('Indexing Business Logic', () => {
       expect(resolveSubtype('Button')).toBe('Button')
     })
 
-    it('should default to Backlink for unknown types', () => {
-      expect(resolveSubtype('link')).toBe('Backlink')
-      expect(resolveSubtype('unknown')).toBe('Backlink')
+    it('should pass through unknown types as capitalized subtypes', () => {
+      expect(resolveSubtype('sameas')).toBe('Sameas')
+      expect(resolveSubtype('reply')).toBe('Reply')
+      expect(resolveSubtype('repost')).toBe('Repost')
+    })
+
+    it('should treat link as a pass-through (not aliased to Backlink)', () => {
+      expect(resolveSubtype('link')).toBe('Link')
     })
   })
 

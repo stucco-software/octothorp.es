@@ -22,7 +22,7 @@ curl -X POST "http://localhost:5173/index" \
   -d '{"uri": "https://your-site.com/test-page"}'
 ```
 
-**Expected:** Page is indexed, terms are extracted and attached to relationship blank nodes.
+**Expected:** Page is indexed, terms are extracted and attached to source-anchored relationship blank nodes (`<source> octo:octothorpes _:bn . _:bn octo:url <target> . _:bn rdf:type <octo:Bookmark>`).
 
 ## Step 2: Verify Harmonizer Output
 
@@ -88,13 +88,13 @@ curl "http://localhost:5173/get/blobjects/backlinked?s=https://example.com/bike-
 
 ## Step 4: Filter by Relationship Terms (NEW)
 
-The `+thorped` modifier filters relationships by their attached terms.
+The `?rt` parameter filters relationships by their attached terms.
 
 ### Get pages bookmarked with specific terms
 
 **Request:**
 ```bash
-curl "http://localhost:5173/get/pages/bookmarked+thorped?o=gadgets"
+curl "http://localhost:5173/get/pages/bookmarked?rt=gadgets"
 ```
 
 **Expected:** Returns pages that have been bookmarked with the term "gadgets" attached to the bookmark relationship.
@@ -103,29 +103,53 @@ curl "http://localhost:5173/get/pages/bookmarked+thorped?o=gadgets"
 
 **Request:**
 ```bash
-curl "http://localhost:5173/get/pages/bookmarked+thorped?o=gadgets,bikes"
+curl "http://localhost:5173/get/pages/bookmarked?rt=gadgets,bikes"
 ```
 
 **Expected:** Returns pages bookmarked with either "gadgets" or "bikes" terms on the relationship.
 
-### Other +thorped variants
+### Other ?rt variants
 
 ```bash
 # Pages cited with specific terms
-curl "http://localhost:5173/get/pages/cited+thorped?o=methodology"
+curl "http://localhost:5173/get/pages/cited?rt=methodology"
 
-# Pages linked with specific terms  
-curl "http://localhost:5173/get/pages/linked+thorped?o=tools"
+# Pages linked with specific terms
+curl "http://localhost:5173/get/pages/linked?rt=tools"
 
 # Pages backlinked with specific terms
-curl "http://localhost:5173/get/pages/backlinked+thorped?o=dev"
+curl "http://localhost:5173/get/pages/backlinked?rt=dev"
+```
+
+## Step 4b: Composing rt with s and o
+
+The `?rt` parameter can be combined with `?s` and/or `?o` for precise filtering:
+
+### rt alone (all bookmarks with term)
+```bash
+curl "http://localhost:5173/get/pages/bookmarked?rt=gadgets"
+```
+
+### rt + s (bookmarks from a source with term)
+```bash
+curl "http://localhost:5173/get/pages/bookmarked?s=https://your-site.com/test-page&rt=gadgets"
+```
+
+### rt + o (bookmarks of a target with term)
+```bash
+curl "http://localhost:5173/get/pages/bookmarked?o=https://example.com/bike-gadgets&rt=gadgets"
+```
+
+### rt + s + o (bookmarks from source to target with term)
+```bash
+curl "http://localhost:5173/get/pages/bookmarked?s=https://your-site.com/test-page&o=https://example.com/bike-gadgets&rt=gadgets"
 ```
 
 ## Step 5: Verify Blobject Output
 
 **Request:**
 ```bash
-curl "http://localhost:5173/get/blobjects/thorped?s=https://your-site.com/test-page"
+curl "http://localhost:5173/get/everything/bookmarked?s=https://your-site.com/test-page&rt=gadgets"
 ```
 
 **Expected Response (partial):**
@@ -163,10 +187,26 @@ curl "http://localhost:5173/get/blobjects/thorped?s=https://your-site.com/test-p
 - Check `data-octothorpes` attribute is on the same element as `rel="octo:*"`
 - Verify comma-separated format (spaces are trimmed)
 
-### +thorped queries returning empty
+### ?rt queries returning empty
 - Ensure the page has been indexed after adding `data-octothorpes`
 - Verify terms were created (check `/get/terms/thorped?s=your-page`)
+- If data was indexed before the source-anchored migration, re-index to update blank node direction
 
 ### Backlinks missing terms
 - Re-index the source page
 - Check that the target page exists in the index
+
+## Storage Model
+
+Relationship blank nodes are **source-anchored**: the blank node hangs off the source page (the page doing the linking), and `octo:url` points to the target.
+
+```sparql
+# Source-anchored blank node (current)
+<source> octo:octothorpes _:bn .
+  _:bn octo:url <target> .
+  _:bn rdf:type <octo:Bookmark> .
+  _:bn octo:octothorpes <~/gadgets> .
+  _:bn octo:created 1700000000000 .
+```
+
+The direct triple from `createMention` (`<source> octo:octothorpes <target>`) coexists — it provides the flat fact for simple query joins.

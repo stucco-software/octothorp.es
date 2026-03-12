@@ -221,9 +221,9 @@ export const createQueryBuilders = (instance, queryArray) => {
   }
 
   function getStatements(subjects, objects, filters, resultMode) {
-    if (!subjects.include.length > 0 && !objects.include.length > 0) {
+    if (subjects.include.length === 0 && objects.include.length === 0 && !(filters.relationTerms?.length > 0)) {
       console.log("not it")
-      throw new Error('Must provide at least subjects or objects');
+      throw new Error('Must provide at least subjects, objects, or relationship terms');
     }
 
     const subjectStatement = buildSubjectStatement(subjects)
@@ -231,28 +231,39 @@ export const createQueryBuilders = (instance, queryArray) => {
     const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange, 'postDate') : ""
     const createdFilter = filters.createdRange ? createDateFilter(filters.createdRange, 'createdDate') : ""
     const indexedFilter = filters.indexedRange ? createDateFilter(filters.indexedRange, 'indexedDate') : ""
-    let subtypeFilter = ""
-    if (filters.subtype) {
-      subtypeFilter = `FILTER EXISTS {
-        ?o ?blankNodePred ?blankNode .
-        FILTER(isBlank(?blankNode))
-        ?blankNode ?bnp ?blankNodeObj .
-        FILTER(!isBlank(?blankNodeObj) && ?blankNodeObj = <octo:${filters.subtype}>)
-      }`
-      console.log(subtypeFilter)
-    }
 
-    // Filter by relation terms (terms attached to blank nodes for relationships)
+    let subtypeFilter = ""
     let relationTermsFilter = ""
-    if (filters.relationTerms && filters.relationTerms.length > 0) {
+
+    const hasSubtype = !!filters.subtype
+    const hasRelationTerms = filters.relationTerms && filters.relationTerms.length > 0
+
+    if (hasSubtype && hasRelationTerms) {
+      // Merged: both constraints on the same blank node
+      const termUris = filters.relationTerms.map(t => `<${instance}~/${t}>`).join(' ')
+      subtypeFilter = `FILTER EXISTS {
+        ?s octo:octothorpes ?_stBn .
+        FILTER(isBlank(?_stBn))
+        ?_stBn octo:url ?o .
+        ?_stBn rdf:type <octo:${filters.subtype}> .
+        VALUES ?relationTerm { ${termUris} }
+        ?_stBn octo:octothorpes ?relationTerm .
+      }`
+    } else if (hasSubtype) {
+      subtypeFilter = `FILTER EXISTS {
+        ?s octo:octothorpes ?_stBn .
+        FILTER(isBlank(?_stBn))
+        ?_stBn octo:url ?o .
+        ?_stBn rdf:type <octo:${filters.subtype}> .
+      }`
+    } else if (hasRelationTerms) {
       const termUris = filters.relationTerms.map(t => `<${instance}~/${t}>`).join(' ')
       relationTermsFilter = `FILTER EXISTS {
-        ?o ?blankNodePred ?blankNode .
-        FILTER(isBlank(?blankNode))
+        ?s octo:octothorpes ?_rtBn .
+        FILTER(isBlank(?_rtBn))
         VALUES ?relationTerm { ${termUris} }
-        ?blankNode octo:octothorpes ?relationTerm .
+        ?_rtBn octo:octothorpes ?relationTerm .
       }`
-      console.log(relationTermsFilter)
     }
 
     let limitFilter = filters.limitResults

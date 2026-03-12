@@ -84,24 +84,30 @@ All URLs assume `instance=http://localhost:5173/`. Substitute your production UR
    ```
 2. Index that page. No errors should occur.
 
-### Querying with `+thorped`
+### Querying with `?rt`
 
 3. Query for everything bookmarked with the term `gadgets`:
    ```
-   http://localhost:5173/get/everything/bookmarked+thorped?o=gadgets
+   http://localhost:5173/get/everything/bookmarked?rt=gadgets
    ```
    The source page should appear in results.
 
 4. Query with a term that was NOT on that relationship:
    ```
-   http://localhost:5173/get/everything/bookmarked+thorped?o=cars
+   http://localhost:5173/get/everything/bookmarked?rt=cars
    ```
    The source page should NOT appear.
 
 5. Confirm the `debug` format shows `relationTerms` in the MultiPass:
    ```
-   http://localhost:5173/get/everything/bookmarked+thorped/debug?o=gadgets
+   http://localhost:5173/get/everything/bookmarked/debug?rt=gadgets
    ```
+
+6. Confirm `?rt` works without `?s` or `?o` (no subject or object required):
+   ```
+   http://localhost:5173/get/pages/bookmarked?rt=gadgets
+   ```
+   Should return all pages that have bookmarked anything with the term `gadgets`.
 
 ### Blobject output
 

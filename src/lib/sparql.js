@@ -57,8 +57,8 @@ export const enrichBlobjectTargets = async (blobjects) => {
     SELECT ?source ?target ?bnType ?term WHERE {
       VALUES ?source { ${sourceValues} }
       VALUES ?target { ${targetValues} }
-      ?target octo:octothorpes ?bn .
-      ?bn octo:url ?source .
+      ?source octo:octothorpes ?bn .
+      ?bn octo:url ?target .
       ?bn rdf:type ?bnType .
       OPTIONAL { ?bn octo:octothorpes ?term . }
     }

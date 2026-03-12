@@ -16,14 +16,16 @@ Example markup:
 </a>
 ```
 
-### Querying by Relationship Terms (`+thorped` modifier)
+### Querying by Relationship Terms (`?rt` parameter)
 **Suggested location:** `/op-api/`
 
-New query modifier. Document that `[by]` segments can have `+thorped` appended (e.g., `bookmarked+thorped`) and that `?o=` then filters by the relationship's terms rather than the relationship targets.
+New query parameter. Document that `?rt=term1,term2` filters link-type queries (`bookmarked`, `backlinked`, `cited`, `linked`, `mentioned`) by the terms carried on the relationship itself — not the target page. `?rt` can be used alone (without `?s` or `?o`), or composed with either or both.
 
 Show example URLs:
-- `get/everything/bookmarked+thorped?o=gadgets`
-- `get/pages/linked+thorped?o=bikes`
+- `get/everything/bookmarked?rt=gadgets` — all bookmarks with term "gadgets"
+- `get/pages/linked?rt=bikes` — all link sources with term "bikes"
+- `get/pages/bookmarked?s=https://example.com&rt=gadgets` — bookmarks from a specific source with term
+- `get/pages/bookmarked?o=https://target.com&rt=gadgets` — bookmarks of a specific target with term
 
 Show the response shape with the `terms` array on relationship objects.
 

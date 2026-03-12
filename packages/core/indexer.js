@@ -29,7 +29,7 @@ const subtypeMap = {
   Button: 'Button',
 }
 
-export const resolveSubtype = (type) => subtypeMap[type] || 'Backlink'
+export const resolveSubtype = (type) => subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))
 
 ////////// stateless exports (no deps, safe to export directly) //////////
 
@@ -249,8 +249,8 @@ export const createIndexer = (deps) => {
   const extantBacklink = async (s, o) => {
     return await queryBoolean(`
       ask {
-        <${o}> ${p} _:backlink .
-          _:backlink octo:url <${s}> .
+        <${s}> ${p} _:backlink .
+          _:backlink octo:url <${o}> .
       }
     `)
   }
@@ -310,9 +310,9 @@ export const createIndexer = (deps) => {
     let now = Date.now()
 
     let triples = `
-      <${o}> ${p} _:backlink .
+      <${s}> ${p} _:backlink .
         _:backlink octo:created ${now} .
-        _:backlink octo:url <${s}> .
+        _:backlink octo:url <${o}> .
         _:backlink rdf:type <octo:${subtype}> .
     `
 
@@ -489,6 +489,12 @@ export const createIndexer = (deps) => {
     }
   }
 
+  // handleMention creates two graph structures for each page-to-page relationship:
+  // 1. createMention: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
+  // 2. createBacklink: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
+  //    (carries metadata: subtype, terms, created timestamp)
+  // Both are needed: the direct triple supports simple joins in queries,
+  // the blank node carries relationship metadata.
   const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
     const base = inst || instance
     const subj = deslash(s)
