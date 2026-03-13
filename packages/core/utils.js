@@ -264,8 +264,10 @@ export function cleanInputs(imp, mod = "fuzzy") {
     const validation1 = isSparqlSafe(output);
     if (!validation1.valid) throw new Error(validation1.error);
     if (mod === "exact") {
-      // TKTK this should probably respect http: when set explicitly
-      output = imp.map((item) => normalizeUrl(item, { forceHttps: true }));
+      output = imp.map((item) => {
+        const forceHttps = !item.startsWith('http://')
+        return normalizeUrl(item, { forceHttps })
+      });
     }
     return output;
   }

@@ -15,7 +15,7 @@ export async function load({ params }) {
   }
 
   const response = await queryArray(`
-    SELECT DISTINCT ?s ?title ?description ?image ?date ?postDate ?o ?oType ?blankNodeObj
+    SELECT DISTINCT ?s ?title ?description ?image ?date ?postDate ?o ?oType ?bnUrl ?bnType ?bnTerm
     WHERE {
       ?s rdf:type <octo:Page> .
       FILTER(CONTAINS(STR(?s), "${domainForQuery}"))
@@ -27,12 +27,9 @@ export async function load({ params }) {
       OPTIONAL {
         ?s octo:octothorpes ?o .
         OPTIONAL { ?o rdf:type ?oType . }
-      }
-      OPTIONAL {
-        ?s ?bnPred ?blankNode .
-        FILTER(isBlank(?blankNode))
-        ?blankNode ?bnp ?blankNodeObj .
-        FILTER(!isBlank(?blankNodeObj))
+        OPTIONAL { ?o octo:url ?bnUrl . }
+        OPTIONAL { ?o rdf:type ?bnType . }
+        OPTIONAL { ?o octo:octothorpes ?bnTerm . }
       }
     }
     ORDER BY DESC(?date)
@@ -76,28 +73,26 @@ export async function load({ params }) {
 
     // Process octothorpes
     if (binding.o?.value) {
-      const targetUrl = binding.o.value
+      const isBlankNode = binding.o.type === 'bnode'
       let oType = binding.oType?.value || ''
-
-      if (oType.startsWith('octo:')) {
-        oType = oType.substring(5)
-      }
+      if (oType.startsWith('octo:')) oType = oType.substring(5)
 
       if (oType === 'Term') {
-        const termValue = targetUrl.substring(targetUrl.lastIndexOf('~/') + 2)
+        // Term octothorpe (always a URI, never a blank node)
+        const termValue = binding.o.value.substring(binding.o.value.lastIndexOf('~/') + 2)
         if (!current.octothorpes.includes(termValue)) {
           current.octothorpes.push(termValue)
         }
-      } else {
-        oType = 'link'
-        if (binding.blankNodeObj?.value?.startsWith('octo:')) {
-          oType = binding.blankNodeObj.value.substring(5)
-        }
+      } else if (isBlankNode && binding.bnUrl?.value) {
+        // Blank node with subtype (Bookmark, Cite, Backlink)
+        const targetUrl = binding.bnUrl.value
+        let bnType = binding.bnType?.value || 'Link'
+        if (bnType.startsWith('octo:')) bnType = bnType.substring(5)
 
         let relationTerm = null
-        if (binding.blankNodeObj?.value?.includes('/~/')) {
-          relationTerm = binding.blankNodeObj.value.substring(
-            binding.blankNodeObj.value.lastIndexOf('~/') + 2
+        if (binding.bnTerm?.value?.includes('/~/')) {
+          relationTerm = binding.bnTerm.value.substring(
+            binding.bnTerm.value.lastIndexOf('~/') + 2
           )
         }
 
@@ -106,12 +101,13 @@ export async function load({ params }) {
         )
 
         if (existingIndex === -1) {
-          const newEntry = { uri: targetUrl, type: oType }
+          const newEntry = { uri: targetUrl, type: bnType }
           if (relationTerm) newEntry.terms = [relationTerm]
           current.octothorpes.push(newEntry)
         } else {
-          if (oType !== 'link') {
-            current.octothorpes[existingIndex].type = oType
+          // Prefer subtype over generic 'link'
+          if (bnType !== 'Link' && bnType !== 'Page') {
+            current.octothorpes[existingIndex].type = bnType
           }
           if (relationTerm) {
             if (!current.octothorpes[existingIndex].terms) {
@@ -122,7 +118,17 @@ export async function load({ params }) {
             }
           }
         }
+      } else if (!isBlankNode) {
+        // Direct page-to-page link (URI, not a blank node, not a Term)
+        const targetUrl = binding.o.value
+        const existingIndex = current.octothorpes.findIndex(
+          item => typeof item === 'object' && item.uri === targetUrl
+        )
+        if (existingIndex === -1) {
+          current.octothorpes.push({ uri: targetUrl, type: 'Link' })
+        }
       }
+      // Skip blank nodes without bnUrl (shouldn't happen, but defensive)
     }
   })
 

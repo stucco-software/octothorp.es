@@ -4,45 +4,58 @@
 
 # URLs organized by what content they contain
 urlSets:
+  - name: "Regular hashtags"
+    description: "Pages with octothorpes"
+    urls:
+      - https://demo.ideastore.dev/the-bun-family
+      - https://octothorpes.neocities.org/hummingbird-facts
   - name: "Term relationships"
     description: "Pages with hashtag/term octothorpes"
     urls:
-      - https://demo.ideastore.dev
-      - https://sweetfish.site
+      - http://localhost/linkterms2
+      - http://localhost/linkterms
 
   - name: "Page links"
     description: "Pages linking to other pages via octo:octothorpes"
     urls:
       - https://demo.ideastore.dev
+      - http://localhost/test1/
+
+  - name: "Web Rings"
+    description: "Pages defining webrings"
+    urls:
+      - https://demo.ideastore.dev/rad-webring
 
   - name: "Bookmarks"
     description: "Pages with octo:bookmarks relationships"
     urls:
-      - https://demo.ideastore.dev
+      - http://localhost/test1/
 
   - name: "Citations"
     description: "Pages with octo:cites relationships"
     urls:
-      - https://demo.ideastore.dev
+      - http://localhost/linkterms/
 
   - name: "Endorsements"
     description: "Pages with octo:endorses relationships"
     urls:
-      - https://demo.ideastore.dev
+      - TEST ME LATER
 
 # Non-standard indexing methods (saved links + companion API check)
 indexingMethods:
   - name: "Badge indexing"
     description: "Indexing triggered by badge image embed"
     urls:
-      - url: https://demo.ideastore.dev
-        note: "Has badge embed in footer"
+      - url: http://localhost/badgeno.html
+
 
   - name: "On-page indexing policy"
     description: "Pages that opt in via <meta name='octo-policy'> or <link rel='octo:index'>"
     urls:
-      - url: https://demo.ideastore.dev
-        note: "Uses octo-policy meta tag and/or octo:index link tag"
+      - url: http://localhost/ip-head.html
+      - url: http://localhost/ip-with-harm4.html
+      - url: http://localhost/ip-with-harm.html
+      - url: http://localhost/ip-on-page.html
 
 # Custom harmonizers available in the dropdown (in addition to built-ins)
 customHarmonizers: []

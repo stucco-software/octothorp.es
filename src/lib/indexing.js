@@ -638,7 +638,7 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
       throw new Error('Page has not opted in to indexing.')
     }
 
-    // On-page harmonizer overrides request param
+    // On-page harmonizer overrides request param (must be an absolute URL)
     if (policy.harmonizer) {
       harmonizer = policy.harmonizer
     }

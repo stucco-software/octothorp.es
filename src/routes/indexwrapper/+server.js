@@ -43,8 +43,9 @@ export async function GET(req) {
   const harmonizer = url.searchParams.get('as') ?? 'default'
 
   try {
-    return await handler(uri, harmonizer, uri, config())
+    return await handler(uri, harmonizer, null, config())
   } catch (e) {
+    console.error('indexwrapper GET error:', e)
     return error(mapErrorToStatus(e.message), e.message)
   }
 }

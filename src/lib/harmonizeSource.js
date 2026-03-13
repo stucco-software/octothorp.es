@@ -246,6 +246,7 @@ function removeTrailingSlash(url) {
  * @returns {Array} Array of extracted values (strings or objects with uri/terms)
  */
 const extractValues = (html, rule) => {
+  if (rule === undefined || rule === null) return []
   if (typeof rule === "string") {
     // If the rule is a string, return it as-is
     return [rule]
@@ -303,15 +304,17 @@ const setNestedProperty = (obj, keyPath, value) => {
  * @returns {Object} Merged schema object
  */
 function mergeSchemas(baseSchema, override) {
-  // Create a copy of the default schema to avoid modifying the original
   const mergedSchema = { ...baseSchema };
 
-  // Iterate over the keys in the new schema
   for (const key in override) {
-      if (override.hasOwnProperty(key)) {
-          // If the key exists in both schemas, replace the default with the new value
-          mergedSchema[key] = override[key];
+    if (override.hasOwnProperty(key)) {
+      const val = override[key]
+      // Skip empty objects — omitting a section means "keep the default"
+      if (val && typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0) {
+        continue
       }
+      mergedSchema[key] = val
+    }
   }
 
   return mergedSchema;
