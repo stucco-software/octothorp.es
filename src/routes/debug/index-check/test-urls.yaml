@@ -1,0 +1,52 @@
+# Index Check - Test URL Configuration
+# Edit this file to change the URLs and harmonizers available in the test bench.
+# Reload the page to pick up changes.
+
+# URLs organized by what content they contain
+urlSets:
+  - name: "Term relationships"
+    description: "Pages with hashtag/term octothorpes"
+    urls:
+      - https://demo.ideastore.dev
+      - https://sweetfish.site
+
+  - name: "Page links"
+    description: "Pages linking to other pages via octo:octothorpes"
+    urls:
+      - https://demo.ideastore.dev
+
+  - name: "Bookmarks"
+    description: "Pages with octo:bookmarks relationships"
+    urls:
+      - https://demo.ideastore.dev
+
+  - name: "Citations"
+    description: "Pages with octo:cites relationships"
+    urls:
+      - https://demo.ideastore.dev
+
+  - name: "Endorsements"
+    description: "Pages with octo:endorses relationships"
+    urls:
+      - https://demo.ideastore.dev
+
+# Non-standard indexing methods (saved links + companion API check)
+indexingMethods:
+  - name: "Badge indexing"
+    description: "Indexing triggered by badge image embed"
+    urls:
+      - url: https://demo.ideastore.dev
+        note: "Has badge embed in footer"
+
+  - name: "On-page indexing policy"
+    description: "Pages that opt in via <meta name='octo-policy'> or <link rel='octo:index'>"
+    urls:
+      - url: https://demo.ideastore.dev
+        note: "Uses octo-policy meta tag and/or octo:index link tag"
+
+# Custom harmonizers available in the dropdown (in addition to built-ins)
+customHarmonizers: []
+  # - id: my-harmonizer
+  #   name: "My Custom Harmonizer"
+  # - url: https://example.com/harmonizer.json
+  #   name: "Remote Harmonizer"

@@ -521,8 +521,7 @@ Defined in `/src/lib/getHarmonizer.js`:
 | `openGraph` | Extracts `og:title`, `og:description`, `og:image` from meta tags. |
 | `keywords` | Converts `<meta name="keywords">` content to hashtags (split on comma). |
 | `ghost` | Extracts Ghost CMS article tags (`.gh-article-tag`) as hashtags. |
-| `beehiiv` | Extracts og metadata + H2 headers as hashtags + content links. |
-| `beehiiv-words` | Like `beehiiv` but splits H2 text into individual words. |
+
 
 ### Harmonizer Selection
 
