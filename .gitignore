@@ -13,3 +13,4 @@ runbook.md
 .zed/settings.json
 .worktrees
 packages/core/.npmrc
+.npmrc
