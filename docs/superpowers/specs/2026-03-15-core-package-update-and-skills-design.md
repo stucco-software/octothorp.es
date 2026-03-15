@@ -2,11 +2,11 @@
 
 ## Problem
 
-The `octothorpes` npm package (0.1.1) is missing exports and features that exist in the local `packages/core/` source. Tests pass because they import via `$lib/` (Vite aliases), not from the npm package. Additionally, the Claude skill for OP is structured around the SvelteKit site rather than around Core as the primary artifact.
+The `octothorpes` npm package (0.1.1) is missing exports and features that exist in the local `packages/core/` source. Tests pass because they import via `$lib/` (Vite aliases), not from the npm package. The `src/lib/` directory still contains duplicate files that should be thin adapters or deleted entirely. Additionally, the Claude skill for OP is structured around the SvelteKit site rather than around Core as the primary artifact.
 
 Three deliverables:
 
-1. **Core package update** -- close export/feature gaps, bump version
+1. **Core package update + cutover** -- bring core up to date, rewire imports, delete duplicates
 2. **Dev flow** -- codify the workspace-based development workflow
 3. **Skill rewrite** -- restructure the octothorpes Claude skill around Core
 
@@ -42,11 +42,19 @@ Already replaced by `?rt` query parameter (commit `d896ee8`). `multipass.js` han
 
 500 passing, 0 failures. Tests import from `$lib/` (Vite aliases resolving to local source files), so they validate logic but don't validate the npm package's export surface. The 27 failures described in `docs/core-package-gaps.md` would only manifest when importing from the published npm package directly. The gaps doc's `getHarmonizer.js` item is also stale -- that functionality lives in `harmonizers.js` via `createHarmonizerRegistry()` and does not need a separate file in core.
 
+### dev-use-core branch
+
+A prior branch (`dev-use-core`, 10 commits) already performed the cutover: rewired all imports to `octothorpes`, deleted 13 duplicate `src/lib/` files, and ported publishers to core. However, it diverged before the `?rt` parameter and relationship storage work landed on `development` (23 commits). A merge attempt produces 8 conflicts, all modify/delete (development modified files that dev-use-core deleted). Rather than merge, we replay the cutover on the current `development` branch where all feature work is already present.
+
 ## Design
 
-### Plan 1: Core Package Update (alpha.3)
+### Plan 1: Core Package Update + Cutover
 
-#### A. Add missing exports to `packages/core/index.js`
+This replaces the original "close gaps and publish" plan with a full cutover. The `dev-use-core` branch serves as a reference for the import rewiring but is not merged.
+
+#### Phase 1: Bring core up to date
+
+**A. Add missing exports to `packages/core/index.js`**
 
 ```js
 export { badgeVariant, determineBadgeUri } from './badge.js'
@@ -56,7 +64,17 @@ export { verifyApprovedDomain } from './origin.js'  // add to existing verifiedO
 
 `verifyApprovedDomain` is a distinct function from `verifiedOrigin` (the latter dispatches to the former). Both live in `origin.js`. Add `verifyApprovedDomain` to the existing export line.
 
-#### B. Port publisher system to `packages/core/`
+**B. Verify feature parity in core modules**
+
+The `?rt` parameter and source-anchored relationship storage work landed on `development` in `src/lib/` files. Verify these changes are reflected in the corresponding `packages/core/` files:
+
+- `packages/core/multipass.js` -- must handle `options.rt` for relationship terms
+- `packages/core/queryBuilders.js` -- must have `subtypeFilter` and `relationTermsFilter` for source-anchored blank nodes
+- `packages/core/blobject.js` -- must handle `enrichBlobjectTargets` with source-anchored blank nodes
+
+If any are behind, sync them from the `src/lib/` versions (adjusting imports from `$lib/` to `./`).
+
+**C. Port publisher system to `packages/core/`**
 
 Two new files following the design in `docs/plans/2026-03-01-core-publishers-design.md`:
 
@@ -64,15 +82,9 @@ Two new files following the design in `docs/plans/2026-03-01-core-publishers-des
 
 **`packages/core/publishers.js`** -- registry factory. `createPublisherRegistry()` returns `{ getPublisher, listPublishers }` with all built-in publishers as eager plain objects (schemas inlined, renderers imported directly). No lazy `import()`. Mirrors `createHarmonizerRegistry()`.
 
-Publisher data files (resolver schemas, renderers) need a home. Options:
-- Inline into `publishers.js` (simplest, one file)
-- `packages/core/publishers/` subdirectory (mirrors `src/lib/publish/publishers/`)
+Recommendation: inline renderers and resolver schemas into `publishers.js`. The RSS renderer is ~60 lines, ATProto renderer is a passthrough. Resolver JSON schemas become JS object literals (avoids JSON import complications). Inlining keeps the package flat.
 
-Recommendation: inline into `publishers.js` unless the renderers are large enough to warrant separation. The RSS renderer is ~60 lines, ATProto renderer is a passthrough. Inlining keeps the package flat.
-
-Note: the resolver JSON schemas (`resolver.json` files) must become JS object literals when inlined. This avoids JSON import complications (Node requires `--experimental-json-modules` or import assertions). Inlining as JS objects is cleaner.
-
-#### C. Wire publishers into `createClient`
+**D. Wire publishers into `createClient`**
 
 Publisher orchestration lives in `createClient` (in `index.js`), not in `api.js`. `api.get()` stays focused on SPARQL querying. When `as` is passed to `op.get()`:
 - If `as` is 'debug' or 'multipass', handle as today (pass through to `api.get()`)
@@ -81,25 +93,69 @@ Publisher orchestration lives in `createClient` (in `index.js`), not in `api.js`
 
 This mirrors how `createClient` already orchestrates harmonization -- the client is the integration layer.
 
-#### D. Add export validation test
+**E. Add export validation test**
 
 A lightweight test that imports from the `octothorpes` package name (not `$lib/`) and verifies all expected exports exist. This prevents future regressions where local code works but the package is incomplete.
 
-#### E. Version bump and publish
+**CHECKPOINT: `npx vitest run` -- all tests must pass before proceeding to Phase 2.**
 
-Current version is `0.1.1`. Bump to `0.2.0` (new features: publisher system, additional exports). Ensure `files` field covers any new paths (if using a `publishers/` subdirectory). `npm publish --access public` (human-confirmed).
+#### Phase 2: Cutover (rewire imports, delete duplicates)
 
-#### F. Update gaps doc
+Reference: `dev-use-core` branch commits `a4c20e7` through `4761c6e` show exactly which files were rewired and deleted. Use as a guide, not a merge source.
 
-Delete `docs/core-package-gaps.md` -- all gaps will be resolved by this work. The export validation test (Plan 1D) replaces it as the living record of package completeness.
+**F. Rewire route imports**
 
-#### G. Publisher test migration
+All `src/routes/` files that import from `$lib/` modules which are now in core should import from `octothorpes` instead. Files that import SvelteKit-specific things (`$env`, `@sveltejs/kit`) keep those imports but delegate to core for business logic.
 
-The existing `src/tests/publish.test.js` imports from `../lib/publish/` (the SvelteKit layer). After porting the publisher system to core, either redirect these imports to test the core module, or add a parallel test file that imports from `octothorpes`. At minimum, the export validation test (Plan 1D) should verify `createPublisherRegistry` and `publish` are accessible.
+Pattern:
+```js
+// Before
+import { buildMultiPass } from '$lib/converters.js'
+// After
+import { buildMultiPass } from 'octothorpes'
+```
 
-#### H. Legacy `rss` export
+**G. Rewire test imports**
 
-The existing `rss` export from `rssify.js` remains as-is for now. The publisher system's RSS publisher supersedes it functionally, but removing `rss` is a separate deprecation concern. No action needed in this plan.
+Same pattern for `src/tests/`. Tests that import from `$lib/` duplicates switch to importing from `octothorpes`. Tests that need SvelteKit mocks (`vi.mock('$lib/sparql.js')`) may need adjustment -- the mock targets change when the import source changes.
+
+**H. Convert `src/lib/` duplicates to thin adapters or delete**
+
+For each duplicate file in `src/lib/` that has a core equivalent:
+- If routes/components still need a `$lib/` import path (e.g., Svelte components importing via `$lib/`), keep as a thin adapter: import from `octothorpes`, re-export, inject `$env` if needed
+- If nothing imports it after rewiring, delete it
+
+Files to evaluate (from `dev-use-core`'s deletion list):
+`api.js`, `arrayify.js`, `badge.js`, `blobject.js`, `harmonizeSource.js`, `harmonizers.js`, `indexing.js`, `multipass.js`, `origin.js`, `queryBuilders.js`, `rssify.js`, `sparqlClient.js`, `uri.js`, `utils.js`
+
+The `publish/` directory (`resolve.js`, `index.js`, `getPublisher.js`, `publishers/`) can be deleted entirely once core has `publish.js` and `publishers.js`.
+
+**I. Delete stale files**
+
+- `docs/core-package-gaps.md` -- all gaps resolved
+- Any `src/lib/` files confirmed unused after rewiring
+- Debug routes that were only needed during transition (evaluate `debug/api-check`, `debug/index-check` -- keep if still useful for manual testing)
+
+**CHECKPOINT: `npx vitest run` -- all tests must pass. User manually verifies key routes in browser:**
+- `/~/demo` (term page)
+- `/get/everything/thorped?o=demo` (API query)
+- `/get/everything/thorped/debug?o=demo` (debug output)
+- Badge route
+- `debug/api-check` and `debug/index-check` (integration test pages)
+
+#### Phase 3: Finalize
+
+**J. Version bump**
+
+Current version is `0.1.1`. Bump to `0.2.0` (new features: publisher system, additional exports). `npm publish --access public` (human-confirmed).
+
+**K. Legacy `rss` export**
+
+The existing `rss` export from `rssify.js` remains as-is for now. The publisher system's RSS publisher supersedes it functionally, but removing `rss` is a separate deprecation concern.
+
+**L. Abandon `dev-use-core` branch**
+
+After the cutover is complete on `development`, `dev-use-core` is no longer needed. Can be deleted or left as historical reference.
 
 ### Plan 2: Dev Flow
 
@@ -110,6 +166,15 @@ The existing `rss` export from `rssify.js` remains as-is for now. The publisher 
 3. For core-specific tests: `npx vitest run src/tests/core.test.js src/tests/api.test.js src/tests/badge.test.js src/tests/harmonizer.test.js src/tests/converters.test.js src/tests/publish.test.js`
 4. Publish: `cd packages/core && npm publish --access public` (human only)
 5. Deploy site (pulls from npm)
+
+#### Verification workflow
+
+After any significant change, the human verifies manually using:
+- `npx vitest run` (automated tests)
+- Integration test pages in the browser: `debug/api-check` and `debug/index-check`
+- Spot-check key routes: term pages, API queries, debug output, badge
+
+Claude sessions should **not** attempt to start the dev server or run integration tests against it. Instead, pause at checkpoints and ask the human to verify.
 
 #### Additions
 
@@ -145,6 +210,7 @@ Restructure the existing octothorpes skill (`/.claude/skills/octothorpes`) aroun
    - The dev workflow (edit core -> test -> publish -> deploy)
    - What goes in the package (`files` field)
    - Version bumping conventions
+   - Verification: human tests manually via integration pages + browser spot-checks; Claude pauses at checkpoints
 
 #### Update `docs/core-api-guide.md`
 
@@ -164,13 +230,13 @@ Separate task (different repo). Main changes:
 ## Dependencies
 
 ```
-Plan 1 (Core Package Update)  ──>  Plan 3 (Skill Rewrite)
-Plan 2 (Dev Flow)             ──>  (independent, can run in parallel with Plan 1)
-Plan 3 (Skill Rewrite)        ──>  docs.octothorp.es update (follow-on, separate session)
+Plan 1 (Core Update + Cutover)  ──>  Plan 3 (Skill Rewrite)
+Plan 2 (Dev Flow)               ──>  (independent, can run in parallel with Plan 1)
+Plan 3 (Skill Rewrite)          ──>  docs.octothorp.es update (follow-on, separate session)
 ```
 
 ## Out of Scope
 
-- Migrating `src/lib/` to import from `octothorpes` instead of local files (that's the `dev-use-core` branch work, separate effort)
 - New features beyond closing documented gaps
 - docs.octothorp.es updates (follow-on work)
+- Removing/deprecating the legacy `rss` export
