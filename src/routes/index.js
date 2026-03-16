@@ -1,7 +1,6 @@
 import { error } from '@sveltejs/kit'
 import { instance } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
-import { assert } from '$lib/assert.js'
 import { verifiedOrigin } from '$lib/origin.js'
 import normalizeUrl from 'normalize-url'
 
@@ -29,8 +28,6 @@ export const index = async (req) => {
 
     if (normalizeUrl(uri.origin) == origin) {
       await req.fetch(`/index?uri=${s}`)
-    } else {
-      await assert(origin, url.searchParams)
     }
   }
 

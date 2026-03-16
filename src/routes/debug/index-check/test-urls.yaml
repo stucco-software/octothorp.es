@@ -22,9 +22,9 @@ urlSets:
       - http://localhost/test1/
 
   - name: "Web Rings"
-    description: "Pages defining webrings"
+    description: "Pages defining webrings (octo:type=Webring, links to member domains)"
     urls:
-      - https://demo.ideastore.dev/rad-webring
+      - https://demo.ideastore.dev/demo-webring
 
   - name: "Bookmarks"
     description: "Pages with octo:bookmarks relationships"

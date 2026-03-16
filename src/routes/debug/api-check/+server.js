@@ -1,7 +1,9 @@
 import { instance } from '$env/static/private'
+import { whats, bys, formats, extras } from './matrix.js'
 
 export async function GET() {
   const base = instance.replace(/\/$/, '')
+  const CONFIG = JSON.stringify({ whats, bys, formats, extras })
 
   const html = `<!DOCTYPE html>
 <html>
@@ -66,26 +68,8 @@ export async function GET() {
 
 <script>
 const BASE = '${base}'
-
-const whats = ['everything', 'pages', 'thorpes', 'domains']
-const bys = [
-  { by: 'thorped',    needsObject: true,  isLinkType: false },
-  { by: 'linked',     needsObject: true,  isLinkType: true },
-  { by: 'backlinked', needsObject: true,  isLinkType: true },
-  { by: 'cited',      needsObject: true,  isLinkType: true },
-  { by: 'bookmarked', needsObject: true,  isLinkType: true },
-  { by: 'posted',     needsObject: false, isLinkType: false },
-]
-const formats = ['', 'debug', 'rss']
-const extras = [
-  {},
-  { when: 'recent' },
-  { when: 'before-2025-01-01' },
-  { when: 'after-2024-01-01' },
-  { match: 'all' },
-  { limit: '1000' },
-  { rt: 'demo' },
-]
+const CONFIG = ${CONFIG}
+const { whats, bys, formats, extras } = CONFIG
 
 function getParams() {
   return {

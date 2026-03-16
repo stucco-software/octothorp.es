@@ -6,6 +6,37 @@ All URLs assume `instance=http://localhost:5173/`. Substitute your production UR
 
 ---
 
+## Automated Integration Tests
+
+Before manual review, run the automated integration tests. They mirror the manual checks in `/debug/api-check` and `/debug/index-check` using the same source data, so they stay in sync.
+
+**Prerequisites:** dev server running (`npm run dev`) + Oxigraph running.
+
+**Run a specific group** (fast, use for spot checks):
+```
+npx vitest run src/tests/integration.test.js -t "pages/thorped"
+npx vitest run src/tests/integration.test.js -t "harmonize: Regular hashtags"
+```
+
+**Run all non-everything groups** (recommended before review):
+```
+npx vitest run src/tests/integration.test.js -t "pages/|thorpes/|domains/|harmonize:"
+```
+
+**Run everything groups** (slow, ~10s per query — run before deploy):
+```
+npx vitest run src/tests/integration.test.js -t "everything/"
+```
+
+**Run all integration tests:**
+```
+npx vitest run src/tests/integration.test.js
+```
+
+Tests skip automatically if the server is unreachable. Failures indicate either a broken endpoint or a regression in SPARQL query generation. Check the failing URL against `/debug/api-check` in the browser for more detail.
+
+---
+
 ## 0. PostDate: User-Defined Page Dates -- #170
 
 **What to check:** Pages with a `postDate` (author-defined date) should show that date; pages without one should fall back to the indexed timestamp.

@@ -12,8 +12,8 @@
 
 **Important constraints:**
 - Client-side Svelte files (`.svelte`) CANNOT import from `octothorpes` — it depends on `jsdom` and other Node.js packages. Client-side imports must use `$lib/` re-export shims.
-- `src/lib/indexing.js` must become a thin adapter (not deleted) — routes import `handler` from it, which requires dependency injection via `createIndexer()`.
-- `src/lib/assert.js` stays as-is — it depends on `$lib/sparql.js` adapter and is not duplicated in core.
+- `src/lib/indexing.js` must become a thin adapter (not deleted) — routes import `handler` from it, which requires dependency injection via `createIndexer()`. Note: `handler` is already fully implemented in core via `createIndexer()` in `packages/core/indexer.js` (line 633). The adapter just calls `createIndexer(deps)` with the SPARQL client and config from `$env`, then re-exports its `handler`.
+- `src/lib/assert.js` is dead code — the `octo:asserts` graph structure it writes to has no data in the triplestore, and its only consumer (`src/routes/index.js`) has had the call removed. Delete during cutover along with `asyncMap.js` and `emails/alertAdmin.js` if also unreferenced.
 - The SPARQL query direction in `enrichBlobjectTargets` is `?source octo:octothorpes ?bn . ?bn octo:url ?target .` (source-anchored blank nodes pointing to target).
 
 ---
@@ -477,7 +477,7 @@ Route files that import business logic from `$lib/` modules (which are duplicate
 - `$lib/converters.js` — `getMultiPassFromParams` (needs instance from `$env`)
 - `$lib/getHarmonizer.js` — harmonizer registry (needs instance from `$env`)
 - `$lib/indexing.js` — `handler`, `parseRequestBody` (needs SPARQL client injection)
-- `$lib/assert.js` — depends on `$lib/sparql.js`, stays as-is
+- `$lib/assert.js` — dead code, delete during cutover
 - `$lib/asyncMap.js` — utility, not in core
 - `$lib/ld/*` — linked data utilities, not in core
 - `$lib/mail/*` — email utilities, not in core
@@ -678,7 +678,7 @@ src/lib/uri.js
 - `indexing.js` (adapter: injects deps, re-exports `handler`)
 - `utils.js` (client-safe shim for Svelte components)
 - `arrayify.js` (client-safe shim for Svelte components)
-- `assert.js` (depends on `$lib/sparql.js`, not duplicated in core)
+- `assert.js` (dead code — delete during cutover)
 - `asyncMap.js` (utility, not in core)
 - `ld/` directory (linked data utilities)
 - `mail/` directory (email utilities)
