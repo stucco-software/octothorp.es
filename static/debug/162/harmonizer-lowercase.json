@@ -1,0 +1,40 @@
+{
+  "@context": "https://octothorp.es/context.json",
+  "@id": "https://octothorp.es/debug/162/harmonizer-lowercase.json",
+  "@type": "harmonizer",
+  "title": "Case Test: Lowercase Selectors",
+  "mode": "html",
+  "schema": {
+    "subject": {
+      "s": "source",
+      "title": [
+        { "selector": "title", "attribute": "textContent" }
+      ],
+      "description": [
+        { "selector": "meta[name='description']", "attribute": "content" }
+      ],
+      "image": [
+        { "selector": "meta[property='og:image']", "attribute": "content" }
+      ]
+    },
+    "hashtag": {
+      "s": "source",
+      "o": [
+        {
+          "selector": ".content h2",
+          "attribute": "textContent",
+          "postProcess": { "method": "trim" }
+        }
+      ]
+    },
+    "link": {
+      "s": "source",
+      "o": [
+        {
+          "selector": "footer a.outbound",
+          "attribute": "href"
+        }
+      ]
+    }
+  }
+}

@@ -5,16 +5,10 @@
  * @todo Add support for type=json
  * @todo Add support for type=xpath
  */
-import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
 import normalizeUrl from 'normalize-url'
 
-// import { json } from '@sveltejs/kit'
-import { getHarmonizer } from "$lib/getHarmonizer"
 
-// this is copied from getSubjectHTML from index
-const DOMParser = new JSDOM().window.DOMParser
-const parser = new DOMParser()
 
 /**
  * Maximum size for remote harmonizer files (56KB)
@@ -247,20 +241,38 @@ function removeTrailingSlash(url) {
  * @param {string} [rule.selector] - CSS selector for elements
  * @param {string} [rule.attribute] - Element attribute to extract
  * @param {Object} [rule.postProcess] - Post-processing configuration
- * @returns {Array} Array of extracted values
+ * @param {Object} [rule.terms] - Terms extraction configuration
+ * @param {string} [rule.terms.attribute] - Attribute containing comma-separated terms
+ * @returns {Array} Array of extracted values (strings or objects with uri/terms)
  */
 const extractValues = (html, rule) => {
+  if (rule === undefined || rule === null) return []
   if (typeof rule === "string") {
     // If the rule is a string, return it as-is
     return [rule]
   }
-  const { selector, attribute, postProcess } = rule
-  let tempContainer = parser.parseFromString(html, "text/html")
+  const { selector, attribute, postProcess, terms } = rule
+  const dom = new JSDOM(html, { contentType: "text/html" })
+  let tempContainer = dom.window.document
   const elements = [...tempContainer.querySelectorAll(selector)]
   const values = elements
     .map((element) => {
       let value = element[attribute]
+      if (value === undefined || value === null) {
+        value = element.getAttribute(attribute)
+      }
       value = removeTrailingSlash(value)
+      
+      // If terms extraction is configured, return object with uri and terms
+      if (terms) {
+        const termsAttr = element.getAttribute(terms.attribute)
+        let extractedTerms = null
+        if (termsAttr) {
+          extractedTerms = termsAttr.split(',').map(t => t.trim()).filter(Boolean)
+        }
+        return { uri: value, terms: extractedTerms }
+      }
+      
       return value
     })
   return values
@@ -292,15 +304,17 @@ const setNestedProperty = (obj, keyPath, value) => {
  * @returns {Object} Merged schema object
  */
 function mergeSchemas(baseSchema, override) {
-  // Create a copy of the default schema to avoid modifying the original
   const mergedSchema = { ...baseSchema };
 
-  // Iterate over the keys in the new schema
   for (const key in override) {
-      if (override.hasOwnProperty(key)) {
-          // If the key exists in both schemas, replace the default with the new value
-          mergedSchema[key] = override[key];
+    if (override.hasOwnProperty(key)) {
+      const val = override[key]
+      // Skip empty objects — omitting a section means "keep the default"
+      if (val && typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0) {
+        continue
       }
+      mergedSchema[key] = val
+    }
   }
 
   return mergedSchema;
@@ -535,7 +549,8 @@ export async function remoteHarmonizer(url) {
  * @returns {string|Object} octothorpes[] - Either string (hashtag) or object with type and uri properties
  * @throws {Error} If harmonizer is invalid or processing fails
  */
-export async function harmonizeSource(html, harmonizer = "default") {
+export async function harmonizeSource(html, harmonizer = "default", options = {}) {
+  const getHarmonizer = options.getHarmonizer ?? (await import("./getHarmonizer.js")).getHarmonizer
   let schema = {}
   const d = await getHarmonizer("default")
 
@@ -589,14 +604,26 @@ export async function harmonizeSource(html, harmonizer = "default") {
           if (rule.postProcess) {
             let pVals = []
             values.forEach((val) =>{
-               let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
-               if (pv) {
-                // Flatten arrays (e.g., from split) into individual values
-                if (Array.isArray(pv)) {
-                  pVals.push(...pv)
-                } else {
-                  pVals.push(pv)
-                }
+               // Handle objects with terms - apply postProcess to uri only
+               if (typeof val === 'object' && val.uri) {
+                 let pv = processValue(val.uri, rule.postProcess.method, rule.postProcess.params)
+                 if (pv) {
+                   if (Array.isArray(pv)) {
+                     pVals.push(...pv.map(v => ({ uri: v, terms: val.terms })))
+                   } else {
+                     pVals.push({ uri: pv, terms: val.terms })
+                   }
+                 }
+               } else {
+                 let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
+                 if (pv) {
+                  // Flatten arrays (e.g., from split) into individual values
+                  if (Array.isArray(pv)) {
+                    pVals.push(...pv)
+                  } else {
+                    pVals.push(pv)
+                  }
+                 }
                }
               values = pVals
             })
@@ -665,8 +692,19 @@ export async function harmonizeSource(html, harmonizer = "default") {
     ...(typedOutput.hashtag || []),
     ...Object.entries(typedOutput)
       .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
-      .flatMap(([key, uris]) =>
-        uris.map(uri => ({ type: key, uri })) // Map ALL values for each key
+      .flatMap(([key, items]) =>
+        items.map(item => {
+          // Handle objects with terms (from link types with data-octothorpes)
+          if (typeof item === 'object' && item.uri) {
+            const result = { type: key, uri: item.uri }
+            if (item.terms && item.terms.length > 0) {
+              result.terms = item.terms
+            }
+            return result
+          }
+          // Plain string uri
+          return { type: key, uri: item }
+        })
       )
   ]
   return output

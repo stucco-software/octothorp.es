@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/debug/badge-test",
+      "headers": [
+        {
+          "key": "x-vercel-set-bypass-cookie",
+          "value": "samesitenone"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "octothorpes",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Framework-agnostic core library for the Octothorpes Protocol",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "*.js",
+    "ld/"
+  ],
+  "dependencies": {
+    "jsdom": "^24.0.0",
+    "jsonld": "^8.3.2",
+    "normalize-url": "^8.0.1"
+  },
+  "peerDependencies": {},
+  "license": "MIT"
+}

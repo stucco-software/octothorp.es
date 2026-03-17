@@ -1,5 +1,5 @@
 import normalizeUrl from "normalize-url";
-import { arrayify } from "./arrayify";
+import { arrayify } from "./arrayify.js";
 
 /**
  * Removes trailing slashes from URLs
@@ -56,10 +56,10 @@ export const getUnixDateFromString = (datestring) => {
  */
 export function parseBindings(bindings, mode="pages") {
   let output = {}
-  
+
   // Handle case where bindings might be a single object instead of array
   const bindingArray = Array.isArray(bindings) ? bindings : [bindings];
-  
+
   switch (mode) {
     case "pages":
      // Create a flat list with type property
@@ -264,8 +264,10 @@ export function cleanInputs(imp, mod = "fuzzy") {
     const validation1 = isSparqlSafe(output);
     if (!validation1.valid) throw new Error(validation1.error);
     if (mod === "exact") {
-      // TKTK this should probably respect http: when set explicitly
-      output = imp.map((item) => normalizeUrl(item, { forceHttps: true }));
+      output = imp.map((item) => {
+        const forceHttps = !item.startsWith('http://')
+        return normalizeUrl(item, { forceHttps })
+      });
     }
     return output;
   }
@@ -279,17 +281,17 @@ export function cleanInputs(imp, mod = "fuzzy") {
  */
 export function areUrlsFuzzy(uris) {
   let output = false;
-  
+
   // Handle case where uris might be a single string instead of array
   const uriArray = Array.isArray(uris) ? uris : [uris];
-  
+
   uriArray.forEach((string) => {
     // Skip non-string values
     if (typeof string !== 'string') {
       output = true;
       return;
     }
-    
+
     try {
       new URL(string);
     } catch (_) {
@@ -380,16 +382,16 @@ export const getFuzzyTags = (tags) => {
 
 /**
  * Validates if an object is a properly structured MultiPass
- * 
+ *
  * A valid MultiPass must have:
  * - meta object with required fields (title, resultMode, version, server)
  * - subjects object with mode and include/exclude arrays
  * - objects object with type, mode, and include/exclude arrays
  * - filters object with limitResults, offsetResults, and optional dateRange/subtype
- * 
+ *
  * @param {*} data - Data to validate as MultiPass
  * @returns {{valid: true}|{valid: false, error: string}} Validation result
- * 
+ *
  * @example
  * const result = isValidMultipass(myData);
  * if (!result.valid) {
@@ -478,20 +480,20 @@ export function isValidMultipass(data) {
 
 /**
  * Extracts MultiPass JSON from a GIF file's comment extension block
- * 
+ *
  * GIF files can contain comment blocks (0x21 0xFE) that store arbitrary text.
  * This function searches through all comment blocks looking for valid JSON.
- * 
+ *
  * To extend for future MultiPass versions:
  * 1. This function returns the raw parsed JSON - no validation
  * 2. The calling code should handle version detection and field mapping
  * 3. Consider checking multiPass.meta.version to handle different formats
  * 4. New fields will automatically be included in the returned object
- * 
+ *
  * @param {ArrayBuffer} arrayBuffer - The GIF file contents as ArrayBuffer
  * @returns {Object} Parsed MultiPass JSON object
  * @throws {Error} If file is not a valid GIF or no valid JSON found in comments
- * 
+ *
  * @example
  * const file = event.target.files[0];
  * const reader = new FileReader();
@@ -506,43 +508,43 @@ export function isValidMultipass(data) {
  */
 export function extractMultipassFromGif(arrayBuffer) {
   const bytes = new Uint8Array(arrayBuffer);
-  
+
   // Verify GIF signature (GIF87a or GIF89a)
   const signature = String.fromCharCode(...bytes.slice(0, 6));
   if (!signature.startsWith('GIF')) {
     throw new Error('Not a valid GIF file');
   }
-  
+
   // Skip GIF header (6 bytes) + Logical Screen Descriptor (7 bytes)
   let pos = 13;
-  
+
   // Skip Global Color Table if present
   const packed = bytes[10];
   if (packed & 0x80) {
     const colorTableSize = 2 << (packed & 0x07);
     pos += colorTableSize * 3;
   }
-  
+
   // Scan through GIF data blocks looking for comment extensions
   while (pos < bytes.length - 1) {
     // Comment Extension Block identifier: 0x21 (Extension) 0xFE (Comment)
     if (bytes[pos] === 0x21 && bytes[pos + 1] === 0xFE) {
       pos += 2;
       let comment = '';
-      
+
       // Read comment sub-blocks (each has size byte, then data, terminated by 0x00)
       while (pos < bytes.length && bytes[pos] !== 0x00) {
         const blockSize = bytes[pos];
         pos++;
-        
+
         if (pos + blockSize > bytes.length) {
           throw new Error('Malformed GIF: comment block extends beyond file');
         }
-        
+
         comment += String.fromCharCode(...bytes.slice(pos, pos + blockSize));
         pos += blockSize;
       }
-      
+
       // Try to parse comment as JSON
       try {
         const parsed = JSON.parse(comment);
@@ -556,28 +558,28 @@ export function extractMultipassFromGif(arrayBuffer) {
     }
     pos++;
   }
-  
+
   throw new Error('No MultiPass JSON found in GIF comment blocks');
 }
 
 /**
  * Injects MultiPass JSON into a GIF file's comment extension block
- * 
+ *
  * Creates a new GIF file with the MultiPass data embedded in a comment block.
  * This operation is performed entirely client-side - no data is sent to any server.
- * 
+ *
  * The function:
  * 1. Validates the GIF structure
  * 2. Serializes the MultiPass object to JSON
  * 3. Splits JSON into 255-byte sub-blocks (GIF spec requirement)
  * 4. Inserts comment extension after the header but before image data
  * 5. Returns a new ArrayBuffer with the modified GIF
- * 
+ *
  * @param {ArrayBuffer} arrayBuffer - The original GIF file contents
  * @param {Object} multiPassObject - The MultiPass query object to embed
  * @returns {Uint8Array} New GIF file with embedded MultiPass JSON
  * @throws {Error} If file is not a valid GIF
- * 
+ *
  * @example
  * const gifFile = await file.arrayBuffer();
  * const multiPass = { uris: ['https://example.com'], what: 'pages' };
@@ -586,62 +588,62 @@ export function extractMultipassFromGif(arrayBuffer) {
  */
 export function injectMultipassIntoGif(arrayBuffer, multiPassObject) {
   const bytes = new Uint8Array(arrayBuffer);
-  
+
   // Verify GIF signature (GIF87a or GIF89a)
   const signature = String.fromCharCode(...bytes.slice(0, 6));
   if (!signature.startsWith('GIF')) {
     throw new Error('Not a valid GIF file');
   }
-  
+
   // Convert MultiPass to JSON string
   const jsonString = JSON.stringify(multiPassObject);
   const jsonBytes = new TextEncoder().encode(jsonString);
-  
+
   // Build comment extension block
   const commentBlocks = [];
-  
+
   // Extension Introducer + Comment Label
   commentBlocks.push(0x21, 0xFE);
-  
+
   // Split JSON into 255-byte sub-blocks (max size per GIF spec)
   let offset = 0;
   while (offset < jsonBytes.length) {
     const chunkSize = Math.min(255, jsonBytes.length - offset);
     const chunk = jsonBytes.slice(offset, offset + chunkSize);
-    
+
     // Sub-block: size byte + data
     commentBlocks.push(chunkSize);
     commentBlocks.push(...chunk);
-    
+
     offset += chunkSize;
   }
-  
+
   // Block terminator
   commentBlocks.push(0x00);
-  
+
   // Find insertion point (after header + global color table, before image data)
   // Skip GIF header (6 bytes) + Logical Screen Descriptor (7 bytes)
   let insertPos = 13;
-  
+
   // Skip Global Color Table if present
   const packed = bytes[10];
   if (packed & 0x80) {
     const colorTableSize = 2 << (packed & 0x07);
     insertPos += colorTableSize * 3;
   }
-  
+
   // Build new GIF: header + comment block + rest of data
   const result = new Uint8Array(bytes.length + commentBlocks.length);
-  
+
   // Copy header and global color table
   result.set(bytes.slice(0, insertPos), 0);
-  
+
   // Insert comment block
   result.set(commentBlocks, insertPos);
-  
+
   // Copy rest of original GIF
   result.set(bytes.slice(insertPos), insertPos + commentBlocks.length);
-  
+
   return result;
 }
 

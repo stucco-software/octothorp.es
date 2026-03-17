@@ -21,6 +21,15 @@
         {#if thorpe.description}
           <p class="narrow">{thorpe.description}</p>
         {/if}
+        {#if thorpe.postDate || thorpe.date}
+          <p class="date">
+            {#if thorpe.postDate}
+              {new Date(thorpe.postDate).toLocaleDateString()}
+            {:else}
+              Indexed {new Date(thorpe.date).toLocaleDateString()}
+            {/if}
+          </p>
+        {/if}
 
       </li>
     {/each}
@@ -41,6 +50,15 @@
         {/if}
         {#if mark.description}
           <p class="narrow">{mark.description}</p>
+        {/if}
+        {#if mark.postDate || mark.date}
+          <p class="date">
+            {#if mark.postDate}
+              {new Date(mark.postDate).toLocaleDateString()}
+            {:else}
+              Indexed {new Date(mark.date).toLocaleDateString()}
+            {/if}
+          </p>
         {/if}
         <p>
           {#each arrayify(mark.tag) as tag}
@@ -77,7 +95,16 @@
   }
   p.gray {
     color: var(--dark-gray);
+    font-family: var(--sans-stack);
     font-size: .8rem;
+    margin-top: 0px;
+  }
+  p.date {
+    font-family: OCRA;
+    font-size: var(--txt--2);
+    color: #999;
+    margin: 0;
+    margin-block-start: -0.25rem;
   }
   #follow-links {
       width: 100%;

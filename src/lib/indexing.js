@@ -1,12 +1,29 @@
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { harmonizeSource } from '$lib/harmonizeSource.js'
 import { deslash } from '$lib/utils.js'
+import { parseUri, validateSameOrigin } from '$lib/uri.js'
+import { verifiedOrigin } from '$lib/origin.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// globals
 
 const p = 'octo:octothorpes'
 const indexCooldown = 300000 // 5min
+
+// Map harmonizer type values to normalized RDF subtype names.
+// Types not listed here pass through as capitalized subtypes, allowing
+// harmonizers to define their own link vocabularies (e.g. sameas → Sameas).
+const subtypeMap = {
+  bookmark: 'Bookmark',
+  Bookmark: 'Bookmark',
+  cite: 'Cite',
+  citation: 'Cite',
+  Cite: 'Cite',
+  button: 'Button',
+  Button: 'Button',
+}
+
+export const resolveSubtype = (type) => subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))
 
 ////////// harmonizer validation //////////
 
@@ -204,8 +221,8 @@ export const extantMention = async (s, o) => {
 export const extantBacklink = async (s, o) => {
   return await queryBoolean(`
     ask {
-      <${o}> ${p} _:backlink .
-        _:backlink octo:url <${s}> .
+      <${s}> ${p} _:backlink .
+        _:backlink octo:url <${o}> .
     }
   `)
 }
@@ -257,15 +274,26 @@ export const createMention = async (s, o) => {
   `)
 }
 
-export const createBacklink = async (s, o) => {
-  console.log(`create backlink…`)
+export const createBacklink = async (s, o, subtype = 'Backlink', terms = [], { instance } = {}) => {
+  console.log(`create backlink… (${subtype})${terms.length ? ` with terms: ${terms.join(', ')}` : ''}`)
   let now = Date.now()
-  return await insert(`
-    <${o}> ${p} _:backlink .
+
+  // Build base triples
+  let triples = `
+    <${s}> ${p} _:backlink .
       _:backlink octo:created ${now} .
-      _:backlink octo:url <${s}> .
-      _:backlink rdf:type <octo:Backlink> .
-  `)
+      _:backlink octo:url <${o}> .
+      _:backlink rdf:type <octo:${subtype}> .
+  `
+
+  // Add term triples if present
+  for (const term of terms) {
+    triples += `
+      _:backlink ${p} <${instance}~/${term}> .
+    `
+  }
+
+  return await insert(triples)
 }
 
 export const createWebring = async (s) => {
@@ -307,34 +335,44 @@ export const recordIndexing = async (s) => {
   `)
 }
 
-export const recordTitle = async (s, title) => {
-  let text = title.trim()
+export const recordProperty = async (s, predicate, value) => {
+  if (!value) {
+    return
+  }
+  let text = value.trim()
   await query(`
     delete {
-      <${s}> octo:title ?o .
+      <${s}> ${predicate} ?o .
     } where {
-      <${s}> octo:title ?o .
+      <${s}> ${predicate} ?o .
     }
   `)
   return await insert(`
-    <${s}> octo:title "${text}" .
+    <${s}> ${predicate} "${text}" .
   `)
 }
 
-export const recordDescription = async (s, description) => {
-  if (!description) {
+export const recordTitle = (s, title) => recordProperty(s, 'octo:title', title)
+export const recordDescription = (s, description) => recordProperty(s, 'octo:description', description)
+export const recordImage = (s, image) => recordProperty(s, 'octo:image', image)
+
+export const recordPostDate = async (s, value) => {
+  if (!value) {
     return
   }
-  let text = description.trim()
+  const timestamp = new Date(value).getTime()
+  if (isNaN(timestamp)) {
+    return
+  }
   await query(`
     delete {
-      <${s}> octo:description ?o .
+      <${s}> octo:postDate ?o .
     } where {
-      <${s}> octo:description ?o .
+      <${s}> octo:postDate ?o .
     }
   `)
   return await insert(`
-    <${s}> octo:description "${text}" .
+    <${s}> octo:postDate ${timestamp} .
   `)
 }
 
@@ -404,6 +442,25 @@ export const checkEndorsement = async (s, o, flag) => {
   }
 }
 
+////////// on-page indexing policy //////////
+
+export const checkIndexingPolicy = (harmed, instance) => {
+  const optedIn =
+    harmed.indexPolicy === 'index' ||
+    (harmed.indexServer && harmed.indexServer.split(',').some(href => {
+      try {
+        return new URL(href.trim()).origin === new URL(instance).origin
+      } catch (_) {
+        return false
+      }
+    }))
+
+  // Meta tag harmonizer takes precedence (it appears first in the schema)
+  const harmonizer = harmed.indexHarmonizer || null
+
+  return { optedIn: !!optedIn, harmonizer }
+}
+
 ////////// handlers //////////
 
 export const handleThorpe = async (s, o, { instance }) => {
@@ -419,7 +476,13 @@ export const handleThorpe = async (s, o, { instance }) => {
   }
 }
 
-export const handleMention = async (s, o) => {
+// handleMention creates two graph structures for each page-to-page relationship:
+// 1. createMention: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
+// 2. createBacklink: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
+//    (carries metadata: subtype, terms, created timestamp)
+// Both are needed: the direct triple supports simple joins in queries,
+// the blank node carries relationship metadata.
+export const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance } = {}) => {
   const subj = deslash(s)
   const obj = deslash(o)
   const isObjWebring = await extantPage(obj, "Webring")
@@ -446,7 +509,15 @@ export const handleMention = async (s, o) => {
   let isExtantbacklink = await extantBacklink(subj, obj)
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink(subj, obj)
+    // Create/record terms before creating backlink
+    for (const term of terms) {
+      const isExtantTerm = await extantTerm(term, { instance })
+      if (!isExtantTerm) {
+        await createTerm(term, { instance })
+      }
+      await recordUsage(subj, term, { instance })
+    }
+    await createBacklink(subj, obj, subtype, terms, { instance })
   }
 }
 
@@ -514,30 +585,21 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   let friends = { endorsed: [], linked: [] }
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
+    if (typeof octothorpe === 'string') {
+      await handleThorpe(s, octothorpe, { instance })
+      continue
+    }
+    if (!octothorpe.uri) continue
     let octoURI = deslash(octothorpe.uri)
-    switch (octothorpe.type) {
-      case 'link':
-      case 'mention':
-      case 'Link':
-      case 'Mention':
-      case 'Backlink':
-      case 'backlink':
-        friends.linked.push(octoURI)
-        handleMention(s, octoURI)
-        break
-      case 'hashtag':
-        handleThorpe(s, octoURI, { instance })
-        break
-      case 'endorse':
-        friends.endorsed.push(octoURI)
-        break
-      case 'bookmark':
-        console.log(`handle bookmark?`, octoURI)
-        handleMention(s, octoURI)
-        break
-      default:
-        handleThorpe(s, octothorpe, { instance })
-        break
+    if (octothorpe.type === 'hashtag') {
+      await handleThorpe(s, octoURI, { instance })
+    } else if (octothorpe.type === 'endorse') {
+      friends.endorsed.push(octoURI)
+    } else {
+      friends.linked.push(octoURI)
+      // Pass terms array (default to empty if not present)
+      const terms = octothorpe.terms || []
+      await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance })
     }
   }
 
@@ -548,41 +610,76 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
 
   await recordTitle(s, harmed.title)
   await recordDescription(s, harmed.description)
+  await recordImage(s, harmed.image)
+  await recordPostDate(s, harmed.postDate)
 
   console.log("done")
   return new Response(200)
 }
 
-export const handler = async (s, harmonizer, requestingOrigin, { instance }) => {
-  try {
-    const uriParsed = new URL(s)
-    const uriOrigin = normalizeUrl(uriParsed.origin)
-    const normalizedRequestingOrigin = normalizeUrl(requestingOrigin)
+export const handler = async (uri, harmonizer, requestingOrigin, config) => {
+  const { instance, serverName, queryBoolean: configQueryBoolean, verifyOrigin } = config
 
-    if (uriOrigin !== normalizedRequestingOrigin) {
-      throw new Error('Cannot index pages from a different origin.')
+  // 1. Parse and normalize URI
+  const parsed = parseUri(uri)
+
+  // 2. Cross-origin check
+  if (requestingOrigin) {
+    // Header present: existing check unchanged
+    validateSameOrigin(parsed, requestingOrigin)
+  } else {
+    // No header: fetch page and check on-page policy
+    const policyResponse = await fetch(parsed.normalized)
+    const policyHtml = await policyResponse.text()
+    const policyHarmed = await harmonizeSource(policyHtml, harmonizer)
+    const policy = checkIndexingPolicy(policyHarmed, instance)
+
+    if (!policy.optedIn) {
+      throw new Error('Page has not opted in to indexing.')
     }
-  } catch (e) {
-    if (e.message === 'Cannot index pages from a different origin.') {
-      throw e
+
+    // On-page harmonizer overrides request param (must be an absolute URL)
+    if (policy.harmonizer) {
+      harmonizer = policy.harmonizer
     }
-    throw new Error('Invalid URI format.')
   }
 
-  if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
-    throw new Error('Harmonizer not allowed for this origin.')
+  // 3. Origin verification
+  const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
+    serverName,
+    queryBoolean: configQueryBoolean || queryBoolean
+  }))
+  const isVerified = await verify(parsed.origin)
+  if (!isVerified) {
+    throw new Error('Origin is not registered with this server.')
   }
 
-  let isRecentlyIndexed = await recentlyIndexed(s)
+  // 4. Rate limiting
+  if (!checkIndexingRateLimit(parsed.origin)) {
+    throw new Error('Rate limit exceeded. Please try again later.')
+  }
+
+  // 5. Harmonizer check
+  if (requestingOrigin) {
+    if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
+      throw new Error('Harmonizer not allowed for this origin.')
+    }
+  }
+
+  // 6. Cooldown
+  let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
   if (isRecentlyIndexed) {
     throw new Error('This page has been recently indexed.')
   }
 
-  let subject = await fetch(s)
-  await recordIndexing(s)
+  // 7. Fetch and process
+  let subject = await fetch(parsed.normalized, {
+    headers: { 'User-Agent': 'Octothorpes/1.0' }
+  })
+  await recordIndexing(parsed.normalized)
 
   if (subject.headers.get('content-type').includes('text/html')) {
-    console.log("handle html…", s)
-    return await handleHTML(subject, s, harmonizer, { instance })
+    console.log("handle html…", parsed.normalized)
+    return await handleHTML(subject, parsed.normalized, harmonizer, { instance })
   }
 }

@@ -12,23 +12,26 @@ This document covers the mechanics of extracting framework-agnostic business log
 ├──────────────────────────────────────────────────────────────────┤
 │  OctothorpesConfig  {endpoint, user, password, instance}        │
 ├─────────────────┬──────────────────┬─────────────────────────────┤
-│  SPARQL Module  │  Harmonizer      │  RDF Module                 │
-│  • SparqlClient │  • Manager       │  • RdfConverter             │
-│  • Queries      │  • Remote        │  • RdfExtractor             │
-│  • Prefixes     │  • Schemas       │  • Assertions               │
+│  SPARQL Module  │  Harmonizer      │  Indexing Module            │
+│  • SparqlClient │  • Manager       │  • IndexerRegistry          │
+│  • Queries      │  • Remote        │  • HttpIndexer (built-in)   │
+│  • Prefixes     │  • Schemas       │  • Handlers, Storage        │
 ├─────────────────┼──────────────────┼─────────────────────────────┤
-│  Output Module  │  Utils Module    │  LD Module                  │
-│  • RSS          │  • Date/URL/     │  • Graph, Context           │
-│                 │    Array helpers  │                             │
+│  Publish Module │  RDF Module      │  Utils Module               │
+│  • Publishers   │  • RdfConverter  │  • Date/URL/Array helpers   │
+│  • Resolvers    │  • Assertions    │                             │
+├─────────────────┼──────────────────┼─────────────────────────────┤
+│  Output Module  │  LD Module       │                             │
+│  • RSS (legacy) │  • Graph,Context │                             │
 └─────────────────┴──────────────────┴─────────────────────────────┘
-         ↑                                    ↑
-         │                                    │
-    SvelteKit Web                         CLI Tool
-    (adapter injects                   (reads config from
-     config from $env)                  .env / process.env)
+         ↑                    ↑                    ↑
+         │                    │                    │
+    SvelteKit Web          CLI Tool            Bridges
+    (Relay + UI)        (reads config      (separate services,
+                        from .env)          own state storage)
 ```
 
-Both consumers share the same core logic. The only difference is how config gets injected.
+Both consumers share the same core logic. The only difference is how config gets injected. Bridges are separate services that depend on core but maintain their own operational state.
 
 ---
 
@@ -46,6 +49,7 @@ These are pure functions with no framework dependencies -- copy directly.
 - `arrayify.js` -- array coercion
 - `asyncMap.js` -- async mapping (update internal import path for `arrayify`)
 - `web-components/shared/multipass-utils.js` -- MultiPass validation
+- `uri.js` -- modular URI validation (HTTP, AT Protocol, extensible)
 
 ### Minor Refactoring (remove `$env` or `@sveltejs/kit` imports)
 
@@ -55,6 +59,7 @@ These are pure functions with no framework dependencies -- copy directly.
 | `harmonizeSource.js` | 21.5 KB | `@sveltejs/kit` (error/json) | Replace with plain JS errors |
 | `ld/rdfa2triples.js` | ~2 KB | `$env/static/private` (instance URL) | Accept `instance` as param |
 | `mail/send.js` | 1.2 KB | `$env/static/private` (SMTP config) | Accept config object |
+| `origin.js` | 3.1 KB | ~~`$env/static/private`, depends on sparql.js~~ Done | Accepts `{ serverName, queryBoolean }` config params |
 
 ### Medium Refactoring (class-based wrappers with config injection)
 
@@ -62,7 +67,6 @@ These are pure functions with no framework dependencies -- copy directly.
 |------|------|----------|-----|
 | `sparql.js` | 21.7 KB | `$env/static/private` (credentials + instance) | `SparqlClient` class with config constructor |
 | `converters.js` | 17.5 KB | `$env/static/private` + `@sveltejs/kit` | `RdfConverter` class, custom error classes |
-| `origin.js` | 3.1 KB | `$env/static/private`, depends on sparql.js | `OriginVerifier` class, accepts `SparqlClient` |
 | `assert.js` | 2.3 KB | `$env/static/private`, depends on sparql.js + mail | `RdfAssertionManager` class |
 
 ### Major Refactoring
@@ -70,6 +74,50 @@ These are pure functions with no framework dependencies -- copy directly.
 | File | Size | Blocker | Fix |
 |------|------|---------|-----|
 | `ld/graph.js` | ~2 KB | `import.meta.glob()` (Vite-specific) | Replace with Node.js `fs`/`glob` |
+
+### Indexing Module (already partially extracted)
+
+The `indexing.js` file already exists at `src/lib/indexing.js` and contains most of the indexing logic. It needs refactoring for pluggable indexers:
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Rate limiting (`checkIndexingRateLimit`) | Ready | Pure function, no deps |
+| Harmonizer validation (`isHarmonizerAllowed`) | Ready | Accepts `{ instance }` param |
+| Existence checks (`extant*`) | Needs refactor | Import `queryBoolean` from sparql.js |
+| Creation functions (`create*`) | Needs refactor | Import `insert` from sparql.js |
+| Recording functions (`record*`) | Needs refactor | Import `insert`/`query` from sparql.js |
+| Handlers (`handleThorpe`, `handleMention`, etc.) | Needs refactor | Accept `{ instance }` param, import deps |
+| HTTP fetch (`handler` function) | **Extract to HttpIndexer** | Currently uses `fetch()` directly |
+| Content-type dispatch | **Extract to IndexerRegistry** | Currently only handles `text/html` |
+
+**Refactoring approach:**
+
+1. **Create `IndexerRegistry` class** - Dispatches by URI scheme, manages registered indexers
+2. **Create `HttpIndexer` class** - Extracts the `fetch()` call and content-type detection from `handler()`
+3. **Keep handlers as-is** - `handleThorpe`, `handleMention`, `handleHTML` etc. operate on blobjects, not raw content
+4. **Accept SparqlClient via DI** - Instead of importing from `$lib/sparql.js`
+
+```javascript
+// Target structure for core/indexing/
+indexing/
+├── index.js           # IndexerRegistry, exports
+├── registry.js        # IndexerRegistry class
+├── http.js            # HttpIndexer (built-in)
+├── handlers.js        # handleThorpe, handleMention, handleWebring, handleHTML
+├── storage.js         # create*, record*, extant* functions
+└── validation.js      # rate limiting, harmonizer validation
+```
+
+### Publish Module (new, already started)
+
+The publisher system at `src/lib/publish/` is new and should be designed for extraction from the start:
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `publish/index.js` | Ready | Pure exports |
+| `publish/resolve.js` | Ready | Pure transformation functions |
+| `publish/getPublisher.js` | Ready | Dynamic import pattern |
+| `publish/publishers/*/` | Ready | Self-contained modules |
 
 ### Web-Only (do not extract)
 
@@ -173,19 +221,34 @@ export class OriginVerifier {
 - Refactor `getHarmonizer.js` (Pattern 1)
 - Create SvelteKit adapter wrappers for backward compat
 
-### Phase 4: Extract RDF + Remaining
+### Phase 4: Extract Indexing Module
+- Create `IndexerRegistry` class with URI scheme dispatch
+- Create `HttpIndexer` class (extract from `handler()` in `indexing.js`)
+- Refactor storage functions to accept `SparqlClient` via DI
+- Keep handlers (`handleThorpe`, `handleMention`, etc.) as-is but with DI
+
+### Phase 5: Extract RDF + Remaining
 - Create `RdfConverter` class (Patterns 1 + 2)
 - Refactor `origin.js`, `assert.js` (Pattern 3)
 - Refactor `mail/send.js` (Pattern 1)
 
-### Phase 5: Compose Client + Publish
+### Phase 6: Extract Publish Module
+- Move `src/lib/publish/` to core (already mostly extractable)
+- Verify no SvelteKit dependencies
+
+### Phase 7: Compose Client + Publish
 - Create `OctothorpesClient` class composing all modules
 - Add type definitions
 - Publish `@octothorpes/core`
 
-### Phase 6: Build CLI
+### Phase 8: Build CLI
 - Create CLI package using `@octothorpes/core`
 - Config loading from `.env` / CLI args
+
+### Phase 9: Protocol-Specific Indexers (optional, separate packages)
+- Create `@octothorpes/indexer-atproto` with `AtprotoIndexer`
+- Create `@octothorpes/indexer-activitypub` with `ActivityPubIndexer`
+- These are optional peer dependencies, not bundled with core
 
 ---
 

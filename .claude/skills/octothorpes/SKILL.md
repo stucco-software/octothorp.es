@@ -5,16 +5,49 @@ description: Develop and integrate with the Octothorpes Protocol, otherwise know
 
 # Octothorpes Protocol Development
 
-The Octothorpes Protocol (OP) is a decentralized system that extracts metadata from the content of independent websites or documents and makes that metadata available via an API and a public-facing website. Metadata is stored in an RDF triplestore and queried with SPARQL. The website is built on SvelteKit, and the primary language is javascript. Dataflow is as follows: a document, usually a website, requests indexing from an OP server by hitting its "index" endpoint. If it's an allowed domain, the OP server uses a Harmonizer to find and normalize metadata from the document. This data is stored in the triple store and can be retrieved as raw JSON or a custom JSON schema called a Blobject.
+The Octothorpes Protocol (OP) is a decentralized system that extracts metadata from the content of independent websites or documents and makes that metadata available via an API and a public-facing website. Metadata is stored in an RDF triplestore and queried with SPARQL. The website is built on SvelteKit, and the primary language is javascript. Dataflow is as follows: a document, usually a website, requests indexing from an OP Relay by hitting its "index" endpoint. If it's an allowed domain, the Relay uses a Harmonizer to find and normalize metadata from the document. This data is stored in the triple store and can be retrieved as raw JSON or a custom JSON schema called a Blobject.
 
 Work is driven by GitHub issues on `stucco-software/octothorp.es`. When directed to an issue, read it with `gh issue view <number>` before starting work. Tasks typically involve extending protocol features, fixing bugs, and writing tests.
 
+---
+
+## Architecture Terminology
+
+Understanding these terms is essential for working on OP:
+
+- **Core** (`@octothorpes/core`): Framework-agnostic business logic -- indexing, harmonizing, querying, publishing. No network server, no UI. This is being extracted from the SvelteKit app.
+
+- **Relay**: A public OP endpoint that exposes the API (indexing, querying). A Relay is Core + network transport. Can be headless (API only) or bundled with a UI. The current octothorp.es is a Relay with a UI.
+
+- **Server**: A Relay with a frontend UI. "Server" and "Relay" are sometimes used interchangeably, but a Relay doesn't require a UI -- it could be just a bare API endpoint.
+
+- **Bridge**: A standalone service connecting an OP Relay to an external protocol (ActivityPub, ATProto). Bridges consume OP data via the API + Publishers and handle bidirectional protocol-specific work. Bridges store their own operational state (followers, queues, credentials) **outside** the OP triplestore.
+
+- **Dashboard**: A future user-facing client for individuals to manage their OP presence, link external identities (Bluesky, Mastodon), and configure cross-posting. This is where "accounts" would live -- OP Core and Relays don't have user accounts.
+
+- **Publisher**: Transforms blobjects into output formats (RSS, ATProto records, ActivityStreams). Publishers are stateless formatters. See `/src/lib/publish/`.
+
+- **Indexer**: Fetches content from a URI and produces a blobject via harmonization. Indexers are protocol-specific (HTTP, ATProto, ActivityPub) and pluggable. The current implementation only has an HTTP indexer.
+
+- **Blobject**: The canonical data shape for indexed content. All inputs (HTML, JSON, etc.) get harmonized into blobjects, and all outputs (RSS, ATProto) are transformed from blobjects.
+
+### Triplestore Philosophy
+
+A foundational concept: the triplestore is a representation of the state of data on the broader network. It stores facts about pages, terms, relationships, and identity associations -- but operational state (Bridge followers, delivery queues, user sessions) belongs elsewhere.
+
+This means:
+- A Relay can add or remove a Bridge without consequence to the triplestore
+- Identity associations (linking domains to DIDs or fediverse actors) **are** stored in the triplestore -- they represent network state
+- But Bridge-specific data (who follows a term, pending deliveries) is **not** stored in the triplestore
+
 ## Repository Structure
 
-- `/src/lib/` - Core libraries (SPARQL, converters, harmonizers, utils)
+- `/packages/core/` - `@octothorpes/core` — framework-agnostic package (installed via npm workspaces)
+- `/src/lib/` - Core libraries (SPARQL, converters, harmonizers, utils). Extracted logic lives here; adapter files inject `$env` and delegate.
 - `/src/lib/components/` - Svelte UI components
 - `/src/routes/` - SvelteKit file-based routing (API and pages)
 - `/src/tests/` - Test files (Vitest)
+- `/scripts/` - Standalone Node.js scripts (e.g. `core-test.js`)
 
 ## Environment & Configuration
 
@@ -281,25 +314,48 @@ Subtypes include `octo:Backlink`, `octo:Cite`, `octo:Bookmark`. The blank node a
 
 ## Indexing System
 
-OP is **pull-based**: pages call `/index?uri=<url>`, server fetches and processes the HTML.
+OP is **pull-based**: pages call `/index?uri=<url>`, Relay fetches and processes the content.
 
-### Flow
+### Indexing Pipeline
 
-1. Client: `GET /index?uri=<page-url>` with `Origin` header
-2. Verify origin against `octo:verified`
-3. Check cooldown via `octo:indexed`
-4. Fetch HTML from URI
-5. `harmonizeSource(html, harmonizer)` extracts metadata
-6. Process octothorpes: strings → `handleThorpe()`, objects → `handleMention()`
-7. Record metadata and timestamp
+```
+URI → [Indexer] → raw content → [Harmonizer] → blobject → [Storage]
+        ↑                            ↑
+   protocol-specific           content-type-specific
+   (HTTP, ATProto, AP)         (HTML/CSS, JSON/JSONPath)
+```
+
+Currently only HTTP indexing is implemented. The architecture supports pluggable Indexers for other protocols (ATProto, ActivityPub) -- see the Indexer section below.
+
+### Flow (HTTP)
+
+`handler()` in `$lib/indexing.js` owns the full validation pipeline. Route handlers (`indexwrapper/+server.js`) are thin HTTP adapters that parse requests, inject config, call `handler()`, and map errors to HTTP responses.
+
+1. Client: `GET /indexwrapper?uri=<page-url>`
+2. `handler()` pipeline:
+   a. `parseUri(uri)` -- validate and normalize via `$lib/uri.js` (supports HTTP, AT Protocol)
+   b. `validateSameOrigin()` -- cross-origin check
+   c. `verifiedOrigin()` -- origin registered? (via `$lib/origin.js`, accepts `{ serverName, queryBoolean }`)
+   d. `checkIndexingRateLimit()` -- rate limit per origin
+   e. `isHarmonizerAllowed()` -- harmonizer validation
+   f. `recentlyIndexed()` -- cooldown check
+3. Fetch HTML from URI
+4. `harmonizeSource(html, harmonizer)` extracts metadata
+5. Process octothorpes: strings → `handleThorpe()`, objects → `handleMention()`
+6. Record metadata and timestamp
 
 ### Key Functions
+
+Located in `/src/lib/indexing.js`:
 
 | Category | Functions |
 |----------|-----------|
 | Validation | `extantTerm()`, `extantPage()`, `extantThorpe()`, `extantMention()`, `extantBacklink()`, `recentlyIndexed()` |
 | Creation | `createTerm()`, `createPage()`, `createOctothorpe()`, `createMention()`, `createBacklink()`, `createWebring()` |
 | Recording | `recordIndexing()`, `recordTitle()`, `recordDescription()`, `recordUsage()` |
+| Handlers | `handleThorpe()`, `handleMention()`, `handleWebring()`, `handleHTML()` |
+| Rate Limiting | `checkIndexingRateLimit()` |
+| Harmonizer Validation | `isHarmonizerAllowed()` |
 
 ### Client Integration
 
@@ -308,6 +364,45 @@ OP is **pull-based**: pages call `/index?uri=<url>`, server fetches and processe
 fetch(`${instance}/index?uri=` + encodeURIComponent(window.location.href))
 // With harmonizer:
 fetch(`${instance}/index?uri=${encodeURIComponent(url)}&harmonizer=ghost`)
+```
+
+### Pluggable Indexers (Future)
+
+To support non-HTTP URIs (like `at://` for ATProto), the indexing system is being refactored to use pluggable Indexers:
+
+```javascript
+// Conceptual interface
+interface Indexer {
+  schemes: string[]           // URI schemes handled ('http', 'https', 'at', etc.)
+  fetch(uri): Promise<{       // Fetch content
+    content: string | object,
+    contentType: string,
+    metadata?: object
+  }>
+  defaultHarmonizer?: string  // Default harmonizer for this protocol
+}
+```
+
+The `IndexerRegistry` dispatches by URI scheme:
+- `https://example.com/page` → HttpIndexer
+- `at://did:plc:abc/app.bsky.feed.post/123` → AtprotoIndexer (future)
+
+### External URIs
+
+OP can store non-HTTP URIs directly in the triplestore:
+
+```sparql
+<at://did:plc:abc/app.bsky.feed.post/123> a octo:Page ;
+  octo:title "My Bluesky Post" .
+```
+
+For identity associations (linking domains to external identities):
+
+```sparql
+<https://example.com> a octo:Origin ;
+  octo:verified "true" ;
+  octo:atprotoIdentity <did:plc:abc123> ;
+  octo:activitypubActor <https://mastodon.social/users/alice> .
 ```
 
 ---
@@ -398,7 +493,7 @@ Each rule is an object (or a static string) with these fields:
 
 ### Harmonizer Output
 
-`harmonizeSource()` returns:
+`harmonizeSource()` returns a **blobject** -- the canonical data shape used throughout the indexing pipeline. Blobjects are the post-harmonization format: any input (HTML, JSON, XML) gets harmonized into a blobject, and the storage pipeline (`handleThorpe`, `handleMention`, etc.) consumes blobjects. This means pre-formed blobjects can skip harmonization entirely and go straight to storage.
 
 ```javascript
 {
@@ -426,8 +521,7 @@ Defined in `/src/lib/getHarmonizer.js`:
 | `openGraph` | Extracts `og:title`, `og:description`, `og:image` from meta tags. |
 | `keywords` | Converts `<meta name="keywords">` content to hashtags (split on comma). |
 | `ghost` | Extracts Ghost CMS article tags (`.gh-article-tag`) as hashtags. |
-| `beehiiv` | Extracts og metadata + H2 headers as hashtags + content links. |
-| `beehiiv-words` | Like `beehiiv` but splits H2 text into individual words. |
+
 
 ### Harmonizer Selection
 
@@ -507,18 +601,132 @@ See `/src/lib/web-components/README.md` for the full guide on creating new compo
 
 ---
 
+## Publishers
+
+Publishers transform blobjects into output formats. They are stateless formatters used by the API's `[[as]]` parameter and by Bridges.
+
+**Location:** `/src/lib/publish/`
+
+### Structure
+
+```
+src/lib/publish/
+├── index.js              # exports publish(), getPublisher(), listPublishers()
+├── resolve.js            # core resolve() function + transforms
+├── getPublisher.js       # publisher registry
+└── publishers/
+    ├── rss2/
+    │   ├── resolver.json # schema mapping blobject → RSS item fields
+    │   └── renderer.js   # XML rendering + contentType + meta
+    └── atproto/
+        ├── resolver.json # schema mapping blobject → site.standard.document
+        └── renderer.js   # passthrough (returns items directly)
+```
+
+### Publisher Components
+
+Each publisher has:
+- **Resolver schema** (`resolver.json`): Maps blobject fields to output format fields, with optional transforms
+- **Renderer** (`renderer.js`): Produces final output (XML string, JSON, etc.) and declares `contentType`
+
+### Adding a New Publisher
+
+1. Create `publishers/<format>/resolver.json` with schema
+2. Create `publishers/<format>/renderer.js` exporting:
+   - `default` - the imported resolver schema
+   - `contentType` - MIME type string
+   - `meta` - publisher metadata
+   - `render(items, meta)` - render function
+3. Register in `getPublisher.js`
+
+### Key APIs
+
+```javascript
+import { publish, getPublisher, listPublishers } from '$lib/publish'
+
+// Transform blobjects using a resolver schema
+const items = publish(blobjects, resolver.schema)
+
+// Get publisher by format
+const publisher = await getPublisher('rss2')  // or 'rss', 'atproto'
+
+// List available formats
+const formats = listPublishers()  // ['rss2', 'rss', 'atproto']
+```
+
+---
+
+## Bridges
+
+Bridges connect OP Relays to external protocols. They are separate services that:
+- Consume OP data via the API + Publishers
+- Handle bidirectional protocol-specific work
+- Store their own operational state outside the triplestore
+
+### Use Cases
+
+1. **Terms as Followable Actors** (Use Case 1): Make OP terms followable from the fediverse or subscribable as ATProto feeds. Example: `@demo@octothorp.es` becomes a fediverse actor that posts when new pages are tagged with "demo".
+
+2. **User Cross-Posting** (Use Case 2, future): Users with verified Origins could bridge their posts to personal fediverse/Bluesky accounts. Requires the Dashboard/account concept.
+
+### ActivityPub Bridge
+
+Would make OP terms followable from Mastodon, etc.:
+
+**Endpoints:**
+- `/.well-known/webfinger` - Resolves `acct:demo@octothorp.es` → actor URI
+- `/~/demo/actor` - Actor object with inbox/outbox
+- `/~/demo/outbox` - OrderedCollection of Create activities
+- `/~/demo/inbox` - Receives Follow/Undo requests
+
+**Operational state (stored outside triplestore):**
+- Follower lists per term
+- Delivery queue for outbound activities
+- HTTP signature keys
+
+### ATProto Bridge
+
+Would make OP terms available as Bluesky feeds:
+
+**Endpoints:**
+- Feed generator endpoints per term
+- DID document hosting
+
+### Bridge Design Principles
+
+- Use existing SDKs (`@atproto/api`, ActivityPub libraries) -- Bridges should be thin adapters
+- All operational state lives outside the OP triplestore
+- A Relay can add/remove Bridges without affecting the triplestore
+- Bridges consume Publisher output for formatting
+
+### Server Admin Setup (Conceptual)
+
+```bash
+op-bridge-activitypub \
+  --op-relay=https://my-relay.example \
+  --domain=my-relay.example \
+  --listen=:8080 \
+  --state-dir=/var/lib/op-bridge-ap
+```
+
+---
+
 ## Core Files
 
 | File | Purpose |
 |------|---------|
 | `/src/routes/get/[what]/[by]/[[as]]/load.js` | Main API |
-| `/src/routes/index/+server.js` | Indexing |
+| `/src/routes/index/+server.js` | Indexing route handler |
+| `/src/lib/indexing.js` | Indexing logic: handlers, storage, validation |
 | `/src/lib/converters.js` | URL ↔ MultiPass |
 | `/src/lib/sparql.js` | Query building |
 | `/src/lib/harmonizeSource.js` | Harmonization engine: extraction, processing, filtering, remote fetching |
 | `/src/lib/getHarmonizer.js` | Local harmonizer definitions and lookup |
+| `/src/lib/uri.js` | Modular URI validation (HTTP, AT Protocol) |
+| `/src/lib/origin.js` | Origin verification (decoupled, accepts config) |
+| `/src/lib/publish/` | Publisher system (resolve, render, publisher registry) |
 | `/src/lib/utils.js` | Validation, dates, tags |
-| `/src/lib/rssify.js` | RSS generation |
+| `/src/lib/rssify.js` | RSS generation (legacy, being replaced by publishers) |
 | `/src/routes/harmonizer/[id]/+server.js` | API endpoint to retrieve harmonizer schemas |
 | `/src/routes/debug/harmsource/[id]/+server.js` | Debug endpoint to test harmonization |
 | `/src/routes/debug/orchestra-pit/+server.js` | Debug endpoint to test indexing any URL without registration |
@@ -601,6 +809,8 @@ GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
 
 ## Development Patterns
 
+**Stability principle:** Prioritize solutions that do not break or significantly modify the API surface, important data object shapes (especially MultiPass), or pipeline processes. New features should fit into existing patterns -- add new values to existing fields rather than new fields, add new cases to existing switches rather than new code paths, and keep return types unchanged. When choosing between approaches, prefer the one with the smallest blast radius on existing code.
+
 **Performance:**
 - Avoid very-fuzzy + date filters in API calls
 - Use VALUES over FILTER CONTAINS when writing SPARQL when possible
@@ -616,19 +826,88 @@ GET {instance}/debug/orchestra-pit?uri=<url>&as=<harmonizer>
 
 ---
 
-## Core Extraction Readiness
+## `octothorpes` package
 
-OP is moving toward a monorepo where framework-agnostic business logic lives in a shared `@octothorpes/core` package, consumed by both SvelteKit and a future CLI. All new code should be written with this in mind.
+The framework-agnostic business logic lives in `packages/core/`. It is a self-contained ESM package with no SvelteKit dependencies. Installed via npm workspaces and importable as `octothorpes`.
 
-**The rule:** Business logic must not depend on SvelteKit. Route handlers (`+server.js`) are the boundary. Everything in `src/lib/` below that boundary should be extractable.
+See `docs/core-api-guide.md` for the full API reference.
 
-**In `src/lib/`, do not use:**
-- `$env/static/private` -- accept config as parameters instead
-- `@sveltejs/kit` (`error()`, `json()`) -- throw plain JS errors; route handlers catch and convert
-- `import.meta.glob()` -- use standard Node.js APIs or accept data as parameters
+### Package structure
+
+All source files live directly in `packages/core/` (flat layout, no build step).
+
+| File | Purpose |
+|------|---------|
+| `index.js` | Entry point. Re-exports all modules. Exports `createClient`. |
+| `package.json` | `octothorpes` v0.1.0-alpha.2 |
+| `api.js` | `createApi(config)` — `get()` and `fast.*` service layer |
+| `sparqlClient.js` | `createSparqlClient(config)` — SPARQL client factory |
+| `queryBuilders.js` | `createQueryBuilders(instance, queryArray)` — all query builders |
+| `multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
+| `blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
+| `harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
+| `harmonizeSource.js` | HTML metadata extraction engine |
+| `indexer.js` | Framework-agnostic indexing pipeline |
+| `origin.js` | Origin verification (accepts config, no $env) |
+| `uri.js` | URI validation (HTTP, AT Protocol) |
+| `utils.js` | Shared utilities (parsing, dates, tags) |
+| `rssify.js` | RSS feed generation |
+| `arrayify.js` | Array coercion utility |
+| `badge.js` | Badge rendering |
+| `ld/` | Linked data utilities (prefixes, context, graph, RDFa) |
+
+### Using the package
 
 ```javascript
-// BAD -- coupled to SvelteKit
+import { createClient } from 'octothorpes'
+
+const op = createClient({
+  instance: 'https://octothorp.es/',
+  sparql: { endpoint: 'http://0.0.0.0:7878' }
+})
+
+// Query
+const results = await op.get({ what: 'everything', by: 'thorped', o: 'demo' })
+
+// Fast queries (raw SPARQL, lighter weight)
+const terms = await op.getfast.terms()
+const pages = await op.getfast.term('demo')
+const domains = await op.getfast.domains()
+
+// Harmonize HTML
+const metadata = await op.harmonize(html, 'default')
+
+// Index a page
+await op.indexSource('https://example.com/page', { harmonizer: 'default' })
+
+// List available harmonizers
+const harmonizers = op.harmonizer.list()
+```
+
+### Adapter files in src/lib/ (do not add logic here)
+
+These SvelteKit files inject `$env` and delegate to the package modules. They exist so the existing routes keep working unchanged.
+
+| File | Delegates to |
+|------|-------------|
+| `src/lib/sparql.js` | `sparqlClient.js`, `queryBuilders.js` |
+| `src/lib/converters.js` | `multipass.js`, `blobject.js` |
+| `src/lib/getHarmonizer.js` | `harmonizers.js` |
+
+### Rules for new code
+
+**In `packages/core/`, never use:**
+- `$env/static/private` — accept config as parameters
+- `$lib/` imports — use relative `./` paths
+- `@sveltejs/kit` (`error()`, `json()`) — throw plain `Error`
+- `import.meta.glob()` — use standard Node.js APIs
+
+**In `src/lib/` adapter files:** only inject `$env` and delegate. No business logic.
+
+**Keep route handlers thin:** parse the request, inject config from `$env`, call library functions, format the response.
+
+```javascript
+// BAD — coupled to SvelteKit
 import { instance } from '$env/static/private'
 import { error } from '@sveltejs/kit'
 
@@ -637,15 +916,40 @@ export function buildTermUri(term) {
   return `${instance}~/${term}`
 }
 
-// GOOD -- extractable
+// GOOD — framework-agnostic
 export function buildTermUri(term, instance) {
   if (!term) throw new Error('Missing term')
   return `${instance}~/${term}`
 }
 ```
 
-**Keep route handlers thin:** parse the request, inject config from `$env`, call library functions, format the response. Accept dependencies (like `queryArray`) as parameters rather than importing singletons that carry their own `$env` imports.
+### `harmonizeSource` lazy import
 
-**When modifying existing coupled files** (e.g., `sparql.js` which imports `$env`), follow the file's existing patterns -- don't refactor the whole file for a feature addition. But write any **new functions** to accept config as parameters. **New files** in `src/lib/` should be fully extractable from day one.
+`harmonizeSource.js` has a fallback `await import("./getHarmonizer.js")` for SvelteKit contexts. Outside SvelteKit, always pass `getHarmonizer` via options or use `client.harmonize()` from `createClient`, which wires the registry automatically.
 
-Many `src/lib/` files are already framework-agnostic (`utils.js`, `rssify.js`, `arrayify.js`, etc.). Others need refactoring to remove `$env` or `@sveltejs/kit` imports (`sparql.js`, `converters.js`, `harmonizeSource.js`, `origin.js`). See `.claude/plans/cli/CORE_EXTRACTION_PLAN.md` for the file-by-file status and refactoring patterns, and `MONOREPO_SPEC.md` for the target package structure and public API.
+### Testing the core package
+
+```bash
+# Unit tests (no live services needed)
+npx vitest run src/tests/core.test.js src/tests/indexer.test.js src/tests/api.test.js
+
+# Live proof script (requires SPARQL endpoint running)
+node --env-file=.env scripts/core-test.js
+
+# Test package resolution via npm name
+node -e "import('octothorpes').then(m => console.log(Object.keys(m)))"
+
+# Debug endpoint (requires dev server running)
+# GET {instance}/debug/core
+# GET {instance}/debug/core?what=pages&by=thorped&o=demo&limit=5
+# GET {instance}/debug/core?method=fast&fast=terms
+```
+
+### Publishing
+
+```bash
+cd packages/core
+npm publish --access public
+```
+
+Until published, the workspace symlink in `node_modules/octothorpes` makes the package available locally.

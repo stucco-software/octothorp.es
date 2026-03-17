@@ -1,0 +1,101 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createIndexer } from '../../packages/core/indexer.js'
+
+const mockInsert = vi.fn()
+const mockQuery = vi.fn()
+const mockQueryBoolean = vi.fn()
+const mockQueryArray = vi.fn()
+const mockHarmonizeSource = vi.fn()
+
+const instance = 'http://localhost:5173/'
+
+const makeIndexer = () => createIndexer({
+  insert: mockInsert,
+  query: mockQuery,
+  queryBoolean: mockQueryBoolean,
+  queryArray: mockQueryArray,
+  harmonizeSource: mockHarmonizeSource,
+  instance,
+})
+
+describe('createIndexer', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('should return handler and helper functions', () => {
+    const indexer = makeIndexer()
+    expect(typeof indexer.handler).toBe('function')
+    expect(typeof indexer.handleThorpe).toBe('function')
+    expect(typeof indexer.checkIndexingRateLimit).toBe('function')
+    expect(typeof indexer.resolveSubtype).toBe('function')
+  })
+
+  it('should enforce rate limiting per origin', () => {
+    const indexer = makeIndexer()
+    expect(indexer.checkIndexingRateLimit('https://example-ratelimit-test.com')).toBe(true)
+  })
+
+  it('should allow local harmonizer IDs', () => {
+    const indexer = makeIndexer()
+    expect(indexer.isHarmonizerAllowed('default', 'https://example.com', { instance })).toBe(true)
+  })
+})
+
+describe('createBacklink - source-anchored storage', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('should anchor blank node on source and point url to target', async () => {
+    const indexer = makeIndexer()
+    mockInsert.mockResolvedValue(true)
+
+    await indexer.createBacklink(
+      'https://source.com/page',
+      'https://target.com/page',
+      'Bookmark',
+      [],
+      { instance: 'http://localhost:5173/' }
+    )
+
+    const insertCall = mockInsert.mock.calls[0][0]
+    // Blank node anchored on source
+    expect(insertCall).toContain('<https://source.com/page> octo:octothorpes _:backlink')
+    // URL points to target
+    expect(insertCall).toContain('_:backlink octo:url <https://target.com/page>')
+    // Should NOT have target as the anchor
+    expect(insertCall).not.toContain('<https://target.com/page> octo:octothorpes _:backlink')
+  })
+
+  it('should include relationship terms on the blank node', async () => {
+    const indexer = makeIndexer()
+    mockInsert.mockResolvedValue(true)
+
+    await indexer.createBacklink(
+      'https://source.com/page',
+      'https://target.com/page',
+      'Bookmark',
+      ['gadgets', 'bikes'],
+      { instance: 'http://localhost:5173/' }
+    )
+
+    const insertCall = mockInsert.mock.calls[0][0]
+    expect(insertCall).toContain('<http://localhost:5173/~/gadgets>')
+    expect(insertCall).toContain('<http://localhost:5173/~/bikes>')
+    expect(insertCall).toContain('_:backlink rdf:type <octo:Bookmark>')
+  })
+})
+
+describe('extantBacklink - source-anchored', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('should check for source-anchored backlink existence', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(true)
+
+    await indexer.extantBacklink('https://source.com/page', 'https://target.com/page')
+
+    const query = mockQueryBoolean.mock.calls[0][0]
+    // Source is the anchor
+    expect(query).toContain('<https://source.com/page> octo:octothorpes _:backlink')
+    // URL points to target
+    expect(query).toContain('_:backlink octo:url <https://target.com/page>')
+  })
+})

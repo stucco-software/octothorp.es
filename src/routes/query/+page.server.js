@@ -1,4 +1,4 @@
-import { queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery } from '$lib/sparql.js'
+import { queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
 import { getBlobjectFromResponse } from '$lib/converters.js'
 import { parseBindings } from '$lib/utils'
 
@@ -29,6 +29,7 @@ export const actions = {
           query = await buildEverythingQuery(multiPass)
           const bj = await queryArray(query)
           actualResults = await getBlobjectFromResponse(bj, multiPass.filters)
+          actualResults = await enrichBlobjectTargets(actualResults)
           break
 
         case "thorpes":

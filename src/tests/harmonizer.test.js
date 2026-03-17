@@ -290,4 +290,225 @@ describe('External Harmonizer Support', () => {
       expect(result.title).toBe('OpenGraph Title')
     })
   })
+
+  describe('Terms on Link-Type Octothorpes', () => {
+    const htmlWithTermsOnBookmark = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Test Page</title></head>
+        <body>
+          <a rel="octo:bookmarks" data-octothorpes="gadgets,bikes" href="https://example.com/page">Cool Stuff</a>
+        </body>
+      </html>
+    `
+
+    it('should extract terms from data-octothorpes attribute on bookmark links', async () => {
+      const result = await harmonizeSource(htmlWithTermsOnBookmark)
+
+      const bookmark = result.octothorpes.find(o => o.type === 'bookmark')
+      expect(bookmark).toBeDefined()
+      expect(bookmark.uri).toBe('https://example.com/page')
+      expect(bookmark.terms).toBeDefined()
+      expect(bookmark.terms).toContain('gadgets')
+      expect(bookmark.terms).toContain('bikes')
+    })
+
+    it('should handle links without data-octothorpes attribute', async () => {
+      const htmlWithoutTerms = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:bookmarks" href="https://example.com/page">Bookmark</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithoutTerms)
+
+      const bookmark = result.octothorpes.find(o => o.type === 'bookmark')
+      expect(bookmark).toBeDefined()
+      expect(bookmark.uri).toBe('https://example.com/page')
+      expect(bookmark.terms).toBeUndefined()
+    })
+
+    it('should extract terms from citation links', async () => {
+      const htmlWithCite = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:cites" data-octothorpes="disagree,methodology" href="https://example.com/paper">Paper</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithCite)
+
+      const cite = result.octothorpes.find(o => o.type === 'cite')
+      expect(cite).toBeDefined()
+      expect(cite.terms).toContain('disagree')
+      expect(cite.terms).toContain('methodology')
+    })
+  })
+
+  describe('Button Extraction', () => {
+    const htmlWithButton = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Test Page</title></head>
+        <body>
+          <a rel="octo:button" href="https://friend.example/button.gif">Friend Site</a>
+        </body>
+      </html>
+    `
+
+    it('should extract button links from rel=octo:button', async () => {
+      const result = await harmonizeSource(htmlWithButton)
+
+      const button = result.octothorpes.find(o => o.type === 'button')
+      expect(button).toBeDefined()
+      expect(button.uri).toBe('https://friend.example/button.gif')
+    })
+
+    it('should have button extraction config in default harmonizer schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.button).toBeDefined()
+      expect(harmonizer.schema.button.o).toBeDefined()
+      expect(Array.isArray(harmonizer.schema.button.o)).toBe(true)
+    })
+
+    it('should support data-octothorpes terms on button links', async () => {
+      const htmlWithTerms = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:button" data-octothorpes="friend,webring" href="https://friend.example/button.gif">Friend</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithTerms)
+
+      const button = result.octothorpes.find(o => o.type === 'button')
+      expect(button).toBeDefined()
+      expect(button.terms).toContain('friend')
+      expect(button.terms).toContain('webring')
+    })
+  })
+
+  describe('PostDate Extraction', () => {
+    const htmlWithArticlePublishedTime = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Blog Post</title>
+          <meta property="article:published_time" content="2024-06-15T10:00:00Z">
+        </head>
+        <body><p>Content</p></body>
+      </html>
+    `
+
+    const htmlWithTimeDatetime = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Blog Post</title></head>
+        <body>
+          <time datetime="2024-06-15">June 15, 2024</time>
+          <p>Content</p>
+        </body>
+      </html>
+    `
+
+    const htmlWithOctoPostDate = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Blog Post</title>
+          <meta property="octo:postDate" content="2024-06-15">
+        </head>
+        <body><p>Content</p></body>
+      </html>
+    `
+
+    const htmlWithDataOctodate = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Blog Post</title></head>
+        <body>
+          <article data-octodate="2024-06-15T10:00:00Z">Content</article>
+        </body>
+      </html>
+    `
+
+    const htmlWithNoDate = `
+      <!DOCTYPE html>
+      <html>
+        <head><title>Blog Post</title></head>
+        <body><p>Content</p></body>
+      </html>
+    `
+
+    it('should extract postDate from article:published_time meta tag', async () => {
+      const result = await harmonizeSource(htmlWithArticlePublishedTime)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should extract postDate from time[datetime] element', async () => {
+      const result = await harmonizeSource(htmlWithTimeDatetime)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should extract postDate from octo:postDate meta tag', async () => {
+      const result = await harmonizeSource(htmlWithOctoPostDate)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should extract postDate from data-octodate attribute', async () => {
+      const result = await harmonizeSource(htmlWithDataOctodate)
+      expect(result.postDate).toBeDefined()
+      expect(result.postDate).toContain('2024-06-15')
+    })
+
+    it('should return empty postDate when no date markup is present', async () => {
+      const result = await harmonizeSource(htmlWithNoDate)
+      expect(result.postDate).toBe('')
+    })
+  })
+
+  describe('Default Harmonizer Schema - Terms Config', () => {
+    it('should have terms extraction config for bookmark schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.bookmark).toBeDefined()
+      expect(harmonizer.schema.bookmark.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.bookmark.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+
+    it('should have terms extraction config for cite schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.cite).toBeDefined()
+      expect(harmonizer.schema.cite.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.cite.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+
+    it('should have terms extraction config for link schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.link).toBeDefined()
+      expect(harmonizer.schema.link.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.link.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+
+    it('should have terms extraction config for endorse schema', async () => {
+      const harmonizer = await getHarmonizer('default')
+
+      expect(harmonizer.schema.endorse).toBeDefined()
+      expect(harmonizer.schema.endorse.o[0].terms).toBeDefined()
+      expect(harmonizer.schema.endorse.o[0].terms.attribute).toBe('data-octothorpes')
+    })
+  })
 })

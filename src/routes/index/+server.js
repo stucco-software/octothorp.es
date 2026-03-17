@@ -17,6 +17,16 @@ let p = 'octo:octothorpes'
 let indexCooldown = 300000 //5min
 // let indexCooldown = 0
 
+const subtypeMap = {
+  bookmark: 'Bookmark',
+  Bookmark: 'Bookmark',
+  cite: 'Cite',
+  citation: 'Cite',
+  Cite: 'Cite',
+}
+
+const resolveSubtype = (type) => subtypeMap[type] || 'Backlink'
+
 ////////// harmonizer validation //////////
 
 // global whitelist of harmonizer providers
@@ -375,14 +385,14 @@ const createPage = async (o) => {
 //   `)
 // }
 
-const createBacklink = async (s, o) => {
-  console.log(`create backlink…`)
+const createBacklink = async (s, o, subtype = 'Backlink') => {
+  console.log(`create backlink… (${subtype})`)
   let now = Date.now()
   return await insert(`
     <${o}> ${p} _:backlink .
       _:backlink octo:created ${now} .
       _:backlink octo:url <${s}> .
-      _:backlink rdf:type <octo:Backlink> .
+      _:backlink rdf:type <octo:${subtype}> .
   `)
 }
 
@@ -489,7 +499,7 @@ const checkEndorsement = async (s, o, flag) => {
 
 ////////// handlers //////////
 
-const handleMention = async (s, o) => {
+const handleMention = async (s, o, subtype = 'Backlink') => {
   const subj = deslash(s)
   const obj = deslash(o)
   const isObjWebring = await extantPage(obj, "Webring")
@@ -517,7 +527,7 @@ const handleMention = async (s, o) => {
   let isExtantbacklink = await extantBacklink(subj, obj)
   console.log(`isExtantbacklink?`, isExtantbacklink)
   if (!isExtantbacklink) {
-    await createBacklink(subj, obj)
+    await createBacklink(subj, obj, subtype)
   }
 }
 
@@ -604,36 +614,19 @@ const handleHTML = async (response, uri, harmonizer = "default") => {
   // console.log(`VVVVVVVVVVVVVVVV`)
   console.log(harmed.octothorpes)
   for (const octothorpe of harmed.octothorpes) {
+    if (typeof octothorpe === 'string') {
+      await handleThorpe(s, octothorpe)
+      continue
+    }
+    if (!octothorpe.uri) continue
     let octoURI = deslash(octothorpe.uri)
-    switch(octothorpe.type) {
-      case 'link':
-      case 'mention':
-      case 'Link':
-      case 'Mention':
-      case 'Backlink':
-      case 'backlink':
-        friends.linked.push(octoURI)
-        handleMention(s, octoURI)
-        break;
-      case 'hashtag':
-        handleThorpe(s, octoURI)
-        break;
-      case 'endorse':
-        friends.endorsed.push(octoURI)
-        // TKTK handle endorsement
-        // TK: Web of Trust Verification
-        //  1. Grab `[rel="octo:endorses"]`
-        //  2. Create term <s> octo:endorses <o> .
-        //  3. Create term <o.origin> octo:verified "true" .
-        break;
-      case 'bookmark':
-        console.log(`handle bookmark?`, octoURI)
-        // TKTK handle bookmark uniquely
-        handleMention(s, octoURI)
-        break;
-      default:
-        handleThorpe(s, octothorpe)
-        break;
+    if (octothorpe.type === 'hashtag') {
+      await handleThorpe(s, octoURI)
+    } else if (octothorpe.type === 'endorse') {
+      friends.endorsed.push(octoURI)
+    } else {
+      friends.linked.push(octoURI)
+      await handleMention(s, octoURI, resolveSubtype(octothorpe.type))
     }
   }
 

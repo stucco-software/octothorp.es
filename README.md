@@ -1,6 +1,6 @@
 ![release badge](https://img.shields.io/github/v/release/stucco-software/octothorp.es)
 
-> 
+ 
 # Octothorpe Protocol Server #️⃣♥️#️⃣
 
 A relay that connects independent websites with Octothorpe Protocol. Implements OP core features and includes a limited front-end UI.
@@ -31,4 +31,4 @@ Visit the Site UI:
 - Domains: `http://localhost:5173/domains`
 - Hashtags: `http://localhost:5173/~/`
 - Test indexing a page: `http://localhost:5173/debug/orchestra-pit?uri=FULL-TEST-URL-HERE`
-- Example API endpoint: `http://localhost:5173/get/everything/posted/debug?s=demo.ideastore.dev` See the [API docs](https://docs.octothorp.es/op-api/) for more  
+- Example API endpoint: `http://localhost:5173/get/everything/posted/debug?s=demo.ideastore.dev` See the [API docs](https://docs.octothorp.es/op-api/) for more
