@@ -685,7 +685,9 @@ export const createIndexer = (deps) => {
     }
 
     // 7. Fetch and process
-    let subject = await fetch(parsed.normalized)
+    let subject = await fetch(parsed.normalized, {
+      headers: { 'User-Agent': 'Octothorpes/1.0' }
+    })
     await recordIndexing(parsed.normalized)
 
     if (subject.headers.get('content-type').includes('text/html')) {

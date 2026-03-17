@@ -1,6 +1,6 @@
 ![release badge](https://img.shields.io/github/v/release/stucco-software/octothorp.es)
 
-> *Note: We are on a coding break until January 15, 2026. Still checking issues, just no new dev until then*
+
 > 
 # Octothorpe Protocol Server #️⃣♥️#️⃣
 
@@ -32,4 +32,4 @@ Visit the Site UI:
 - Domains: `http://localhost:5173/domains`
 - Hashtags: `http://localhost:5173/~/`
 - Test indexing a page: `http://localhost:5173/debug/orchestra-pit?uri=FULL-TEST-URL-HERE`
-- Example API endpoint: `http://localhost:5173/get/everything/posted/debug?s=demo.ideastore.dev` See the [API docs](https://docs.octothorp.es/op-api/) for more  
+- Example API endpoint: `http://localhost:5173/get/everything/posted/debug?s=demo.ideastore.dev` See the [API docs](https://docs.octothorp.es/op-api/) for more
