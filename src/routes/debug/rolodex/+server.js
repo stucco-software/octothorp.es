@@ -6,7 +6,6 @@ import { handler } from '$lib/indexing.js'
 const allowedDomains = [
   'localhost',
   'demo.ideastore.dev',
-  'sweetfish.site',
   'octothorp.es',
 ]
 
