@@ -197,6 +197,16 @@
     }
   }
 
+  async function fetchDiscover() {
+    const base = window.location.origin
+    const discoverWhen = when || 'recent'
+    const response = await fetch(`${base}/discover?limit=${limit || 50}&when=${discoverWhen}`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    return await response.json()
+  }
+
   async function executeQuery() {
     if (!browser) return
 
@@ -208,17 +218,23 @@
     results = null
 
     try {
-      const response = await fetch(queryUrl)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      if (format === 'json' || format === 'debug') {
-        results = await response.json()
-      } else if (format === 'rss') {
-        results = await response.text()
+      // If no subjects or objects, use /discover endpoint
+      if (subjects.length === 0 && objects.length === 0 && notSubjects.length === 0 && notObjects.length === 0) {
+        what = 'everything'
+        results = await fetchDiscover()
       } else {
-        results = await response.json()
+        const response = await fetch(queryUrl)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        if (format === 'json' || format === 'debug') {
+          results = await response.json()
+        } else if (format === 'rss') {
+          results = await response.text()
+        } else {
+          results = await response.json()
+        }
       }
     } catch (err) {
       error = err.message
@@ -317,63 +333,7 @@
     loadedMultiPassMeta = null
   }
 
-  // Shortcut presets — add new entries here to surface them as buttons
-  const presets = {
-    recent: {
-      label: 'Recent Posts',
-      directUrl: '/discover?limit=50&when=recent',
-    },
-    // 'wwo': {
-    //   label: 'Recent #weirdweboctober',
-    //   rainbow: true,
-    //   what: 'everything',
-    //   by: 'thorped',
-    //   objects: ['weirdweboctober'],
-    //   when: 'recent',
-    //   limit: 50,
-    // },
-  }
 
-  async function loadPreset(preset) {
-    // Close encoder if open
-    if (showEncoder) closeEncoder()
-
-    const p = presets[preset]
-    if (!p) return
-
-    // If preset has a direct URL, fetch that instead of using the form
-    if (p.directUrl) {
-      loading = true
-      error = null
-      results = null
-      what = 'everything' // for result rendering
-      try {
-        const base = window.location.origin
-        const response = await fetch(`${base}${p.directUrl}`)
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-        results = await response.json()
-      } catch (err) {
-        error = err.message
-      } finally {
-        loading = false
-      }
-      return
-    }
-
-    // Standard preset: set form values and execute
-    what = p.what || 'everything'
-    by = p.by || 'thorped'
-    subjects = p.subjects || []
-    objects = p.objects || []
-    when = p.when || ''
-    limit = p.limit || 20
-
-    // Wait for reactive statement to update queryUrl
-    await new Promise(resolve => setTimeout(resolve, 0))
-    executeQuery()
-  }
 
   async function loadEncoder() {
     showEncoder = true
@@ -652,22 +612,6 @@
     {/if}
 
     <form on:submit|preventDefault={executeQuery}>
-      <!-- Quick Presets -->
-      <fieldset class="compact">
-        <legend>Shortcuts</legend>
-        {#each Object.entries(presets) as [key, preset]}
-          <button class={preset.rainbow ? 'rainbow' : ''} type="button" on:click={() => loadPreset(key)}>
-            {preset.label}
-          </button>
-        {/each}
-        <button type="button" on:click={loadEncoder}>
-          Make MultiPass GIF
-        </button>
-        <button type="button" on:click={clearForm}>
-          Clear Form
-        </button>
-      </fieldset>
-
       <fieldset class="compact">
         <legend>Browse</legend>
         <select bind:value={what}>
@@ -841,6 +785,12 @@
       <div class="actions">
         <button class="rainbow" type="submit" disabled={loading}>
             EXPLORE
+        </button>
+        <button type="button" on:click={loadEncoder}>
+          Make MultiPass GIF
+        </button>
+        <button type="button" on:click={clearForm}>
+          Clear Form
         </button>
       </div>
     </form>
@@ -1039,7 +989,7 @@
         {#if uploadedMultiPassPreview}
           <img src={uploadedMultiPassPreview} alt="Uploaded MultiPass" style="max-width: 200px; margin-bottom: 1rem; border: 1px solid var(--txt-color);" />
         {/if}
-        <p>Set some query parameters and click "Explore" to discover sites connected to this OP relay.</p>
+        <p>Click "Explore" to discover recent posts, or set query parameters to search for specific content.</p>
         <p style="margin-top: 1rem; font-weight: bold;">Or drag & drop a MultiPass JSON or GIF here</p>
         <label class="upload-button">
           Upload MultiPass
