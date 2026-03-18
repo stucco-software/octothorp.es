@@ -1,16 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('$lib/sparql.js', () => ({
-  queryArray: vi.fn(),
-  queryBoolean: vi.fn(),
-  insert: vi.fn(),
-  query: vi.fn(),
-}))
-
-vi.mock('$lib/harmonizeSource.js', () => ({
-  harmonizeSource: vi.fn(),
-}))
-
 import { determineBadgeUri, badgeVariant } from 'octothorpes'
 
 describe('Badge Endpoint Logic', () => {
