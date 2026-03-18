@@ -1352,7 +1352,7 @@
     padding: 0px .5rem;
     width: 90%;
     text-align: center;
-    margin: 10px auto 3rem;
+    margin: 10px auto 20px;
   }
 
   .rainbow {
