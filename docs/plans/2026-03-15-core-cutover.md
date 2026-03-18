@@ -778,4 +778,5 @@ git commit -m "chore: bump octothorpes to 0.2.0, clean up gaps doc, add release 
 
 - **`verifiyContent` typo:** The function name in `origin.js` has a typo ("verifiy"). Fixing it is out of scope for this cutover — it would change the public API. Track as follow-up.
 - **`dev-use-core` branch:** Can be deleted or kept as historical reference after cutover is complete on `development`.
-- **`src/routes/debug/api-check/` and `src/routes/debug/index-check/`:** The `dev-use-core` branch deleted these. Evaluate whether to keep them — they are useful for manual integration testing. If keeping, they may need import rewiring.
+- **`src/routes/debug/api-check/` and `src/routes/debug/index-check/`:** The `dev-use-core` branch deleted these. These are important for integration testing and should be checked for any paths that need to be rewired.
+- 
