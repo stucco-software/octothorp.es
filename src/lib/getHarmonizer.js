@@ -1,5 +1,5 @@
 import { instance } from '$env/static/private'
-import { createHarmonizerRegistry } from '$lib/harmonizers.js'
+import { createHarmonizerRegistry } from 'octothorpes'
 
 const registry = createHarmonizerRegistry(instance)
 
