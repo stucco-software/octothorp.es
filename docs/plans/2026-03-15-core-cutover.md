@@ -378,6 +378,7 @@ export const {
   buildDomainQuery,
   prepEverything,
   testQueryFromMultiPass,
+  createDateFilter,
 } = builders
 
 export const enrichBlobjectTargets = createEnrichBlobjectTargets(queryArray)
@@ -508,6 +509,7 @@ For these, create client-safe shim files (see Task 5b).
 | `src/routes/webrings/load.js` | `getWebrings` from utils |
 | `src/routes/domains/[uri]/+page.server.js` | `isSparqlSafe` from utils |
 | `src/routes/query/+page.server.js` | `getBlobjectFromResponse`, `parseBindings` |
+| `src/routes/discover/+server.js` | `parseDateStrings` from utils, `getBlobjectFromResponse` from converters (note: also imports `queryArray`, `enrichBlobjectTargets`, `createDateFilter` from `$lib/sparql.js` adapter -- those stay as `$lib/` imports) |
 
 Files that only import from `$lib/sparql.js` (stays as adapter) need NO changes:
 - `src/routes/backlinks/load.js`
@@ -779,4 +781,5 @@ git commit -m "chore: bump octothorpes to 0.2.0, clean up gaps doc, add release 
 - **`verifiyContent` typo:** The function name in `origin.js` has a typo ("verifiy"). Fixing it is out of scope for this cutover — it would change the public API. Track as follow-up.
 - **`dev-use-core` branch:** Can be deleted or kept as historical reference after cutover is complete on `development`.
 - **`src/routes/debug/api-check/` and `src/routes/debug/index-check/`:** The `dev-use-core` branch deleted these. These are important for integration testing and should be checked for any paths that need to be rewired.
-- 
+- **`/discover` endpoint and core:** `src/routes/discover/+server.js` (added in #189) imports `queryArray`, `enrichBlobjectTargets`, `createDateFilter` from `$lib/sparql.js`, `getBlobjectFromResponse` from `$lib/converters.js`, and `parseDateStrings` from `$lib/utils.js`. During cutover, `parseDateStrings` rewires to `octothorpes`; the sparql/converters imports stay as `$lib/` adapter imports. The endpoint also defines a local `buildCoalesceDateFilter` helper for COALESCE-based date filtering (falls back to `indexedDate` when `postDate` is absent). **Future work:** Extract the discover query logic into a `discover()` method on `createClient` in `packages/core/index.js` (separate ticket). This would let server-side consumers call `op.discover({ limit, when })` without HTTP round-trips, mirroring how `op.get()` wraps the `/get/` pipeline.
+
