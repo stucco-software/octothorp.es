@@ -9,10 +9,14 @@ import {
   formatDate, 
   encodeValue,
   extractTags
-} from '../lib/publish/resolve.js'
-import { publish, getPublisher, listPublishers } from '../lib/publish/index.js'
-import rssResolver from '../lib/publish/publishers/rss2/resolver.json'
-import atprotoDocument from '../lib/publish/publishers/atproto/resolver.json'
+} from 'octothorpes'
+import { publish, createPublisherRegistry } from 'octothorpes'
+
+const _registry = createPublisherRegistry()
+const getPublisher = _registry.getPublisher
+const listPublishers = _registry.listPublishers
+const rssResolver = getPublisher('rss2')?.schema
+const atprotoDocument = getPublisher('atproto')?.schema
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {

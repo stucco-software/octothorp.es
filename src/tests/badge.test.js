@@ -11,7 +11,7 @@ vi.mock('$lib/harmonizeSource.js', () => ({
   harmonizeSource: vi.fn(),
 }))
 
-import { determineBadgeUri, badgeVariant } from '$lib/badge.js'
+import { determineBadgeUri, badgeVariant } from 'octothorpes'
 
 describe('Badge Endpoint Logic', () => {
 

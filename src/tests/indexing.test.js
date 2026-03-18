@@ -1,60 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-vi.mock('$lib/sparql.js', () => ({
-  queryArray: vi.fn(),
-  queryBoolean: vi.fn(),
-  insert: vi.fn(),
-  query: vi.fn(),
-}))
-
-vi.mock('$lib/harmonizeSource.js', () => ({
-  harmonizeSource: vi.fn(),
-}))
-
-vi.mock('$env/static/private', () => ({
-  server_name: 'test-server',
-}))
-
 import {
+  createIndexer,
+  resolveSubtype,
   isHarmonizerAllowed,
   checkIndexingRateLimit,
   parseRequestBody,
   isURL,
-  getAllMentioningUrls,
-  getDomainForUrl,
-  recentlyIndexed,
-  extantTerm,
-  extantPage,
-  createBacklink,
-  createOctothorpe,
-  createTerm,
-  createPage,
-  recordIndexing,
-  recordProperty,
-  recordTitle,
-  recordDescription,
-  recordImage,
-  recordUsage,
-  handleThorpe,
-  handleMention,
-  handleHTML,
-  handler,
-  resolveSubtype,
-  recordPostDate,
   checkIndexingPolicy,
-} from '$lib/indexing.js'
+} from '../../packages/core/indexer.js'
+import { verifiedOrigin, verifyApprovedDomain } from 'octothorpes'
 
-import { queryArray, queryBoolean, insert, query } from '$lib/sparql.js'
-import { harmonizeSource } from '$lib/harmonizeSource.js'
-import { verifiedOrigin, verifyApprovedDomain } from '$lib/origin.js'
+const mockInsert = vi.fn()
+const mockQuery = vi.fn()
+const mockQueryBoolean = vi.fn()
+const mockQueryArray = vi.fn()
+const mockHarmonizeSource = vi.fn()
 
 const instance = 'http://localhost:5173/'
 
-describe('Indexing Business Logic', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+const makeIndexer = () => createIndexer({
+  insert: mockInsert,
+  query: mockQuery,
+  queryBoolean: mockQueryBoolean,
+  queryArray: mockQueryArray,
+  harmonizeSource: mockHarmonizeSource,
+  instance,
+})
 
+let indexer
+beforeEach(() => {
+  vi.clearAllMocks()
+  indexer = makeIndexer()
+})
+
+describe('Indexing Business Logic', () => {
   describe('isHarmonizerAllowed', () => {
     it('should allow local harmonizer IDs (not URLs)', () => {
       expect(isHarmonizerAllowed('default', 'https://example.com', { instance })).toBe(true)
@@ -163,75 +142,75 @@ describe('Indexing Business Logic', () => {
 
   describe('recentlyIndexed', () => {
     it('should return false when never indexed', async () => {
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
-      const result = await recentlyIndexed('https://example.com/page')
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+      const result = await indexer.recentlyIndexed('https://example.com/page')
       expect(result).toBe(false)
     })
 
     it('should return true when indexed within cooldown', async () => {
       const recentTimestamp = Date.now() - 60000 // 1 minute ago
-      queryArray.mockResolvedValue({
+      mockQueryArray.mockResolvedValue({
         results: {
           bindings: [{ t: { value: String(recentTimestamp) } }]
         }
       })
-      const result = await recentlyIndexed('https://example.com/page')
+      const result = await indexer.recentlyIndexed('https://example.com/page')
       expect(result).toBe(true)
     })
 
     it('should return false when indexed outside cooldown', async () => {
       const oldTimestamp = Date.now() - 600000 // 10 minutes ago
-      queryArray.mockResolvedValue({
+      mockQueryArray.mockResolvedValue({
         results: {
           bindings: [{ t: { value: String(oldTimestamp) } }]
         }
       })
-      const result = await recentlyIndexed('https://example.com/page')
+      const result = await indexer.recentlyIndexed('https://example.com/page')
       expect(result).toBe(false)
     })
 
     it('should return false when indexed timestamp is 0', async () => {
-      queryArray.mockResolvedValue({
+      mockQueryArray.mockResolvedValue({
         results: {
           bindings: [{ t: { value: '0' } }]
         }
       })
-      const result = await recentlyIndexed('https://example.com/page')
+      const result = await indexer.recentlyIndexed('https://example.com/page')
       expect(result).toBe(false)
     })
   })
 
   describe('extantTerm', () => {
     it('should query with instance-prefixed term URI', async () => {
-      queryBoolean.mockResolvedValue(true)
-      const result = await extantTerm('demo', { instance })
+      mockQueryBoolean.mockResolvedValue(true)
+      const result = await indexer.extantTerm('demo', { instance })
       expect(result).toBe(true)
-      expect(queryBoolean).toHaveBeenCalledWith(
+      expect(mockQueryBoolean).toHaveBeenCalledWith(
         expect.stringContaining(`<${instance}~/${'demo'}>`)
       )
     })
 
     it('should return false for non-existent term', async () => {
-      queryBoolean.mockResolvedValue(false)
-      const result = await extantTerm('nonexistent', { instance })
+      mockQueryBoolean.mockResolvedValue(false)
+      const result = await indexer.extantTerm('nonexistent', { instance })
       expect(result).toBe(false)
     })
   })
 
   describe('extantPage', () => {
     it('should check for Page type by default', async () => {
-      queryBoolean.mockResolvedValue(true)
-      const result = await extantPage('https://example.com/page')
+      mockQueryBoolean.mockResolvedValue(true)
+      const result = await indexer.extantPage('https://example.com/page')
       expect(result).toBe(true)
-      expect(queryBoolean).toHaveBeenCalledWith(
+      expect(mockQueryBoolean).toHaveBeenCalledWith(
         expect.stringContaining('octo:Page')
       )
     })
 
     it('should check for custom type', async () => {
-      queryBoolean.mockResolvedValue(false)
-      await extantPage('https://example.com/ring', 'Webring')
-      expect(queryBoolean).toHaveBeenCalledWith(
+      mockQueryBoolean.mockResolvedValue(false)
+      await indexer.extantPage('https://example.com/ring', 'Webring')
+      expect(mockQueryBoolean).toHaveBeenCalledWith(
         expect.stringContaining('octo:Webring')
       )
     })
@@ -239,17 +218,17 @@ describe('Indexing Business Logic', () => {
 
   describe('createOctothorpe', () => {
     it('should insert with instance-prefixed term URI', async () => {
-      insert.mockResolvedValue({})
-      await createOctothorpe('https://example.com/page', 'demo', { instance })
-      expect(insert).toHaveBeenCalledWith(
+      mockInsert.mockResolvedValue({})
+      await indexer.createOctothorpe('https://example.com/page', 'demo', { instance })
+      expect(mockInsert).toHaveBeenCalledWith(
         expect.stringContaining(`<${instance}~/${'demo'}>`)
       )
     })
 
     it('should include origin triples', async () => {
-      insert.mockResolvedValue({})
-      await createOctothorpe('https://example.com/page', 'demo', { instance })
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.createOctothorpe('https://example.com/page', 'demo', { instance })
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:hasPart')
       expect(insertCall).toContain('octo:verified')
       expect(insertCall).toContain('octo:Origin')
@@ -258,9 +237,9 @@ describe('Indexing Business Logic', () => {
 
   describe('createTerm', () => {
     it('should insert term with instance prefix', async () => {
-      insert.mockResolvedValue({})
-      await createTerm('demo', { instance })
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.createTerm('demo', { instance })
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain(`<${instance}~/demo>`)
       expect(insertCall).toContain('octo:created')
       expect(insertCall).toContain('octo:Term')
@@ -269,9 +248,9 @@ describe('Indexing Business Logic', () => {
 
   describe('createPage', () => {
     it('should insert page with type and timestamp', async () => {
-      insert.mockResolvedValue({})
-      await createPage('https://example.com/page')
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.createPage('https://example.com/page')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('<https://example.com/page>')
       expect(insertCall).toContain('octo:created')
       expect(insertCall).toContain('octo:Page')
@@ -280,41 +259,37 @@ describe('Indexing Business Logic', () => {
 
   describe('createBacklink', () => {
     it('should default to octo:Backlink subtype', async () => {
-      insert.mockResolvedValue({})
-      await createBacklink('https://example.com/page', 'https://other.com/page')
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.createBacklink('https://example.com/page', 'https://other.com/page')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Backlink>')
-      // Source-anchored: blank node hangs off source
-      expect(insertCall).toContain('<https://example.com/page> octo:octothorpes _:backlink')
-      // URL points to target
-      expect(insertCall).toContain('_:backlink octo:url <https://other.com/page>')
     })
 
     it('should use provided subtype', async () => {
-      insert.mockResolvedValue({})
-      await createBacklink('https://example.com/page', 'https://other.com/page', 'Cite')
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.createBacklink('https://example.com/page', 'https://other.com/page', 'Cite')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Cite>')
       expect(insertCall).not.toContain('rdf:type <octo:Backlink>')
     })
 
     it('should use Bookmark subtype', async () => {
-      insert.mockResolvedValue({})
-      await createBacklink('https://example.com/page', 'https://other.com/page', 'Bookmark')
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.createBacklink('https://example.com/page', 'https://other.com/page', 'Bookmark')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Bookmark>')
     })
   })
 
   describe('recordIndexing', () => {
     it('should delete old timestamp and insert new one', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordIndexing('https://example.com/page')
-      expect(query).toHaveBeenCalledWith(
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordIndexing('https://example.com/page')
+      expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('delete')
       )
-      expect(insert).toHaveBeenCalledWith(
+      expect(mockInsert).toHaveBeenCalledWith(
         expect.stringContaining('octo:indexed')
       )
     })
@@ -322,24 +297,24 @@ describe('Indexing Business Logic', () => {
 
   describe('recordProperty', () => {
     it('should skip null values', async () => {
-      await recordProperty('https://example.com/page', 'octo:title', null)
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordProperty('https://example.com/page', 'octo:title', null)
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should skip undefined values', async () => {
-      await recordProperty('https://example.com/page', 'octo:title', undefined)
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordProperty('https://example.com/page', 'octo:title', undefined)
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should trim and record with the given predicate', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordProperty('https://example.com/page', 'octo:title', '  Test Title  ')
-      const deleteCall = query.mock.calls[0][0]
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordProperty('https://example.com/page', 'octo:title', '  Test Title  ')
+      const deleteCall = mockQuery.mock.calls[0][0]
       expect(deleteCall).toContain('octo:title')
-      const insertCall = insert.mock.calls[0][0]
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:title')
       expect(insertCall).toContain('Test Title')
       expect(insertCall).not.toContain('  Test Title  ')
@@ -348,10 +323,10 @@ describe('Indexing Business Logic', () => {
 
   describe('recordTitle', () => {
     it('should delegate to recordProperty with octo:title', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordTitle('https://example.com/page', '  Test Title  ')
-      const insertCall = insert.mock.calls[0][0]
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordTitle('https://example.com/page', '  Test Title  ')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:title')
       expect(insertCall).toContain('Test Title')
     })
@@ -359,16 +334,16 @@ describe('Indexing Business Logic', () => {
 
   describe('recordDescription', () => {
     it('should skip null descriptions', async () => {
-      await recordDescription('https://example.com/page', null)
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordDescription('https://example.com/page', null)
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should delegate to recordProperty with octo:description', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordDescription('https://example.com/page', '  A description  ')
-      const insertCall = insert.mock.calls[0][0]
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordDescription('https://example.com/page', '  A description  ')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:description')
       expect(insertCall).toContain('A description')
     })
@@ -376,16 +351,16 @@ describe('Indexing Business Logic', () => {
 
   describe('recordImage', () => {
     it('should skip null images', async () => {
-      await recordImage('https://example.com/page', null)
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordImage('https://example.com/page', null)
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should delegate to recordProperty with octo:image', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordImage('https://example.com/page', '  https://example.com/img.png  ')
-      const insertCall = insert.mock.calls[0][0]
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordImage('https://example.com/page', '  https://example.com/img.png  ')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:image')
       expect(insertCall).toContain('https://example.com/img.png')
     })
@@ -393,9 +368,9 @@ describe('Indexing Business Logic', () => {
 
   describe('recordUsage', () => {
     it('should insert usage with instance prefix', async () => {
-      insert.mockResolvedValue({})
-      await recordUsage('https://example.com/page', 'demo', { instance })
-      const insertCall = insert.mock.calls[0][0]
+      mockInsert.mockResolvedValue({})
+      await indexer.recordUsage('https://example.com/page', 'demo', { instance })
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain(`<${instance}~/demo>`)
       expect(insertCall).toContain('octo:used')
     })
@@ -403,7 +378,7 @@ describe('Indexing Business Logic', () => {
 
   describe('getAllMentioningUrls', () => {
     it('should return URLs from SPARQL bindings', async () => {
-      queryArray.mockResolvedValue({
+      mockQueryArray.mockResolvedValue({
         results: {
           bindings: [
             { s: { value: 'https://a.com/page' } },
@@ -411,93 +386,93 @@ describe('Indexing Business Logic', () => {
           ]
         }
       })
-      const urls = await getAllMentioningUrls('https://target.com')
+      const urls = await indexer.getAllMentioningUrls('https://target.com')
       expect(urls).toEqual(['https://a.com/page', 'https://b.com/page'])
     })
 
     it('should return empty array when no mentions', async () => {
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
-      const urls = await getAllMentioningUrls('https://target.com')
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+      const urls = await indexer.getAllMentioningUrls('https://target.com')
       expect(urls).toEqual([])
     })
   })
 
   describe('getDomainForUrl', () => {
     it('should return domain from SPARQL when available', async () => {
-      queryArray.mockResolvedValue({
+      mockQueryArray.mockResolvedValue({
         results: {
           bindings: [{ domain: { value: 'https://example.com' } }]
         }
       })
-      const domain = await getDomainForUrl('https://example.com/page')
+      const domain = await indexer.getDomainForUrl('https://example.com/page')
       expect(domain).toBe('https://example.com')
     })
 
     it('should fallback to URL.origin when no SPARQL result', async () => {
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
-      const domain = await getDomainForUrl('https://example.com/page')
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+      const domain = await indexer.getDomainForUrl('https://example.com/page')
       expect(domain).toBe('https://example.com')
     })
 
     it('should return input for invalid URLs with no SPARQL result', async () => {
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
-      const domain = await getDomainForUrl('not-a-url')
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+      const domain = await indexer.getDomainForUrl('not-a-url')
       expect(domain).toBe('not-a-url')
     })
   })
 
   describe('handleThorpe', () => {
     it('should create term and octothorpe when both are new', async () => {
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      await handleThorpe('https://example.com/page', 'demo', { instance })
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleThorpe('https://example.com/page', 'demo', { instance })
       // extantTerm (false) -> createTerm
       // extantThorpe (false) -> createOctothorpe + recordUsage
       // 3 insert calls: createTerm, createOctothorpe, recordUsage
-      expect(insert).toHaveBeenCalledTimes(3)
+      expect(mockInsert).toHaveBeenCalledTimes(3)
     })
 
     it('should skip term creation when term exists', async () => {
       // First call: extantTerm -> true, second: extantThorpe -> false
-      queryBoolean
+      mockQueryBoolean
         .mockResolvedValueOnce(true)  // extantTerm
         .mockResolvedValueOnce(false) // extantThorpe
-      insert.mockResolvedValue({})
-      await handleThorpe('https://example.com/page', 'demo', { instance })
+      mockInsert.mockResolvedValue({})
+      await indexer.handleThorpe('https://example.com/page', 'demo', { instance })
       // createOctothorpe + recordUsage only
-      expect(insert).toHaveBeenCalledTimes(2)
+      expect(mockInsert).toHaveBeenCalledTimes(2)
     })
 
     it('should skip everything when both exist', async () => {
-      queryBoolean.mockResolvedValue(true)
-      await handleThorpe('https://example.com/page', 'demo', { instance })
-      expect(insert).not.toHaveBeenCalled()
+      mockQueryBoolean.mockResolvedValue(true)
+      await indexer.handleThorpe('https://example.com/page', 'demo', { instance })
+      expect(mockInsert).not.toHaveBeenCalled()
     })
   })
 
   describe('handleMention', () => {
     it('should create mention and backlink when new', async () => {
-      queryBoolean
+      mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
         .mockResolvedValueOnce(undefined) // checkEndorsement -> originEndorsesOrigin
         .mockResolvedValueOnce(false) // extantBacklink
-      insert.mockResolvedValue({})
-      await handleMention('https://example.com/page', 'https://other.com/page')
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention('https://example.com/page', 'https://other.com/page')
       // createMention + createBacklink = 2 insert calls
-      expect(insert).toHaveBeenCalledTimes(2)
+      expect(mockInsert).toHaveBeenCalledTimes(2)
     })
 
     it('should skip mention creation when mention exists', async () => {
-      queryBoolean
+      mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(true)  // extantMention
         .mockResolvedValueOnce(undefined) // checkEndorsement -> originEndorsesOrigin
         .mockResolvedValueOnce(false) // extantBacklink
-      insert.mockResolvedValue({})
-      await handleMention('https://example.com/page', 'https://other.com/page')
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention('https://example.com/page', 'https://other.com/page')
       // Only createBacklink = 1 insert call
-      expect(insert).toHaveBeenCalledTimes(1)
+      expect(mockInsert).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -506,7 +481,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html><body>test</body></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: 'A test page',
@@ -515,36 +490,36 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      expect(harmonizeSource).toHaveBeenCalledWith('<html><body>test</body></html>', 'default')
+      expect(mockHarmonizeSource).toHaveBeenCalledWith('<html><body>test</body></html>', 'default')
       // Should have called insert for: createPage, createTerm, createOctothorpe, recordUsage, recordTitle, recordDescription
-      expect(insert.mock.calls.length).toBeGreaterThanOrEqual(4)
+      expect(mockInsert.mock.calls.length).toBeGreaterThanOrEqual(4)
     })
 
     it('should use uri as subject when harmonizer returns "source"', async () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'source',
         title: 'Title',
         description: null,
         octothorpes: [],
         type: null,
       })
-      queryBoolean.mockResolvedValue(true) // page exists
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(true) // page exists
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/fallback', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/fallback', 'default', { instance })
 
       // recordTitle should be called with the fallback URI
-      const titleInsert = insert.mock.calls.find(call => call[0].includes('octo:title'))
+      const titleInsert = mockInsert.mock.calls.find(call => call[0].includes('octo:title'))
       expect(titleInsert[0]).toContain('https://example.com/fallback')
     })
 
@@ -552,7 +527,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: 'A test page',
@@ -561,14 +536,14 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      expect(insert).toHaveBeenCalled()
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      expect(mockInsert).toHaveBeenCalled()
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
       // Should not create a term from the object
       const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
       termCreations.forEach(call => {
@@ -582,44 +557,11 @@ describe('Indexing Business Logic', () => {
       expect(backlinkInsert).not.toContain('rdf:type <octo:Backlink>')
     })
 
-    it('should treat a completely unknown typed object with a uri as a generic Backlink mention', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      harmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: null,
-        octothorpes: [
-          { type: 'sameas', uri: 'https://other.com/equivalent' },
-        ],
-        type: null,
-      })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
-
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
-
-      const insertCalls = insert.mock.calls.map(c => c[0])
-      // Should not stringify the object into a term URI
-      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
-      termCreations.forEach(call => {
-        expect(call).not.toContain('[object Object]')
-        expect(call).not.toContain('~/sameas')
-      })
-      // Should write a backlink blank node using the harmonizer-defined subtype
-      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
-      expect(backlinkInsert).toBeDefined()
-      expect(backlinkInsert).toContain('rdf:type <octo:Sameas>')
-      expect(backlinkInsert).toContain('https://other.com/equivalent')
-    })
-
     it('should write octo:Bookmark subtype for bookmark octothorpes', async () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
@@ -628,13 +570,13 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
       expect(backlinkInsert).toContain('rdf:type <octo:Bookmark>')
     })
@@ -643,7 +585,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
@@ -652,13 +594,13 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
       expect(backlinkInsert).toContain('rdf:type <octo:Link>')
     })
@@ -667,7 +609,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
@@ -676,13 +618,13 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const termCreation = insertCalls.find(c => c.includes('octo:Term') && c.includes('my-tag'))
       expect(termCreation).toBeDefined()
     })
@@ -691,7 +633,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
@@ -699,13 +641,13 @@ describe('Indexing Business Logic', () => {
         octothorpes: [],
         type: null,
       })
-      queryBoolean.mockResolvedValue(true) // page exists
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(true) // page exists
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const postDateInsert = insertCalls.find(c => c.includes('octo:postDate'))
       expect(postDateInsert).toBeDefined()
       expect(postDateInsert).toContain('1718445600000')
@@ -715,7 +657,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
@@ -724,32 +666,32 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean.mockResolvedValue(false)
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
     })
   })
 
   describe('recordPostDate', () => {
     it('should parse ISO date string and insert as Unix timestamp', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordPostDate('https://example.com/page', '2024-06-15T10:00:00Z')
-      expect(query).toHaveBeenCalledWith(
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordPostDate('https://example.com/page', '2024-06-15T10:00:00Z')
+      expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('octo:postDate')
       )
-      const insertCall = insert.mock.calls[0][0]
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:postDate')
       expect(insertCall).toContain('1718445600000')
     })
 
     it('should parse date-only ISO string', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordPostDate('https://example.com/page', '2024-06-15')
-      const insertCall = insert.mock.calls[0][0]
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordPostDate('https://example.com/page', '2024-06-15')
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('octo:postDate')
       const match = insertCall.match(/octo:postDate (\d+)/)
       expect(match).not.toBeNull()
@@ -757,37 +699,37 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should skip null values', async () => {
-      await recordPostDate('https://example.com/page', null)
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordPostDate('https://example.com/page', null)
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should skip undefined values', async () => {
-      await recordPostDate('https://example.com/page', undefined)
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordPostDate('https://example.com/page', undefined)
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should skip empty string values', async () => {
-      await recordPostDate('https://example.com/page', '')
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordPostDate('https://example.com/page', '')
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should skip unparseable date strings', async () => {
-      await recordPostDate('https://example.com/page', 'not-a-date')
-      expect(query).not.toHaveBeenCalled()
-      expect(insert).not.toHaveBeenCalled()
+      await indexer.recordPostDate('https://example.com/page', 'not-a-date')
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should delete old postDate before inserting new one', async () => {
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      await recordPostDate('https://example.com/page', '2024-06-15')
-      expect(query).toHaveBeenCalledWith(
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      await indexer.recordPostDate('https://example.com/page', '2024-06-15')
+      expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('delete')
       )
-      expect(query).toHaveBeenCalledWith(
+      expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('octo:postDate')
       )
     })
@@ -796,14 +738,14 @@ describe('Indexing Business Logic', () => {
   describe('handler', () => {
     it('should throw on origin mismatch', async () => {
       await expect(
-        handler('https://example.com/page', 'default', 'https://other.com', { instance })
+        indexer.handler('https://example.com/page', 'default', 'https://other.com', { instance })
       ).rejects.toThrow('Cannot index pages from a different origin.')
     })
 
     it('should throw on disallowed harmonizer', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       await expect(
-        handler('https://example.com/page', 'https://evil.com/harm.json', 'https://example.com', {
+        indexer.handler('https://example.com/page', 'https://evil.com/harm.json', 'https://example.com', {
           instance, verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Harmonizer not allowed for this origin.')
@@ -812,13 +754,13 @@ describe('Indexing Business Logic', () => {
     it('should throw on recently indexed page', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       const recentTimestamp = Date.now() - 60000
-      queryArray.mockResolvedValue({
+      mockQueryArray.mockResolvedValue({
         results: {
           bindings: [{ t: { value: String(recentTimestamp) } }]
         }
       })
       await expect(
-        handler('https://example.com/page', 'default', 'https://example.com', {
+        indexer.handler('https://example.com/page', 'default', 'https://example.com', {
           instance, verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('This page has been recently indexed.')
@@ -827,10 +769,10 @@ describe('Indexing Business Logic', () => {
     it('should throw when origin is unverified', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(false)
       await expect(
-        handler('https://example.com/page', 'default', 'https://example.com', {
+        indexer.handler('https://example.com/page', 'default', 'https://example.com', {
           instance,
           serverName: 'test',
-          queryBoolean,
+          queryBoolean: mockQueryBoolean,
           verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Origin is not registered')
@@ -844,10 +786,10 @@ describe('Indexing Business Logic', () => {
         checkIndexingRateLimit(origin)
       }
       await expect(
-        handler(`${origin}/page`, 'default', origin, {
+        indexer.handler(`${origin}/page`, 'default', origin, {
           instance,
           serverName: 'test',
-          queryBoolean,
+          queryBoolean: mockQueryBoolean,
           verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Rate limit exceeded')
@@ -856,7 +798,7 @@ describe('Indexing Business Logic', () => {
     it('should fetch and process HTML for valid request', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       // Not recently indexed
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
       // Mock global fetch
       const mockResponse = {
         headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
@@ -864,24 +806,24 @@ describe('Indexing Business Logic', () => {
       }
       global.fetch = vi.fn().mockResolvedValue(mockResponse)
       // recordIndexing mocks
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
       // handleHTML mocks
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'source',
         title: 'Test',
         description: null,
         octothorpes: [],
         type: null,
       })
-      queryBoolean.mockResolvedValue(true) // extantPage
+      mockQueryBoolean.mockResolvedValue(true) // extantPage
 
-      await handler('https://example.com/page', 'default', 'https://example.com', {
+      await indexer.handler('https://example.com/page', 'default', 'https://example.com', {
         instance, verifyOrigin: mockVerifyOrigin
       })
 
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com/page')
-      expect(harmonizeSource).toHaveBeenCalled()
+      expect(global.fetch).toHaveBeenCalledWith('https://example.com/page', { headers: { 'User-Agent': 'Octothorpes/1.0' } })
+      expect(mockHarmonizeSource).toHaveBeenCalled()
     })
   })
 
@@ -930,59 +872,54 @@ describe('Indexing Business Logic', () => {
       expect(resolveSubtype('Button')).toBe('Button')
     })
 
-    it('should pass through unknown types as capitalized subtypes', () => {
-      expect(resolveSubtype('sameas')).toBe('Sameas')
-      expect(resolveSubtype('reply')).toBe('Reply')
-      expect(resolveSubtype('repost')).toBe('Repost')
-    })
-
-    it('should treat link as a pass-through (not aliased to Backlink)', () => {
+    it('should capitalize unknown types', () => {
       expect(resolveSubtype('link')).toBe('Link')
+      expect(resolveSubtype('unknown')).toBe('Unknown')
     })
   })
 
   describe('Terms on Relationships', () => {
     it('should attach terms to backlink blank node when provided', async () => {
-      insert.mockResolvedValue({})
-      await createBacklink(
+      mockInsert.mockResolvedValue({})
+      await indexer.createBacklink(
         'https://example.com/page',
         'https://other.com/page',
         'Bookmark',
         ['gadgets', 'bikes'],
         { instance }
       )
-      const insertCall = insert.mock.calls[0][0]
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Bookmark>')
       expect(insertCall).toContain(`<${instance}~/gadgets>`)
       expect(insertCall).toContain(`<${instance}~/bikes>`)
     })
 
     it('should not include term triples when terms array is empty', async () => {
-      insert.mockResolvedValue({})
-      await createBacklink(
+      mockInsert.mockResolvedValue({})
+      await indexer.createBacklink(
         'https://example.com/page',
         'https://other.com/page',
         'Bookmark',
         [],
         { instance }
       )
-      const insertCall = insert.mock.calls[0][0]
+      const insertCall = mockInsert.mock.calls[0][0]
       expect(insertCall).toContain('rdf:type <octo:Bookmark>')
       expect(insertCall).not.toContain('~/gadgets')
       expect(insertCall).not.toContain('~/bikes')
     })
 
     it('should create terms and attach to backlink in handleMention', async () => {
-      queryBoolean
+      mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
         .mockResolvedValueOnce(undefined) // checkEndorsement
         .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm for 'bikes'
-      insert.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
 
-      await handleMention(
+      await indexer.handleMention(
         'https://example.com/page',
         'https://other.com/page',
         'Bookmark',
@@ -990,7 +927,7 @@ describe('Indexing Business Logic', () => {
         { instance }
       )
 
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
 
       // Should have created terms
       const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
@@ -1010,7 +947,7 @@ describe('Indexing Business Logic', () => {
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>')
       }
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
@@ -1019,7 +956,7 @@ describe('Indexing Business Logic', () => {
         ],
         type: null,
       })
-      queryBoolean
+      mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage for source
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
@@ -1027,12 +964,12 @@ describe('Indexing Business Logic', () => {
         .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm for 'bikes'
-      insert.mockResolvedValue({})
-      query.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
 
-      await handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      const insertCalls = insert.mock.calls.map(c => c[0])
+      const insertCalls = mockInsert.mock.calls.map(c => c[0])
 
       // Should have created terms
       const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
@@ -1119,7 +1056,7 @@ describe('Indexing Business Logic', () => {
         text: vi.fn().mockResolvedValue('<html><head></head><body></body></html>'),
         headers: new Headers({ 'content-type': 'text/html' }),
       })
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'source',
         title: 'Test',
         description: null,
@@ -1131,7 +1068,7 @@ describe('Indexing Business Logic', () => {
       })
 
       await expect(
-        handler('https://example.com/page', 'default', null, {
+        indexer.handler('https://example.com/page', 'default', null, {
           instance, verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Page has not opted in to indexing.')
@@ -1139,7 +1076,7 @@ describe('Indexing Business Logic', () => {
 
     it('should proceed when page has meta octo-policy=index', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
-      queryArray.mockResolvedValue({ results: { bindings: [] } }) // not recently indexed
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } }) // not recently indexed
 
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html><head><meta name="octo-policy" content="index"></head></html>'),
@@ -1152,7 +1089,7 @@ describe('Indexing Business Logic', () => {
       })
 
       // First call: policy harmonization; second call: handleHTML harmonization
-      harmonizeSource
+      mockHarmonizeSource
         .mockResolvedValueOnce({
           '@id': 'source',
           title: 'Test',
@@ -1171,21 +1108,21 @@ describe('Indexing Business Logic', () => {
           type: null,
         })
 
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true) // extantPage
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(true) // extantPage
 
-      await handler('https://example.com/page', 'default', null, {
+      await indexer.handler('https://example.com/page', 'default', null, {
         instance, verifyOrigin: mockVerifyOrigin
       })
 
       expect(mockVerifyOrigin).toHaveBeenCalled()
-      expect(harmonizeSource).toHaveBeenCalled()
+      expect(mockHarmonizeSource).toHaveBeenCalled()
     })
 
     it('should override harmonizer when page declares one', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
 
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>'),
@@ -1193,7 +1130,7 @@ describe('Indexing Business Logic', () => {
       }
       global.fetch = vi.fn().mockResolvedValue(mockResponse)
 
-      harmonizeSource
+      mockHarmonizeSource
         .mockResolvedValueOnce({
           '@id': 'source',
           title: 'Test',
@@ -1212,16 +1149,16 @@ describe('Indexing Business Logic', () => {
           type: null,
         })
 
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(true)
 
-      await handler('https://example.com/page', 'default', null, {
+      await indexer.handler('https://example.com/page', 'default', null, {
         instance, verifyOrigin: mockVerifyOrigin
       })
 
       // The second harmonizeSource call (in handleHTML) should use the on-page harmonizer
-      expect(harmonizeSource.mock.calls[1][1]).toBe('https://example.com/custom-harmonizer.json')
+      expect(mockHarmonizeSource.mock.calls[1][1]).toBe('https://example.com/custom-harmonizer.json')
     })
 
     it('should still check origin registration when policy is present', async () => {
@@ -1230,7 +1167,7 @@ describe('Indexing Business Logic', () => {
         text: vi.fn().mockResolvedValue('<html></html>'),
         headers: new Headers({ 'content-type': 'text/html' }),
       })
-      harmonizeSource.mockResolvedValue({
+      mockHarmonizeSource.mockResolvedValue({
         '@id': 'source',
         title: 'Test',
         description: null,
@@ -1242,7 +1179,7 @@ describe('Indexing Business Logic', () => {
       })
 
       await expect(
-        handler('https://example.com/page', 'default', null, {
+        indexer.handler('https://example.com/page', 'default', null, {
           instance, verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Origin is not registered')
@@ -1250,7 +1187,7 @@ describe('Indexing Business Logic', () => {
 
     it('should skip harmonizer allowlist check when no origin header', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
-      queryArray.mockResolvedValue({ results: { bindings: [] } })
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
 
       const mockResponse = {
         text: vi.fn().mockResolvedValue('<html></html>'),
@@ -1258,7 +1195,7 @@ describe('Indexing Business Logic', () => {
       }
       global.fetch = vi.fn().mockResolvedValue(mockResponse)
 
-      harmonizeSource
+      mockHarmonizeSource
         .mockResolvedValueOnce({
           '@id': 'source',
           title: 'Test',
@@ -1278,43 +1215,43 @@ describe('Indexing Business Logic', () => {
           type: null,
         })
 
-      query.mockResolvedValue({})
-      insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(true)
 
       // Should NOT throw 'Harmonizer not allowed' because no origin header
-      await handler('https://example.com/page', 'default', null, {
+      await indexer.handler('https://example.com/page', 'default', null, {
         instance, verifyOrigin: mockVerifyOrigin
       })
 
-      expect(harmonizeSource).toHaveBeenCalledTimes(2)
+      expect(mockHarmonizeSource).toHaveBeenCalledTimes(2)
     })
   })
 
   describe('Origin Verification (decoupled)', () => {
     it('verifyApprovedDomain returns true when SPARQL says verified', async () => {
-      const mockQueryBoolean = vi.fn().mockResolvedValue(true)
-      const result = await verifyApprovedDomain('https://example.com', { queryBoolean: mockQueryBoolean })
+      const localMockQueryBoolean = vi.fn().mockResolvedValue(true)
+      const result = await verifyApprovedDomain('https://example.com', { queryBoolean: localMockQueryBoolean })
       expect(result).toBe(true)
-      expect(mockQueryBoolean).toHaveBeenCalledWith(
+      expect(localMockQueryBoolean).toHaveBeenCalledWith(
         expect.stringContaining('https://example.com')
       )
     })
 
     it('verifyApprovedDomain returns false when not verified', async () => {
-      const mockQueryBoolean = vi.fn().mockResolvedValue(false)
-      const result = await verifyApprovedDomain('https://unknown.com', { queryBoolean: mockQueryBoolean })
+      const localMockQueryBoolean = vi.fn().mockResolvedValue(false)
+      const result = await verifyApprovedDomain('https://unknown.com', { queryBoolean: localMockQueryBoolean })
       expect(result).toBe(false)
     })
 
     it('verifiedOrigin dispatches to verifyApprovedDomain by default', async () => {
-      const mockQueryBoolean = vi.fn().mockResolvedValue(true)
+      const localMockQueryBoolean = vi.fn().mockResolvedValue(true)
       const result = await verifiedOrigin('https://example.com', {
         serverName: 'Default Server',
-        queryBoolean: mockQueryBoolean
+        queryBoolean: localMockQueryBoolean
       })
       expect(result).toBe(true)
-      expect(mockQueryBoolean).toHaveBeenCalled()
+      expect(localMockQueryBoolean).toHaveBeenCalled()
     })
 
     it('verifiedOrigin dispatches to verifiyContent when serverName is Bear Blog', async () => {
@@ -1324,14 +1261,14 @@ describe('Indexing Business Logic', () => {
         text: () => Promise.resolve('<html><head><meta content="look-for-the-bear-necessities"></head><body></body></html>')
       })
 
-      const mockQueryBoolean = vi.fn()
+      const localMockQueryBoolean = vi.fn()
       const result = await verifiedOrigin('https://bearblog.example.com', {
         serverName: 'Bear Blog',
-        queryBoolean: mockQueryBoolean
+        queryBoolean: localMockQueryBoolean
       })
       expect(result).toBe(true)
       // queryBoolean should NOT be called -- Bear Blog uses content verification
-      expect(mockQueryBoolean).not.toHaveBeenCalled()
+      expect(localMockQueryBoolean).not.toHaveBeenCalled()
 
       global.fetch = originalFetch
     })

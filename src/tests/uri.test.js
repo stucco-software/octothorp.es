@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseUri, validateSameOrigin, getScheme } from '$lib/uri.js'
+import { parseUri, validateSameOrigin, getScheme } from 'octothorpes'
 
 describe('URI Validation Module', () => {
   describe('getScheme', () => {

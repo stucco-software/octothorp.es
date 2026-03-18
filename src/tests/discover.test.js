@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 // We'll test the exported helper functions from the discover module
 // For now, test the param parsing logic that the endpoint will use
-import { parseDateStrings } from '$lib/utils.js'
+import { parseDateStrings } from 'octothorpes'
 
 describe('/discover param parsing', () => {
   it('should parse limit with default of 50', () => {

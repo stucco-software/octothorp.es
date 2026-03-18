@@ -27,7 +27,7 @@ export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLi
 export { badgeVariant, determineBadgeUri } from './badge.js'
 export { remoteHarmonizer } from './harmonizeSource.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
-export { publish, resolve, validateResolver, loadResolver } from './publish.js'
+export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry } from './publishers.js'
 
 const normalizeSparqlConfig = (sparql) => {

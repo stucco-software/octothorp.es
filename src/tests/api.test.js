@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createApi } from '$lib/api.js'
+import { createApi } from 'octothorpes'
 
 const mockQueryArray = vi.fn()
 const mockQueryBoolean = vi.fn()

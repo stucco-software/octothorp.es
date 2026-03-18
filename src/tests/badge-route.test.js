@@ -14,9 +14,13 @@ vi.mock('$env/static/private', () => ({
   server_name: 'Test Server',
 }))
 
-vi.mock('$lib/origin.js', () => ({
-  verifiedOrigin: vi.fn(),
-}))
+vi.mock('octothorpes', async () => {
+  const actual = await vi.importActual('octothorpes')
+  return {
+    ...actual,
+    verifiedOrigin: vi.fn(),
+  }
+})
 
 vi.mock('$lib/indexing.js', () => ({
   handler: vi.fn(),
@@ -27,7 +31,7 @@ vi.mock('$lib/sparql.js', () => ({
 }))
 
 import { GET } from '../routes/badge/+server.js'
-import { verifiedOrigin } from '$lib/origin.js'
+import { verifiedOrigin } from 'octothorpes'
 import { handler } from '$lib/indexing.js'
 
 const makeEvent = ({ uri = null, referer = null, harmonizer = null } = {}) => {
