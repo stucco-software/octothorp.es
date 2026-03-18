@@ -3,6 +3,13 @@ import { queryArray, enrichBlobjectTargets, createDateFilter } from '$lib/sparql
 import { getBlobjectFromResponse } from '$lib/converters.js'
 import { parseDateStrings } from '$lib/utils.js'
 
+function buildCoalesceDateFilter(dR) {
+  const filters = []
+  if (dR.after) filters.push(`COALESCE(?postDate, ?indexedDate) >= ${dR.after}`)
+  if (dR.before) filters.push(`COALESCE(?postDate, ?indexedDate) <= ${dR.before}`)
+  return filters.length ? `FILTER (${filters.join(' && ')})` : ''
+}
+
 export async function GET({ url }) {
   // Parse params
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
@@ -22,8 +29,9 @@ export async function GET({ url }) {
   }
 
   // Build date filter clauses
+  // "when" uses COALESCE so pages without postDate fall back to indexedDate
   const dateFilter = Object.keys(dateRange).length
-    ? createDateFilter(dateRange, 'postDate') : ''
+    ? buildCoalesceDateFilter(dateRange) : ''
   const createdFilter = Object.keys(createdRange).length
     ? createDateFilter(createdRange, 'createdDate') : ''
   const indexedFilter = Object.keys(indexedRange).length
