@@ -1,5 +1,5 @@
 import { queryArray } from '$lib/sparql.js'
-import { getWebrings } from '$lib/utils.js'
+import { getWebrings } from 'octothorpes'
 
 export async function load(req) {
   let webrings = []

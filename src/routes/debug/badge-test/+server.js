@@ -1,4 +1,4 @@
-import { determineBadgeUri } from '$lib/badge.js'
+import { determineBadgeUri } from 'octothorpes'
 import normalizeUrl from 'normalize-url'
 
 const pngHeaders = {

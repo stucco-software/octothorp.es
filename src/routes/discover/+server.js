@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import { queryArray, enrichBlobjectTargets, createDateFilter } from '$lib/sparql.js'
 import { getBlobjectFromResponse } from '$lib/converters.js'
-import { parseDateStrings } from '$lib/utils.js'
+import { parseDateStrings } from 'octothorpes'
 
 function buildCoalesceDateFilter(dR) {
   const filters = []

@@ -1,10 +1,9 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { instance, badge_image, server_name } from '$env/static/private'
-import { verifiedOrigin } from '$lib/origin.js'
+import { verifiedOrigin, determineBadgeUri, badgeVariant } from 'octothorpes'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'
-import { determineBadgeUri, badgeVariant } from '$lib/badge.js'
 
 const badgeFile = badge_image || 'badge.png'
 const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))

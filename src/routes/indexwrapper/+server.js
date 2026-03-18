@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit'
 import { instance, server_name } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
-import { parseUri } from '$lib/uri.js'
+import { parseUri } from 'octothorpes'
 
 const knownErrors = [
   'not registered',
