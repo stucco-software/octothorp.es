@@ -530,5 +530,6 @@ export const createQueryBuilders = (instance, queryArray) => {
     prepEverything,
     getStatements,
     testQueryFromMultiPass,
+    createDateFilter,
   }
 }
