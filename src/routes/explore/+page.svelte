@@ -317,27 +317,61 @@
     loadedMultiPassMeta = null
   }
 
+  // Shortcut presets — add new entries here to surface them as buttons
+  const presets = {
+    recent: {
+      label: 'Recent Posts',
+      directUrl: '/discover?limit=50&when=recent',
+    },
+    // 'wwo': {
+    //   label: 'Recent #weirdweboctober',
+    //   rainbow: true,
+    //   what: 'everything',
+    //   by: 'thorped',
+    //   objects: ['weirdweboctober'],
+    //   when: 'recent',
+    //   limit: 50,
+    // },
+  }
+
   async function loadPreset(preset) {
     // Close encoder if open
     if (showEncoder) closeEncoder()
 
-    switch(preset) {
-      case 'wwo':
-        what = 'everything'
-        by = 'thorped'
-        objects = ['weirdweboctober']
-        when = 'recent'
-        limit = 50
-        break
-      case 'my-bookmarks':
-        what = 'pages'
-        by = 'bookmarked'
-        subjects = ['example.com']
-        break
+    const p = presets[preset]
+    if (!p) return
+
+    // If preset has a direct URL, fetch that instead of using the form
+    if (p.directUrl) {
+      loading = true
+      error = null
+      results = null
+      what = 'everything' // for result rendering
+      try {
+        const base = window.location.origin
+        const response = await fetch(`${base}${p.directUrl}`)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        results = await response.json()
+      } catch (err) {
+        error = err.message
+      } finally {
+        loading = false
+      }
+      return
     }
+
+    // Standard preset: set form values and execute
+    what = p.what || 'everything'
+    by = p.by || 'thorped'
+    subjects = p.subjects || []
+    objects = p.objects || []
+    when = p.when || ''
+    limit = p.limit || 20
+
     // Wait for reactive statement to update queryUrl
     await new Promise(resolve => setTimeout(resolve, 0))
-    // Execute query after loading preset
     executeQuery()
   }
 
@@ -621,9 +655,11 @@
       <!-- Quick Presets -->
       <fieldset class="compact">
         <legend>Shortcuts</legend>
-        <button class="rainbow" type="button" on:click={() => loadPreset('wwo')}>
-          Recent #weirdweboctober
-        </button>
+        {#each Object.entries(presets) as [key, preset]}
+          <button class={preset.rainbow ? 'rainbow' : ''} type="button" on:click={() => loadPreset(key)}>
+            {preset.label}
+          </button>
+        {/each}
         <button type="button" on:click={loadEncoder}>
           Make MultiPass GIF
         </button>
