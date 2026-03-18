@@ -231,3 +231,17 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - `src/lib/web-components/shared/octo-store.js` — Accept `rt` in web components
 - `src/routes/debug/api-check/+server.js` — Add `rt` test coverage
 - `docs/testing/terms-on-relationships-guide.md` — Updated examples
+
+## Core Package Cutover
+
+- Added missing exports to `octothorpes`: `badgeVariant`, `determineBadgeUri`, `remoteHarmonizer`, `verifyApprovedDomain`, `createEnrichBlobjectTargets`, plus additional utils and origin functions
+- Ported publisher system to core: `publish.js`, `publishers.js`, `createPublisherRegistry`
+- Wired publisher system into `createClient` (`op.get()` now supports `as` parameter for publishers)
+- Rewired all `src/routes/` and `src/tests/` imports from `$lib/` to `octothorpes`
+- Converted `src/lib/sparql.js`, `src/lib/converters.js`, `src/lib/getHarmonizer.js`, `src/lib/indexing.js` to thin adapters
+- Kept `src/lib/utils.js` and `src/lib/arrayify.js` as client-safe shims for Svelte components
+- Deleted 19 duplicate `src/lib/` files (including `assert.js` dead code)
+- Deleted `docs/core-package-gaps.md` (replaced by `src/tests/exports.test.js`)
+- Bumped package version to 0.2.0
+
+**Files affected:** `packages/core/index.js`, `packages/core/blobject.js`, `packages/core/publish.js` (new), `packages/core/publishers.js` (new), `packages/core/package.json`, `src/lib/sparql.js`, `src/lib/converters.js`, `src/lib/getHarmonizer.js`, `src/lib/indexing.js`, all `src/routes/` files, all `src/tests/` files, 19 files deleted from `src/lib/`
