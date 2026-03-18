@@ -2,6 +2,8 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
+import { createPublisherRegistry } from './publishers.js'
+import { publish } from './publish.js'
 
 // harmonizeSource is intentionally NOT re-exported directly here because
 // its default import of getHarmonizer.js is a SvelteKit adapter (uses $env).
@@ -123,13 +125,52 @@ export const createClient = (config) => {
     return { uri, indexed_at: Date.now() }
   }
 
+  const publisherRegistry = createPublisherRegistry()
+
+  const get = async ({ what, by, as: asFormat, debug: debugFlag, ...rest } = {}) => {
+    if (asFormat === 'debug' || asFormat === 'multipass') {
+      return api.get(what, by, { ...rest, as: asFormat })
+    }
+
+    const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
+
+    if (!publisher) {
+      return api.get(what, by, rest)
+    }
+
+    const raw = await api.get(what, by, rest)
+    const items = publish(raw.results || [], publisher.schema)
+    const rendered = publisher.render(items, publisher.meta)
+
+    if (debugFlag) {
+      return {
+        output: rendered,
+        contentType: publisher.contentType,
+        publisher: asFormat,
+        multiPass: raw.multiPass,
+        query: raw.query,
+        results: raw.results,
+      }
+    }
+
+    return rendered
+  }
+
   return {
     indexSource,
-    get: ({ what, by, ...rest } = {}) => api.get(what, by, rest),
+    get,
     getfast: api.fast,
     harmonize,
+    publish: (data, publisherOrName, meta) => {
+      const pub = typeof publisherOrName === 'string'
+        ? publisherRegistry.getPublisher(publisherOrName)
+        : publisherOrName
+      if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
+      const items = publish(data, pub.schema)
+      return pub.render(items, meta || pub.meta)
+    },
     harmonizer: registry,
-    // Keep legacy paths working during transition
+    publisher: publisherRegistry,
     sparql,
     api,
   }
