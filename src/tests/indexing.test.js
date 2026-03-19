@@ -822,7 +822,9 @@ describe('Indexing Business Logic', () => {
         instance, verifyOrigin: mockVerifyOrigin
       })
 
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com/page', { headers: { 'User-Agent': 'Octothorpes/1.0' } })
+      expect(global.fetch).toHaveBeenCalledWith('https://example.com/page', {
+        headers: { 'User-Agent': 'Octothorpes/1.0' }
+      })
       expect(mockHarmonizeSource).toHaveBeenCalled()
     })
   })

@@ -585,6 +585,9 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     const src = await response.text()
     const harmed = await harmonizeSource(src, harmonizer)
+    if (!harmed) {
+      throw new Error('Harmonization failed — harmonizer returned no data.')
+    }
     let s = harmed['@id'] === 'source' ? uri : harmed['@id']
 
     console.log(`HARMED`)
@@ -644,6 +647,9 @@ export const createIndexer = (deps) => {
       const policyResponse = await fetch(parsed.normalized)
       const policyHtml = await policyResponse.text()
       const policyHarmed = await harmonizeSource(policyHtml, harmonizer)
+      if (!policyHarmed) {
+        throw new Error('Harmonization failed — could not extract page metadata.')
+      }
       const policy = checkIndexingPolicy(policyHarmed, base)
 
       if (!policy.optedIn) {
