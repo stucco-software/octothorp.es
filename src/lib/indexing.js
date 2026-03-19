@@ -571,6 +571,9 @@ export const handleWebring = async (s, friends, alreadyRing) => {
 export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   const src = await response.text()
   const harmed = await harmonizeSource(src, harmonizer)
+  if (!harmed) {
+    throw new Error('Harmonization failed — harmonizer returned no data.')
+  }
   let s = harmed['@id'] === 'source' ? uri : harmed['@id']
 
   console.log(`HARMED`)
@@ -632,6 +635,9 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
     const policyResponse = await fetch(parsed.normalized)
     const policyHtml = await policyResponse.text()
     const policyHarmed = await harmonizeSource(policyHtml, harmonizer)
+    if (!policyHarmed) {
+      throw new Error('Harmonization failed — could not extract page metadata.')
+    }
     const policy = checkIndexingPolicy(policyHarmed, instance)
 
     if (!policy.optedIn) {

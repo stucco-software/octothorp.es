@@ -503,11 +503,6 @@ export async function remoteHarmonizer(url) {
         throw new Error("Harmonizer missing required 'schema' object property")
       }
       
-      // Validate schema structure has required properties
-      if (!data.schema.subject || typeof data.schema.subject !== 'object') {
-        throw new Error("Harmonizer schema missing required 'subject' object")
-      }
-      
       // Validate schema safety and complexity
       if (!isSchemaValid(data.schema)) {
         throw new Error("Harmonizer schema failed safety validation")
@@ -560,7 +555,6 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
     // but on the other hand, when are you going to get one except from a remote harmonizer?
       if (harmonizer.startsWith("http")){
           let h = await remoteHarmonizer(harmonizer)
-          console.log("remote harmonizer", h.title)
 
         if (h) {
           schema = mergeSchemas(d.schema, h.schema)
