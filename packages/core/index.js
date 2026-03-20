@@ -175,6 +175,28 @@ export const createClient = (config) => {
       const items = publish(data, pub.schema)
       return pub.render(items, meta || pub.meta)
     },
+    prepare: (data, publisherName, options = {}) => {
+      const pub = typeof publisherName === 'string'
+        ? publisherRegistry.getPublisher(publisherName)
+        : publisherName
+      if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
+
+      const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
+
+      if (options.protocol === 'atproto' && !pub.meta?.lexicon) {
+        throw new Error(`Publisher "${name}" is not compatible with protocol 'atproto' (no lexicon)`)
+      }
+
+      const normalized = Array.isArray(data) ? data : (data.results || [])
+      const items = publish(normalized, pub.schema)
+      const records = pub.render(items, pub.meta)
+      return {
+        records,
+        collection: pub.meta?.lexicon ?? null,
+        contentType: pub.contentType,
+        publisher: name,
+      }
+    },
     harmonizer: registry,
     publisher: publisherRegistry,
     sparql,
