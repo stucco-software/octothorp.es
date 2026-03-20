@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js, `octothorpes` (core package), `@atproto/api`, Vitest
 
-**Spec:** `docs/superpowers/specs/2026-03-20-atproto-publish-poc-design.md`
+**Spec:** `docs/2026-03-20-atproto-publish-poc-design.md`
 
 ---
 
