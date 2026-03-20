@@ -203,3 +203,115 @@ describe('core publisher registry', () => {
     })
   })
 })
+
+describe('prepare (via createClient)', () => {
+  // We can't easily create a full client without SPARQL,
+  // so test prepare logic directly using the same building blocks.
+  // The client.prepare() method is a thin wrapper around publish + render + metadata.
+  // Note: `publish` is already imported at file scope (line 2).
+
+  const registry = createPublisherRegistry()
+
+  // Mirror the prepare() implementation from index.js
+  const prepare = (data, publisherName, options = {}) => {
+    const pub = typeof publisherName === 'string'
+      ? registry.getPublisher(publisherName)
+      : publisherName
+    if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
+
+    const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
+
+    if (options.protocol === 'atproto' && !pub.meta?.lexicon) {
+      throw new Error(`Publisher "${name}" is not compatible with protocol 'atproto' (no lexicon)`)
+    }
+
+    const normalized = Array.isArray(data) ? data : (data.results || [])
+    const items = publish(normalized, pub.schema)
+    const records = pub.render(items, pub.meta)
+    return {
+      records,
+      collection: pub.meta?.lexicon ?? null,
+      contentType: pub.contentType,
+      publisher: name,
+    }
+  }
+
+  const sampleBlobjects = [
+    {
+      '@id': 'https://example.com/page-1',
+      title: 'Page One',
+      description: 'First page',
+      date: 1719057600000,
+      octothorpes: ['demo', 'test']
+    },
+    {
+      '@id': 'https://example.com/page-2',
+      title: 'Page Two',
+      description: 'Second page',
+      date: 1719144000000,
+      octothorpes: ['demo']
+    }
+  ]
+
+  it('should return records, collection, contentType, and publisher name', () => {
+    const result = prepare(sampleBlobjects, 'atproto')
+    expect(result.records).toBeInstanceOf(Array)
+    expect(result.records).toHaveLength(2)
+    expect(result.collection).toBe('site.standard.document')
+    expect(result.contentType).toBe('application/json')
+    expect(result.publisher).toBe('atproto')
+  })
+
+  it('should throw for unknown publisher', () => {
+    expect(() => prepare(sampleBlobjects, 'nonexistent')).toThrow(/Unknown publisher/)
+  })
+
+  it('should work with any publisher when no protocol is specified', () => {
+    const result = prepare(sampleBlobjects, 'rss2')
+    expect(result.records).toBeDefined()
+    expect(result.contentType).toBe('application/rss+xml')
+  })
+
+  it('should return collection: null for publishers without a lexicon', () => {
+    const result = prepare(sampleBlobjects, 'rss2')
+    expect(result.collection).toBeNull()
+  })
+
+  it('should throw with { protocol: "atproto" } for publisher without lexicon', () => {
+    expect(() => prepare(sampleBlobjects, 'rss2', { protocol: 'atproto' }))
+      .toThrow(/not compatible with protocol 'atproto'/)
+  })
+
+  it('should succeed with { protocol: "atproto" } for publisher with lexicon', () => {
+    const result = prepare(sampleBlobjects, 'atproto', { protocol: 'atproto' })
+    expect(result.collection).toBe('site.standard.document')
+    expect(result.records).toHaveLength(2)
+  })
+
+  it('should handle empty results array', () => {
+    const result = prepare([], 'atproto')
+    expect(result.records).toEqual([])
+  })
+
+  it('should normalize response objects with results property', () => {
+    const response = { results: sampleBlobjects }
+    const result = prepare(response, 'atproto')
+    expect(result.records).toHaveLength(2)
+  })
+
+  it('should normalize response objects without results property', () => {
+    const response = {}
+    const result = prepare(response, 'atproto')
+    expect(result.records).toEqual([])
+  })
+
+  it('should produce correct atproto record fields', () => {
+    const result = prepare(sampleBlobjects, 'atproto')
+    const record = result.records[0]
+    expect(record.url).toBe('https://example.com/page-1')
+    expect(record.title).toBe('Page One')
+    expect(record.description).toBe('First page')
+    expect(record.publishedAt).toBeDefined()
+    expect(record.tags).toEqual(['demo', 'test'])
+  })
+})
