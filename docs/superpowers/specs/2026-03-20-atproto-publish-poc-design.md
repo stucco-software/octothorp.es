@@ -30,22 +30,26 @@ Takes blobject results and a publisher name. Runs them through the publisher's r
 const op = createClient({ instance, sparql })
 
 const results = await op.get({ what: 'everything', by: 'thorped', o: 'demo' })
-const { records, collection, contentType } = op.prepare(results, 'semble')
+const { records, collection, contentType } = op.prepare(results, 'atproto')
 ```
 
 ### Return shape
 
+The shape varies by publisher. The `atproto` publisher produces flat resolved fields:
+
 ```javascript
 {
   records: [
-    { $type: 'network.cosmik.card', content: { url, ... }, createdAt },
+    { url: 'https://example.com/page', title: 'Page Title', publishedAt: '2026-03-20T...', description: '...', tags: ['demo'] },
     // ...
   ],
-  collection: 'network.cosmik.card',   // from publisher.meta.lexicon
-  contentType: 'application/json',      // from publisher.contentType
-  publisher: 'semble'                   // echo back the publisher name
+  collection: 'site.standard.document',  // from publisher.meta.lexicon
+  contentType: 'application/json',       // from publisher.contentType
+  publisher: 'atproto'                   // echo back the publisher name
 }
 ```
+
+Publishers with custom renderers (like `semble`) may produce richer record shapes with `$type` wrappers — the renderer determines the final structure.
 
 ### Implementation
 
@@ -58,7 +62,8 @@ prepare: (data, publisherName) => {
     : publisherName
   if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
   if (!pub.meta?.lexicon) throw new Error(`Publisher "${publisherName}" has no lexicon — not compatible with AT Protocol`)
-  const items = publish(data, pub.schema)
+  const normalized = Array.isArray(data) ? data : (data.results || [])
+  const items = publish(normalized, pub.schema)
   const records = pub.render(items, pub.meta)
   return {
     records,
@@ -183,18 +188,30 @@ The `--list` command discovers AT Proto compatible publishers by filtering on `m
 
 ```bash
 $ node publish.js --list
-Available publishers:
+Available publishers (built-in):
   atproto    → site.standard.document
+Available publishers (custom):
   semble     → network.cosmik.card
 ```
 
-Any publisher with a `meta.lexicon` field is considered AT Proto compatible. Publishers without one (like `rss2`) are excluded.
+Any publisher with a `meta.lexicon` field is considered AT Proto compatible. Publishers without one (like `rss2`) are excluded. Custom publishers must be explicitly registered by the client (see below).
 
 To add a new target (e.g. Bluesky `app.bsky.feed.post`), add a new publisher with the appropriate resolver schema and `meta.lexicon`. The client picks it up automatically with no code changes.
 
 ### Custom publishers
 
-The standalone client can register custom publishers found in `src/lib/publishers/` by importing them, or they can be passed to `createClient({ publishers: { ... } })`. For the PoC, the client loads the built-in publishers only. Custom publisher loading can be added later.
+Only `atproto` (lexicon: `site.standard.document`) is built into the core publisher registry. Other AT Proto compatible publishers like `semble` live in `src/lib/publishers/` and must be explicitly registered:
+
+```javascript
+import semble from '../../src/lib/publishers/semble/renderer.js'
+
+const op = createClient({
+  instance, sparql,
+  publishers: { semble }
+})
+```
+
+For the PoC, the standalone client imports and registers available custom publishers from `src/lib/publishers/`. To add a new target, create a new publisher directory with a `resolver.json` (including `meta.lexicon`) and `renderer.js`, then register it in the client.
 
 ## What is NOT in scope
 
