@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a protocol-agnostic `prepare()` method to OP Core and build a standalone CLI client that publishes OP query results to an AT Protocol PDS.
+**Goal:** Add a protocol-agnostic `prepare()` method to OP Core that formats blobjects via publishers and returns records + metadata.
 
-**Architecture:** Core gets `prepare()` which formats blobjects via publishers and returns records + metadata. A separate standalone client in `clients/atproto-publish/` brings `@atproto/api`, handles auth, and writes records to a PDS. The SDK dependency stays isolated from the main project.
+**Architecture:** Core gets `prepare()` which looks up a publisher, runs blobjects through its resolve/render pipeline, and returns the formatted records along with collection, content type, and publisher name. Protocol-specific assertions (e.g. requiring a lexicon for AT Proto) are opt-in via the `options.protocol` parameter.
 
-**Tech Stack:** Node.js, `octothorpes` (core package), `@atproto/api`, Vitest
+**Standalone client:** The CLI client that consumes `prepare()` and writes records to an AT Protocol PDS will be built in a separate repository.
+
+**Tech Stack:** Node.js, `octothorpes` (core package), Vitest
 
 **Spec:** `docs/2026-03-20-atproto-publish-poc-design.md`
 
@@ -18,10 +20,6 @@
 |------|--------|---------------|
 | `packages/core/index.js` | Modify | Add `prepare()` to client return object |
 | `src/tests/publish-core.test.js` | Modify | Add `prepare()` test suite |
-| `clients/atproto-publish/package.json` | Create | Standalone client manifest |
-| `clients/atproto-publish/.env.example` | Create | Config template |
-| `clients/atproto-publish/.gitignore` | Create | Ignore .env and node_modules |
-| `clients/atproto-publish/publish.js` | Create | CLI entry point |
 
 ---
 
@@ -222,301 +220,25 @@ git commit -m "feat: add protocol-agnostic prepare() method to core client"
 
 ---
 
-### Task 3: Scaffold standalone client
+### Task 3: Verify and update release notes
 
-**Files:**
-- Create: `clients/atproto-publish/package.json`
-- Create: `clients/atproto-publish/.env.example`
-- Create: `clients/atproto-publish/.gitignore`
+- [ ] **Step 1: Run full test suite**
 
-- [ ] **Step 1: Create `clients/atproto-publish/package.json`**
+Run: `npx vitest run`
 
-```json
-{
-  "name": "op-atproto-publish",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "description": "Standalone CLI client for publishing OP query results to an AT Protocol PDS",
-  "main": "publish.js",
-  "dependencies": {
-    "octothorpes": "file:../../packages/core",
-    "@atproto/api": "^0.13.x"
-  }
-}
-```
+Expected: All tests pass, no regressions.
 
-- [ ] **Step 2: Create `clients/atproto-publish/.env.example`**
-
-```
-OP_INSTANCE=https://octothorp.es/
-OP_SPARQL=http://0.0.0.0:7878
-
-ATPROTO_PDS=https://bsky.social
-ATPROTO_HANDLE=yourhandle.bsky.social
-ATPROTO_PASSWORD=your-app-password
-```
-
-- [ ] **Step 3: Create `clients/atproto-publish/.gitignore`**
-
-```
-.env
-node_modules/
-```
-
-- [ ] **Step 4: Install dependencies**
-
-Run: `cd clients/atproto-publish && npm install`
-
-Expected: `@atproto/api` and `octothorpes` (via symlink) install successfully. Verify with:
-
-Run: `node -e "import('@atproto/api').then(m => console.log('atproto ok:', !!m.AtpAgent)); import('octothorpes').then(m => console.log('octothorpes ok:', !!m.createClient))"`
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add clients/atproto-publish/package.json clients/atproto-publish/.env.example clients/atproto-publish/.gitignore
-git commit -m "chore: scaffold standalone AT Proto publish client"
-```
-
-Note: Do NOT commit `node_modules/` or `package-lock.json` from the client directory. The `.gitignore` handles `node_modules/`. If a `package-lock.json` is generated, add it to the commit as it's useful for reproducible installs.
-
----
-
-### Task 4: Build the CLI client
-
-**Files:**
-- Create: `clients/atproto-publish/publish.js`
-
-This is the main CLI entry point. It parses args, queries OP, formats via `prepare()`, and writes to a PDS.
-
-- [ ] **Step 1: Write `publish.js`**
-
-```javascript
-import { createClient } from 'octothorpes'
-import { AtpAgent } from '@atproto/api'
-import { parseArgs } from 'node:util'
-import { createInterface } from 'node:readline'
-
-// --- CLI arg parsing ---
-
-const { values: args } = parseArgs({
-  options: {
-    query:     { type: 'string',  short: 'q' },
-    publisher: { type: 'string',  short: 'p' },
-    list:      { type: 'boolean', short: 'l', default: false },
-    'dry-run': { type: 'boolean', default: false },
-    yes:       { type: 'boolean', short: 'y', default: false },
-  },
-  strict: true,
-})
-
-// --- Config ---
-
-const config = {
-  instance:  process.env.OP_INSTANCE,
-  sparql:    process.env.OP_SPARQL,
-  pds:       process.env.ATPROTO_PDS,
-  handle:    process.env.ATPROTO_HANDLE,
-  password:  process.env.ATPROTO_PASSWORD,
-}
-
-// --- Helpers ---
-
-function parseQuery(queryStr) {
-  const [path, search] = queryStr.split('?')
-  const [what, by] = path.split('/')
-  const params = Object.fromEntries(new URLSearchParams(search || ''))
-  return { what, by, ...params }
-}
-
-async function confirm(message) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise((resolve) => {
-    rl.question(`${message} (y/N) `, (answer) => {
-      rl.close()
-      resolve(answer.toLowerCase() === 'y')
-    })
-  })
-}
-
-// --- Main ---
-
-async function main() {
-  if (!config.instance || !config.sparql) {
-    console.error('Missing OP_INSTANCE or OP_SPARQL in environment. Copy .env.example to .env and fill in values.')
-    process.exit(1)
-  }
-
-  const op = createClient({
-    instance: config.instance,
-    sparql: { endpoint: config.sparql },
-  })
-
-  // --list: show available AT Proto compatible publishers
-  if (args.list) {
-    const allPublishers = op.publisher.listPublishers()
-    console.log('Available AT Proto compatible publishers:\n')
-    for (const name of allPublishers) {
-      const pub = op.publisher.getPublisher(name)
-      if (pub.meta?.lexicon) {
-        console.log(`  ${name.padEnd(12)} → ${pub.meta.lexicon}`)
-      }
-    }
-    return
-  }
-
-  // Validate required args for publish mode
-  if (!args.query) {
-    console.error('Usage: node publish.js --query="everything/thorped?o=demo" --publisher=atproto')
-    console.error('       node publish.js --list')
-    process.exit(1)
-  }
-
-  if (!args.publisher) {
-    console.error('Missing --publisher flag. Use --list to see available publishers.')
-    process.exit(1)
-  }
-
-  // Query OP
-  const queryParams = parseQuery(args.query)
-  console.log(`Querying OP: ${args.query}`)
-  const results = await op.get(queryParams)
-
-  // Prepare records
-  const { records, collection, publisher } = op.prepare(results, args.publisher, { protocol: 'atproto' })
-
-  console.log(`\nPublisher:  ${publisher}`)
-  console.log(`Collection: ${collection}`)
-  console.log(`Records:    ${records.length}`)
-  console.log(`Target PDS: ${config.pds}`)
-
-  if (records.length === 0) {
-    console.log('\nNo records to publish.')
-    return
-  }
-
-  // --dry-run: show records and exit
-  if (args['dry-run']) {
-    console.log('\n--- Dry Run (records that would be published) ---\n')
-    console.log(JSON.stringify(records, null, 2))
-    return
-  }
-
-  // Validate PDS config
-  if (!config.pds || !config.handle || !config.password) {
-    console.error('\nMissing ATPROTO_PDS, ATPROTO_HANDLE, or ATPROTO_PASSWORD in environment.')
-    process.exit(1)
-  }
-
-  // Confirm
-  if (!args.yes) {
-    const ok = await confirm(`\nPublish ${records.length} record(s) to ${config.pds}?`)
-    if (!ok) {
-      console.log('Aborted.')
-      return
-    }
-  }
-
-  // Login to PDS
-  const agent = new AtpAgent({ service: config.pds })
-  try {
-    await agent.login({ identifier: config.handle, password: config.password })
-    console.log(`\nLogged in as ${agent.session.did}`)
-  } catch (err) {
-    console.error(`Login failed: ${err.message}`)
-    process.exit(1)
-  }
-
-  // Write records
-  let created = 0
-  let failed = 0
-
-  for (const record of records) {
-    try {
-      const res = await agent.com.atproto.repo.createRecord({
-        repo: agent.session.did,
-        collection,
-        record,
-      })
-      console.log(`  Created: ${res.data.uri}`)
-      created++
-    } catch (err) {
-      console.error(`  Failed: ${err.message}`)
-      failed++
-    }
-  }
-
-  console.log(`\nDone. Created: ${created}, Failed: ${failed}`)
-}
-
-main().catch((err) => {
-  console.error(`Error: ${err.message}`)
-  process.exit(1)
-})
-```
-
-- [ ] **Step 2: Verify the script loads without errors**
-
-Run: `cd clients/atproto-publish && node -e "import('./publish.js')" 2>&1 || echo "expected: missing env vars error"`
-
-The script should fail with the "Missing OP_INSTANCE" message (no .env configured), confirming it loads and parses correctly.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add clients/atproto-publish/publish.js
-git commit -m "feat: add AT Proto publish CLI client"
-```
-
----
-
-### Task 5: Manual integration test
-
-This task is manual — verify the full pipeline works end-to-end.
-
-- [ ] **Step 1: Test `--list` (requires OP_INSTANCE and OP_SPARQL set)**
-
-```bash
-cd clients/atproto-publish
-cp .env.example .env
-# Edit .env with local dev values (instance=http://localhost:5173/, sparql=http://0.0.0.0:7878)
-node --env-file=.env publish.js --list
-```
-
-Expected: Lists `atproto → site.standard.document` (and any registered custom publishers).
-
-- [ ] **Step 2: Test `--dry-run`**
-
-Requires the SPARQL endpoint to be running.
-
-```bash
-node --env-file=.env publish.js --query="everything/thorped?o=demo" --publisher=atproto --dry-run
-```
-
-Expected: Shows query results formatted as `site.standard.document` records in JSON.
-
-- [ ] **Step 3: Test actual publish (requires AT Proto credentials)**
-
-```bash
-# Edit .env with real PDS credentials (use an app password, not your main password)
-node --env-file=.env publish.js --query="everything/thorped?o=demo&limit=1" --publisher=atproto
-```
-
-Expected: Prompts for confirmation, creates record on PDS, prints the `at://` URI.
-
-- [ ] **Step 4: Update release notes**
+- [ ] **Step 2: Update release notes**
 
 Append to `docs/release-notes-development.md`:
 
 ```markdown
 ### AT Protocol Publish PoC
 - Added `prepare()` method to OP Core client — protocol-agnostic publisher formatting with optional protocol assertion (`packages/core/index.js`)
-- Added standalone AT Proto publish CLI client (`clients/atproto-publish/`) — queries OP, formats via publishers, writes to PDS
 - Tests added to `src/tests/publish-core.test.js`
 ```
 
-- [ ] **Step 5: Commit release notes**
+- [ ] **Step 3: Commit release notes**
 
 ```bash
 git add docs/release-notes-development.md
