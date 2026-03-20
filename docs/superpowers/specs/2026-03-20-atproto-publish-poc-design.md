@@ -22,15 +22,26 @@ The boundary is clean: Core handles querying and formatting (no network dependen
 
 ### What it does
 
-Takes blobject results and a publisher name. Runs them through the publisher's resolver (field mapping + transforms) and renderer (final shaping). Returns an array of records ready to write to a PDS, along with metadata the client needs (lexicon, content type).
+Takes blobject results and a publisher name. Runs them through the publisher's resolver (field mapping + transforms) and renderer (final shaping). Returns an array of formatted records along with whatever metadata the publisher declares (lexicon, content type).
+
+`prepare()` is protocol-agnostic. It works with any publisher regardless of target protocol. An optional `{ protocol }` parameter lets callers assert that the publisher is compatible with a specific protocol — the standalone AT Proto client uses this to fail early if a publisher lacks the required `meta.lexicon`.
 
 ### API
 
 ```javascript
 const op = createClient({ instance, sparql })
-
 const results = await op.get({ what: 'everything', by: 'thorped', o: 'demo' })
+
+// Protocol-agnostic — works with any publisher
 const { records, collection, contentType } = op.prepare(results, 'atproto')
+
+// With protocol assertion — throws if publisher is incompatible
+const { records, collection } = op.prepare(results, 'semble', { protocol: 'atproto' })
+
+// rss2 has no lexicon, so this works without protocol assertion...
+const { records } = op.prepare(results, 'rss2')
+// ...but this throws: "Publisher 'rss2' is not compatible with protocol 'atproto' (no lexicon)"
+op.prepare(results, 'rss2', { protocol: 'atproto' })
 ```
 
 ### Return shape
@@ -56,28 +67,37 @@ Publishers with custom renderers (like `semble`) may produce richer record shape
 Add `prepare` to the client return object in `packages/core/index.js`:
 
 ```javascript
-prepare: (data, publisherName) => {
+prepare: (data, publisherName, options = {}) => {
   const pub = typeof publisherName === 'string'
     ? publisherRegistry.getPublisher(publisherName)
     : publisherName
   if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
-  if (!pub.meta?.lexicon) throw new Error(`Publisher "${publisherName}" has no lexicon — not compatible with AT Protocol`)
+
+  const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
+
+  // Protocol compatibility check — only when caller asserts a protocol
+  if (options.protocol === 'atproto' && !pub.meta?.lexicon) {
+    throw new Error(`Publisher "${name}" is not compatible with protocol 'atproto' (no lexicon)`)
+  }
+
   const normalized = Array.isArray(data) ? data : (data.results || [])
   const items = publish(normalized, pub.schema)
   const records = pub.render(items, pub.meta)
   return {
     records,
-    collection: pub.meta.lexicon,
+    collection: pub.meta?.lexicon ?? null,
     contentType: pub.contentType,
-    publisher: typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom',
+    publisher: name,
   }
 }
 ```
 
 ### Key decisions
 
-- `prepare()` validates that the publisher has a `meta.lexicon`. Publishers without one (like `rss2`) are not AT Proto compatible and throw an error.
-- The existing `client.publish()` method is unchanged. `prepare()` is a higher-level convenience that adds the collection/contentType metadata needed for PDS writes.
+- `prepare()` is protocol-agnostic. It formats data via any publisher and returns whatever metadata the publisher declares. `collection` is `null` for publishers without a lexicon.
+- Protocol compatibility is opt-in via `{ protocol: 'atproto' }`. The standalone client always passes this; other callers may not need it.
+- Future protocols can define their own compatibility checks by adding new `protocol` values (e.g. `{ protocol: 'activitypub' }` could check for an `actorType` field).
+- The existing `client.publish()` method is unchanged. `prepare()` is a higher-level convenience that adds structured metadata (collection, contentType) alongside the formatted records.
 - `data` accepts either `results` array directly or a response object with `results` property — normalize inside `prepare()` to handle both `op.get()` output shapes.
 
 ## Part 2: Standalone Client
@@ -139,7 +159,7 @@ everything/thorped?o=demo&limit=5
 3. Create OP client with instance + sparql config
 4. If `--list`: list publishers with lexicons, exit
 5. Run the query via `op.get()`
-6. `op.prepare(results, publisher)` to get records + collection
+6. `op.prepare(results, publisher, { protocol: 'atproto' })` to get records + collection
 7. Log summary: record count, publisher name, lexicon/collection, target PDS
 8. If `--dry-run`: log records as JSON, exit
 9. If not `--yes`: prompt for confirmation
@@ -159,7 +179,7 @@ await agent.login({
   password: process.env.ATPROTO_PASSWORD,
 })
 
-const { records, collection } = op.prepare(results, publisherName)
+const { records, collection } = op.prepare(results, publisherName, { protocol: 'atproto' })
 
 for (const record of records) {
   try {
@@ -231,7 +251,10 @@ Add to existing `src/tests/publish-core.test.js`:
 
 - `prepare()` returns records, collection, contentType, and publisher name
 - `prepare()` throws for unknown publisher
-- `prepare()` throws for publisher without lexicon (e.g. `rss2`)
+- `prepare()` works with any publisher when no protocol is specified (including `rss2`)
+- `prepare()` returns `collection: null` for publishers without a lexicon
+- `prepare()` with `{ protocol: 'atproto' }` throws for publisher without lexicon (e.g. `rss2`)
+- `prepare()` with `{ protocol: 'atproto' }` succeeds for publishers with lexicon
 - `prepare()` handles empty results array (returns empty records)
 - `prepare()` normalizes response objects (handles both `[...]` and `{ results: [...] }`)
 
