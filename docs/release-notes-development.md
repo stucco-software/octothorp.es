@@ -256,3 +256,9 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - Updated `debug/core` route to load all custom publishers via the adapter — new publishers slot in by adding a directory
 
 **Files affected:** `packages/core/index.js`, `packages/core/publishers.js`, `src/lib/publishers/index.js` (new), `src/lib/publishers/semble/resolver.json` (new), `src/lib/publishers/semble/renderer.js` (new), `src/routes/debug/core/+server.js`, `src/tests/core.test.js`, `src/tests/publish-core.test.js`
+
+## AT Protocol Publish PoC
+
+### `prepare()` method on Core client
+- Added `prepare()` method to OP Core client — protocol-agnostic publisher formatting with optional protocol assertion (`packages/core/index.js`)
+- Tests added to `src/tests/publish-core.test.js`
