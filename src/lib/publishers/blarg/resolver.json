@@ -1,0 +1,18 @@
+{
+  "@context": "https://example.com/",
+  "@id": "https://octothorp.es/publishers/example",
+  "@type": "resolver",
+  "contentType": "application/json",
+  "meta": {
+    "name": "Example Publisher",
+    "description": "A starting point for creating custom publishers"
+  },
+  "schema": {
+    "url": { "from": "@id", "required": true },
+    "blarg": { "from": ["title", "@id"], "required": true },
+    "description": { "from": "description" },
+    "image": { "from": "image" },
+    "date": { "from": "date", "postProcess": { "method": "date", "params": "iso8601" } },
+    "tags": { "from": "octothorpes", "postProcess": { "method": "extractTags" } }
+  }
+}

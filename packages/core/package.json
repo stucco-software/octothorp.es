@@ -1,6 +1,6 @@
 {
   "name": "octothorpes",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Framework-agnostic core library for the Octothorpes Protocol",
   "main": "index.js",

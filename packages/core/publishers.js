@@ -122,10 +122,16 @@ export const createPublisherRegistry = () => {
 
   const register = (name, publisher) => {
     if (builtins.has(name)) throw new Error(`Publisher "${name}" is already registered as a built-in`)
-    if (!publisher.schema || !publisher.contentType || typeof publisher.render !== 'function') {
+    // Flat shape: resolver fields at top level (@context, @id, schema, contentType, render)
+    // Explicit shape: { schema: resolverObj, contentType, meta, render }
+    const isFlat = publisher['@context'] || publisher['@id']
+    const normalized = isFlat
+      ? { schema: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, render: publisher.render }
+      : publisher
+    if (!normalized.schema || !normalized.contentType || typeof normalized.render !== 'function') {
       throw new Error('Publisher must have schema, contentType, and render')
     }
-    publishers[name] = publisher
+    publishers[name] = normalized
   }
 
   return { getPublisher, listPublishers, register }

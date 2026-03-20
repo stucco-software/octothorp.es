@@ -127,6 +127,12 @@ export const createClient = (config) => {
 
   const publisherRegistry = createPublisherRegistry()
 
+  if (config.publishers) {
+    for (const [name, publisher] of Object.entries(config.publishers)) {
+      publisherRegistry.register(name, publisher)
+    }
+  }
+
   const get = async ({ what, by, as: asFormat, debug: debugFlag, ...rest } = {}) => {
     if (asFormat === 'debug' || asFormat === 'multipass') {
       return api.get(what, by, { ...rest, as: asFormat })

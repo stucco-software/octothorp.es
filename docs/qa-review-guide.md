@@ -371,6 +371,31 @@ Tests skip automatically if the server is unreachable. Failures indicate either 
 
 ---
 
+## Custom Publishers
+
+**What to check:** Custom publishers registered via `createClient({ publishers })` transform blobjects correctly and are served with the right content type.
+
+1. Confirm the semble publisher is available via the debug/core endpoint:
+   ```
+   http://localhost:5173/debug/core?what=everything&by=thorped&o=demo&limit=2&as=semble
+   ```
+   Response should be a JSON array of `network.cosmik.card` objects with `$type`, `content.url`, `content.metadata`, and `createdAt` fields. Content-Type header should be `application/json`.
+
+2. Confirm built-in publishers still work through the same path:
+   ```
+   http://localhost:5173/debug/core?what=everything&by=thorped&o=demo&limit=2&as=rss
+   ```
+   Response should be RSS XML with Content-Type `application/rss+xml`.
+
+3. Confirm the default (no `as` param) still returns standard JSON:
+   ```
+   http://localhost:5173/debug/core?what=everything&by=thorped&o=demo&limit=2
+   ```
+
+**Known issue:** The `octothorpes` workspace package is symlinked from `node_modules/octothorpes` to `packages/core/`. Vite resolves the symlink to the real path and blocks it as outside the serving allow list. This is fixed by `server.fs.allow: ['packages/core']` in `vite.config.js`. If you see "Pre-transform error: Failed to load url /packages/core/index.js" or "request url is outside of Vite serving allow list", confirm that `vite.config.js` includes the allow entry and restart the dev server.
+
+---
+
 ## General Smoke Tests
 
 Run these after everything else to confirm nothing regressed:

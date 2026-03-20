@@ -245,3 +245,14 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - Bumped package version to 0.2.0
 
 **Files affected:** `packages/core/index.js`, `packages/core/blobject.js`, `packages/core/publish.js` (new), `packages/core/publishers.js` (new), `packages/core/package.json`, `src/lib/sparql.js`, `src/lib/converters.js`, `src/lib/getHarmonizer.js`, `src/lib/indexing.js`, all `src/routes/` files, all `src/tests/` files, 19 files deleted from `src/lib/`
+
+## Custom Publisher Registration
+
+- `createClient()` now accepts a `publishers` config to register custom publishers at client creation time
+- Publishers follow a standard format: a `resolver.json` (manifest with `@context`, `@id`, `contentType`, `meta`, and `schema`) and a `renderer.js` that imports its resolver and exports a single default object with a `render` function
+- Core's `register()` auto-detects flat shape (resolver fields at top level) vs explicit shape and normalizes accordingly
+- Added `src/lib/publishers/index.js` — a Vite `import.meta.glob` adapter that auto-discovers publishers from `src/lib/publishers/*/renderer.js`
+- Added semble publisher (`network.cosmik.card` format) as the first custom publisher example
+- Updated `debug/core` route to load all custom publishers via the adapter — new publishers slot in by adding a directory
+
+**Files affected:** `packages/core/index.js`, `packages/core/publishers.js`, `src/lib/publishers/index.js` (new), `src/lib/publishers/semble/resolver.json` (new), `src/lib/publishers/semble/renderer.js` (new), `src/routes/debug/core/+server.js`, `src/tests/core.test.js`, `src/tests/publish-core.test.js`
