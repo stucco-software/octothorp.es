@@ -189,13 +189,14 @@ export const createQueryBuilders = (instance, queryArray) => {
     all: ''
   }
 
-  function createDateFilter(dR, varName = 'postDate') {
+  function createDateFilter(dR, varName = 'postDate', fallbackVar = null) {
     const filters = [];
+    const expr = fallbackVar ? `COALESCE(?${varName}, ?${fallbackVar})` : `?${varName}`;
     if (dR.after) {
-      filters.push(`?${varName} >= ${dR.after}`);
+      filters.push(`${expr} >= ${dR.after}`);
     }
     if (dR.before) {
-      filters.push(`?${varName} <= ${dR.before}`);
+      filters.push(`${expr} <= ${dR.before}`);
     }
     return filters.length ? `FILTER (${filters.join(' && ')})` : '';
   }
@@ -228,7 +229,7 @@ export const createQueryBuilders = (instance, queryArray) => {
 
     const subjectStatement = buildSubjectStatement(subjects)
     const objectStatement = buildObjectStatement(objects)
-    const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange, 'postDate') : ""
+    const dateFilter = filters.dateRange ? createDateFilter(filters.dateRange, 'postDate', 'date') : ""
     const createdFilter = filters.createdRange ? createDateFilter(filters.createdRange, 'createdDate') : ""
     const indexedFilter = filters.indexedRange ? createDateFilter(filters.indexedRange, 'indexedDate') : ""
 
