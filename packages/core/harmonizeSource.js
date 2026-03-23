@@ -654,7 +654,7 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
       }
       // Process each rule in the "o" array
 
-      for (const [prop, val] of Object.entries(schema.subject)) {
+      for (const [prop, val] of Object.entries(schema[key])) {
               // skip source because it's already in the subject array
               let values = []
               if (prop != "s") {
