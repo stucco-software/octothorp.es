@@ -99,3 +99,149 @@ describe('extantBacklink - source-anchored', () => {
     expect(query).toContain('_:backlink octo:url <https://target.com/page>')
   })
 })
+
+describe('ingestBlobject', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('should be returned by createIndexer', () => {
+    const indexer = makeIndexer()
+    expect(typeof indexer.ingestBlobject).toBe('function')
+  })
+
+  it('should store a blobject with hashtag and link octothorpes', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockInsert.mockResolvedValue(true)
+
+    await indexer.ingestBlobject({
+      '@id': 'https://example.com/page',
+      title: 'Test Page',
+      description: 'A test page',
+      image: null,
+      postDate: null,
+      octothorpes: [
+        { type: 'hashtag', uri: 'https://example.com/~/cats' },
+        { type: 'link', uri: 'https://other.com/page', terms: [] },
+      ],
+    })
+
+    // Should have created the page (extantPage returned false)
+    expect(mockQueryBoolean).toHaveBeenCalled()
+    // Should have called insert for thorpe + mention + page creation + metadata
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
+  it('should handle endorsement octothorpes without creating mentions', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockInsert.mockResolvedValue(true)
+
+    await indexer.ingestBlobject({
+      '@id': 'https://example.com/page',
+      title: 'Endorsement Page',
+      description: null,
+      image: null,
+      postDate: null,
+      octothorpes: [
+        { type: 'endorse', uri: 'https://friend.com/' },
+      ],
+    })
+
+    // Endorsements don't call handleMention — they just get collected into friends.endorsed
+    // No backlink insert for endorsements (only for links/bookmarks)
+    const insertCalls = mockInsert.mock.calls.map(c => c[0])
+    const backlinkInserts = insertCalls.filter(q => q.includes('octo:url'))
+    expect(backlinkInserts).toHaveLength(0)
+  })
+
+  it('should handle webring type blobjects', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockInsert.mockResolvedValue(true)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    await indexer.ingestBlobject({
+      '@id': 'https://example.com/webring',
+      type: 'Webring',
+      title: 'My Webring',
+      description: null,
+      image: null,
+      postDate: null,
+      octothorpes: [
+        { type: 'link', uri: 'https://member1.com/', terms: [] },
+        { type: 'endorse', uri: 'https://member2.com/' },
+      ],
+    })
+
+    // Should have called queryArray for webring member lookup
+    expect(mockQueryArray).toHaveBeenCalled()
+  })
+
+  it('should handle blobjects with no octothorpes gracefully', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockInsert.mockResolvedValue(true)
+
+    // No octothorpes key at all
+    await indexer.ingestBlobject({
+      '@id': 'https://example.com/page',
+      title: 'Empty Page',
+      description: null,
+      image: null,
+      postDate: null,
+    })
+
+    // Should still create the page and record metadata without throwing
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
+  it('should record postDate when present', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+
+    await indexer.ingestBlobject({
+      '@id': 'https://example.com/page',
+      title: 'Dated Page',
+      description: null,
+      image: null,
+      postDate: '2025-01-15',
+      octothorpes: [],
+    })
+
+    const insertCalls = mockInsert.mock.calls.map(c => c[0])
+    const expectedTimestamp = new Date('2025-01-15').getTime()
+    const postDateInsert = insertCalls.find(q => q.includes(`octo:postDate ${expectedTimestamp}`))
+    expect(postDateInsert).toBeDefined()
+  })
+
+  it('should apply deslash to octothorpe URIs', async () => {
+    const indexer = makeIndexer()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockInsert.mockResolvedValue(true)
+
+    await indexer.ingestBlobject({
+      '@id': 'https://example.com/page',
+      title: 'Test',
+      description: null,
+      image: null,
+      postDate: null,
+      octothorpes: [
+        { type: 'hashtag', uri: 'https://example.com/~/cats/' },
+      ],
+    })
+
+    // deslash removes trailing slash — check the insert doesn't have trailing slash on the URI
+    const insertCalls = mockInsert.mock.calls.map(c => c[0])
+    const thorpeInsert = insertCalls.find(q => q.includes('cats'))
+    if (thorpeInsert) {
+      expect(thorpeInsert).not.toContain('cats/>')
+    }
+  })
+
+  it('should throw if harmed is null', async () => {
+    const indexer = makeIndexer()
+    await expect(indexer.ingestBlobject(null)).rejects.toThrow('Harmonization failed')
+  })
+})

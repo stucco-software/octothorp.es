@@ -581,27 +581,20 @@ export const createIndexer = (deps) => {
     await processDomains(newDomains, s)
   }
 
-  const handleHTML = async (response, uri, harmonizer, { instance: inst } = {}) => {
-    const base = inst || instance
-    const src = await response.text()
-    const harmed = await harmonizeSource(src, harmonizer)
+  const ingestBlobject = async (harmed, { instance: inst } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
-    let s = harmed['@id'] === 'source' ? uri : harmed['@id']
-
-    console.log(`HARMED`)
-    console.log(harmed)
+    const base = inst || instance
+    const s = harmed['@id']
 
     let isExtantPage = await extantPage(s)
-    console.log(`isExtantPage?`, isExtantPage)
     if (!isExtantPage) {
       await createPage(s)
     }
 
     let friends = { endorsed: [], linked: [] }
-    console.log(harmed.octothorpes)
-    for (const octothorpe of harmed.octothorpes) {
+    for (const octothorpe of (harmed.octothorpes || [])) {
       if (typeof octothorpe === 'string') {
         await handleThorpe(s, octothorpe, { instance: base })
         continue
@@ -619,8 +612,8 @@ export const createIndexer = (deps) => {
       }
     }
 
-    if (harmed.type === "Webring") {
-      const isExtantWebring = await extantPage(s, "Webring")
+    if (harmed.type === 'Webring') {
+      const isExtantWebring = await extantPage(s, 'Webring')
       await handleWebring(s, friends, isExtantWebring)
     }
 
@@ -628,9 +621,14 @@ export const createIndexer = (deps) => {
     await recordDescription(s, harmed.description)
     await recordImage(s, harmed.image)
     await recordPostDate(s, harmed.postDate)
+  }
 
-    console.log("done")
-    return new Response(200)
+  const handleHTML = async (response, uri, harmonizer, { instance: inst } = {}) => {
+    const base = inst || instance
+    const src = await response.text()
+    const harmed = await harmonizeSource(src, harmonizer)
+    if (harmed['@id'] === 'source') harmed['@id'] = uri
+    await ingestBlobject(harmed, { instance: base })
   }
 
   const handler = async (uri, harmonizer, requestingOrigin, config) => {
@@ -705,6 +703,7 @@ export const createIndexer = (deps) => {
   return {
     handler,
     handleHTML,
+    ingestBlobject,
     handleThorpe,
     handleMention,
     handleWebring,
