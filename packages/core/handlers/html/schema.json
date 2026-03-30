@@ -1,0 +1,8 @@
+{
+  "mode": "html",
+  "contentTypes": ["text/html", "application/xhtml+xml"],
+  "meta": {
+    "name": "HTML Handler",
+    "description": "Extracts metadata from HTML using CSS selectors via JSDOM"
+  }
+}
