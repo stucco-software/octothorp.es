@@ -81,6 +81,33 @@ describe('harmonizer registry', () => {
   })
 })
 
+describe('handler registry', () => {
+  it('should have html handler registered by default', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    expect(op.handler.getHandler('html')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('text/html')).toBeDefined()
+  })
+
+  it('should register custom handlers from config', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+      handlers: {
+        json: {
+          mode: 'json',
+          contentTypes: ['application/json', 'application/ld+json'],
+          harmonize: (content, schema) => ({ '@id': 'test', octothorpes: [] })
+        }
+      }
+    })
+    expect(op.handler.getHandler('json')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('application/json')).toBeDefined()
+  })
+})
+
 describe('op.get()', () => {
   it('should accept a flat params object', async () => {
     const { buildMultiPass } = await import('octothorpes')

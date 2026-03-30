@@ -3,6 +3,8 @@ import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
 import { createPublisherRegistry } from './publishers.js'
+import { createHandlerRegistry } from './handlerRegistry.js'
+import htmlHandler from './handlers/html/handler.js'
 import { publish } from './publish.js'
 
 // harmonizeSource is intentionally NOT re-exported directly here because
@@ -29,6 +31,7 @@ export { remoteHarmonizer } from './harmonizeSource.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry } from './publishers.js'
+export { createHandlerRegistry } from './handlerRegistry.js'
 
 const normalizeSparqlConfig = (sparql) => {
   if (!sparql) return {}
@@ -75,6 +78,16 @@ export const createClient = (config) => {
     })
   }
 
+  const handlerRegistry = createHandlerRegistry()
+  handlerRegistry.register('html', htmlHandler)
+  handlerRegistry.markBuiltins()
+
+  if (config.handlers) {
+    for (const [mode, handler] of Object.entries(config.handlers)) {
+      handlerRegistry.register(mode, handler)
+    }
+  }
+
   const indexer = createIndexer({
     insert: sparql.insert,
     query: sparql.query,
@@ -82,6 +95,8 @@ export const createClient = (config) => {
     queryArray: sparql.queryArray,
     harmonizeSource: harmonize,
     instance: config.instance,
+    handlerRegistry,
+    getHarmonizer: registry.getHarmonizer,
   })
 
   const api = createApi({
@@ -198,6 +213,7 @@ export const createClient = (config) => {
       }
     },
     harmonizer: registry,
+    handler: handlerRegistry,
     publisher: publisherRegistry,
     sparql,
     api,
