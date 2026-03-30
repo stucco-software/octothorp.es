@@ -246,6 +246,28 @@ export const createHarmonizerRegistry = (instance) => {
         }]
     }
   }
+  },
+  "standardSite": {
+    "@context": context,
+    "@id": `${baseId}standardSite`,
+    "@type": "harmonizer",
+    "title": "Gets a documentRecord for extra content expected by the ATProto lexicon site.standard.document",
+    "mode": "html",
+    "schema" : {
+      "documentRecord": {
+        "textContent": [
+          { "selector": "article", "attribute": "textContent" },
+          { "selector": "main", "attribute": "textContent" },
+          { "selector": "body", "attribute": "textContent" }
+        ],
+        "site": [
+          { "selector": "link[rel='canonical']", "attribute": "href" }
+        ],
+        "path": [
+          { "selector": "link[rel='canonical']", "attribute": "href" }
+        ]
+      }
+  }
   }
   };
 
