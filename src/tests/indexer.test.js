@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createIndexer } from '../../packages/core/indexer.js'
+import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
@@ -243,5 +244,66 @@ describe('ingestBlobject', () => {
   it('should throw if harmed is null', async () => {
     const indexer = makeIndexer()
     await expect(indexer.ingestBlobject(null)).rejects.toThrow('Harmonization failed')
+  })
+})
+
+describe('handler dispatch', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const mockHarmonize = vi.fn(() => ({
+    '@id': 'https://example.com/page',
+    title: 'Test',
+    octothorpes: ['demo']
+  }))
+
+  const createMockRegistry = () => {
+    const reg = createHandlerRegistry()
+    reg.register('html', {
+      mode: 'html',
+      contentTypes: ['text/html', 'application/xhtml+xml'],
+      harmonize: mockHarmonize
+    })
+    reg.register('json', {
+      mode: 'json',
+      contentTypes: ['application/json', 'application/ld+json'],
+      harmonize: mockHarmonize
+    })
+    reg.markBuiltins()
+    return reg
+  }
+
+  it('should select handler by harmonizer mode when mode is set', () => {
+    const reg = createMockRegistry()
+    const jsonHandler = reg.getHandler('json')
+    const resolvedHarmonizer = { mode: 'json', schema: { subject: { s: '$.url' } } }
+    const selectedHandler = resolvedHarmonizer.mode
+      ? reg.getHandler(resolvedHarmonizer.mode)
+      : reg.getHandlerForContentType('text/html')
+    expect(selectedHandler).toBe(jsonHandler)
+  })
+
+  it('should fall back to content-type when no harmonizer mode is set', () => {
+    const reg = createMockRegistry()
+    const resolvedHarmonizer = { schema: { subject: { s: { selector: 'title' } } } }
+    let selectedHandler = resolvedHarmonizer.mode
+      ? reg.getHandler(resolvedHarmonizer.mode)
+      : null
+    if (!selectedHandler) {
+      selectedHandler = reg.getHandlerForContentType('application/json')
+    }
+    expect(selectedHandler.mode).toBe('json')
+  })
+
+  it('should fall back to html handler when no match found', () => {
+    const reg = createMockRegistry()
+    const resolvedHarmonizer = { mode: 'ical' }
+    let selectedHandler = reg.getHandler(resolvedHarmonizer.mode)
+    if (!selectedHandler) {
+      selectedHandler = reg.getHandlerForContentType('text/calendar')
+    }
+    if (!selectedHandler) {
+      selectedHandler = reg.getHandler('html')
+    }
+    expect(selectedHandler.mode).toBe('html')
   })
 })

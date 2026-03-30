@@ -136,10 +136,12 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {Function} deps.queryArray
  * @param {Function} deps.harmonizeSource
  * @param {string} deps.instance
+ * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
+ * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, harmonizeSource, instance } = deps
+  const { insert, query, queryBoolean, queryArray, harmonizeSource, instance, handlerRegistry, getHarmonizer } = deps
 
   const p = 'octo:octothorpes'
   const indexCooldown = 300000 // 5min
@@ -694,9 +696,40 @@ export const createIndexer = (deps) => {
     })
     await recordIndexing(parsed.normalized)
 
-    if (subject.headers.get('content-type').includes('text/html')) {
-      console.log("handle html…", parsed.normalized)
-      return await handleHTML(subject, parsed.normalized, harmonizer, { instance: base })
+    const contentType = subject.headers.get('content-type') || ''
+    const content = await subject.text()
+
+    // Resolve harmonizer name to schema
+    const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
+      ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
+      : harmonizer
+
+    // Determine mode from resolved harmonizer
+    const mode = resolvedHarmonizer?.mode
+
+    // Select handler: mode first, content-type fallback, html default
+    let selectedHandler = mode ? handlerRegistry?.getHandler(mode) : null
+    if (!selectedHandler) {
+      selectedHandler = handlerRegistry?.getHandlerForContentType(contentType)
+    }
+    if (!selectedHandler) {
+      selectedHandler = handlerRegistry?.getHandler('html')
+    }
+
+    if (selectedHandler) {
+      const harmed = await selectedHandler.harmonize(content, resolvedHarmonizer, { instance: base })
+      if (harmed['@id'] === 'source') harmed['@id'] = parsed.normalized
+      await ingestBlobject(harmed, { instance: base })
+    } else {
+      // Legacy fallback when no handler registry is configured
+      if (contentType.includes('text/html')) {
+        return await handleHTML(
+          { text: async () => content },
+          parsed.normalized,
+          harmonizer,
+          { instance: base }
+        )
+      }
     }
   }
 
