@@ -38,6 +38,47 @@ describe('harmonizer registry', () => {
     expect(all.openGraph).toBeDefined()
     expect(all.ghost).toBeDefined()
   })
+
+  it('should register a custom harmonizer', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    op.harmonizer.register('custom-json', {
+      mode: 'json',
+      title: 'Custom JSON Harmonizer',
+      schema: { subject: { s: 'source' } }
+    })
+    const h = op.harmonizer.getHarmonizer('custom-json')
+    expect(h).toBeDefined()
+  })
+
+  it('should filter harmonizers by mode', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const htmlHarmonizers = op.harmonizer.getHarmonizersForMode('html')
+    expect(Object.keys(htmlHarmonizers)).toContain('default')
+    expect(Object.keys(htmlHarmonizers)).toContain('openGraph')
+  })
+
+  it('should not return harmonizers from a different mode', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    op.harmonizer.register('custom-json', {
+      mode: 'json',
+      title: 'JSON Harmonizer',
+      schema: { subject: { s: '$.url' } }
+    })
+    const htmlHarmonizers = op.harmonizer.getHarmonizersForMode('html')
+    const jsonHarmonizers = op.harmonizer.getHarmonizersForMode('json')
+    expect(Object.keys(htmlHarmonizers)).not.toContain('custom-json')
+    expect(Object.keys(jsonHarmonizers)).toContain('custom-json')
+    expect(Object.keys(jsonHarmonizers)).not.toContain('default')
+  })
 })
 
 describe('op.get()', () => {

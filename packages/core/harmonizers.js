@@ -282,5 +282,17 @@ export const createHarmonizerRegistry = (instance) => {
     return harmonizer
   }
 
-  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers }
+  const register = (name, harmonizer) => {
+    if (localHarmonizers[name]) throw new Error(`Harmonizer "${name}" already exists`)
+    if (!harmonizer.mode) throw new Error('Harmonizer must have a mode field')
+    localHarmonizers[name] = harmonizer
+  }
+
+  const getHarmonizersForMode = (mode) => {
+    return Object.fromEntries(
+      Object.entries(localHarmonizers).filter(([_, h]) => h.mode === mode)
+    )
+  }
+
+  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode }
 }
