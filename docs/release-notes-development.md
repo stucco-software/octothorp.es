@@ -262,3 +262,15 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 ### `prepare()` method on Core client
 - Added `prepare()` method to OP Core client — protocol-agnostic publisher formatting with optional protocol assertion (`packages/core/index.js`)
 - Tests added to `src/tests/publish-core.test.js`
+
+## Pluggable Handler System
+
+- Extracted `ingestBlobject` from `handleHTML` — generic storage pipeline for any content type
+- Added `createHandlerRegistry` with mode-keyed lookup and content-type dispatch
+- Created HTML handler (`packages/core/handlers/html/`) wrapping `harmonizeSource`
+- Handler registry wired into `createClient({ handlers })` for custom handler registration
+- Added `register()` and `getHarmonizersForMode()` to harmonizer registry
+- Handler dispatch in indexer selects handler by harmonizer mode, content-type fallback, html default
+- Added SvelteKit glob adapter for custom handlers (`src/lib/handlers/index.js`)
+
+**Files affected:** `packages/core/indexer.js`, `packages/core/handlerRegistry.js` (new), `packages/core/handlers/html/` (new), `packages/core/harmonizers.js`, `packages/core/index.js`, `src/lib/handlers/index.js` (new)
