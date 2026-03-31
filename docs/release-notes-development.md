@@ -274,3 +274,15 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - Added SvelteKit glob adapter for custom handlers (`src/lib/handlers/index.js`)
 
 **Files affected:** `packages/core/indexer.js`, `packages/core/handlerRegistry.js` (new), `packages/core/handlers/html/` (new), `packages/core/harmonizers.js`, `packages/core/index.js`, `src/lib/handlers/index.js` (new)
+
+## JSON Handler
+
+- Added `packages/core/handlers/json/` — first non-HTML handler, registered as a built-in alongside HTML
+- Extracts metadata from JSON content using dot-notation paths (e.g. `data.attributes.title`)
+- Three rule forms: bare string (`"title"`), fallback array (`["title", "og_title"]`), object with transforms (`{ path: "tags_csv", postProcess: { method: "split", params: "," } }`)
+- Auto-expands arrays: a path resolving to `["a", "b", "c"]` produces three values
+- Same schema shape as HTML harmonizers (`subject`, `hashtag`, `link`, `bookmark`, etc.) — only the extraction mechanism differs
+- Supports `postProcess` (regex, split, trim, substring) and `filterResults` (regex, contains, exclude, startsWith, endsWith)
+- Content types: `application/json`, `application/ld+json`, `application/feed+json`
+
+**Files affected:** `packages/core/handlers/json/schema.json` (new), `packages/core/handlers/json/handler.js` (new), `packages/core/index.js`
