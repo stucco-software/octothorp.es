@@ -1,5 +1,3 @@
-import schema from './schema.json' with { type: 'json' }
-
 /**
  * Resolve a dot-notation path against an object.
  * Returns the value at the path, or undefined if not found.
@@ -142,7 +140,12 @@ const harmonize = (content, harmonizerSchema, options = {}) => {
 }
 
 export default {
-  ...schema,
+  mode: 'json',
+  contentTypes: ['application/json', 'application/ld+json', 'application/feed+json'],
+  meta: {
+    name: 'JSON Handler',
+    description: 'Extracts metadata from JSON using dot-notation paths',
+  },
   harmonize,
 }
 
