@@ -82,13 +82,15 @@ describe('harmonizer registry', () => {
 })
 
 describe('handler registry', () => {
-  it('should have html handler registered by default', () => {
+  it('should have html and json handlers registered by default', () => {
     const op = createClient({
       instance: 'http://localhost:5173/',
       sparql: { endpoint: 'http://0.0.0.0:7878' },
     })
     expect(op.handler.getHandler('html')).toBeDefined()
     expect(op.handler.getHandlerForContentType('text/html')).toBeDefined()
+    expect(op.handler.getHandler('json')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('application/json')).toBeDefined()
   })
 
   it('should register custom handlers from config', () => {
@@ -96,15 +98,15 @@ describe('handler registry', () => {
       instance: 'http://localhost:5173/',
       sparql: { endpoint: 'http://0.0.0.0:7878' },
       handlers: {
-        json: {
-          mode: 'json',
-          contentTypes: ['application/json', 'application/ld+json'],
+        ical: {
+          mode: 'ical',
+          contentTypes: ['text/calendar'],
           harmonize: (content, schema) => ({ '@id': 'test', octothorpes: [] })
         }
       }
     })
-    expect(op.handler.getHandler('json')).toBeDefined()
-    expect(op.handler.getHandlerForContentType('application/json')).toBeDefined()
+    expect(op.handler.getHandler('ical')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('text/calendar')).toBeDefined()
   })
 })
 

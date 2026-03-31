@@ -5,6 +5,7 @@ import { createIndexer } from './indexer.js'
 import { createPublisherRegistry } from './publishers.js'
 import { createHandlerRegistry } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
+import jsonHandler from './handlers/json/handler.js'
 import { publish } from './publish.js'
 
 // harmonizeSource is intentionally NOT re-exported directly here because
@@ -80,6 +81,7 @@ export const createClient = (config) => {
 
   const handlerRegistry = createHandlerRegistry()
   handlerRegistry.register('html', htmlHandler)
+  handlerRegistry.register('json', jsonHandler)
   handlerRegistry.markBuiltins()
 
   if (config.handlers) {

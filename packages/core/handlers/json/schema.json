@@ -1,0 +1,8 @@
+{
+  "mode": "json",
+  "contentTypes": ["application/json", "application/ld+json", "application/feed+json"],
+  "meta": {
+    "name": "JSON Handler",
+    "description": "Extracts metadata from JSON using dot-notation paths"
+  }
+}
