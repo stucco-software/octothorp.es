@@ -75,31 +75,33 @@ export const createPublisherRegistry = () => {
 
   // --- ATProto ---
 
-  const atprotoSchema = {
+  const standardSiteSchema = {
     '@context': 'https://standard.site/',
-    '@id': 'https://octothorp.es/publishers/atproto.document',
+    '@id': 'https://octothorp.es/publishers/standard-site.document',
     '@type': 'resolver',
     meta: {
-      name: 'ATProto Document',
-      description: 'Converts blobjects to site.standard.document format for AT Protocol publishing platforms',
-      lexicon: 'site.standard.document',
-      version: '1.0',
+      name: 'Standard Site Document',
+      description: 'Publishes rich content to site.standard.document with textContent, site, and path',
+      lexicon: 'site.standard.document'
     },
     schema: {
-      url: { from: '@id', required: true },
-      title: { from: ['title', '@id'], required: true },
-      publishedAt: { from: 'date', postProcess: { method: 'date', params: 'iso8601' }, required: true },
-      description: { from: 'description' },
-      tags: { from: 'octothorpes', postProcess: { method: 'extractTags' } },
-      image: { from: 'image' },
+      site: { 'from': ['documentRecord.site', '@id'], 'required': true },
+      path: { 'from': 'documentRecord.path' },
+      title: { 'from': ['title', '@id'], 'required': true },
+      description: { 'from': 'description' },
+      textContent: { 'from': 'documentRecord.textContent' },
+      tags: { 'from': 'octothorpes', 'postProcess': { 'method': 'extractTags' } },
+      publishedAt: { 'from': 'date', 'postProcess': [{ 'method': 'date', 'params': 'iso8601' }, { 'method': 'default', 'params': 'now' }] }
     }
-  }
+  };
 
-  const atproto = {
-    schema: atprotoSchema,
+
+
+  const standardSiteDocument = {
+    schema: standardSiteSchema,
     contentType: 'application/json',
     meta: {
-      name: 'ATProto Document',
+      name: 'ATProto StandardSiteDocument',
       description: 'Converts blobjects to site.standard.document format',
       lexicon: 'site.standard.document',
     },
@@ -259,7 +261,7 @@ export const createPublisherRegistry = () => {
   const publishers = {
     rss2,
     rss: rss2,  // alias
-    atproto,
+    standardSiteDocument,
     bluesky,
   }
 
