@@ -5,7 +5,6 @@
  * @todo Add support for type=json
  * @todo Add support for type=xpath
  */
-import { JSDOM } from 'jsdom'
 import normalizeUrl from 'normalize-url'
 import { createHarmonizerRegistry } from './harmonizers.js'
 
@@ -246,13 +245,14 @@ function removeTrailingSlash(url) {
  * @param {string} [rule.terms.attribute] - Attribute containing comma-separated terms
  * @returns {Array} Array of extracted values (strings or objects with uri/terms)
  */
-const extractValues = (html, rule) => {
+const extractValues = async (html, rule) => {
   if (rule === undefined || rule === null) return []
   if (typeof rule === "string") {
     // If the rule is a string, return it as-is
     return [rule]
   }
   const { selector, attribute, postProcess, terms } = rule
+  const { JSDOM } = await import('jsdom')
   const dom = new JSDOM(html, { contentType: "text/html" })
   let tempContainer = dom.window.document
   const elements = [...tempContainer.querySelectorAll(selector)]
@@ -586,8 +586,8 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
   async function getObjectVals(obj) {
     const oValues = []
       // Process each rule in the "o" array
-      obj.forEach((rule) => {
-        let values = extractValues(html, rule)
+      for (const rule of obj) {
+        let values = await extractValues(html, rule)
         if (rule.filterResults) {
           values = filterValues(values, rule.filterResults)
         }
@@ -628,7 +628,7 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
           // Otherwise, add the values directly to the oValues array
           oValues.push(...values)
         }
-      })
+      }
       return oValues
     }
 
@@ -639,7 +639,7 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
     const s = schema[key].s
     const o = schema[key].o
     // TKTK think about how to handle multiple sources one day
-    const sValues = extractValues(html, s) // Extract all s values
+    const sValues = await extractValues(html, s) // Extract all s values
   // Special handling for schema.subject and schema.documentRecord
     if (key === "subject" || key === "documentRecord") {
       // props for subject go in the top level of the blobject

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.5
+
+- Lazy-load `jsdom` via dynamic `import()` in `harmonizeSource` and `origin` instead of top-level import, enabling core to run in environments where jsdom is unavailable (e.g., browsers).
+- Add JSON handler with dot-notation path resolution for indexing JSON sources.
+- Refactor handler registry: collapse `schema.json` into handler exports, wire handler dispatch into `createClient`.
+- Remove demo files, add `standardSiteDocument` publisher.
+
 ## 0.2.4
 
 - Adds `standardSite` as a named harmonizer. Note that this uses a `documentRecord` to contain the non-standard content, which, in the current version of OP, will not be stored.
