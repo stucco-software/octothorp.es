@@ -1,5 +1,5 @@
 import { buildMultiPass } from './multipass.js'
-import { getBlobjectFromResponse } from './blobject.js'
+import { getBlobjectFromResponse, createEnrichBlobjectTargets } from './blobject.js'
 import { createQueryBuilders } from './queryBuilders.js'
 import { parseBindings } from './utils.js'
 
@@ -16,6 +16,7 @@ import { parseBindings } from './utils.js'
 export const createApi = (config) => {
   const { instance, queryArray, queryBoolean, insert, query: sparqlQuery } = config
   const builders = createQueryBuilders(instance, queryArray)
+  const enrichBlobjectTargets = createEnrichBlobjectTargets(queryArray)
 
   /**
    * General-purpose query API (MultiPass pipeline).
@@ -76,6 +77,7 @@ export const createApi = (config) => {
         query = await builders.buildEverythingQuery(multiPass)
         const bj = await queryArray(query)
         actualResults = await getBlobjectFromResponse(bj, multiPass.filters)
+        actualResults = await enrichBlobjectTargets(actualResults)
         break
       }
       case 'thorpes':
