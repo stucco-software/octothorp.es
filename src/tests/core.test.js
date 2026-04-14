@@ -38,6 +38,76 @@ describe('harmonizer registry', () => {
     expect(all.openGraph).toBeDefined()
     expect(all.ghost).toBeDefined()
   })
+
+  it('should register a custom harmonizer', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    op.harmonizer.register('custom-json', {
+      mode: 'json',
+      title: 'Custom JSON Harmonizer',
+      schema: { subject: { s: 'source' } }
+    })
+    const h = op.harmonizer.getHarmonizer('custom-json')
+    expect(h).toBeDefined()
+  })
+
+  it('should filter harmonizers by mode', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const htmlHarmonizers = op.harmonizer.getHarmonizersForMode('html')
+    expect(Object.keys(htmlHarmonizers)).toContain('default')
+    expect(Object.keys(htmlHarmonizers)).toContain('openGraph')
+  })
+
+  it('should not return harmonizers from a different mode', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    op.harmonizer.register('custom-json', {
+      mode: 'json',
+      title: 'JSON Harmonizer',
+      schema: { subject: { s: '$.url' } }
+    })
+    const htmlHarmonizers = op.harmonizer.getHarmonizersForMode('html')
+    const jsonHarmonizers = op.harmonizer.getHarmonizersForMode('json')
+    expect(Object.keys(htmlHarmonizers)).not.toContain('custom-json')
+    expect(Object.keys(jsonHarmonizers)).toContain('custom-json')
+    expect(Object.keys(jsonHarmonizers)).not.toContain('default')
+  })
+})
+
+describe('handler registry', () => {
+  it('should have html and json handlers registered by default', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    expect(op.handler.getHandler('html')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('text/html')).toBeDefined()
+    expect(op.handler.getHandler('json')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('application/json')).toBeDefined()
+  })
+
+  it('should register custom handlers from config', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+      handlers: {
+        ical: {
+          mode: 'ical',
+          contentTypes: ['text/calendar'],
+          harmonize: (content, schema) => ({ '@id': 'test', octothorpes: [] })
+        }
+      }
+    })
+    expect(op.handler.getHandler('ical')).toBeDefined()
+    expect(op.handler.getHandlerForContentType('text/calendar')).toBeDefined()
+  })
 })
 
 describe('op.get()', () => {

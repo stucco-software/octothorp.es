@@ -25,6 +25,7 @@ describe('octothorpes package exports', () => {
     // publisher system (added in Task 2)
     'publish', 'resolve', 'validateResolver', 'loadResolver',
     'createPublisherRegistry',
+    'createHandlerRegistry',
   ]
 
   it('should export all expected functions', () => {

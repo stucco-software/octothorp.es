@@ -232,6 +232,9 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - `src/routes/debug/api-check/+server.js` — Add `rt` test coverage
 - `docs/testing/terms-on-relationships-guide.md` — Updated examples
 
+---
+
+Everything above is part of v0.6, and below will be released with 0.7
 ## Core Package Cutover
 
 - Added missing exports to `octothorpes`: `badgeVariant`, `determineBadgeUri`, `remoteHarmonizer`, `verifyApprovedDomain`, `createEnrichBlobjectTargets`, plus additional utils and origin functions
@@ -256,3 +259,33 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - Updated `debug/core` route to load all custom publishers via the adapter — new publishers slot in by adding a directory
 
 **Files affected:** `packages/core/index.js`, `packages/core/publishers.js`, `src/lib/publishers/index.js` (new), `src/lib/publishers/semble/resolver.json` (new), `src/lib/publishers/semble/renderer.js` (new), `src/routes/debug/core/+server.js`, `src/tests/core.test.js`, `src/tests/publish-core.test.js`
+
+## AT Protocol Publish PoC
+
+### `prepare()` method on Core client
+- Added `prepare()` method to OP Core client — protocol-agnostic publisher formatting with optional protocol assertion (`packages/core/index.js`)
+- Tests added to `src/tests/publish-core.test.js`
+
+## Pluggable Handler System
+
+- Extracted `ingestBlobject` from `handleHTML` — generic storage pipeline for any content type
+- Added `createHandlerRegistry` with mode-keyed lookup and content-type dispatch
+- Created HTML handler (`packages/core/handlers/html/`) wrapping `harmonizeSource`
+- Handler registry wired into `createClient({ handlers })` for custom handler registration
+- Added `register()` and `getHarmonizersForMode()` to harmonizer registry
+- Handler dispatch in indexer selects handler by harmonizer mode, content-type fallback, html default
+- Added SvelteKit glob adapter for custom handlers (`src/lib/handlers/index.js`)
+
+**Files affected:** `packages/core/indexer.js`, `packages/core/handlerRegistry.js` (new), `packages/core/handlers/html/` (new), `packages/core/harmonizers.js`, `packages/core/index.js`, `src/lib/handlers/index.js` (new)
+
+## JSON Handler
+
+- Added `packages/core/handlers/json/` — first non-HTML handler, registered as a built-in alongside HTML
+- Extracts metadata from JSON content using dot-notation paths (e.g. `data.attributes.title`)
+- Three rule forms: bare string (`"title"`), fallback array (`["title", "og_title"]`), object with transforms (`{ path: "tags_csv", postProcess: { method: "split", params: "," } }`)
+- Auto-expands arrays: a path resolving to `["a", "b", "c"]` produces three values
+- Same schema shape as HTML harmonizers (`subject`, `hashtag`, `link`, `bookmark`, etc.) — only the extraction mechanism differs
+- Supports `postProcess` (regex, split, trim, substring) and `filterResults` (regex, contains, exclude, startsWith, endsWith)
+- Content types: `application/json`, `application/ld+json`, `application/feed+json`
+
+**Files affected:** `packages/core/handlers/json/schema.json` (new), `packages/core/handlers/json/handler.js` (new), `packages/core/index.js`

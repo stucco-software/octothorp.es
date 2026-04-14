@@ -112,7 +112,7 @@ describe('postDate in SPARQL queries', () => {
       }
     }
     const query = buildSimpleQuery(multiPass)
-    expect(query).toContain('?postDate >= 1700000000000')
+    expect(query).toContain('COALESCE(?postDate, ?date) >= 1700000000000')
   })
 
   it('should filter on ?createdDate when createdRange is set', () => {
