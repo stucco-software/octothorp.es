@@ -40,7 +40,7 @@ function orchestraPitUrl(url, harm) {
 }
 
 function indexUrl(url, harm) {
-  return `${base}/indexwrapper?uri=${encodeURIComponent(url)}&as=${encodeURIComponent(harm)}`
+  return `${base}/index?uri=${encodeURIComponent(url)}&as=${encodeURIComponent(harm)}`
 }
 
 async function checkHarmonize(url, harm) {

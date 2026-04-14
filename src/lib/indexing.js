@@ -8,7 +8,7 @@ import normalizeUrl from 'normalize-url'
 ////////// globals
 
 const p = 'octo:octothorpes'
-const indexCooldown = 300000 // 5min
+const indexCooldown = 30 // 5min
 
 // Map harmonizer type values to normalized RDF subtype names.
 // Types not listed here pass through as capitalized subtypes, allowing
