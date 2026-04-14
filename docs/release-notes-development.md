@@ -232,6 +232,9 @@ Replaced the `+thorped` URL modifier with a dedicated `?rt` query parameter. Rel
 - `src/routes/debug/api-check/+server.js` — Add `rt` test coverage
 - `docs/testing/terms-on-relationships-guide.md` — Updated examples
 
+---
+
+Everything above is part of v0.6, and below will be released with 0.7
 ## Core Package Cutover
 
 - Added missing exports to `octothorpes`: `badgeVariant`, `determineBadgeUri`, `remoteHarmonizer`, `verifyApprovedDomain`, `createEnrichBlobjectTargets`, plus additional utils and origin functions

@@ -1,4 +1,6 @@
 # Changelog
+## 0.2.6
+- adds 'handlers/'
 
 ## 0.2.5
 

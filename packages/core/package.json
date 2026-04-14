@@ -1,6 +1,6 @@
 {
   "name": "octothorpes",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "description": "Framework-agnostic core library for the Octothorpes Protocol",
   "main": "index.js",
@@ -9,7 +9,8 @@
   },
   "files": [
     "*.js",
-    "ld/"
+    "ld/",
+    "handlers/"
   ],
   "dependencies": {
     "jsdom": "^24.0.0",
