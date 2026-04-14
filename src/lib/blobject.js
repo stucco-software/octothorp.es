@@ -136,3 +136,72 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
 
   return Object.values(output);
 }
+
+export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => {
+  const sourceUris = new Set()
+  const targetUris = new Set()
+
+  for (const blob of blobjects) {
+    sourceUris.add(blob['@id'])
+    for (const o of blob.octothorpes) {
+      if (typeof o === 'object' && o.uri) {
+        targetUris.add(o.uri)
+      }
+    }
+  }
+
+  if (targetUris.size === 0) return blobjects
+
+  const sourceValues = [...sourceUris].map(u => `<${u}>`).join(' ')
+  const targetValues = [...targetUris].map(u => `<${u}>`).join(' ')
+
+  const response = await queryArray(`
+    SELECT ?source ?target ?bnType ?term WHERE {
+      VALUES ?source { ${sourceValues} }
+      VALUES ?target { ${targetValues} }
+      ?source octo:octothorpes ?bn .
+      ?bn octo:url ?target .
+      ?bn rdf:type ?bnType .
+      OPTIONAL { ?bn octo:octothorpes ?term . }
+    }
+  `)
+
+  const lookup = new Map()
+  for (const binding of response.results.bindings) {
+    const source = binding.source.value
+    const target = binding.target.value
+    const key = `${source}|${target}`
+    let bnType = binding.bnType?.value || ''
+    if (bnType.startsWith('octo:')) bnType = bnType.substring(5)
+
+    if (!lookup.has(key)) {
+      lookup.set(key, { type: bnType, terms: [] })
+    }
+    const entry = lookup.get(key)
+    if (bnType && bnType !== 'Backlink' && entry.type === 'Backlink') {
+      entry.type = bnType
+    }
+
+    if (binding.term?.value) {
+      const termUri = binding.term.value
+      const termName = termUri.substring(termUri.lastIndexOf('~/') + 2)
+      if (!entry.terms.includes(termName)) {
+        entry.terms.push(termName)
+      }
+    }
+  }
+
+  for (const blob of blobjects) {
+    for (const o of blob.octothorpes) {
+      if (typeof o === 'object' && o.uri) {
+        const meta = lookup.get(`${blob['@id']}|${o.uri}`)
+        if (meta) {
+          o.type = meta.type
+          if (meta.terms.length > 0) o.terms = meta.terms
+        }
+      }
+    }
+  }
+
+  return blobjects
+}

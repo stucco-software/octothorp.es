@@ -1,8 +1,7 @@
-import { JSDOM } from 'jsdom'
-
 export const verifiyContent = async (s) => {
   let response = await fetch(s)
   const src = await response.text()
+  const { JSDOM } = await import('jsdom')
   const DOMParser = new JSDOM().window.DOMParser
   const parser = new DOMParser()
   let doc = parser.parseFromString(src, "text/html")

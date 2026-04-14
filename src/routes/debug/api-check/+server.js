@@ -1,5 +1,20 @@
 import { instance } from '$env/static/private'
+import { queryArray, queryBoolean, query, insert } from '$lib/sparql.js'
+import { createApi } from '$lib/api.js'
+import { json } from '@sveltejs/kit'
 import { whats, bys, formats, extras } from './matrix.js'
+
+const api = createApi({ instance, queryArray, queryBoolean, insert, query })
+
+export async function POST({ request }) {
+  const { what, by, ...options } = await request.json()
+  try {
+    const result = await api.get(what, by, { ...options, as: 'debug' })
+    return json(result)
+  } catch (e) {
+    return json({ error: e.message }, { status: 400 })
+  }
+}
 
 export async function GET() {
   const base = instance.replace(/\/$/, '')
@@ -116,13 +131,19 @@ async function runOne(rowId, what, by, as, extraParams) {
   if (rt) params.rt = rt
   Object.assign(params, extraParams)
 
-  // Always fetch the debug endpoint to get SPARQL + results
+  // Update the "open" link to point to the real HTTP route for cross-reference
   const debugUrl = buildUrl(what, by, 'debug', params)
   row.querySelector('.endpoint-link').href = debugUrl
 
+  // POST to api-check, which uses api.js directly
+  const body = { what, by, ...params }
   const start = Date.now()
   try {
-    const res = await fetch(debugUrl)
+    const res = await fetch('/debug/api-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
     const ms = Date.now() - start
     msCell.textContent = ms + 'ms'
     if (ms > 5000) msCell.classList.add('ms-slow')

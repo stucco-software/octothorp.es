@@ -2,6 +2,11 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
+import { createPublisherRegistry } from './publishers.js'
+import { createHandlerRegistry } from './handlerRegistry.js'
+import htmlHandler from './handlers/html/handler.js'
+import jsonHandler from './handlers/json/handler.js'
+import { publish } from './publish.js'
 
 // harmonizeSource is intentionally NOT re-exported directly here because
 // its default import of getHarmonizer.js is a SvelteKit adapter (uses $env).
@@ -17,11 +22,17 @@ export { buildMultiPass } from './multipass.js'
 export { getBlobjectFromResponse } from './blobject.js'
 export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
-export { verifiedOrigin } from './origin.js'
-export { parseBindings, deslash, getFuzzyTags, isSparqlSafe } from './utils.js'
+export { verifiyContent, verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin.js'
+export { parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
 export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, parseRequestBody, isURL } from './indexer.js'
+export { badgeVariant, determineBadgeUri } from './badge.js'
+export { remoteHarmonizer } from './harmonizeSource.js'
+export { createEnrichBlobjectTargets } from './blobject.js'
+export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
+export { createPublisherRegistry } from './publishers.js'
+export { createHandlerRegistry } from './handlerRegistry.js'
 
 const normalizeSparqlConfig = (sparql) => {
   if (!sparql) return {}
@@ -68,6 +79,17 @@ export const createClient = (config) => {
     })
   }
 
+  const handlerRegistry = createHandlerRegistry()
+  handlerRegistry.register('html', htmlHandler)
+  handlerRegistry.register('json', jsonHandler)
+  handlerRegistry.markBuiltins()
+
+  if (config.handlers) {
+    for (const [mode, handler] of Object.entries(config.handlers)) {
+      handlerRegistry.register(mode, handler)
+    }
+  }
+
   const indexer = createIndexer({
     insert: sparql.insert,
     query: sparql.query,
@@ -75,6 +97,8 @@ export const createClient = (config) => {
     queryArray: sparql.queryArray,
     harmonizeSource: harmonize,
     instance: config.instance,
+    handlerRegistry,
+    getHarmonizer: registry.getHarmonizer,
   })
 
   const api = createApi({
@@ -118,13 +142,81 @@ export const createClient = (config) => {
     return { uri, indexed_at: Date.now() }
   }
 
+  const publisherRegistry = createPublisherRegistry()
+
+  if (config.publishers) {
+    for (const [name, publisher] of Object.entries(config.publishers)) {
+      publisherRegistry.register(name, publisher)
+    }
+  }
+
+  const get = async ({ what, by, as: asFormat, debug: debugFlag, ...rest } = {}) => {
+    if (asFormat === 'debug' || asFormat === 'multipass') {
+      return api.get(what, by, { ...rest, as: asFormat })
+    }
+
+    const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
+
+    if (!publisher) {
+      return api.get(what, by, rest)
+    }
+
+    const raw = await api.get(what, by, rest)
+    const items = publish(raw.results || [], publisher.schema)
+    const rendered = publisher.render(items, publisher.meta)
+
+    if (debugFlag) {
+      return {
+        output: rendered,
+        contentType: publisher.contentType,
+        publisher: asFormat,
+        multiPass: raw.multiPass,
+        query: raw.query,
+        results: raw.results,
+      }
+    }
+
+    return rendered
+  }
+
   return {
     indexSource,
-    get: ({ what, by, ...rest } = {}) => api.get(what, by, rest),
+    get,
     getfast: api.fast,
     harmonize,
+    publish: (data, publisherOrName, meta) => {
+      const pub = typeof publisherOrName === 'string'
+        ? publisherRegistry.getPublisher(publisherOrName)
+        : publisherOrName
+      if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
+      const items = publish(data, pub.schema)
+      return pub.render(items, meta || pub.meta)
+    },
+    prepare: (data, publisherName, options = {}) => {
+      const pub = typeof publisherName === 'string'
+        ? publisherRegistry.getPublisher(publisherName)
+        : publisherName
+      if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
+
+      const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
+
+      if (options.protocol === 'atproto' && !pub.meta?.lexicon) {
+        throw new Error(`Publisher "${name}" is not compatible with protocol 'atproto' (no lexicon)`)
+      }
+
+      const normalized = Array.isArray(data) ? data : (data.results || [])
+      const items = publish(normalized, pub.schema)
+      const records = pub.render(items, pub.meta)
+      return {
+        records,
+        collection: pub.meta?.lexicon ?? null,
+        contentType: pub.contentType,
+        publisher: name,
+      }
+    },
     harmonizer: registry,
-    // Keep legacy paths working during transition
+    handler: handlerRegistry,
+    publisher: publisherRegistry,
     sparql,
     api,
   }
