@@ -54,7 +54,8 @@ export function createOctoQuery(what, by) {
       limit = '10',
       offset = '0',
       when = '',
-      rt = ''
+      rt = '',
+      subtype = ''
     } = params;
 
     // Set loading state
@@ -63,7 +64,7 @@ export function createOctoQuery(what, by) {
     try {
       // Build query string - only include non-empty params
       const searchParams = new URLSearchParams();
-      
+
       if (s) searchParams.set('s', Array.isArray(s) ? s.join(',') : s);
       if (o) searchParams.set('o', Array.isArray(o) ? o.join(',') : o);
       if (nots) searchParams.set('not-s', Array.isArray(nots) ? nots.join(',') : nots);
@@ -73,6 +74,7 @@ export function createOctoQuery(what, by) {
       if (offset) searchParams.set('offset', offset);
       if (when) searchParams.set('when', when);
       if (rt) searchParams.set('rt', Array.isArray(rt) ? rt.join(',') : rt);
+      if (subtype) searchParams.set('subtype', subtype);
 
       const queryString = searchParams.toString();
       

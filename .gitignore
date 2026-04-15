@@ -16,3 +16,4 @@ packages/core/.npmrc
 .npmrc
 .npmrc
 docs/.obsidian
+docs/examples
