@@ -22,7 +22,9 @@ export function multipassToParams(multiPass) {
     match: determineMatch(multiPass),
     limit: String(multiPass.filters?.limitResults || 10),
     offset: String(multiPass.filters?.offsetResults || 0),
-    when: parseDateRange(multiPass.filters?.dateRange)
+    when: parseDateRange(multiPass.filters?.dateRange),
+    rt: multiPass.filters?.relationTerms?.join(',') || '',
+    subtype: multiPass.filters?.subtype || '',
   };
 }
 
@@ -77,12 +79,13 @@ export function extractWhatBy(multiPass) {
 function determineMatch(multiPass) {
   const sMode = multiPass.subjects?.mode || 'auto';
   const oMode = multiPass.objects?.mode || 'auto';
-  
+
+  if (oMode === 'all') return 'all';
   if (sMode === 'fuzzy' && oMode === 'auto') return 'fuzzy-s';
   if (oMode === 'fuzzy' && sMode === 'auto') return 'fuzzy-o';
   if (oMode === 'very-fuzzy') return 'very-fuzzy-o';
   if (sMode === 'fuzzy' || oMode === 'fuzzy') return 'fuzzy';
-  
+
   return ''; // auto/exact
 }
 
