@@ -8,7 +8,7 @@ import normalizeUrl from 'normalize-url'
 ////////// globals
 
 const p = 'octo:octothorpes'
-const indexCooldown = 30 // 5min
+const indexCooldown = 300000 // 5min
 
 // Map harmonizer type values to normalized RDF subtype names.
 // Types not listed here pass through as capitalized subtypes, allowing
@@ -626,15 +626,17 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
   // 1. Parse and normalize URI
   const parsed = parseUri(uri)
 
-  // 2. Cross-origin check
+  // 2. Cross-origin check / on-page policy check
+  let prefetchedContent = null
   if (requestingOrigin) {
-    // Header present: existing check unchanged
     validateSameOrigin(parsed, requestingOrigin)
   } else {
     // No header: fetch page and check on-page policy
-    const policyResponse = await fetch(parsed.normalized)
-    const policyHtml = await policyResponse.text()
-    const policyHarmed = await harmonizeSource(policyHtml, harmonizer)
+    const policyResponse = await fetch(parsed.normalized, {
+      headers: { 'User-Agent': 'Octothorpes/1.0' }
+    })
+    prefetchedContent = await policyResponse.text()
+    const policyHarmed = await harmonizeSource(prefetchedContent, harmonizer)
     if (!policyHarmed) {
       throw new Error('Harmonization failed — could not extract page metadata.')
     }
@@ -644,7 +646,7 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
       throw new Error('Page has not opted in to indexing.')
     }
 
-    // On-page harmonizer overrides request param (must be an absolute URL)
+    // On-page harmonizer overrides request param (allowed because the page owner controls their markup)
     if (policy.harmonizer) {
       harmonizer = policy.harmonizer
     }
@@ -665,7 +667,7 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
     throw new Error('Rate limit exceeded. Please try again later.')
   }
 
-  // 5. Harmonizer check
+  // 5. Harmonizer check (only for origin-header path; on-page harmonizers are trusted)
   if (requestingOrigin) {
     if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
       throw new Error('Harmonizer not allowed for this origin.')
@@ -678,14 +680,21 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
     throw new Error('This page has been recently indexed.')
   }
 
-  // 7. Fetch and process
-  let subject = await fetch(parsed.normalized, {
-    headers: { 'User-Agent': 'Octothorpes/1.0' }
-  })
-  await recordIndexing(parsed.normalized)
-
-  if (subject.headers.get('content-type').includes('text/html')) {
+  // 7. Fetch (or reuse prefetched content from policy check) and process
+  if (prefetchedContent !== null) {
+    // Already have the content from the policy check
+    await recordIndexing(parsed.normalized)
     console.log("handle html…", parsed.normalized)
-    return await handleHTML(subject, parsed.normalized, harmonizer, { instance })
+    return await handleHTML({ text: async () => prefetchedContent }, parsed.normalized, harmonizer, { instance })
+  } else {
+    let subject = await fetch(parsed.normalized, {
+      headers: { 'User-Agent': 'Octothorpes/1.0' }
+    })
+    await recordIndexing(parsed.normalized)
+
+    if (subject.headers.get('content-type').includes('text/html')) {
+      console.log("handle html…", parsed.normalized)
+      return await handleHTML(subject, parsed.normalized, harmonizer, { instance })
+    }
   }
 }

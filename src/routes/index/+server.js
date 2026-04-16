@@ -43,10 +43,10 @@ export async function GET(req) {
   }
 
   const harmonizer = url.searchParams.get('as') ?? 'default'
-  const parsed = parseUri(uri)
+  const requestOrigin = req.request.headers.get('origin') || null
 
   try {
-    return await handler(uri, harmonizer, parsed.origin, config())
+    return await handler(uri, harmonizer, requestOrigin, config())
   } catch (e) {
     console.error('indexwrapper GET error:', e)
     return error(mapErrorToStatus(e.message), e.message)
