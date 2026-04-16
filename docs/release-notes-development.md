@@ -289,3 +289,13 @@ Everything above is part of v0.6, and below will be released with 0.7
 - Content types: `application/json`, `application/ld+json`, `application/feed+json`
 
 **Files affected:** `packages/core/handlers/json/schema.json` (new), `packages/core/handlers/json/handler.js` (new), `packages/core/index.js`
+
+## On-page indexing policy fix (untracked)
+
+Fixed two bugs in the indexing pipeline related to the on-page policy check (the path where a page opts in to indexing via `<meta name="octo-policy" content="index">` or `<link rel="octo:index">`).
+
+- **GET handler now reads the actual `Origin` HTTP header** instead of manufacturing one from the URI. Previously, `indexwrapper/+server.js` passed `parsed.origin` (the URI's own origin) as `requestingOrigin`, so the on-page policy check path in `handler()` was unreachable via GET requests.
+- **Eliminated double fetch in `handler()`.** When no origin header is present, the page was fetched once for the policy check and then fetched again for indexing. Now the HTML from the policy fetch is saved and reused.
+
+**Files affected:** `src/routes/indexwrapper/+server.js`, `packages/core/indexer.js`
+**Port instructions:** `docs/plans/on-page-policy-fix-for-main.md`

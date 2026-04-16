@@ -640,13 +640,16 @@ export const createIndexer = (deps) => {
     // 1. Parse and normalize URI
     const parsed = parseUri(uri)
 
-    // 2. Cross-origin check
+    // 2. Cross-origin check / on-page policy check
+    let prefetchedContent = null
     if (requestingOrigin) {
       validateSameOrigin(parsed, requestingOrigin)
     } else {
-      const policyResponse = await fetch(parsed.normalized)
-      const policyHtml = await policyResponse.text()
-      const policyHarmed = await harmonizeSource(policyHtml, harmonizer)
+      const policyResponse = await fetch(parsed.normalized, {
+        headers: { 'User-Agent': 'Octothorpes/1.0' }
+      })
+      prefetchedContent = await policyResponse.text()
+      const policyHarmed = await harmonizeSource(prefetchedContent, harmonizer)
       if (!policyHarmed) {
         throw new Error('Harmonization failed — could not extract page metadata.')
       }
@@ -656,7 +659,7 @@ export const createIndexer = (deps) => {
         throw new Error('Page has not opted in to indexing.')
       }
 
-      // On-page harmonizer overrides request param (must be an absolute URL)
+      // On-page harmonizer overrides request param (allowed because the page owner controls their markup)
       if (policy.harmonizer) {
         harmonizer = policy.harmonizer
       }
@@ -677,7 +680,7 @@ export const createIndexer = (deps) => {
       throw new Error('Rate limit exceeded. Please try again later.')
     }
 
-    // 5. Harmonizer check
+    // 5. Harmonizer check (only for origin-header path; on-page harmonizers are trusted)
     if (requestingOrigin) {
       if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance: base })) {
         throw new Error('Harmonizer not allowed for this origin.')
@@ -690,14 +693,21 @@ export const createIndexer = (deps) => {
       throw new Error('This page has been recently indexed.')
     }
 
-    // 7. Fetch and process
-    let subject = await fetch(parsed.normalized, {
-      headers: { 'User-Agent': 'Octothorpes/1.0' }
-    })
+    // 7. Fetch (or reuse prefetched content from policy check) and process
+    let content
+    let contentType = ''
+    if (prefetchedContent !== null) {
+      // Policy-check path already fetched the page; content is HTML
+      content = prefetchedContent
+      contentType = 'text/html'
+    } else {
+      const subject = await fetch(parsed.normalized, {
+        headers: { 'User-Agent': 'Octothorpes/1.0' }
+      })
+      contentType = subject.headers.get('content-type') || ''
+      content = await subject.text()
+    }
     await recordIndexing(parsed.normalized)
-
-    const contentType = subject.headers.get('content-type') || ''
-    const content = await subject.text()
 
     // Resolve harmonizer name to schema
     const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
