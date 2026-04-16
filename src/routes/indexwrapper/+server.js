@@ -12,6 +12,7 @@ const knownErrors = [
   'Harmonizer not allowed',
   'Invalid URI',
   'no scheme found',
+  'not opted in',
 ]
 
 const mapErrorToStatus = (message) => {
@@ -20,6 +21,7 @@ const mapErrorToStatus = (message) => {
   if (message.includes('recently indexed')) return 429
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
+  if (message.includes('not opted in')) return 403
   if (knownErrors.some(e => message.includes(e))) return 400
   return 500
 }
@@ -41,9 +43,10 @@ export async function GET(req) {
   }
 
   const harmonizer = url.searchParams.get('as') ?? 'default'
+  const parsed = parseUri(uri)
 
   try {
-    return await handler(uri, harmonizer, null, config())
+    return await handler(uri, harmonizer, parsed.origin, config())
   } catch (e) {
     console.error('indexwrapper GET error:', e)
     return error(mapErrorToStatus(e.message), e.message)
