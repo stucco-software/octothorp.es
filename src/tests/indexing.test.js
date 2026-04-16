@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('$lib/sparql.js', () => ({
   queryArray: vi.fn(),
@@ -794,6 +794,31 @@ describe('Indexing Business Logic', () => {
   })
 
   describe('handler', () => {
+    const originalFetch = global.fetch
+
+    beforeEach(() => {
+      // Policy check (step 3) always runs: mock fetch + harmonizeSource
+      const mockPolicyResponse = {
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        text: vi.fn().mockResolvedValue('<html><meta name="octo-policy" content="index"></html>'),
+      }
+      global.fetch = vi.fn().mockResolvedValue(mockPolicyResponse)
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Test',
+        description: null,
+        indexPolicy: 'index',
+
+        indexHarmonizer: '',
+        octothorpes: [],
+        type: null,
+      })
+    })
+
+    afterEach(() => {
+      global.fetch = originalFetch
+    })
+
     it('should throw on origin mismatch', async () => {
       await expect(
         handler('https://example.com/page', 'default', 'https://other.com', { instance })
@@ -857,23 +882,28 @@ describe('Indexing Business Logic', () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       // Not recently indexed
       queryArray.mockResolvedValue({ results: { bindings: [] } })
-      // Mock global fetch
-      const mockResponse = {
-        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
-        text: vi.fn().mockResolvedValue('<html></html>'),
-      }
-      global.fetch = vi.fn().mockResolvedValue(mockResponse)
       // recordIndexing mocks
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      // handleHTML mocks
-      harmonizeSource.mockResolvedValue({
-        '@id': 'source',
-        title: 'Test',
-        description: null,
-        octothorpes: [],
-        type: null,
-      })
+      // harmonizeSource: first call for policy check (opt-in), second for handleHTML
+      harmonizeSource
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'Test',
+          description: null,
+          indexPolicy: 'index',
+  
+          indexHarmonizer: '',
+          octothorpes: [],
+          type: null,
+        })
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'Test',
+          description: null,
+          octothorpes: [],
+          type: null,
+        })
       queryBoolean.mockResolvedValue(true) // extantPage
 
       await handler('https://example.com/page', 'default', 'https://example.com', {
@@ -1049,65 +1079,49 @@ describe('Indexing Business Logic', () => {
 
   describe('checkIndexingPolicy', () => {
     it('should return optedIn true when meta tag has octo-policy=index', () => {
-      const harmed = { indexPolicy: 'index', indexServer: '', indexHarmonizer: '' }
+      const harmed = { indexPolicy: 'index', indexHarmonizer: '' }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.optedIn).toBe(true)
     })
 
-    it('should return optedIn false when meta tag has different value', () => {
-      const harmed = { indexPolicy: 'no-index', indexServer: '', indexHarmonizer: '' }
+    it('should return optedIn false when meta tag has no-index', () => {
+      const harmed = { indexPolicy: 'no-index', indexHarmonizer: '' }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.optedIn).toBe(false)
     })
 
     it('should return optedIn false when no policy fields present', () => {
-      const harmed = { indexPolicy: '', indexServer: '', indexHarmonizer: '' }
+      const harmed = { indexPolicy: '', indexHarmonizer: '' }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.optedIn).toBe(false)
     })
 
-    it('should return optedIn true when link tag href matches instance origin', () => {
-      const harmed = { indexPolicy: '', indexServer: 'http://localhost:5173/', indexHarmonizer: '' }
-      const result = checkIndexingPolicy(harmed, instance)
-      expect(result.optedIn).toBe(true)
-    })
-
-    it('should return optedIn false when link tag href does not match instance', () => {
-      const harmed = { indexPolicy: '', indexServer: 'https://other-server.com/', indexHarmonizer: '' }
-      const result = checkIndexingPolicy(harmed, instance)
-      expect(result.optedIn).toBe(false)
-    })
-
-    it('should return optedIn true when either meta or link opts in', () => {
-      const harmed = { indexPolicy: 'index', indexServer: 'https://other-server.com/', indexHarmonizer: '' }
+    it('should return optedIn true when indexPolicy has a URL (from link or preload selector)', () => {
+      const harmed = { indexPolicy: 'http://localhost:5173/', indexHarmonizer: '' }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.optedIn).toBe(true)
     })
 
     it('should return harmonizer from indexHarmonizer field', () => {
-      const harmed = { indexPolicy: 'index', indexServer: '', indexHarmonizer: 'https://example.com/harm.json' }
+      const harmed = { indexPolicy: 'index', indexHarmonizer: 'https://example.com/harm.json' }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.harmonizer).toBe('https://example.com/harm.json')
     })
 
     it('should return null harmonizer when not declared', () => {
-      const harmed = { indexPolicy: 'index', indexServer: '', indexHarmonizer: '' }
+      const harmed = { indexPolicy: 'index', indexHarmonizer: '' }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.harmonizer).toBeNull()
     })
 
-    it('should handle multiple comma-separated server hrefs', () => {
-      const harmed = {
-        indexPolicy: '',
-        indexServer: 'https://other.com/,http://localhost:5173/',
-        indexHarmonizer: ''
-      }
+    it('should return optedIn true when page has octothorpes', () => {
+      const harmed = { indexPolicy: '', indexHarmonizer: '', octothorpes: ['demo'] }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.optedIn).toBe(true)
     })
 
-    it('should handle invalid URLs in indexServer gracefully', () => {
-      const harmed = { indexPolicy: '', indexServer: 'not-a-url', indexHarmonizer: '' }
+    it('should return optedIn false when octothorpes array is empty', () => {
+      const harmed = { indexPolicy: '', indexHarmonizer: '', octothorpes: [] }
       const result = checkIndexingPolicy(harmed, instance)
       expect(result.optedIn).toBe(false)
     })
@@ -1128,7 +1142,7 @@ describe('Indexing Business Logic', () => {
         octothorpes: [],
         type: null,
         indexPolicy: '',
-        indexServer: '',
+
         indexHarmonizer: '',
       })
 
@@ -1162,7 +1176,7 @@ describe('Indexing Business Logic', () => {
           octothorpes: [],
           type: null,
           indexPolicy: 'index',
-          indexServer: '',
+  
           indexHarmonizer: '',
         })
         .mockResolvedValueOnce({
@@ -1203,7 +1217,7 @@ describe('Indexing Business Logic', () => {
           octothorpes: [],
           type: null,
           indexPolicy: 'index',
-          indexServer: '',
+  
           indexHarmonizer: 'https://example.com/custom-harmonizer.json',
         })
         .mockResolvedValueOnce({
@@ -1239,7 +1253,7 @@ describe('Indexing Business Logic', () => {
         octothorpes: [],
         type: null,
         indexPolicy: 'index',
-        indexServer: '',
+
         indexHarmonizer: '',
       })
 
@@ -1250,7 +1264,7 @@ describe('Indexing Business Logic', () => {
       ).rejects.toThrow('Origin is not registered')
     })
 
-    it('should skip harmonizer allowlist check when no origin header', async () => {
+    it('should allow on-page declared harmonizer without origin header', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       queryArray.mockResolvedValue({ results: { bindings: [] } })
 
@@ -1268,7 +1282,7 @@ describe('Indexing Business Logic', () => {
           octothorpes: [],
           type: null,
           indexPolicy: 'index',
-          indexServer: '',
+  
           // Page declares a remote harmonizer that would normally be blocked
           indexHarmonizer: 'https://untrusted.com/harmonizer.json',
         })
@@ -1290,6 +1304,96 @@ describe('Indexing Business Logic', () => {
       })
 
       expect(harmonizeSource).toHaveBeenCalledTimes(2)
+    })
+
+    it('should reject remote harmonizer without confirmed origin header', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue('<html></html>'),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Test',
+        description: null,
+        octothorpes: [],
+        type: null,
+        indexPolicy: 'index',
+
+        indexHarmonizer: '',
+      })
+
+      await expect(
+        handler('https://example.com/page', 'https://evil.com/harm.json', null, {
+          instance, verifyOrigin: mockVerifyOrigin
+        })
+      ).rejects.toThrow('Remote harmonizers require a confirmed origin header.')
+    })
+
+    it('should allow instance-hosted harmonizer without origin header', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+      queryArray.mockResolvedValue({ results: { bindings: [] } })
+
+      const mockResponse = {
+        text: vi.fn().mockResolvedValue('<html></html>'),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      }
+      global.fetch = vi.fn().mockResolvedValue(mockResponse)
+
+      harmonizeSource
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'Test',
+          description: null,
+          octothorpes: [],
+          type: null,
+          indexPolicy: 'index',
+  
+          indexHarmonizer: '',
+        })
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'Test',
+          description: null,
+          octothorpes: [],
+          type: null,
+        })
+
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      queryBoolean.mockResolvedValue(true)
+
+      // Instance-hosted harmonizer should be allowed without headers
+      await handler('https://example.com/page', `${instance}harmonizer/custom`, null, {
+        instance, verifyOrigin: mockVerifyOrigin
+      })
+
+      expect(harmonizeSource).toHaveBeenCalledTimes(2)
+    })
+
+    it('should reject remote harmonizer when origin is the OP instance', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue('<html></html>'),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Test',
+        description: null,
+        octothorpes: [],
+        type: null,
+        indexPolicy: 'index',
+
+        indexHarmonizer: '',
+      })
+
+      // Instance-origin header should be treated like no header for harmonizer validation
+      await expect(
+        handler('https://example.com/page', 'https://evil.com/harm.json', instance, {
+          instance, verifyOrigin: mockVerifyOrigin
+        })
+      ).rejects.toThrow('Remote harmonizers require a confirmed origin header.')
     })
   })
 
@@ -1336,6 +1440,247 @@ describe('Indexing Business Logic', () => {
       expect(mockQueryBoolean).not.toHaveBeenCalled()
 
       global.fetch = originalFetch
+    })
+  })
+
+  describe('Malicious harmonizer defense', () => {
+    // These tests demonstrate that an attacker cannot use a crafted harmonizer
+    // to misrepresent what's on someone else's website.
+
+    const originalFetch = global.fetch
+
+    afterEach(() => {
+      global.fetch = originalFetch
+    })
+
+    it('Attack: remote harmonizer that overrides indexPolicy to bypass opt-in check', async () => {
+      // Scenario: attacker submits a URL for a page that has NOT opted in,
+      // using a remote harmonizer whose schema replaces indexPolicy with a
+      // selector that matches something on every page (e.g. <html>).
+      //
+      // The policy check always uses the 'default' harmonizer, so the
+      // attacker's schema never touches the opt-in evaluation.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+
+      // Page has no opt-in markup at all
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue(
+          '<html><head><title>Innocent Page</title></head><body>Hello</body></html>'
+        ),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      // Default harmonizer finds no opt-in signals
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Innocent Page',
+        description: null,
+        indexPolicy: '',
+        indexHarmonizer: '',
+        octothorpes: [],
+        type: null,
+      })
+
+      // Attacker sends a remote harmonizer from their own domain with matching origin header
+      await expect(
+        handler(
+          'https://victim.com/page',
+          'https://attacker.com/evil-harmonizer.json',
+          'https://victim.com',
+          { instance, verifyOrigin: mockVerifyOrigin }
+        )
+      ).rejects.toThrow('Page has not opted in to indexing.')
+
+      // The policy check used 'default', not the attacker's harmonizer
+      expect(harmonizeSource.mock.calls[0][1]).toBe('default')
+    })
+
+    it('Attack: remote harmonizer without origin header (direct submission)', async () => {
+      // Scenario: attacker curls the index endpoint with no Origin/Referer,
+      // passing a remote harmonizer URL to extract false metadata.
+      //
+      // Blocked at step 6: remote harmonizers require a confirmed origin header.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+
+      // Page has opted in (policy check passes)
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue(
+          '<html><head><meta name="octo-policy" content="index"></head></html>'
+        ),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Test',
+        description: null,
+        indexPolicy: 'index',
+        indexHarmonizer: '',
+        octothorpes: [],
+        type: null,
+      })
+
+      await expect(
+        handler(
+          'https://example.com/page',
+          'https://attacker.com/evil-harmonizer.json',
+          null,  // no origin header
+          { instance, verifyOrigin: mockVerifyOrigin }
+        )
+      ).rejects.toThrow('Remote harmonizers require a confirmed origin header.')
+    })
+
+    it('Attack: remote harmonizer from non-whitelisted domain with spoofed origin', async () => {
+      // Scenario: attacker sends Origin header matching the victim's domain
+      // and a remote harmonizer from the attacker's domain.
+      //
+      // Blocked at step 6: harmonizer domain is not same-origin with
+      // the requesting origin and is not on the whitelist.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue(
+          '<html><head><meta name="octo-policy" content="index"></head></html>'
+        ),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Test',
+        description: null,
+        indexPolicy: 'index',
+        indexHarmonizer: '',
+        octothorpes: [],
+        type: null,
+      })
+
+      await expect(
+        handler(
+          'https://victim.com/page',
+          'https://attacker.com/evil-harmonizer.json',
+          'https://victim.com',  // spoofed to match page
+          { instance, verifyOrigin: mockVerifyOrigin }
+        )
+      ).rejects.toThrow('Harmonizer not allowed for this origin.')
+    })
+
+    it('Attack: remote harmonizer via instance-origin header (debug tools)', async () => {
+      // Scenario: attacker routes through OP debug tools (or spoofs the
+      // instance origin) to try to use a remote harmonizer.
+      //
+      // Instance-origin is treated as headerless, so remote harmonizers
+      // are rejected the same as the no-header case.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue(
+          '<html><head><meta name="octo-policy" content="index"></head></html>'
+        ),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'Test',
+        description: null,
+        indexPolicy: 'index',
+        indexHarmonizer: '',
+        octothorpes: [],
+        type: null,
+      })
+
+      await expect(
+        handler(
+          'https://debug-attack-test.com/page',
+          'https://attacker.com/evil-harmonizer.json',
+          instance,  // origin is the OP instance itself
+          { instance, verifyOrigin: mockVerifyOrigin }
+        )
+      ).rejects.toThrow('Remote harmonizers require a confirmed origin header.')
+    })
+
+    it('Attack: indexing a page that has not opted in, with spoofed origin', async () => {
+      // Scenario: attacker sends a request with a spoofed Origin header
+      // to index someone else's page that has no OP markup.
+      //
+      // Even though the origin header passes the same-origin check,
+      // the on-page policy check always runs and rejects the page.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue(
+          '<html><head><title>No OP markup here</title></head><body>Just a blog</body></html>'
+        ),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      harmonizeSource.mockResolvedValue({
+        '@id': 'source',
+        title: 'No OP markup here',
+        description: null,
+        indexPolicy: '',
+        indexHarmonizer: '',
+        octothorpes: [],
+        type: null,
+      })
+
+      await expect(
+        handler(
+          'https://victim.com/page',
+          'default',
+          'https://victim.com',  // spoofed origin
+          { instance, verifyOrigin: mockVerifyOrigin }
+        )
+      ).rejects.toThrow('Page has not opted in to indexing.')
+    })
+
+    it('Legitimate: same-origin harmonizer with confirmed header succeeds', async () => {
+      // Scenario: a site owner indexes their own page using a harmonizer
+      // hosted on their own domain. Origin header confirms ownership.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue(
+          '<html><head><meta name="octo-policy" content="index"></head></html>'
+        ),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      // Policy check (first call) finds opt-in
+      // handleHTML (second call) processes content
+      harmonizeSource
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'My Page',
+          description: null,
+          indexPolicy: 'index',
+          indexHarmonizer: '',
+          octothorpes: [],
+          type: null,
+        })
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'My Page',
+          description: null,
+          octothorpes: [],
+          type: null,
+        })
+
+      queryArray.mockResolvedValue({ results: { bindings: [] } })
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      queryBoolean.mockResolvedValue(true)
+
+      // Same-origin harmonizer should be allowed
+      await handler(
+        'https://mysite.com/page',
+        'https://mysite.com/my-harmonizer.json',
+        'https://mysite.com',
+        { instance, verifyOrigin: mockVerifyOrigin }
+      )
+
+      expect(harmonizeSource).toHaveBeenCalledTimes(2)
     })
   })
 })

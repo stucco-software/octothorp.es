@@ -54,8 +54,11 @@ export async function GET({ request, url }) {
 
   console.log(`[badge] -> success (triggering indexing for ${pageUrl})`)
   // Fire indexing in background -- don't block the image response.
-  // Pass verifyOrigin that always returns true since we already verified above.
-  handler(pageUrl, harmonizer, pageUrl, {
+  // Pass null as requestingOrigin: the badge is not a browser request claiming
+  // ownership. The on-page policy check handles authorization (the page must
+  // have opt-in markup). verifyOrigin always returns true since we already
+  // verified above.
+  handler(pageUrl, harmonizer, null, {
     instance,
     serverName: server_name,
     queryBoolean,
