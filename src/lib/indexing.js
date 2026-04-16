@@ -445,17 +445,26 @@ export const checkEndorsement = async (s, o, flag) => {
 ////////// on-page indexing policy //////////
 
 export const checkIndexingPolicy = (harmed, instance) => {
-  const optedIn =
-    harmed.indexPolicy === 'index' ||
-    (harmed.indexServer && harmed.indexServer.split(',').some(href => {
-      try {
-        return new URL(href.trim()).origin === new URL(instance).origin
-      } catch (_) {
-        return false
-      }
-    }))
+  // Explicit opt-in: <meta name="octo-policy" content="index">
+  const explicitPolicy = harmed.indexPolicy === 'index'
 
-  // Meta tag harmonizer takes precedence (it appears first in the schema)
+  // Explicit server declaration: <link rel="octo:index" href="...">
+  const serverMatch = harmed.indexServer && harmed.indexServer.split(',').some(href => {
+    try {
+      return new URL(href.trim()).origin === new URL(instance).origin
+    } catch (_) {
+      return false
+    }
+  })
+
+  // Implicit opt-in: page has a preload link pointing at this OP instance
+  const hasPreload = !!(harmed.indexPreload)
+
+  // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup
+  const hasOctothorpes = Array.isArray(harmed.octothorpes) && harmed.octothorpes.length > 0
+
+  const optedIn = explicitPolicy || serverMatch || hasPreload || hasOctothorpes
+
   const harmonizer = harmed.indexHarmonizer || null
 
   return { optedIn: !!optedIn, harmonizer }
@@ -627,9 +636,20 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
   const parsed = parseUri(uri)
 
   // 2. Cross-origin check / on-page policy check
+  // If the requesting origin is the OP instance itself (e.g. debug tools),
+  // treat it as no origin -- fall through to the on-page policy check.
+  let effectiveOrigin = requestingOrigin
+  if (effectiveOrigin) {
+    try {
+      if (new URL(effectiveOrigin).origin === new URL(instance).origin) {
+        effectiveOrigin = null
+      }
+    } catch (_) {}
+  }
+
   let prefetchedContent = null
-  if (requestingOrigin) {
-    validateSameOrigin(parsed, requestingOrigin)
+  if (effectiveOrigin) {
+    validateSameOrigin(parsed, effectiveOrigin)
   } else {
     // No header: fetch page and check on-page policy
     const policyResponse = await fetch(parsed.normalized, {
@@ -668,8 +688,8 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
   }
 
   // 5. Harmonizer check (only for origin-header path; on-page harmonizers are trusted)
-  if (requestingOrigin) {
-    if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance })) {
+  if (effectiveOrigin) {
+    if (!isHarmonizerAllowed(harmonizer, effectiveOrigin, { instance })) {
       throw new Error('Harmonizer not allowed for this origin.')
     }
   }

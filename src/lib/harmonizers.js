@@ -99,6 +99,13 @@ export const createHarmonizerRegistry = (instance) => {
                     "selector": "link[rel='octo:harmonizer']",
                     "attribute": "href"
                   }
+                ],
+              "indexPreload":
+                [
+                  {
+                    "selector": `link[rel='preload'][href*='${instance}']`,
+                    "attribute": "href"
+                  }
                 ]
               },
 
