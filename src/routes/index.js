@@ -15,6 +15,7 @@ export const index = async (req) => {
   // Grab a URI from the ?uri search param
   let url = new URL(req.request.url)
   let s = url.searchParams.get('uri')
+  let as = url.searchParams.get('as')
 
   console.log(`Index a resource on…`, s)
   // If there is a URI
@@ -27,7 +28,9 @@ export const index = async (req) => {
     }
 
     if (normalizeUrl(uri.origin) == origin) {
-      await req.fetch(`/index?uri=${s}`)
+      const forwardParams = new URLSearchParams({ uri: s })
+      if (as) forwardParams.set('as', as)
+      await req.fetch(`/index?${forwardParams.toString()}`)
     }
   }
 
