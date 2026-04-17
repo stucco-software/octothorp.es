@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit'
+import { json } from '@sveltejs/kit'
 import { instance, server_name } from '$env/static/private'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
@@ -26,7 +26,20 @@ const mapErrorToStatus = (message) => {
   return 500
 }
 
-console.log("something hit indexwrapper");
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+}
+
+const errorResponse = (message, status) =>
+  json({ error: message, message }, { status, headers: corsHeaders })
+
+const withCors = (res) => {
+  const headers = new Headers(res.headers)
+  for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v)
+  return new Response(res.body, { status: res.status, headers })
+}
 
 const config = () => ({
   instance,
@@ -34,22 +47,27 @@ const config = () => ({
   queryBoolean
 })
 
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders })
+}
+
 export async function GET(req) {
   const url = new URL(req.request.url)
   const uri = url.searchParams.get('uri')
 
   if (!uri) {
-    return error(400, 'URI parameter is required.')
+    return errorResponse('URI parameter is required.', 400)
   }
 
   const harmonizer = url.searchParams.get('as') ?? 'default'
   const requestOrigin = req.request.headers.get('origin') || req.request.headers.get('referer') || null
 
   try {
-    return await handler(uri, harmonizer, requestOrigin, config())
+    const res = await handler(uri, harmonizer, requestOrigin, config())
+    return withCors(res)
   } catch (e) {
-    console.error('indexwrapper GET error:', e)
-    return error(mapErrorToStatus(e.message), e.message)
+    console.error('index GET error:', e)
+    return errorResponse(e.message, mapErrorToStatus(e.message))
   }
 }
 
@@ -57,21 +75,21 @@ export async function POST({ request }) {
   const requestOrigin = request.headers.get('origin') || request.headers.get('referer')
 
   if (!requestOrigin) {
-    return error(400, 'Origin or Referer header required.')
+    return errorResponse('Origin or Referer header required.', 400)
   }
 
   let data
   try {
     data = await parseRequestBody(request)
   } catch (e) {
-    return error(400, 'Invalid request body format.')
+    return errorResponse('Invalid request body format.', 400)
   }
 
   const uri = data.uri
   const harmonizer = data.harmonizer ?? 'default'
 
   if (!uri) {
-    return error(400, 'URI parameter is required.')
+    return errorResponse('URI parameter is required.', 400)
   }
 
   try {
@@ -82,9 +100,9 @@ export async function POST({ request }) {
       message: 'Page indexed successfully',
       uri: normalized,
       indexed_at: Date.now()
-    }, { status: 200 })
+    }, { status: 200, headers: corsHeaders })
   } catch (e) {
     console.error('Indexing error:', e)
-    return error(mapErrorToStatus(e.message), e.message)
+    return errorResponse(e.message, mapErrorToStatus(e.message))
   }
 }
