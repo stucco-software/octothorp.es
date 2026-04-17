@@ -1153,6 +1153,50 @@ describe('Indexing Business Logic', () => {
       ).rejects.toThrow('Page has not opted in to indexing.')
     })
 
+    it('should use requested harmonizer for policy check (implicit opt-in via keywords)', async () => {
+      // A site using the `keywords` harmonizer has <meta name="keywords">
+      // but no <octo-thorpe> markup, no octo-policy meta, no octo:index link.
+      // The policy check must run with the requested harmonizer so the
+      // extracted terms populate octothorpes[] and trigger implicit opt-in.
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+      queryArray.mockResolvedValue({ results: { bindings: [] } })
+
+      global.fetch = vi.fn().mockResolvedValue({
+        text: vi.fn().mockResolvedValue('<html><head><meta name="keywords" content="foo,bar"></head></html>'),
+        headers: new Headers({ 'content-type': 'text/html' }),
+      })
+
+      // Policy-phase harmonize: keywords harmonizer extracts terms into octothorpes
+      harmonizeSource
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'Test',
+          description: null,
+          octothorpes: ['foo', 'bar'],
+          type: null,
+          indexPolicy: '',
+          indexHarmonizer: '',
+        })
+        .mockResolvedValueOnce({
+          '@id': 'source',
+          title: 'Test',
+          description: null,
+          octothorpes: ['foo', 'bar'],
+          type: null,
+        })
+
+      query.mockResolvedValue({})
+      insert.mockResolvedValue({})
+      queryBoolean.mockResolvedValue(true)
+
+      await handler('https://keywords-site.test/page', 'keywords', 'https://keywords-site.test', {
+        instance, verifyOrigin: mockVerifyOrigin
+      })
+
+      // Policy-phase harmonize should have used the requested harmonizer
+      expect(harmonizeSource.mock.calls[0][1]).toBe('keywords')
+    })
+
     it('should proceed when page has meta octo-policy=index', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
       queryArray.mockResolvedValue({ results: { bindings: [] } }) // not recently indexed

@@ -641,11 +641,18 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
 
   // 3. On-page policy check (always runs)
   // Fetch the page and verify it has opted in to indexing.
+  // For local harmonizer IDs, run the requested harmonizer so its extracted
+  // octothorpes can satisfy the implicit opt-in (e.g. `keywords` harmonizer
+  // on a page with <meta name="keywords">). For remote harmonizer URLs, use
+  // 'default' — an attacker-supplied schema must not influence the opt-in
+  // decision. Remote harmonizers are validated at step 6 before they run
+  // against the page content.
+  const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http')) ? 'default' : harmonizer
   const policyResponse = await fetch(parsed.normalized, {
     headers: { 'User-Agent': 'Octothorpes/1.0' }
   })
   const prefetchedContent = await policyResponse.text()
-  const policyHarmed = await harmonizeSource(prefetchedContent, 'default')
+  const policyHarmed = await harmonizeSource(prefetchedContent, policyHarmonizer)
   if (!policyHarmed) {
     throw new Error('Harmonization failed — could not extract page metadata.')
   }
