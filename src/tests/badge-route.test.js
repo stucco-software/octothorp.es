@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('fs', () => ({
-  readFileSync: vi.fn((path) => {
-    if (path.includes('_fail')) return Buffer.from('fail')
-    if (path.includes('_unregistered')) return Buffer.from('unregistered')
-    return Buffer.from('success')
+vi.stubGlobal('fetch', vi.fn((url) => {
+  const u = url.toString()
+  let body = 'success'
+  if (u.includes('_fail')) body = 'fail'
+  else if (u.includes('_unregistered')) body = 'unregistered'
+  return Promise.resolve({
+    ok: true,
+    arrayBuffer: () => Promise.resolve(new TextEncoder().encode(body).buffer),
   })
 }))
 
