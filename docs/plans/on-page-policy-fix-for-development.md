@@ -151,11 +151,18 @@ if (requestingOrigin) {
 }
 
 // 3. On-page policy check (always runs)
+// For local harmonizer IDs, run the requested harmonizer so its extracted
+// octothorpes can satisfy the implicit opt-in (e.g. `keywords` harmonizer
+// on a page with <meta name="keywords">). For remote harmonizer URLs, use
+// 'default' — an attacker-supplied schema must not influence the opt-in
+// decision. Remote harmonizers are validated at step 6 before they run
+// against the page content.
+const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http')) ? 'default' : harmonizer
 const policyResponse = await fetch(parsed.normalized, {
   headers: { 'User-Agent': 'Octothorpes/1.0' }
 })
 const prefetchedContent = await policyResponse.text()
-const policyHarmed = await harmonizeSource(prefetchedContent, harmonizer)
+const policyHarmed = await harmonizeSource(prefetchedContent, policyHarmonizer)
 if (!policyHarmed) {
   throw new Error('Harmonization failed — could not extract page metadata.')
 }
@@ -306,11 +313,20 @@ afterEach(() => {
 
 ## Files to cherry-pick from main
 
-These files can be copied directly from main to development -- they don't use `$lib` imports or framework-specific code that differs between branches:
-
-- **`src/tests/indexing.test.js`** -- all new and updated tests (policy check, handler mocks, malicious harmonizer defense)
 - **`src/lib/badge.js`** -- no changes to the utility itself, but `src/routes/badge/+server.js` was updated to pass `null` as `requestingOrigin` instead of `pageUrl`. The development badge route needs the same fix.
 - **`src/lib/harmonizers.js`** -- consolidated `indexPolicy` selectors (preload, octo:index link, badge img), removed `indexServer` and `indexPreload` as separate fields. Copy the selector structure to `packages/core/harmonizers.js`.
+
+### Tests — do NOT straight-copy
+
+`src/tests/indexing.test.js` on main imports functions directly from `$lib/indexing.js` (pre-core-extraction layout). On development the file was rewritten around the `createIndexer` factory — functions are pulled off an `indexer` instance built in `beforeEach`, and mocks are injected as factory dependencies (`mockInsert`, `mockQuery`, `mockQueryBoolean`, `mockQueryArray`, `mockHarmonizeSource`) rather than via `vi.mock()`.
+
+Instead of copying, re-express the new tests against the factory:
+
+- Policy-check tests: mock `global.fetch` + `mockHarmonizeSource` in `beforeEach`, call `indexer.handler(...)`.
+- Malicious harmonizer defense tests: the assertion `harmonizeSource.mock.calls[0][1]` becomes `mockHarmonizeSource.mock.calls[0][1]`, and the expected value is `'default'` (proving the `policyHarmonizer` ternary routed the attacker URL to the default schema).
+- `checkIndexingPolicy` tests: already imported as a named export on development — the fixture objects (`{ indexPolicy, indexHarmonizer, octothorpes }`) port over unchanged.
+
+Watch for rate-limit state bleed across tests — the module-scope `indexingRateLimitMap` persists between tests. New tests that reach step 4 must use unique origin hostnames (e.g. `https://keywords-site.test`) to avoid tripping later tests over the 10-request window.
 
 ## Verification
 
