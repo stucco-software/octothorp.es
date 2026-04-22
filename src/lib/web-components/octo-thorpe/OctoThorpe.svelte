@@ -169,7 +169,7 @@
   /* CSS Custom Properties - all customizable */
   :host {
     --octo-font: system-ui, -apple-system, sans-serif;
-    --octo-primary: blue;
+    --octo-primary: #00E;
     --octo-background: #ffffff;
     --octo-text: #333333;
     --octo-border: #e0e0e0;
