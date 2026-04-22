@@ -112,15 +112,17 @@ export const isURL = (term) => {
 }
 
 export const checkIndexingPolicy = (harmed, instance) => {
-  const optedIn =
-    harmed.indexPolicy === 'index' ||
-    (harmed.indexServer && harmed.indexServer.split(',').some(href => {
-      try {
-        return new URL(href.trim()).origin === new URL(instance).origin
-      } catch (_) {
-        return false
-      }
-    }))
+  // indexPolicy is populated by any opt-in signal the harmonizer finds:
+  //   - <meta name="octo-policy" content="index">
+  //   - <link rel="octo:index" href="..."> pointing at this instance
+  //   - <link rel="preload" href="..."> pointing at this instance
+  // Any truthy value means the page has opted in, unless explicitly "no-index".
+  const hasPolicy = !!(harmed.indexPolicy) && harmed.indexPolicy !== 'no-index'
+
+  // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup
+  const hasOctothorpes = Array.isArray(harmed.octothorpes) && harmed.octothorpes.length > 0
+
+  const optedIn = hasPolicy || hasOctothorpes
 
   const harmonizer = harmed.indexHarmonizer || null
 
@@ -640,32 +642,47 @@ export const createIndexer = (deps) => {
     // 1. Parse and normalize URI
     const parsed = parseUri(uri)
 
-    // 2. Cross-origin check / on-page policy check
-    let prefetchedContent = null
+    // 2. Same-origin check (when headers are present)
+    // Requests from the OP instance itself (e.g. debug tools) skip this check.
     if (requestingOrigin) {
-      validateSameOrigin(parsed, requestingOrigin)
-    } else {
-      const policyResponse = await fetch(parsed.normalized, {
-        headers: { 'User-Agent': 'Octothorpes/1.0' }
-      })
-      prefetchedContent = await policyResponse.text()
-      const policyHarmed = await harmonizeSource(prefetchedContent, harmonizer)
-      if (!policyHarmed) {
-        throw new Error('Harmonization failed — could not extract page metadata.')
-      }
-      const policy = checkIndexingPolicy(policyHarmed, base)
-
-      if (!policy.optedIn) {
-        throw new Error('Page has not opted in to indexing.')
-      }
-
-      // On-page harmonizer overrides request param (allowed because the page owner controls their markup)
-      if (policy.harmonizer) {
-        harmonizer = policy.harmonizer
+      try {
+        if (new URL(requestingOrigin).origin !== new URL(base).origin) {
+          validateSameOrigin(parsed, requestingOrigin)
+        }
+      } catch (_) {
+        validateSameOrigin(parsed, requestingOrigin)
       }
     }
 
-    // 3. Origin verification
+    // 3. On-page policy check (always runs)
+    // For local harmonizer IDs, run the requested harmonizer so its extracted
+    // octothorpes can satisfy the implicit opt-in (e.g. `keywords` harmonizer
+    // on a page with <meta name="keywords">). For remote harmonizer URLs, use
+    // 'default' — an attacker-supplied schema must not influence the opt-in
+    // decision. Remote harmonizers are validated at step 6 before they run
+    // against the page content.
+    const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http')) ? 'default' : harmonizer
+    const policyResponse = await fetch(parsed.normalized, {
+      headers: { 'User-Agent': 'Octothorpes/1.0' }
+    })
+    const prefetchedContent = await policyResponse.text()
+    const policyHarmed = await harmonizeSource(prefetchedContent, policyHarmonizer)
+    if (!policyHarmed) {
+      throw new Error('Harmonization failed — could not extract page metadata.')
+    }
+    const policy = checkIndexingPolicy(policyHarmed, base)
+
+    if (!policy.optedIn) {
+      throw new Error('Page has not opted in to indexing.')
+    }
+
+    // On-page harmonizer overrides request param (page owner controls their markup)
+    const harmonizerDeclaredOnPage = !!policy.harmonizer
+    if (policy.harmonizer) {
+      harmonizer = policy.harmonizer
+    }
+
+    // 4. Origin verification
     const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
       serverName,
       queryBoolean: configQueryBoolean || queryBoolean
@@ -675,49 +692,60 @@ export const createIndexer = (deps) => {
       throw new Error('Origin is not registered with this server.')
     }
 
-    // 4. Rate limiting
+    // 5. Rate limiting
     if (!checkIndexingRateLimit(parsed.origin)) {
       throw new Error('Rate limit exceeded. Please try again later.')
     }
 
-    // 5. Harmonizer check (only for origin-header path; on-page harmonizers are trusted)
-    if (requestingOrigin) {
-      if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance: base })) {
-        throw new Error('Harmonizer not allowed for this origin.')
+    // 6. Harmonizer validation
+    // Page-declared harmonizers are always trusted (page owner controls their markup).
+    // For request-supplied harmonizers:
+    //   - With confirmed external origin header: run isHarmonizerAllowed (same-origin or whitelisted)
+    //   - Without headers (or instance-origin): only allow local IDs and instance-hosted
+    if (!harmonizerDeclaredOnPage) {
+      let hasExternalOrigin = false
+      if (requestingOrigin) {
+        try {
+          hasExternalOrigin = new URL(requestingOrigin).origin !== new URL(base).origin
+        } catch (_) {
+          hasExternalOrigin = true
+        }
+      }
+
+      if (hasExternalOrigin) {
+        if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance: base })) {
+          throw new Error('Harmonizer not allowed for this origin.')
+        }
+      } else if (harmonizer.startsWith('http')) {
+        try {
+          if (new URL(harmonizer).origin !== new URL(base).origin) {
+            throw new Error('Remote harmonizers require a confirmed origin header.')
+          }
+        } catch (e) {
+          if (e.message === 'Remote harmonizers require a confirmed origin header.') throw e
+          throw new Error('Remote harmonizers require a confirmed origin header.')
+        }
       }
     }
 
-    // 6. Cooldown
+    // 7. Cooldown
     let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
     if (isRecentlyIndexed) {
       throw new Error('This page has been recently indexed.')
     }
 
-    // 7. Fetch (or reuse prefetched content from policy check) and process
-    let content
-    let contentType = ''
-    if (prefetchedContent !== null) {
-      // Policy-check path already fetched the page; content is HTML
-      content = prefetchedContent
-      contentType = 'text/html'
-    } else {
-      const subject = await fetch(parsed.normalized, {
-        headers: { 'User-Agent': 'Octothorpes/1.0' }
-      })
-      contentType = subject.headers.get('content-type') || ''
-      content = await subject.text()
-    }
+    // 8. Process (reuse prefetched content from policy check)
     await recordIndexing(parsed.normalized)
+    const contentType = 'text/html'
+    const content = prefetchedContent
 
     // Resolve harmonizer name to schema
     const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
       ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
       : harmonizer
 
-    // Determine mode from resolved harmonizer
     const mode = resolvedHarmonizer?.mode
 
-    // Select handler: mode first, content-type fallback, html default
     let selectedHandler = mode ? handlerRegistry?.getHandler(mode) : null
     if (!selectedHandler) {
       selectedHandler = handlerRegistry?.getHandlerForContentType(contentType)
@@ -731,7 +759,6 @@ export const createIndexer = (deps) => {
       if (harmed['@id'] === 'source') harmed['@id'] = parsed.normalized
       await ingestBlobject(harmed, { instance: base })
     } else {
-      // Legacy fallback when no handler registry is configured
       if (contentType.includes('text/html')) {
         return await handleHTML(
           { text: async () => content },

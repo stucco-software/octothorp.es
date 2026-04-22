@@ -43,7 +43,7 @@ export async function GET(req) {
   }
 
   const harmonizer = url.searchParams.get('as') ?? 'default'
-  const requestOrigin = req.request.headers.get('origin') || null
+  const requestOrigin = req.request.headers.get('origin') || req.request.headers.get('referer') || null
 
   try {
     return await handler(uri, harmonizer, requestOrigin, config())

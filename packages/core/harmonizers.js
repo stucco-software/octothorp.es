@@ -80,13 +80,18 @@ export const createHarmonizerRegistry = (instance) => {
                   {
                     "selector": "meta[name='octo-policy']",
                     "attribute": "content"
-                  }
-                ],
-              "indexServer":
-                [
+                  },
                   {
                     "selector": "link[rel='octo:index']",
                     "attribute": "href"
+                  },
+                  {
+                    "selector": `link[rel='preload'][href*='${instance}']`,
+                    "attribute": "href"
+                  },
+                  {
+                    "selector": `img[src*='${instance}badge']`,
+                    "attribute": "src"
                   }
                 ],
               "indexHarmonizer":

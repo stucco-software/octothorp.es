@@ -299,3 +299,20 @@ Fixed two bugs in the indexing pipeline related to the on-page policy check (the
 
 **Files affected:** `src/routes/indexwrapper/+server.js`, `packages/core/indexer.js`
 **Port instructions:** `docs/plans/on-page-policy-fix-for-main.md`
+
+## On-page policy enforcement — port from main (untracked)
+
+Ported the on-page policy security model from `main` into the development branch's core package and tightened it further. The on-page policy check now always runs as the primary gate for indexing; default harmonizer policy cannot be overridden by a remote harmonizer; origin/referer headers provide two additional guards (same-origin check and harmonizer allowance).
+
+- **Consolidated opt-in signals** into a single `indexPolicy` harmonizer field. `<meta name="octo-policy">`, `<link rel="octo:index">`, `<link rel="preload">` pointing at the instance, and `<img src="...badge">` pointing at the instance all feed one field. Removed the separate `indexServer` property.
+- **`checkIndexingPolicy` accepts octothorpes as implicit opt-in.** Any non-empty `octothorpes` array (from `<octo-thorpe>` or related markup) counts as opt-in even without an explicit `indexPolicy` value.
+- **Restructured `handler()` pipeline** in `packages/core/indexer.js`:
+  - Same-origin check runs only when the request carries an external origin header (instance-origin treated as headerless).
+  - Policy check always runs, using the default harmonizer for remote-URL harmonizers so attacker-controlled harmonizers cannot disable the gate.
+  - New harmonizer validation branches: page-declared > external-origin allowance list > remote harmonizer rejected without confirmed external origin.
+  - HTML prefetched for the policy check is reused by the handler dispatch (no double fetch).
+- **Badge route** no longer passes the page URL as `requestingOrigin`. Badge requests are treated as headerless; the on-page policy check handles authorization.
+- **Tests:** new coverage for consolidated `indexPolicy` selectors, octothorpes-as-opt-in, headerless remote-harmonizer rejection, instance-origin-as-headerless, and a malicious-harmonizer defense suite.
+
+**Files affected:** `packages/core/harmonizers.js`, `packages/core/indexer.js`, `src/routes/badge/+server.js`, `src/routes/indexwrapper/+server.js`, `src/tests/indexing.test.js`, `src/tests/badge-route.test.js`
+**Plan:** `docs/plans/on-page-policy-fix-for-development.md`
