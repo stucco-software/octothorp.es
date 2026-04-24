@@ -661,7 +661,7 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
               // Use the "key" property to reconstruct the nested structure
               if (key == "subject") {
                   // set source properties on output directly
-                setNestedProperty(output, prop, values.toString())
+                setNestedProperty(output, prop, [...new Set(values)].toString())
                 }
                 else {
                 // TKTK documentRecords

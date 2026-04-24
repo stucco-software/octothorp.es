@@ -46,23 +46,35 @@ export const createSparqlClient = (config) => {
   }
 
   const query = async (q) => {
-    return await fetch(`${endpoint}/update`, {
+    const result = await fetch(`${endpoint}/update`, {
       method: 'POST',
       headers,
       body: new URLSearchParams({
         update: `${prefixes}\n${q}`,
       }),
     })
+    if (!result.ok) {
+      const text = await result.text()
+      console.error('SPARQL Error:', text)
+      throw new Error(`SPARQL update failed: ${text}`)
+    }
+    return result
   }
 
   const insert = async (q) => {
-    return await fetch(`${endpoint}/update`, {
+    const result = await fetch(`${endpoint}/update`, {
       method: 'POST',
       headers,
       body: new URLSearchParams({
         update: `${prefixes}\nINSERT DATA {\n${q}\n}`,
       }),
     })
+    if (!result.ok) {
+      const text = await result.text()
+      console.error('SPARQL Error:', text)
+      throw new Error(`SPARQL insert failed: ${text}`)
+    }
+    return result
   }
 
   return { queryArray, queryBoolean, query, insert }
