@@ -178,10 +178,9 @@ export const recentlyIndexed = async (s) => {
 ////////// existence checks //////////
 
 export const extantTerm = async (o, { instance }) => {
-  console.log(`does ${o} exist?`)
   return await queryBoolean(`
     ask {
-      ?s ?p <${instance}~/${o}> .
+      <${instance}~/${o}> rdf:type <octo:Term> .
     }
   `)
 }
