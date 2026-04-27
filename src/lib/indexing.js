@@ -525,12 +525,14 @@ export const handleMention = async (s, o, subtype = 'Backlink', terms = [], { in
 export const handleWebring = async (s, friends, alreadyRing) => {
   if (!alreadyRing) {
     console.log(`Create new Webring for ${s}`)
-    createWebring(s)
+    await createWebring(s)
   }
 
   let domainsOnPage = friends.linked.map(member => deslash(member))
-  let extantMembers = [await webringMembers(s)]
-  extantMembers = extantMembers.map(member => deslash(member))
+  const membersResult = await webringMembers(s)
+  const extantMembers = (membersResult?.results?.bindings || [])
+    .map(b => deslash(b.o?.value))
+    .filter(Boolean)
   let newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
   console.log("Extant Members:", extantMembers)
   console.log(`New Domains: ${newDomains}`)
@@ -587,8 +589,17 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
   }
 
   let friends = { endorsed: [], linked: [] }
-  console.log(harmed.octothorpes)
-  for (const octothorpe of harmed.octothorpes) {
+  const seen = new Set()
+  const uniqueOctothorpes = (harmed.octothorpes || []).filter(o => {
+    const key = typeof o === 'string'
+      ? `tag:${o}`
+      : `${o.type}:${o.uri}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  console.log(uniqueOctothorpes)
+  for (const octothorpe of uniqueOctothorpes) {
     if (typeof octothorpe === 'string') {
       await handleThorpe(s, octothorpe, { instance })
       continue
@@ -607,15 +618,19 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
     }
   }
 
-  if (harmed.type === "Webring") {
-    const isExtantWebring = await extantPage(s, "Webring")
-    await handleWebring(s, friends, isExtantWebring)
-  }
-
   await recordTitle(s, harmed.title)
   await recordDescription(s, harmed.description)
   await recordImage(s, harmed.image)
   await recordPostDate(s, harmed.postDate)
+
+  if (harmed.type === "Webring") {
+    const isExtantWebring = await extantPage(s, "Webring")
+    try {
+      await handleWebring(s, friends, isExtantWebring)
+    } catch (e) {
+      console.error('handleWebring failed; metadata already recorded:', e)
+    }
+  }
 
   console.log("done")
   return new Response(200)
