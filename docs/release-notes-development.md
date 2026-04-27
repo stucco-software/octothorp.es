@@ -13,6 +13,16 @@ Webring-typed pages were silently losing their title, description, image, and po
 
 Affected files: `src/lib/indexing.js`. All 109 indexing tests pass.
 
+## Atomic metadata writes and first-match harmonizer scalars
+
+Three interrelated fixes addressing partial writes on first indexing and image values vanishing on re-index:
+
+- **`src/lib/indexing.js`** — `recordProperty` and `recordPostDate` now use a single atomic `DELETE/INSERT WHERE` SPARQL update instead of separate DELETE then INSERT calls. Pre-fix, an INSERT failure (transient SPARQL error or value with special characters) after a successful DELETE would wipe the existing value with no replacement — producing the "image was there, now it's gone" symptom on re-index. Added basic SPARQL literal escaping (backslash, double-quote, newline, CR, tab) to prevent insert syntax errors on values with embedded quotes.
+- **`src/lib/indexing.js`** — Hoisted `recordTitle/Description/Image/PostDate` above the octothorpes loop in `handleHTML`. Page metadata is a property of the page itself and shouldn't be gated on octothorpe processing succeeding. This addresses "data only writes on second or third indexing" — previously, any throw inside `handleMention`/`handleThorpe` mid-loop (transient SPARQL error, post-`bb7144d` failure cascades) would skip the metadata writes entirely.
+- **`src/lib/harmonizeSource.js`** — Subject scalar handling now picks the first non-empty match instead of comma-joining all matches. The schema lists multiple selectors as ordered fallbacks (e.g. `og:image` → `link[rel='octo:image']` → `[data-octo-image]`), and `bb7144d`'s dedup helped duplicates but pages with multiple distinct sources were getting `image: "url1,url2"` stored as garbage.
+
+Affected files: `src/lib/indexing.js`, `src/lib/harmonizeSource.js`, `src/tests/indexing.test.js`. All 233 tests pass.
+
 ### Known follow-ups
 
 - `let isEndorsed = await checkEndorsement(subj, obj)` in `handleMention` computes a value that is never read; mirror bug: `friends.endorsed` is collected in `handleHTML` and never consumed. Both point at the same missing logic — endorsement is meant to gate backlink creation between origins (per `octo:endorses` schema), but the wiring was never finished. Fixing properly is a design decision (which subtypes require endorsement), separate from these timeout/metadata fixes.

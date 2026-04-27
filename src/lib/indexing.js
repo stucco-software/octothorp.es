@@ -334,20 +334,28 @@ export const recordIndexing = async (s) => {
   `)
 }
 
+// SPARQL string literal escaping: backslash, double-quote, newline, carriage return, tab.
+const escapeLiteral = (s) => s
+  .replace(/\\/g, '\\\\')
+  .replace(/"/g, '\\"')
+  .replace(/\n/g, '\\n')
+  .replace(/\r/g, '\\r')
+  .replace(/\t/g, '\\t')
+
 export const recordProperty = async (s, predicate, value) => {
   if (!value) {
     return
   }
-  let text = value.trim()
-  await query(`
-    delete {
-      <${s}> ${predicate} ?o .
-    } where {
-      <${s}> ${predicate} ?o .
-    }
-  `)
-  return await insert(`
-    <${s}> ${predicate} "${text}" .
+  const text = String(value).trim()
+  if (!text) {
+    return
+  }
+  // Single atomic DELETE/INSERT update so a transient INSERT failure
+  // can't leave the property wiped with no replacement.
+  return await query(`
+    delete { <${s}> ${predicate} ?o . }
+    insert { <${s}> ${predicate} "${escapeLiteral(text)}" . }
+    where { optional { <${s}> ${predicate} ?o . } }
   `)
 }
 
@@ -363,15 +371,10 @@ export const recordPostDate = async (s, value) => {
   if (isNaN(timestamp)) {
     return
   }
-  await query(`
-    delete {
-      <${s}> octo:postDate ?o .
-    } where {
-      <${s}> octo:postDate ?o .
-    }
-  `)
-  return await insert(`
-    <${s}> octo:postDate ${timestamp} .
+  return await query(`
+    delete { <${s}> octo:postDate ?o . }
+    insert { <${s}> octo:postDate ${timestamp} . }
+    where { optional { <${s}> octo:postDate ?o . } }
   `)
 }
 
@@ -587,6 +590,14 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
     await createPage(s)
   }
 
+  // Record page metadata first. These are properties of the page itself and
+  // should not be gated on octothorpe processing — if a later step throws,
+  // the page still has its title/description/image/postDate up to date.
+  await recordTitle(s, harmed.title)
+  await recordDescription(s, harmed.description)
+  await recordImage(s, harmed.image)
+  await recordPostDate(s, harmed.postDate)
+
   let friends = { endorsed: [], linked: [] }
   const seen = new Set()
   const uniqueOctothorpes = (harmed.octothorpes || []).filter(o => {
@@ -616,11 +627,6 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
       await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance })
     }
   }
-
-  await recordTitle(s, harmed.title)
-  await recordDescription(s, harmed.description)
-  await recordImage(s, harmed.image)
-  await recordPostDate(s, harmed.postDate)
 
   if (harmed.type === "Webring") {
     const isExtantWebring = await extantPage(s, "Webring")
