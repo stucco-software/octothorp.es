@@ -209,10 +209,9 @@ export const createIndexer = (deps) => {
 
   const extantTerm = async (o, { instance: inst } = {}) => {
     const base = inst || instance
-    console.log(`does ${o} exist?`)
     return await queryBoolean(`
       ask {
-        ?s ?p <${base}~/${o}> .
+        <${base}~/${o}> rdf:type <octo:Term> .
       }
     `)
   }
@@ -368,20 +367,25 @@ export const createIndexer = (deps) => {
     `)
   }
 
+  const escapeLiteral = (s) => s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+
   const recordProperty = async (s, predicate, value) => {
     if (!value) {
       return
     }
-    let text = value.trim()
-    await query(`
-      delete {
-        <${s}> ${predicate} ?o .
-      } where {
-        <${s}> ${predicate} ?o .
-      }
-    `)
-    return await insert(`
-      <${s}> ${predicate} "${text}" .
+    const text = String(value).trim()
+    if (!text) {
+      return
+    }
+    return await query(`
+      delete { <${s}> ${predicate} ?o . }
+      insert { <${s}> ${predicate} "${escapeLiteral(text)}" . }
+      where { optional { <${s}> ${predicate} ?o . } }
     `)
   }
 
@@ -397,15 +401,10 @@ export const createIndexer = (deps) => {
     if (isNaN(timestamp)) {
       return
     }
-    await query(`
-      delete {
-        <${s}> octo:postDate ?o .
-      } where {
-        <${s}> octo:postDate ?o .
-      }
-    `)
-    return await insert(`
-      <${s}> octo:postDate ${timestamp} .
+    return await query(`
+      delete { <${s}> octo:postDate ?o . }
+      insert { <${s}> octo:postDate ${timestamp} . }
+      where { optional { <${s}> octo:postDate ?o . } }
     `)
   }
 
@@ -541,12 +540,14 @@ export const createIndexer = (deps) => {
   const handleWebring = async (s, friends, alreadyRing) => {
     if (!alreadyRing) {
       console.log(`Create new Webring for ${s}`)
-      createWebring(s)
+      await createWebring(s)
     }
 
     let domainsOnPage = friends.linked.map(member => deslash(member))
-    let extantMembers = [await webringMembers(s)]
-    extantMembers = extantMembers.map(member => deslash(member))
+    const membersResult = await webringMembers(s)
+    const extantMembers = (membersResult?.results?.bindings || [])
+      .map(b => deslash(b.o?.value))
+      .filter(Boolean)
     let newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
     console.log("Extant Members:", extantMembers)
     console.log(`New Domains: ${newDomains}`)
@@ -597,8 +598,22 @@ export const createIndexer = (deps) => {
       await createPage(s)
     }
 
+    await recordTitle(s, harmed.title)
+    await recordDescription(s, harmed.description)
+    await recordImage(s, harmed.image)
+    await recordPostDate(s, harmed.postDate)
+
     let friends = { endorsed: [], linked: [] }
-    for (const octothorpe of (harmed.octothorpes || [])) {
+    const seen = new Set()
+    const uniqueOctothorpes = (harmed.octothorpes || []).filter(o => {
+      const key = typeof o === 'string'
+        ? `tag:${o}`
+        : `${o.type}:${o.uri}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    for (const octothorpe of uniqueOctothorpes) {
       if (typeof octothorpe === 'string') {
         await handleThorpe(s, octothorpe, { instance: base })
         continue
@@ -618,13 +633,12 @@ export const createIndexer = (deps) => {
 
     if (harmed.type === 'Webring') {
       const isExtantWebring = await extantPage(s, 'Webring')
-      await handleWebring(s, friends, isExtantWebring)
+      try {
+        await handleWebring(s, friends, isExtantWebring)
+      } catch (e) {
+        console.error('handleWebring failed; metadata already recorded:', e)
+      }
     }
-
-    await recordTitle(s, harmed.title)
-    await recordDescription(s, harmed.description)
-    await recordImage(s, harmed.image)
-    await recordPostDate(s, harmed.postDate)
   }
 
   const handleHTML = async (response, uri, harmonizer, { instance: inst } = {}) => {

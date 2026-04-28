@@ -308,27 +308,33 @@ describe('Indexing Business Logic', () => {
       expect(mockInsert).not.toHaveBeenCalled()
     })
 
-    it('should trim and record with the given predicate', async () => {
+    it('should trim and record with the given predicate atomically', async () => {
       mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
       await indexer.recordProperty('https://example.com/page', 'octo:title', '  Test Title  ')
-      const deleteCall = mockQuery.mock.calls[0][0]
-      expect(deleteCall).toContain('octo:title')
-      const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('octo:title')
-      expect(insertCall).toContain('Test Title')
-      expect(insertCall).not.toContain('  Test Title  ')
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('delete')
+      expect(updateCall).toContain('insert')
+      expect(updateCall).toContain('octo:title')
+      expect(updateCall).toContain('Test Title')
+      expect(updateCall).not.toContain('  Test Title  ')
+      expect(mockInsert).not.toHaveBeenCalled()
+    })
+
+    it('should escape SPARQL string literals', async () => {
+      mockQuery.mockResolvedValue({})
+      await indexer.recordProperty('https://example.com/page', 'octo:title', 'a "quoted" \\value')
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('a \\"quoted\\" \\\\value')
     })
   })
 
   describe('recordTitle', () => {
     it('should delegate to recordProperty with octo:title', async () => {
       mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
       await indexer.recordTitle('https://example.com/page', '  Test Title  ')
-      const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('octo:title')
-      expect(insertCall).toContain('Test Title')
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('octo:title')
+      expect(updateCall).toContain('Test Title')
     })
   })
 
@@ -341,11 +347,10 @@ describe('Indexing Business Logic', () => {
 
     it('should delegate to recordProperty with octo:description', async () => {
       mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
       await indexer.recordDescription('https://example.com/page', '  A description  ')
-      const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('octo:description')
-      expect(insertCall).toContain('A description')
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('octo:description')
+      expect(updateCall).toContain('A description')
     })
   })
 
@@ -358,11 +363,10 @@ describe('Indexing Business Logic', () => {
 
     it('should delegate to recordProperty with octo:image', async () => {
       mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
       await indexer.recordImage('https://example.com/page', '  https://example.com/img.png  ')
-      const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('octo:image')
-      expect(insertCall).toContain('https://example.com/img.png')
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('octo:image')
+      expect(updateCall).toContain('https://example.com/img.png')
     })
   })
 
@@ -519,8 +523,8 @@ describe('Indexing Business Logic', () => {
       await indexer.handleHTML(mockResponse, 'https://example.com/fallback', 'default', { instance })
 
       // recordTitle should be called with the fallback URI
-      const titleInsert = mockInsert.mock.calls.find(call => call[0].includes('octo:title'))
-      expect(titleInsert[0]).toContain('https://example.com/fallback')
+      const titleUpdate = mockQuery.mock.calls.find(call => call[0].includes('octo:title'))
+      expect(titleUpdate[0]).toContain('https://example.com/fallback')
     })
 
     it('should handle unrecognized typed objects (e.g. cite) as mentions without crashing', async () => {
@@ -647,10 +651,10 @@ describe('Indexing Business Logic', () => {
 
       await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
 
-      const insertCalls = mockInsert.mock.calls.map(c => c[0])
-      const postDateInsert = insertCalls.find(c => c.includes('octo:postDate'))
-      expect(postDateInsert).toBeDefined()
-      expect(postDateInsert).toContain('1718445600000')
+      const updateCalls = mockQuery.mock.calls.map(c => c[0])
+      const postDateUpdate = updateCalls.find(c => c.includes('octo:postDate'))
+      expect(postDateUpdate).toBeDefined()
+      expect(postDateUpdate).toContain('1718445600000')
     })
 
     it('should handle typed object with no uri gracefully', async () => {
@@ -675,25 +679,21 @@ describe('Indexing Business Logic', () => {
   })
 
   describe('recordPostDate', () => {
-    it('should parse ISO date string and insert as Unix timestamp', async () => {
+    it('should parse ISO date string and insert as Unix timestamp atomically', async () => {
       mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
       await indexer.recordPostDate('https://example.com/page', '2024-06-15T10:00:00Z')
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('octo:postDate')
-      )
-      const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('octo:postDate')
-      expect(insertCall).toContain('1718445600000')
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('octo:postDate')
+      expect(updateCall).toContain('1718445600000')
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('should parse date-only ISO string', async () => {
       mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
       await indexer.recordPostDate('https://example.com/page', '2024-06-15')
-      const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('octo:postDate')
-      const match = insertCall.match(/octo:postDate (\d+)/)
+      const updateCall = mockQuery.mock.calls[0][0]
+      expect(updateCall).toContain('octo:postDate')
+      const match = updateCall.match(/octo:postDate (\d+)/)
       expect(match).not.toBeNull()
       expect(parseInt(match[1])).toBeGreaterThan(0)
     })

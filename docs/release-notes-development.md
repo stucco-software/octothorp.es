@@ -2,6 +2,20 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## Backport of main bugfixes into `packages/core`
+
+Forward-ported the bugfix series shipped on `main` today (commits `9712fb8`, `a4838a4`, `1083bb0`, `48e192f`) into the extracted core. On `main` the fixes lived in `src/lib/indexing.js`, `src/lib/harmonizeSource.js`, and `src/lib/queryBuilders.js`; on `development` the equivalent logic lives in `packages/core/`, so the same fixes were applied there.
+
+**What changed:**
+- **`packages/core/queryBuilders.js`**: `buildEverythingQuery`'s `OPTIONAL` block now correlates the blank node to the current `?o` via `?blankNode octo:url ?o`, fixing the bug where `data-octothorpes` terms on one relationship were attached to every page-typed octothorpe in the response.
+- **`packages/core/indexer.js`**: `extantTerm` now mirrors `extantPage`'s pattern (`<term> rdf:type <octo:Term>`) instead of asking "does any triple have this term URI as object?". Eliminates redundant `createTerm` calls and the post-`bb7144d` infinite-retry on orphaned terms.
+- **`packages/core/indexer.js`**: `recordProperty` and `recordPostDate` now use a single atomic `DELETE/INSERT WHERE` SPARQL update with literal escaping (backslash, double-quote, newline, CR, tab). Pre-fix, an INSERT failure after a successful DELETE would wipe the existing value with no replacement.
+- **`packages/core/indexer.js`**: `handleWebring` now awaits `createWebring(s)` and correctly extracts `extantMembers` from `bindings[].o.value` (was wrapping the result object in an array, so `newDomains` always re-processed every linked URL).
+- **`packages/core/indexer.js`**: `ingestBlobject` hoists `recordTitle/Description/Image/PostDate` above the octothorpes loop, dedupes `harmed.octothorpes` before iterating, and wraps `handleWebring` in a try/catch so webring processing errors can't drop page metadata.
+- **`packages/core/harmonizeSource.js`**: Subject scalar handling picks the first non-empty match instead of comma-joining all matches. The schema lists multiple selectors as ordered fallbacks, so pages with multiple distinct sources for the same scalar were getting `image: "url1,url2"` stored as garbage.
+
+Affected files: `packages/core/queryBuilders.js`, `packages/core/indexer.js`, `packages/core/harmonizeSource.js`.
+
 ## OP Core alpha extraction -- #178
 
 Extracted OP's framework-agnostic business logic into `packages/core/` as `@octothorpes/core`. The SvelteKit app is unchanged; route handlers now delegate to the extracted modules through thin adapter files.

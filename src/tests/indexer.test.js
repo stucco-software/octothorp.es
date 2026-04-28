@@ -211,10 +211,10 @@ describe('ingestBlobject', () => {
       octothorpes: [],
     })
 
-    const insertCalls = mockInsert.mock.calls.map(c => c[0])
+    const updateCalls = mockQuery.mock.calls.map(c => c[0])
     const expectedTimestamp = new Date('2025-01-15').getTime()
-    const postDateInsert = insertCalls.find(q => q.includes(`octo:postDate ${expectedTimestamp}`))
-    expect(postDateInsert).toBeDefined()
+    const postDateUpdate = updateCalls.find(q => q.includes(`octo:postDate ${expectedTimestamp}`))
+    expect(postDateUpdate).toBeDefined()
   })
 
   it('should apply deslash to octothorpe URIs', async () => {

@@ -661,8 +661,16 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
                   values = await getObjectVals(val)
               // Use the "key" property to reconstruct the nested structure
               if (key == "subject") {
-                  // set source properties on output directly
-                setNestedProperty(output, prop, [...new Set(values)].toString())
+                  // Subject scalars (title, description, image, etc.) are
+                  // single-valued. The schema lists multiple selectors as
+                  // ordered fallbacks, so take the first non-empty match
+                  // rather than concatenating every match into a comma string.
+                  const firstValue = values.find(v => {
+                    if (v === null || v === undefined) return false
+                    if (typeof v === 'string') return v.trim() !== ''
+                    return true
+                  })
+                setNestedProperty(output, prop, firstValue ?? '')
                 }
                 else {
                 // TKTK documentRecords
