@@ -2,6 +2,12 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## Indexing timeout on typed relationships with terms (backport from `main`)
+
+Mirrored the `handleMention` parallelization + write-batching fix shipped on `main` into `packages/core/indexer.js`. `handleMention` now runs all existence checks (`extantPage` for webring, `extantMention`, `extantBacklink`, and one `extantTerm` per term) in parallel via `Promise.all`, then concatenates every conditional write (mention triples, missing term creations, per-term usage timestamps, and the backlink blank node) into a single `INSERT DATA` call. Cuts a 2-term mention from ~7 sequential SPARQL round trips down to 2, keeping production indexing inside the 15s ceiling. Triple-builder helpers (`mentionTriples`, `termTriples`, `usageTriples`, `backlinkTriples`) extracted so the existing `createMention` / `createBacklink` factory exports keep their behavior. Dropped a dead `checkEndorsement` call whose result was never read.
+
+Affected files: `packages/core/indexer.js`, `src/tests/indexing.test.js` (call-count assertions updated to reflect batching, new "should run existence checks in parallel and batch writes into a single insert" test added). All 125 indexing/indexer unit tests pass.
+
 ## Backport of main bugfixes into `packages/core`
 
 Forward-ported the bugfix series shipped on `main` today (commits `9712fb8`, `a4838a4`, `1083bb0`, `48e192f`) into the extracted core. On `main` the fixes lived in `src/lib/indexing.js`, `src/lib/harmonizeSource.js`, and `src/lib/queryBuilders.js`; on `development` the equivalent logic lives in `packages/core/`, so the same fixes were applied there.

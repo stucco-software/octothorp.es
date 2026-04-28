@@ -459,24 +459,59 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(undefined) // checkEndorsement -> originEndorsesOrigin
         .mockResolvedValueOnce(false) // extantBacklink
       mockInsert.mockResolvedValue({})
       await indexer.handleMention('https://example.com/page', 'https://other.com/page')
-      // createMention + createBacklink = 2 insert calls
-      expect(mockInsert).toHaveBeenCalledTimes(2)
+      // Single batched insert combining mention + backlink triples
+      expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('<https://example.com/page> octo:octothorpes <https://other.com/page>')
+      expect(triples).toContain('_:backlink octo:url <https://other.com/page>')
     })
 
     it('should skip mention creation when mention exists', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(true)  // extantMention
-        .mockResolvedValueOnce(undefined) // checkEndorsement -> originEndorsesOrigin
         .mockResolvedValueOnce(false) // extantBacklink
       mockInsert.mockResolvedValue({})
       await indexer.handleMention('https://example.com/page', 'https://other.com/page')
-      // Only createBacklink = 1 insert call
+      // Single batched insert with backlink only (no flat mention triple)
       expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink octo:url <https://other.com/page>')
+      expect(triples).not.toContain('<https://example.com/page> octo:octothorpes <https://other.com/page>')
+    })
+
+    it('should run existence checks in parallel and batch writes into a single insert', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(false) // extantTerm 'gadgets'
+        .mockResolvedValueOnce(false) // extantTerm 'bikes'
+      mockInsert.mockResolvedValue({})
+
+      await indexer.handleMention(
+        'https://example.com/page',
+        'https://other.com/page',
+        'Bookmark',
+        ['gadgets', 'bikes'],
+        { instance }
+      )
+
+      // Reads: 1 webring + 1 mention + 1 backlink + 2 terms = 5 ASK queries
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(5)
+      // Writes: a single INSERT DATA carrying mention + both terms + both usages + backlink
+      expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain(`<${instance}~/gadgets> rdf:type <octo:Term>`)
+      expect(triples).toContain(`<${instance}~/bikes> rdf:type <octo:Term>`)
+      expect(triples).toContain(`<${instance}~/gadgets> octo:used`)
+      expect(triples).toContain(`<${instance}~/bikes> octo:used`)
+      expect(triples).toContain('_:backlink rdf:type <octo:Bookmark>')
+      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/gadgets>`)
+      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/bikes>`)
     })
   })
 
@@ -924,7 +959,6 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(undefined) // checkEndorsement
         .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm for 'bikes'
@@ -938,20 +972,22 @@ describe('Indexing Business Logic', () => {
         { instance }
       )
 
-      const insertCalls = mockInsert.mock.calls.map(c => c[0])
+      // All writes are now batched into a single INSERT DATA call
+      expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
 
-      // Should have created terms
-      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
-      expect(termCreations.length).toBe(2)
+      // Both terms created
+      expect(triples).toContain(`<${instance}~/gadgets> rdf:type <octo:Term>`)
+      expect(triples).toContain(`<${instance}~/bikes> rdf:type <octo:Term>`)
 
-      // Should have recorded usage
-      const usageCalls = insertCalls.filter(c => c.includes('octo:used'))
-      expect(usageCalls.length).toBe(2)
+      // Both usages recorded
+      expect(triples).toContain(`<${instance}~/gadgets> octo:used`)
+      expect(triples).toContain(`<${instance}~/bikes> octo:used`)
 
-      // Backlink should include terms
-      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
-      expect(backlinkInsert).toContain(`<${instance}~/gadgets>`)
-      expect(backlinkInsert).toContain(`<${instance}~/bikes>`)
+      // Backlink includes terms
+      expect(triples).toContain('_:backlink')
+      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/gadgets>`)
+      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/bikes>`)
     })
 
     it('should pass terms from harmonized output through handleHTML', async () => {
@@ -971,7 +1007,6 @@ describe('Indexing Business Logic', () => {
         .mockResolvedValueOnce(false) // extantPage for source
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(undefined) // checkEndorsement
         .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm for 'bikes'
@@ -982,14 +1017,15 @@ describe('Indexing Business Logic', () => {
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
 
-      // Should have created terms
-      const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
-      expect(termCreations.length).toBe(2)
+      // Both terms created (now in a single batched insert)
+      const batched = insertCalls.find(c => c.includes('_:backlink'))
+      expect(batched).toBeDefined()
+      expect(batched).toContain(`<${instance}~/gadgets> rdf:type <octo:Term>`)
+      expect(batched).toContain(`<${instance}~/bikes> rdf:type <octo:Term>`)
 
-      // Backlink should include terms
-      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
-      expect(backlinkInsert).toContain(`<${instance}~/gadgets>`)
-      expect(backlinkInsert).toContain(`<${instance}~/bikes>`)
+      // Backlink includes terms
+      expect(batched).toContain(`<${instance}~/gadgets>`)
+      expect(batched).toContain(`<${instance}~/bikes>`)
     })
   })
 
