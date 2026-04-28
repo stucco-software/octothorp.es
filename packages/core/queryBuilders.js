@@ -386,8 +386,9 @@ export const createQueryBuilders = (instance, queryArray) => {
         OPTIONAL { ?o octo:description ?od }
         OPTIONAL { ?o octo:image ?oimg }
         OPTIONAL {
-          ?s ?blankNodePred ?blankNode .
+          ?s octo:octothorpes ?blankNode .
           FILTER(isBlank(?blankNode))
+          ?blankNode octo:url ?o .
           ?blankNode ?bnp ?blankNodeObj .
           FILTER(!isBlank(?blankNodeObj))
         }

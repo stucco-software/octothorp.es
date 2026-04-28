@@ -1,5 +1,15 @@
 # Release Notes: `development` branch
 
+## Relationship terms leaking across links on a page
+
+Pages with even one typed relationship carrying `data-octothorpes` (e.g. a `rel="octo:bookmarks" data-octothorpes="websites,tools"` link) were having those terms attached to *every* page-typed octothorpe in the blobject response. Example: the page at `https://demo.ideastore.dev/relationship-terms` has one bookmark with `["websites","tools"]` and two plain `octo:octothorpes` links with no terms — but `/get/everything/posted` was returning all three with `terms: ["tools","websites"]`.
+
+The harmonizer extraction was correct; the bug was in the SPARQL query for `buildEverythingQuery`. The `OPTIONAL` block that pulled blank-node metadata matched any blank node attached to `?s` without correlating it to the current `?o` (target page), producing a Cartesian product. The blobject parser then attached every blank node's term value to whichever `?o` row it appeared next to.
+
+**Fix:** constrain the blank node to the one whose `octo:url` matches the current `?o`, so each relationship's terms only attach to its own target.
+
+Affected files: `packages/core/queryBuilders.js`, `src/lib/queryBuilders.js`. Existing 29 tests in `src/tests/sparql.test.js` and `src/tests/integration/terms-on-relationships.test.js` pass; verified end-to-end against local data.
+
 ## Webring page metadata recording fix
 
 Webring-typed pages were silently losing their title, description, image, and postDate during indexing. The cause was a bug in `handleWebring` combined with the recent throw-on-error change in the SPARQL client (commit `bb7144d`): an exception inside `handleWebring` would short-circuit `handleHTML` before the four `record*` calls ran.
