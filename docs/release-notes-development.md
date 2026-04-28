@@ -1,5 +1,15 @@
 # Release Notes: `development` branch
 
+## Indexing timeout on typed relationships with terms
+
+Indexing pages on production timed out at 15s when a typed relationship carried `data-octothorpes` terms (e.g. a bookmark with `terms: ["websites", "tools"]`). `handleMention` in `src/lib/indexing.js` issued ~7 sequential SPARQL round trips per typed relationship — `extantPage`/`extantMention`/`createMention`/`extantBacklink`, plus `extantTerm`+`createTerm`+`recordUsage` per term, then `createBacklink` — and at ~1–2s per round trip on prod, a 2-term bookmark blew through the budget. Local dev tolerated this because there's no 15s ceiling.
+
+**Fix:** Two-phase `handleMention` — all existence checks (`extantPage` for webring, `extantMention`, `extantBacklink`, and one `extantTerm` per term) run in parallel via `Promise.all`, then every conditional write (mention triples, missing term creations, per-term usage timestamps, and the backlink blank node) is concatenated into a single `INSERT DATA` call. Cuts a 2-term mention from ~7 round trips down to 2. Also dropped a dead `checkEndorsement` call whose result was never read.
+
+Triple-builder helpers (`mentionTriples`, `termTriples`, `usageTriples`, `backlinkTriples`) were extracted so the existing `createMention` / `createBacklink` exports keep their behavior (single-call inserts) while `handleMention` composes a batched payload from the same helpers.
+
+Affected files: `src/lib/indexing.js`, `packages/core/indexer.js` (mirrored), `src/tests/indexing.test.js` (call-count assertions updated to reflect batching, new "should run existence checks in parallel and batch writes into a single insert" test added). All 117 indexing/indexer unit tests pass.
+
 ## Relationship terms leaking across links on a page
 
 Pages with even one typed relationship carrying `data-octothorpes` (e.g. a `rel="octo:bookmarks" data-octothorpes="websites,tools"` link) were having those terms attached to *every* page-typed octothorpe in the blobject response. Example: the page at `https://demo.ideastore.dev/relationship-terms` has one bookmark with `["websites","tools"]` and two plain `octo:octothorpes` links with no terms — but `/get/everything/posted` was returning all three with `terms: ["tools","websites"]`.

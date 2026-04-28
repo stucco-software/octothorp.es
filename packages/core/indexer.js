@@ -291,40 +291,53 @@ export const createIndexer = (deps) => {
     `)
   }
 
-  const createMention = async (s, o) => {
-    console.log(`create mention…`)
-    let now = Date.now()
-    let url = new URL(s)
-    return await insert(`
+  // Triple-builder helpers: produce raw triple strings (no INSERT DATA wrapper)
+  // so handleMention can batch multiple writes into a single SPARQL update.
+  const mentionTriples = (s, o, now) => {
+    const url = new URL(s)
+    return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
       <${url.origin}> octo:verified "true" .
       <${url.origin}> rdf:type <octo:Origin> .
       <${o}> rdf:type <octo:Page>.
-
-    `)
+    `
   }
 
-  const createBacklink = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
-    const base = inst || instance
-    console.log(`create backlink… (${subtype})${terms.length ? ` with terms: ${terms.join(', ')}` : ''}`)
-    let now = Date.now()
+  const termTriples = (o, base, now) => `
+      <${base}~/${o}> octo:created ${now} .
+      <${base}~/${o}> rdf:type <octo:Term> .
+    `
 
-    let triples = `
+  const usageTriples = (o, base, now) => `
+      <${base}~/${o}> octo:used ${now} .
+    `
+
+  const backlinkTriples = (s, o, subtype, terms, base, now) => {
+    let t = `
       <${s}> ${p} _:backlink .
         _:backlink octo:created ${now} .
         _:backlink octo:url <${o}> .
         _:backlink rdf:type <octo:${subtype}> .
     `
-
     for (const term of terms) {
-      triples += `
+      t += `
         _:backlink ${p} <${base}~/${term}> .
       `
     }
+    return t
+  }
 
-    return await insert(triples)
+  const createMention = async (s, o) => {
+    console.log(`create mention…`)
+    return await insert(mentionTriples(s, o, Date.now()))
+  }
+
+  const createBacklink = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
+    const base = inst || instance
+    console.log(`create backlink… (${subtype})${terms.length ? ` with terms: ${terms.join(', ')}` : ''}`)
+    return await insert(backlinkTriples(s, o, subtype, terms, base, Date.now()))
   }
 
   const createWebring = async (s) => {
@@ -501,7 +514,16 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     const subj = deslash(s)
     const obj = deslash(o)
-    const isObjWebring = await extantPage(obj, "Webring")
+
+    // Phase 1: parallel reads. All existence checks are independent.
+    // On production each SPARQL ASK is ~1–2s; running them sequentially with
+    // typed-relationship terms used to push handleMention past the 15s ceiling.
+    const [isObjWebring, isExtantMention, isExtantbacklink, ...termExists] = await Promise.all([
+      extantPage(obj, "Webring"),
+      extantMention(subj, obj),
+      extantBacklink(subj, obj),
+      ...terms.map(term => extantTerm(term, { instance: base })),
+    ])
 
     if (isObjWebring) {
       const domain = await getDomainForUrl(subj)
@@ -516,23 +538,26 @@ export const createIndexer = (deps) => {
       console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked)
     }
 
-    let isExtantMention = await extantMention(subj, obj)
-    console.log(`isExtantMention?`, isExtantMention)
+    // Phase 2: batch all conditional writes into a single INSERT DATA update.
+    const now = Date.now()
+    const blocks = []
+
     if (!isExtantMention) {
-      await createMention(subj, obj)
+      blocks.push(mentionTriples(subj, obj, now))
     }
-    let isEndorsed = await checkEndorsement(subj, obj)
-    let isExtantbacklink = await extantBacklink(subj, obj)
-    console.log(`isExtantbacklink?`, isExtantbacklink)
+
     if (!isExtantbacklink) {
-      for (const term of terms) {
-        const isExtantTerm = await extantTerm(term, { instance: base })
-        if (!isExtantTerm) {
-          await createTerm(term, { instance: base })
+      terms.forEach((term, i) => {
+        if (!termExists[i]) {
+          blocks.push(termTriples(term, base, now))
         }
-        await recordUsage(subj, term, { instance: base })
-      }
-      await createBacklink(subj, obj, subtype, terms, { instance: base })
+        blocks.push(usageTriples(term, base, now))
+      })
+      blocks.push(backlinkTriples(subj, obj, subtype, terms, base, now))
+    }
+
+    if (blocks.length > 0) {
+      await insert(blocks.join('\n'))
     }
   }
 
