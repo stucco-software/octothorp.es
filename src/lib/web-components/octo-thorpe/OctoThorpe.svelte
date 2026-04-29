@@ -21,11 +21,15 @@
   // Behavior
   export let autoload = false;  // Auto-load on mount
   export let render = 'compact';   // Render mode: list, cards, compact, count
+  export let nopreload = false; // Opt out of injecting the preload link
 
   // Create the query store (always queries pages/thorped)
   const query = createOctoQuery('pages', 'thorped');
 
   let hasLoaded = false;
+  let rootEl;
+  // Term displayed in the summary; resolved in onMount from `o` or light-DOM text.
+  let displayTerm = o;
 
   // Load function
   async function load() {
@@ -50,8 +54,42 @@
     }
   }
 
-  // Auto-load on mount if requested
+  // Inject a <link rel="preload" as="fetch"> pointing at the indexing endpoint.
+  // Mirrors the legacy static/tag.js behavior: if a preload link with an empty
+  // href already exists, fill it; otherwise append a new one to <head>.
+  function injectPreloadLink() {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    const href = `${server}?uri=${encodeURI(window.location.href)}`;
+    const existing = document.querySelector('link[rel="preload"][as="fetch"]');
+    if (existing) {
+      const current = (existing.getAttribute('href') || '').trim();
+      if (!current) existing.setAttribute('href', href);
+      return;
+    }
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'preload');
+    link.setAttribute('as', 'fetch');
+    link.setAttribute('href', href);
+    document.head.appendChild(link);
+  }
+
   onMount(() => {
+    // Resolve term: explicit `o` attribute wins; otherwise read light-DOM text
+    // off the custom element host, matching tag.js's `node.innerText.trim()`.
+    if (!o) {
+      const host = rootEl?.getRootNode?.().host;
+      const text = host?.textContent?.trim();
+      if (text) {
+        o = text;
+        displayTerm = text;
+      }
+    }
+
+    // Inject preload unless explicitly disabled
+    if (!(nopreload === true || nopreload === 'true' || nopreload === '')) {
+      injectPreloadLink();
+    }
+
     if (autoload || autoload === '') {
       load();
     }
@@ -62,17 +100,19 @@
 
 {#if render === 'count'}
   <!-- Just show the count -->
-  {#if $query.loading}
-    <span class="count-loading">…</span>
-  {:else if $query.error}
-    <span class="count-error">✗</span>
-  {:else}
-    <span class="count">{$query.count}</span>
-  {/if}
+  <span bind:this={rootEl} class="count-wrap">
+    {#if $query.loading}
+      <span class="count-loading">…</span>
+    {:else if $query.error}
+      <span class="count-error">✗</span>
+    {:else}
+      <span class="count">{$query.count}</span>
+    {/if}
+  </span>
 
 {:else if render === 'compact'}
-  <details class="compact" on:toggle={handleToggle}>
-    <summary>{o || 'octothorpes'}</summary>
+  <details bind:this={rootEl} class="compact" on:toggle={handleToggle}>
+    <summary>{displayTerm || 'octothorpes'}</summary>
     {#if $query.loading}
       <p class="compact-status">Loading…</p>
     {:else if $query.error}
@@ -92,11 +132,11 @@
 
 {:else}
   <!-- Full component display -->
-  <div class="octo-thorpe">
+  <div bind:this={rootEl} class="octo-thorpe">
 
     {#if !$query.results.length && !$query.loading && !$query.error}
       <button on:click={load} class="load-button">
-        Load pages tagged "{o || 'octothorpes'}"
+        Load pages tagged "{displayTerm || 'octothorpes'}"
       </button>
     {/if}
 
@@ -169,7 +209,7 @@
   /* CSS Custom Properties - all customizable */
   :host {
     --octo-font: system-ui, -apple-system, sans-serif;
-    --octo-primary: #00E;
+    --octo-primary: blue;
     --octo-background: #ffffff;
     --octo-text: #333333;
     --octo-border: #e0e0e0;
