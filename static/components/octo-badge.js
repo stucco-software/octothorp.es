@@ -100,7 +100,7 @@ function create_fragment(ctx) {
   };
 }
 function instance($$self, $$props, $$invalidate) {
-  let { server = "https://octothorp.es" } = $$props;
+  let { server = new URL(import.meta.url).origin } = $$props;
   let { uri = "" } = $$props;
   let { as = "" } = $$props;
   let badgeUrl = "";
