@@ -20,7 +20,7 @@
 <script>
   import { onMount } from 'svelte';
 
-  export let server = 'https://octothorp.es';
+  export let server = new URL(import.meta.url).origin;
   export let uri = '';
   export let as = '';
 

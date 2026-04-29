@@ -33,7 +33,7 @@
   // STANDARD PROPS - Copy these for every component
   // ============================================================================
   
-  export let server = 'https://octothorp.es';
+  export let server = new URL(import.meta.url).origin;
   export let s = '';           // Subjects (domains) - comma-separated
   export let o = '';           // Objects (terms/URLs) - comma-separated
   export let nots = '';        // Exclude subjects

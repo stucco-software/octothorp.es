@@ -45,7 +45,7 @@ export function createOctoQuery(what, by) {
    */
   async function fetch(params = {}) {
     const {
-      server = 'https://octothorp.es',
+      server = new URL(import.meta.url).origin,
       s = '',
       o = '',
       nots = '',
