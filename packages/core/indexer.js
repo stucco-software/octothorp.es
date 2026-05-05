@@ -770,7 +770,9 @@ export const createIndexer = (deps) => {
     // 7. Cooldown
     let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
     if (isRecentlyIndexed) {
-      throw new Error('This page has been recently indexed.')
+      const w = new Error('This page has been recently indexed.')
+      w.isWarning = true
+      throw w
     }
 
     // 8. Process (reuse prefetched content from policy check)

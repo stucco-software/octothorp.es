@@ -672,7 +672,7 @@ const handler = async (s, harmonizer = "default", requestingOrigin) => {
   // 3. Check if recently indexed (cooldown)
   let isRecentlyIndexed = await recentlyIndexed(s)
   if (isRecentlyIndexed) {
-    return error(429, 'This page has been recently indexed.')
+    return json({ status: 'warning', message: 'This page has been recently indexed.' }, { status: 200 })
   }
 
   // 4. Fetch and process the page
