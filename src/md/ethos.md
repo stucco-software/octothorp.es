@@ -55,15 +55,14 @@ How we implement these principles:
 - all official OP code is open source and public
 - we manually review every registration for our own server
 - our indexing system requires registered sites to actively request that we look at their site
-- the [indexing policy] system allows sites that cannot actively request indexing to expressly declare permission
+- the [indexing policy](https://docs.octothorp.es/indexing-policy/) system allows sites that cannot actively request indexing to expressly declare permission
 - we respect robots.txt restrictions
 - we send an identifiable user-agent header when scraping
 - we have an openly accessible API
 - we provide lightweight HTML snippets, web components, and basic JS scripts to make participation as easy as possible
 - the backend does not require intensive resources to host
-- the [harmonizer] system allows sites to use their own custom markup to send us data
-- the [multipass] system allows users to build and save their own highly filtered and customized feeds
-- 
+- the [harmonizer](https://docs.octothorp.es/harmonizers/) system allows sites to use their own custom markup to send us data
+- the [multipass](https://docs.octothorp.es/multipass/) system allows users to build and save their own highly filtered and customized feeds
 
 
 ## Upcoming improvements
