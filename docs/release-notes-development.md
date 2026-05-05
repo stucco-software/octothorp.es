@@ -336,3 +336,11 @@ Ported the on-page policy security model from `main` into the development branch
 
 **Files affected:** `packages/core/harmonizers.js`, `packages/core/indexer.js`, `src/routes/badge/+server.js`, `src/routes/indexwrapper/+server.js`, `src/tests/indexing.test.js`, `src/tests/badge-route.test.js`
 **Plan:** `docs/plans/on-page-policy-fix-for-development.md`
+
+## Web components default `server` to the script's source origin (untracked)
+
+Web components no longer require an explicit `server` attribute. The default for `server` now uses `new URL(import.meta.url).origin`, so a component loaded from `https://myserver.example/components/octo-thorpe.js` will query `https://myserver.example` automatically. The attribute is still accepted as an override for cross-server usage. Applies to `<octo-thorpe>`, `<octo-backlinks>`, `<octo-badge>`, and the shared component template/store.
+
+**Files affected:** `src/lib/web-components/octo-thorpe/OctoThorpe.svelte`, `src/lib/web-components/octo-backlinks/OctoBacklinks.svelte`, `src/lib/web-components/octo-badge/OctoBadge.svelte`, `src/lib/web-components/shared/COMPONENT_TEMPLATE.svelte`, `src/lib/web-components/shared/octo-store.js`
+
+**Docs/demo updates:** `doctothorpes/button-indexing.md`, `doctothorpes/component-reference.md`, `octodemo/needswork/web-components.md` (also updated to document `<octo-thorpe>` text-content syntax + `nopreload` attribute parity with `tags.js`).
