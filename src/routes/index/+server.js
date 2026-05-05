@@ -7,7 +7,6 @@ import { parseUri } from '$lib/uri.js'
 const knownErrors = [
   'not registered',
   'Rate limit',
-  'recently indexed',
   'different origin',
   'Harmonizer not allowed',
   'Invalid URI',
@@ -18,7 +17,6 @@ const knownErrors = [
 const mapErrorToStatus = (message) => {
   if (message.includes('not registered')) return 401
   if (message.includes('Rate limit')) return 429
-  if (message.includes('recently indexed')) return 429
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
   if (message.includes('not opted in')) return 403
@@ -34,6 +32,9 @@ const corsHeaders = {
 
 const errorResponse = (message, status) =>
   json({ error: message, message }, { status, headers: corsHeaders })
+
+const warningResponse = (message) =>
+  json({ status: 'warning', message }, { status: 200, headers: corsHeaders })
 
 const withCors = (res) => {
   const headers = new Headers(res.headers)
@@ -66,6 +67,7 @@ export async function GET(req) {
     const res = await handler(uri, harmonizer, requestOrigin, config())
     return withCors(res)
   } catch (e) {
+    if (e.message.includes('recently indexed')) return warningResponse(e.message)
     console.error('index GET error:', e)
     return errorResponse(e.message, mapErrorToStatus(e.message))
   }
@@ -102,6 +104,7 @@ export async function POST({ request }) {
       indexed_at: Date.now()
     }, { status: 200, headers: corsHeaders })
   } catch (e) {
+    if (e.message.includes('recently indexed')) return warningResponse(e.message)
     console.error('Indexing error:', e)
     return errorResponse(e.message, mapErrorToStatus(e.message))
   }
