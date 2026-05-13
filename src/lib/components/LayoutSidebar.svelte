@@ -1,24 +1,13 @@
-<div class="layout">
- 
-
-  <main >
+<div class="split split--wide op-layout">
+  <main>
     <slot name="main"></slot>
   </main>
 </div>
 
 <style>
-  .layout {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2ch;
-  }
-
-
-
-  main {
-/*    padding-block-start: var(--baseline);*/
-    flex-basis: 0;
-    flex-grow: 999;
-    min-inline-size: 75%;
+  /* extend lewk .split — on small screens the slot collapses to one column;
+   * the aside slot is unused on most routes so we don't render it */
+  .op-layout {
+    align-items: start;
   }
 </style>

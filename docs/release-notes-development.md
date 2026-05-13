@@ -2,6 +2,24 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## lewk CSS foundation pilot
+
+Adopted the local **lewk** editorial CSS framework as OP's styling foundation while preserving OP's visual identity. This is a foundation swap, not a redesign: only the visible "frame" of the site (Header, Nav, Footer, layout shell) gets refactored to use lewk primitives; per-component and per-route styles inherit the new tokens via a compatibility shim.
+
+**What changed:**
+- **`static/lewk.css`** (new): Copy of `~/dev/lewk/lewk.css` — tokens, layout primitives (`.page`, `.section`, `.split`, `.rails-*`), and components (`.nav`, `.footer`, `.card`, `.cluster`).
+- **`static/op-theme.css`** (new, replaces `static/var.css`): Defines `[data-theme="op"]` (maps OP's brand colors — `#011C27`/`#f2f2f2`/`#3c7efb` — to lewk's `--fg`/`--bg`/`--accent`, pins fonts to Instrument Serif / Inter / OCRA) plus a ~30-line compatibility shim aliasing legacy OP tokens (`--txt-color`, `--baseline`, `--sans-stack`, `--txt-*`, `--lead-*`, etc.) to lewk equivalents. Removed `static/var.css`.
+- **`src/app.html`**: Added `data-theme="op"` to `<html>`. Stylesheet load order is now `reset → lewk → fonts → op-theme → global`.
+- **`src/lib/components/Header.svelte`**: Trimmed inline padding (lewk's body padding handles page gutters); uses `--rule-strong` for the dividing hairline.
+- **`src/lib/components/Nav.svelte`**: Replaced the custom grid/list with lewk's `.nav` class on a flat `<nav>`; extends via `.op-nav` to center the row.
+- **`src/lib/components/Footer.svelte`**: Applies lewk's `.footer` class; uses `.cluster` for the link row; `.op-footer` overrides ui-typography to keep the existing body-text feel.
+- **`src/lib/components/LayoutSidebar.svelte`**: Replaced the ad-hoc flex `.layout` with lewk's `.split split--wide`.
+- **`src/routes/+layout.svelte`**: Page container now uses lewk's `.page`; trimmed redundant inline padding.
+
+**Spec:** `docs/superpowers/specs/2026-05-13-lewk-pilot-design.md` (includes the deferred-work checklist for follow-up component/route migrations and token cleanup).
+
+Affected files: `static/lewk.css` (new), `static/op-theme.css` (new), `static/var.css` (deleted), `src/app.html`, `src/lib/components/Header.svelte`, `src/lib/components/Nav.svelte`, `src/lib/components/Footer.svelte`, `src/lib/components/LayoutSidebar.svelte`, `src/routes/+layout.svelte`, `docs/superpowers/specs/2026-05-13-lewk-pilot-design.md` (new).
+
 ## Indexing timeout on typed relationships with terms (backport from `main`)
 
 Mirrored the `handleMention` parallelization + write-batching fix shipped on `main` into `packages/core/indexer.js`. `handleMention` now runs all existence checks (`extantPage` for webring, `extantMention`, `extantBacklink`, and one `extantTerm` per term) in parallel via `Promise.all`, then concatenates every conditional write (mention triples, missing term creations, per-term usage timestamps, and the backlink blank node) into a single `INSERT DATA` call. Cuts a 2-term mention from ~7 sequential SPARQL round trips down to 2, keeping production indexing inside the 15s ceiling. Triple-builder helpers (`mentionTriples`, `termTriples`, `usageTriples`, `backlinkTriples`) extracted so the existing `createMention` / `createBacklink` factory exports keep their behavior. Dropped a dead `checkEndorsement` call whose result was never read.

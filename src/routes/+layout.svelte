@@ -3,7 +3,7 @@
   import LayoutSidebar from '$lib/components/LayoutSidebar.svelte'
   import Header from '$lib/components/Header.svelte'
   import Nav from '$lib/components/Nav.svelte'
-  import Footer from '$lib/components/Footer.svelte'  
+  import Footer from '$lib/components/Footer.svelte'
   export let data
 </script>
 
@@ -11,7 +11,7 @@
 
 <Header host={data.host} />
 
-<div class="container">
+<div class="page op-page">
   <LayoutSidebar>
     <Nav slot="aside" />
     <slot slot="main"></slot>
@@ -22,8 +22,8 @@
 
 
 <style type="text/css">
-  .container {
-    padding-inline: 2ch;
-    padding-block-start: var(--baseline);
+  /* lewk's body already provides --page-pad-x/y; just add top breathing room */
+  .op-page {
+    padding-block-start: var(--sp-4);
   }
 </style>

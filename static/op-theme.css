@@ -1,0 +1,74 @@
+/* op-theme.css — OP brand theme on top of lewk.
+ * Loaded after lewk.css so its values override.
+ * Replaces the legacy static/var.css token set.
+ */
+
+/* OP theme — overrides lewk's base pair + fonts. */
+[data-theme="op"] {
+  --fg: #011C27;       /* legacy --dark-blue */
+  --bg: #f2f2f2;       /* legacy --light-gray */
+  --accent: #3c7efb;   /* legacy --light-blue */
+
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-sans:  "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:  "OCRA", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-body:    var(--font-serif);
+  --font-display: var(--font-sans);
+  --font-ui:      var(--font-mono);
+}
+
+/* Compatibility shim — legacy OP tokens still referenced across
+ * components and routes. Resolved to lewk equivalents.
+ * Remove entries as components/routes are migrated. */
+:root {
+  /* color */
+  --txt-color:  var(--fg);
+  --bg-color:   var(--bg);
+  --dark-blue:  var(--fg);
+  --light-blue: var(--accent);
+  --pale-green: var(--buffer);
+
+  /* one-offs still referenced — kept literal until audited */
+  --white:      #fbfbfb;
+  --light-gray: #f2f2f2;
+  --gray:       #dcdcdc;
+  --dark-gray:  #b0b0b0;
+  --black:      #2e2e2e;
+  --bios-gray:  #AAA;
+  --grid-color: #d3d3d3;
+
+  /* type stacks */
+  --serif-stack: var(--font-serif);
+  --sans-stack:  var(--font-sans);
+  --mono-stack:  var(--font-mono);
+
+  /* vertical rhythm — not a theme value, kept */
+  --baseline:   1.5rem;
+  --tracking:   0;
+  --track-ratio: .72;
+
+  /* type scale — OP --txt-* mapped to lewk --fs-* (closest match) */
+  --txt--2: var(--fs-1);
+  --txt--1: var(--fs-2);
+  --txt-0:  var(--fs-3);
+  --txt-1:  var(--fs-4);
+  --txt-2:  var(--fs-5);
+  --txt-3:  var(--fs-6);
+  --txt-4:  var(--fs-7);
+
+  /* leading — kept at current values; not worth re-deriving */
+  --lead-quarter:      0.25rem;
+  --lead-half:         0.5rem;
+  --lead-three-fourth: 0.75rem;
+  --lead-1:            1rem;
+  --lead-1-half:       1.5rem;
+  --lead-2:            2rem;
+  --lead-3:            3rem;
+  --lead-4:            4rem;
+  --lead-6:            6rem;
+
+  /* legacy grid tokens — preserved for any remaining consumers */
+  --grid-max-width: 64rem;
+  --grid-gutter:    var(--gutter);
+  --grid-columns:   12;
+}
