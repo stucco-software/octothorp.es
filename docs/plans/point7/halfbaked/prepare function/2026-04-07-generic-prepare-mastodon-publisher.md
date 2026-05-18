@@ -1,3 +1,8 @@
+# Nimnotes
+
+Some work has been done on this, but it might not be fully baked. full review required
+
+
 # Generic `prepare()` + Mastodon Publisher Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

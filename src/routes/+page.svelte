@@ -25,24 +25,22 @@
 
 </div>
 
-<div class="dotgrid">
-  <div class="dashboard">
-    <section class="testimonial">
-      <p>The latest web nerd feature.</p>
-      <p class="attribution">—&nbsp;Anil Dash</p>
-    </section>
-    <section class="testimonial">
-      <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
-      <p class="attribution"><a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">—&nbsp;Ludic</a></p>
-    </section>
-    <section class="testimonial">
-      <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
-      <p class="attribution"><a href="https://news.ycombinator.com/item?id=41761873">—&nbsp;Some dude on hackernews</a></p>
-    </section>
-  </div>
+<section class="rails rails-3 testimonials">
+  <blockquote class="testimonial">
+    <p>The latest web nerd feature.</p>
+    <p class="attribution">—&nbsp;Anil Dash</p>
+  </blockquote>
+  <blockquote class="testimonial">
+    <p>You've built something that has enriched a human life a little bit! That's rad as hell.</p>
+    <p class="attribution"><a href="https://mastodon.sprawl.club/@ludicity/113354467436519124">—&nbsp;Ludic</a></p>
+  </blockquote>
+  <blockquote class="testimonial">
+    <p>The whole thing is clearly half-baked, written by someone who doesn't understand the meanings and reasons for things.</p>
+    <p class="attribution"><a href="https://news.ycombinator.com/item?id=41761873">—&nbsp;Some dude on hackernews</a></p>
+  </blockquote>
+</section>
 
-  <Contribute />
-</div>
+<Contribute />
 
 
 <div class="breaking">
@@ -58,7 +56,6 @@
       <p>This is an <a href="https://octothorpe.es/about">Octothorpe relay</a> that lets you use hashtags and backlinks on your blog.</p>
       <p>It's only open to blogs using the Bear platform.</p>
     {:else}
-      <!-- <p>Please stand by while we resolve resolve technical difficulties.</p> -->
       <img
         class="launch"
         src="/duplu_plane.avif">
@@ -73,68 +70,41 @@
 
   h1 {
     text-align: center;
-    font-family: var(--serif-stack);
+    font-family: var(--font-serif);
     font-weight: 400;
-    font-size: var(--txt-4);
-    line-height: 1.1;
+    font-size: var(--fs-7);
+    line-height: var(--leading-tight);
   }
   .title-card p {
-    font-size: var(--txt-1);
-    line-height: 1.1;
+    font-size: var(--fs-4);
+    line-height: var(--leading-tight);
     max-width: 18em;
     margin: auto;
-    margin-block-end: var(--lead-2);
+    margin-block-end: var(--sp-5);
   }
 
-  .dashboard {
-    font-family: "DOS";
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4ch;
-    grid-auto-rows: max-content
+  /* lewk rails-3 — three equal columns with vertical hairlines, no chrome */
+  .testimonials {
+    margin-block: var(--sp-5);
   }
-  @media (max-width: 800px) {
-    .dashboard {
-      grid-template-columns: repeat(1, 1fr);
-    }
-
-  }
-
-
-  .dashboard section, .dashboard p span {
-    background-color: lightgoldenrodyellow;
-    outline: 1ch solid var(--bg-color);
-    }
-  .dashboard section {
-    padding: 1ch 1ch 2ch 1ch;
-  }
-  section.testimonial {
-    border: 1px solid var(--txt-color);
-    background-color: var(--bg-color);
-    filter: drop-shadow(1ch 1ch 1px var(--bios-gray));
+  .testimonial {
+    margin: 0;
     display: flex;
     flex-direction: column;
   }
-
-  section.testimonial p {
-    font-size: var(--txt-0);
-    line-height: 1.1;
-    margin-block-end: 1rem;
-    padding: .5ch;
-    color: var(--txt-color);
+  .testimonial p {
+    font-size: var(--fs-3);
+    line-height: var(--leading-body);
+    margin: 0 0 var(--sp-2);
+    color: var(--text-color);
   }
-
-  section.testimonial p:hover {
-    color: blue;
-  }
-  hr {
-    border: 2px dashed var(--bg-color);
-  }
-
-  .attribution {
+  .testimonial .attribution {
     text-align: right;
     margin-block-start: auto;
-}
+    color: var(--muted-color);
+    font-family: var(--font-ui);
+    font-size: var(--fs-2);
+  }
 
   .breaking {
     max-width: 24rem;
@@ -150,25 +120,24 @@
     text-align: center;
   }
   .breaking header h2 {
-    font-family: var(--serif-stack);
-    font-size: var(--txt-1);
+    font-family: var(--font-serif);
+    font-size: var(--fs-4);
     margin-block: 0;
   }
   .breaking  h3 {
-    font-family: var(--serif-stack);
-    font-size: var(--txt-0);
+    font-family: var(--font-serif);
+    font-size: var(--fs-3);
     margin-block-end: 0.5rem;
     margin-block-start: 0.5rem;
   }
   .breaking header p {
-    /*letter-spacing: -0.2ch;*/
     font-weight: bold;
-    font-family: var(--sans-stack);
-    font-size: var(--txt--1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-2);
   }
   .breaking p {
-    font-family: var(--sans-stack);
-    font-size: var(--txt--1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-2);
     line-height: 1.3;
   }
   .launch {
