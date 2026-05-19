@@ -128,13 +128,8 @@ export const createClient = (config) => {
 
     if (content !== undefined) {
       const blobject = await harmonize(content, harmonizer)
-      blobject['@id'] = uri
-      await indexer.handleHTML(
-        { text: async () => (typeof content === 'string' ? content : JSON.stringify(content)) },
-        uri,
-        harmonizer,
-        { instance: config.instance }
-      )
+      if (blobject['@id'] === 'source') blobject['@id'] = uri
+      await indexer.ingestBlobject(blobject, { instance: config.instance })
       return { uri, indexed_at: Date.now() }
     }
 
