@@ -1,7 +1,13 @@
 import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
-import { parseBindings, rss } from 'octothorpes'
+import { parseBindings, rss, createPublisherRegistry, publish } from 'octothorpes'
+import { publishers as sitePublishers } from '$lib/publishers/index.js'
 import { error, redirect, json } from '@sveltejs/kit';
+
+const publisherRegistry = createPublisherRegistry()
+for (const [name, pub] of Object.entries(sitePublishers)) {
+  try { publisherRegistry.register(name, pub) } catch (_) { /* already registered */ }
+}
 
 
 export async function load({ params, url }) {
@@ -91,9 +97,26 @@ export async function load({ params, url }) {
       return {
         rss: rss(rssTree, params.what)
       };
-    default:
-    return { results: actualResults }
-    break
+    default: {
+      const publisher = params.as ? publisherRegistry.getPublisher(params.as) : null
+      if (publisher) {
+        const items = publish(actualResults, publisher.schema)
+        // For RSS-shaped publishers (those with channel meta), build per-request channel
+        const channel = publisher.meta?.channel ? {
+          title: multiPass.meta?.title,
+          description: multiPass.meta?.description,
+          link: url.href,
+          pubDate: new Date().toUTCString(),
+        } : publisher.meta
+        const rendered = publisher.render(items, channel)
+        return {
+          rendered,
+          contentType: publisher.contentType,
+          publisher: params.as,
+        }
+      }
+      return { results: actualResults }
+    }
   }
 
 }

@@ -16,7 +16,7 @@ const _registry = createPublisherRegistry()
 const getPublisher = _registry.getPublisher
 const listPublishers = _registry.listPublishers
 const rssResolver = getPublisher('rss2')?.schema
-const atprotoDocument = getPublisher('atproto')?.schema
+const standardSiteDocument = getPublisher('standardSiteDocument')?.schema
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {
@@ -475,8 +475,8 @@ describe('Publisher System', () => {
       expect(result.error).toContain('@context')
     })
 
-    it('should load the ATProto document resolver from JSON', () => {
-      const result = loadResolver(atprotoDocument)
+    it('should load the standardSiteDocument resolver from JSON', () => {
+      const result = loadResolver(standardSiteDocument)
       expect(result.valid).toBe(true)
       expect(result.resolver['@context']).toBe('https://standard.site/')
       expect(result.resolver.meta.lexicon).toBe('site.standard.document')
@@ -515,38 +515,36 @@ describe('Publisher System', () => {
     })
   })
 
-  describe('ATProto Document Resolver', () => {
-    it('should validate the ATProto resolver schema', () => {
-      const result = validateResolver(atprotoDocument)
+  describe('standardSiteDocument Resolver', () => {
+    it('should validate the standardSiteDocument resolver schema', () => {
+      const result = validateResolver(standardSiteDocument)
       expect(result.valid).toBe(true)
     })
 
-    it('should resolve blobject to ATProto document format', () => {
+    it('should resolve blobject to standardSiteDocument format', () => {
       const blobject = {
         '@id': 'https://example.com/my-blog-post',
         title: 'My Blog Post',
         date: new Date('2024-06-21T12:00:00Z').getTime(),
         description: 'A post about the decentralized web',
         octothorpes: ['indieweb', 'atproto', { type: 'link', uri: 'https://example.com' }],
-        image: 'https://example.com/image.jpg'
       }
 
-      const result = resolve(blobject, atprotoDocument)
+      const result = resolve(blobject, standardSiteDocument)
 
-      expect(result.url).toBe('https://example.com/my-blog-post')
+      expect(result.site).toBe('https://example.com/my-blog-post')
       expect(result.title).toBe('My Blog Post')
       expect(result.publishedAt).toBe('2024-06-21T12:00:00.000Z')
       expect(result.description).toBe('A post about the decentralized web')
       expect(result.tags).toEqual(['indieweb', 'atproto'])
-      expect(result.image).toBe('https://example.com/image.jpg')
     })
 
     it('should return null when required fields are missing', () => {
       const blobject = {
-        title: 'No url or date'
+        description: 'No site or title'
       }
 
-      const result = resolve(blobject, atprotoDocument)
+      const result = resolve(blobject, standardSiteDocument)
       expect(result).toBeNull()
     })
 
@@ -555,16 +553,15 @@ describe('Publisher System', () => {
         '@id': 'https://example.com/post',
         title: 'Minimal Post',
         date: Date.now()
-        // no description, tags, image
+        // no description, tags
       }
 
-      const result = resolve(blobject, atprotoDocument)
+      const result = resolve(blobject, standardSiteDocument)
 
-      expect(result.url).toBe('https://example.com/post')
+      expect(result.site).toBe('https://example.com/post')
       expect(result.title).toBe('Minimal Post')
       expect(result).not.toHaveProperty('description')
       expect(result).not.toHaveProperty('tags')
-      expect(result).not.toHaveProperty('image')
     })
 
     it('should format dates as ISO 8601', () => {
@@ -574,7 +571,7 @@ describe('Publisher System', () => {
         date: new Date('2024-06-21T12:00:00Z').getTime()
       }
 
-      const result = resolve(blobject, atprotoDocument)
+      const result = resolve(blobject, standardSiteDocument)
 
       expect(result.publishedAt).toBe('2024-06-21T12:00:00.000Z')
     })
@@ -593,7 +590,7 @@ describe('Publisher System', () => {
         ]
       }
 
-      const result = resolve(blobject, atprotoDocument)
+      const result = resolve(blobject, standardSiteDocument)
 
       expect(result.tags).toEqual(['tag1', 'tag2', 'tag3'])
     })
@@ -604,7 +601,7 @@ describe('Publisher System', () => {
         date: new Date('2024-06-21').getTime()
       }
 
-      const result = resolve(blobject, atprotoDocument)
+      const result = resolve(blobject, standardSiteDocument)
 
       expect(result.title).toBe('https://example.com/untitled')
     })
