@@ -362,3 +362,10 @@ Web components no longer require an explicit `server` attribute. The default for
 **Files affected:** `src/lib/web-components/octo-thorpe/OctoThorpe.svelte`, `src/lib/web-components/octo-backlinks/OctoBacklinks.svelte`, `src/lib/web-components/octo-badge/OctoBadge.svelte`, `src/lib/web-components/shared/COMPONENT_TEMPLATE.svelte`, `src/lib/web-components/shared/octo-store.js`
 
 **Docs/demo updates:** `doctothorpes/button-indexing.md`, `doctothorpes/component-reference.md`, `octodemo/needswork/web-components.md` (also updated to document `<octo-thorpe>` text-content syntax + `nopreload` attribute parity with `tags.js`).
+
+## `prepare()` made protocol-agnostic (Wave 0b)
+
+- **`prepare()` no longer takes a `protocol` option and no longer returns a `collection` field.** It now returns `meta` (the full publisher meta object) instead, so any bridge or consumer can pull what it needs (e.g. `result.meta.lexicon` for ATProto, `result.meta.name` for display). Removes the ATProto-shaped assumption baked into the previous signature.
+
+**Files affected:** `packages/core/index.js`, `src/tests/publish-core.test.js`
+**Plan:** `docs/plans/point7/2026-05-19-generic-prepare.md`
