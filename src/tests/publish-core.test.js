@@ -430,24 +430,22 @@ describe('bluesky publisher', () => {
   })
 
   describe('prepare() compatibility', () => {
-    const prepare = (data, publisherName, options = {}) => {
+    const prepare = (data, publisherName) => {
       const pub = typeof publisherName === 'string'
         ? registry.getPublisher(publisherName)
         : publisherName
       if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
       const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
-      if (options.protocol === 'atproto' && !pub.meta?.lexicon) {
-        throw new Error(`Publisher "${name}" is not compatible with protocol 'atproto' (no lexicon)`)
-      }
       const normalized = Array.isArray(data) ? data : (data.results || [])
       const items = publish(normalized, pub.schema)
       const records = pub.render(items, pub.meta)
-      return { records, collection: pub.meta?.lexicon ?? null, contentType: pub.contentType, publisher: name }
+      return { records, meta: pub.meta ?? {}, contentType: pub.contentType, publisher: name }
     }
 
-    it('should work with { protocol: "atproto" } assertion', () => {
-      const result = prepare([sampleBlobject], 'bluesky', { protocol: 'atproto' })
-      expect(result.collection).toBe('app.bsky.feed.post')
+    it('should return records, meta, contentType, and publisher name', () => {
+      const result = prepare([sampleBlobject], 'bluesky')
+      expect(result.meta.lexicon).toBe('app.bsky.feed.post')
+      expect(result.meta.name).toBe('Bluesky Post')
       expect(result.records).toHaveLength(1)
       expect(result.contentType).toBe('application/json')
       expect(result.publisher).toBe('bluesky')
@@ -464,7 +462,7 @@ describe('prepare (via createClient)', () => {
   const registry = createPublisherRegistry()
 
   // Mirror the prepare() implementation from index.js
-  const prepare = (data, publisherName, options = {}) => {
+  const prepare = (data, publisherName) => {
     const pub = typeof publisherName === 'string'
       ? registry.getPublisher(publisherName)
       : publisherName
@@ -472,16 +470,12 @@ describe('prepare (via createClient)', () => {
 
     const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
 
-    if (options.protocol === 'atproto' && !pub.meta?.lexicon) {
-      throw new Error(`Publisher "${name}" is not compatible with protocol 'atproto' (no lexicon)`)
-    }
-
     const normalized = Array.isArray(data) ? data : (data.results || [])
     const items = publish(normalized, pub.schema)
     const records = pub.render(items, pub.meta)
     return {
       records,
-      collection: pub.meta?.lexicon ?? null,
+      meta: pub.meta ?? {},
       contentType: pub.contentType,
       publisher: name,
     }
@@ -504,11 +498,11 @@ describe('prepare (via createClient)', () => {
     }
   ]
 
-  it('should return records, collection, contentType, and publisher name', () => {
+  it('should return records, meta, contentType, and publisher name', () => {
     const result = prepare(sampleBlobjects, 'standardSiteDocument')
     expect(result.records).toBeInstanceOf(Array)
     expect(result.records).toHaveLength(2)
-    expect(result.collection).toBe('site.standard.document')
+    expect(result.meta.lexicon).toBe('site.standard.document')
     expect(result.contentType).toBe('application/json')
     expect(result.publisher).toBe('standardSiteDocument')
   })
@@ -517,26 +511,16 @@ describe('prepare (via createClient)', () => {
     expect(() => prepare(sampleBlobjects, 'nonexistent')).toThrow(/Unknown publisher/)
   })
 
-  it('should work with any publisher when no protocol is specified', () => {
+  it('should work with any publisher', () => {
     const result = prepare(sampleBlobjects, 'rss2')
     expect(result.records).toBeDefined()
     expect(result.contentType).toBe('application/rss+xml')
   })
 
-  it('should return collection: null for publishers without a lexicon', () => {
+  it('should pass through meta for publishers without a lexicon', () => {
     const result = prepare(sampleBlobjects, 'rss2')
-    expect(result.collection).toBeNull()
-  })
-
-  it('should throw with { protocol: "atproto" } for publisher without lexicon', () => {
-    expect(() => prepare(sampleBlobjects, 'rss2', { protocol: 'atproto' }))
-      .toThrow(/not compatible with protocol 'atproto'/)
-  })
-
-  it('should succeed with { protocol: "atproto" } for publisher with lexicon', () => {
-    const result = prepare(sampleBlobjects, 'standardSiteDocument', { protocol: 'atproto' })
-    expect(result.collection).toBe('site.standard.document')
-    expect(result.records).toHaveLength(2)
+    expect(result.meta.lexicon).toBeUndefined()
+    expect(result.meta.name).toBe('RSS 2.0 Feed')
   })
 
   it('should handle empty results array', () => {
