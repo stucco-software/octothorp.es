@@ -97,7 +97,7 @@ describe('core publisher registry', () => {
       const names = registry.listPublishers()
       expect(names).toContain('rss2')
       expect(names).toContain('rss')
-      expect(names).toContain('atproto')
+      expect(names).toContain('standardSiteDocument')
     })
   })
 
@@ -121,8 +121,8 @@ describe('core publisher registry', () => {
       expect(pub.contentType).toBe('application/rss+xml')
     })
 
-    it('should return atproto publisher', () => {
-      const pub = registry.getPublisher('atproto')
+    it('should return standardSiteDocument publisher', () => {
+      const pub = registry.getPublisher('standardSiteDocument')
       expect(pub).not.toBeNull()
       expect(pub.contentType).toBe('application/json')
     })
@@ -143,9 +143,9 @@ describe('core publisher registry', () => {
     })
   })
 
-  describe('atproto render', () => {
+  describe('standardSiteDocument render', () => {
     it('should return items as-is', () => {
-      const pub = registry.getPublisher('atproto')
+      const pub = registry.getPublisher('standardSiteDocument')
       const items = [{ url: 'https://example.com', title: 'Test' }]
       const result = pub.render(items, {})
       expect(result).toEqual(items)
@@ -505,12 +505,12 @@ describe('prepare (via createClient)', () => {
   ]
 
   it('should return records, collection, contentType, and publisher name', () => {
-    const result = prepare(sampleBlobjects, 'atproto')
+    const result = prepare(sampleBlobjects, 'standardSiteDocument')
     expect(result.records).toBeInstanceOf(Array)
     expect(result.records).toHaveLength(2)
     expect(result.collection).toBe('site.standard.document')
     expect(result.contentType).toBe('application/json')
-    expect(result.publisher).toBe('atproto')
+    expect(result.publisher).toBe('standardSiteDocument')
   })
 
   it('should throw for unknown publisher', () => {
@@ -534,32 +534,32 @@ describe('prepare (via createClient)', () => {
   })
 
   it('should succeed with { protocol: "atproto" } for publisher with lexicon', () => {
-    const result = prepare(sampleBlobjects, 'atproto', { protocol: 'atproto' })
+    const result = prepare(sampleBlobjects, 'standardSiteDocument', { protocol: 'atproto' })
     expect(result.collection).toBe('site.standard.document')
     expect(result.records).toHaveLength(2)
   })
 
   it('should handle empty results array', () => {
-    const result = prepare([], 'atproto')
+    const result = prepare([], 'standardSiteDocument')
     expect(result.records).toEqual([])
   })
 
   it('should normalize response objects with results property', () => {
     const response = { results: sampleBlobjects }
-    const result = prepare(response, 'atproto')
+    const result = prepare(response, 'standardSiteDocument')
     expect(result.records).toHaveLength(2)
   })
 
   it('should normalize response objects without results property', () => {
     const response = {}
-    const result = prepare(response, 'atproto')
+    const result = prepare(response, 'standardSiteDocument')
     expect(result.records).toEqual([])
   })
 
-  it('should produce correct atproto record fields', () => {
-    const result = prepare(sampleBlobjects, 'atproto')
+  it('should produce correct standardSiteDocument record fields', () => {
+    const result = prepare(sampleBlobjects, 'standardSiteDocument')
     const record = result.records[0]
-    expect(record.url).toBe('https://example.com/page-1')
+    expect(record.site).toBe('https://example.com/page-1')
     expect(record.title).toBe('Page One')
     expect(record.description).toBe('First page')
     expect(record.publishedAt).toBeDefined()
