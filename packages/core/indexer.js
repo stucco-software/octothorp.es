@@ -527,7 +527,8 @@ export const createIndexer = (deps) => {
 
     let selected = mode ? handlerRegistry?.getHandler(mode) : null
     if (!selected) selected = handlerRegistry?.getHandlerForContentType(contentType)
-    if (!selected) selected = handlerRegistry?.getHandler('html')
+    if (!selected) selected = handlerRegistry?.getDefault()
+    if (!selected) selected = handlerRegistry?.getHandler('null')
     if (!selected) {
       throw new Error(`No handler available for contentType="${contentType}" mode="${mode || ''}"`)
     }

@@ -30,5 +30,14 @@ export const createHandlerRegistry = () => {
     }
   }
 
-  return { register, getHandler, getHandlerForContentType, listHandlers, markBuiltins }
+  let defaultMode = null
+
+  const setDefault = (mode) => {
+    if (!handlers[mode]) throw new Error(`Cannot set default: handler "${mode}" is not registered`)
+    defaultMode = mode
+  }
+
+  const getDefault = () => (defaultMode ? handlers[defaultMode] : null)
+
+  return { register, getHandler, getHandlerForContentType, listHandlers, markBuiltins, setDefault, getDefault }
 }
