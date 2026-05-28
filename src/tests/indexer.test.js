@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createIndexer } from '../../packages/core/indexer.js'
+import { createIndexer, resolveIndexPolicy } from '../../packages/core/indexer.js'
 import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 
 const mockInsert = vi.fn()
@@ -305,5 +305,58 @@ describe('handler dispatch', () => {
       selectedHandler = reg.getHandler('html')
     }
     expect(selectedHandler.mode).toBe('html')
+  })
+})
+
+describe('resolveIndexPolicy', () => {
+  it('returns opted-in when callerContext.policyMode is active', () => {
+    const result = resolveIndexPolicy({ blobject: {}, callerContext: { policyMode: 'active' } })
+    expect(result.optedIn).toBe(true)
+    expect(result.harmonizer).toBeNull()
+  })
+
+  it('respects policyCheck override even when policyMode is active', () => {
+    const result = resolveIndexPolicy({
+      blobject: {},
+      callerContext: { policyMode: 'active', policyCheck: true }
+    })
+    expect(result.optedIn).toBe(false)
+  })
+
+  it('returns opted-in when callerContext.feedApproved is true', () => {
+    const result = resolveIndexPolicy({ blobject: {}, callerContext: { feedApproved: true } })
+    expect(result.optedIn).toBe(true)
+  })
+
+  it('falls back to blobject indexPolicy when no caller override', () => {
+    const result = resolveIndexPolicy({
+      blobject: { indexPolicy: 'index' },
+      callerContext: {}
+    })
+    expect(result.optedIn).toBe(true)
+  })
+
+  it('treats blobject.indexPolicy === "no-index" as opted-out', () => {
+    const result = resolveIndexPolicy({
+      blobject: { indexPolicy: 'no-index' },
+      callerContext: {}
+    })
+    expect(result.optedIn).toBe(false)
+  })
+
+  it('falls back to octothorpes presence when no indexPolicy', () => {
+    const result = resolveIndexPolicy({
+      blobject: { octothorpes: ['foo'] },
+      callerContext: {}
+    })
+    expect(result.optedIn).toBe(true)
+  })
+
+  it('surfaces blobject.indexHarmonizer in the result', () => {
+    const result = resolveIndexPolicy({
+      blobject: { indexPolicy: 'index', indexHarmonizer: 'custom' },
+      callerContext: {}
+    })
+    expect(result.harmonizer).toBe('custom')
   })
 })

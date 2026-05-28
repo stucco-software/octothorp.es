@@ -111,22 +111,43 @@ export const isURL = (term) => {
   }
 }
 
-export const checkIndexingPolicy = (harmed, instance) => {
+/**
+ * Resolve whether a source is opted in to indexing.
+ * Precedence: caller-context overrides (Client policy mode, feed approval) >
+ * per-blobject markers (indexPolicy, octothorpes).
+ *
+ * @param {Object} args
+ * @param {Object} [args.blobject] - The harmonized blobject (may be null if caller short-circuits).
+ * @param {Object} [args.callerContext] - { policyMode, policyCheck, feedApproved }
+ * @returns {{ optedIn: boolean, harmonizer: string|null }}
+ */
+export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
+  // Caller-context overrides
+  if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
+    return { optedIn: true, harmonizer: null }
+  }
+  if (callerContext.feedApproved === true) {
+    return { optedIn: true, harmonizer: null }
+  }
+
+  // Per-blobject fallback (current behavior)
   // indexPolicy is populated by any opt-in signal the harmonizer finds:
   //   - <meta name="octo-policy" content="index">
   //   - <link rel="octo:index" href="..."> pointing at this instance
   //   - <link rel="preload" href="..."> pointing at this instance
   // Any truthy value means the page has opted in, unless explicitly "no-index".
-  const hasPolicy = !!(harmed.indexPolicy) && harmed.indexPolicy !== 'no-index'
-
-  // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup
-  const hasOctothorpes = Array.isArray(harmed.octothorpes) && harmed.octothorpes.length > 0
-
+  // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup.
+  const b = blobject || {}
+  const hasPolicy = !!(b.indexPolicy) && b.indexPolicy !== 'no-index'
+  const hasOctothorpes = Array.isArray(b.octothorpes) && b.octothorpes.length > 0
   const optedIn = hasPolicy || hasOctothorpes
-
-  const harmonizer = harmed.indexHarmonizer || null
-
+  const harmonizer = b.indexHarmonizer || null
   return { optedIn: !!optedIn, harmonizer }
+}
+
+export const checkIndexingPolicy = (harmed, instance) => {
+  // Backward-compat wrapper: no caller context, blobject-only.
+  return resolveIndexPolicy({ blobject: harmed, callerContext: {} })
 }
 
 /**

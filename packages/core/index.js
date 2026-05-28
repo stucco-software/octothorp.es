@@ -27,7 +27,7 @@ export { verifiyContent, verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin 
 export { parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
-export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, parseRequestBody, isURL } from './indexer.js'
+export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, resolveIndexPolicy, parseRequestBody, isURL } from './indexer.js'
 export { badgeVariant, determineBadgeUri } from './badge.js'
 export { remoteHarmonizer } from './harmonizeSource.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
