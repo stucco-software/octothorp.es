@@ -16,6 +16,8 @@
 | Schema.org JSON-LD harmonizer | — | entry in `packages/core/harmonizers.js` |
 | Handler registry (`createHandlerRegistry`) | — | `packages/core/handlerRegistry.js` |
 | Harmonizer registry gains `register()` and `getHarmonizersForMode()` | — | `packages/core/harmonizers.js` |
+| Generic `handler()` pipeline (`dispatch` + `resolveIndexPolicy`) — *addendum, 2026-05-28, branch `handle-handlers`* | — | `docs/plans/point7/2026-05-27-generic-handler-pipeline.md` |
+| `harmonizeSource` accepts a pre-resolved schema object — *addendum, 2026-05-28* | — | `packages/core/harmonizeSource.js` |
 
 ## Documentation Candidates
 
@@ -26,6 +28,7 @@
 | Schema.org harmonizer | TBD | TBD | High discoverability value — many sites have JSON-LD already |
 | Pluggable handler system (concept) | TBD | TBD | Probably a docs section, not a demo |
 | `ingestBlobject` / direct ingestion | TBD | TBD | Important distinction for developers calling core directly |
+| `indexPolicy: 'active'` Client mode | TBD | TBD | Server-side consumers can index pages with no on-page opt-in markers; worth documenting alongside the other `indexPolicy` modes |
 
 ## Technical Material
 
@@ -122,3 +125,66 @@ op.handler.listHandlers()
 // Harmonizer mode filtering
 op.harmonizer.getHarmonizersForMode('json')  // returns { 'schema-org': ... }
 ```
+
+---
+
+## Addendum — Generic Handler Pipeline (2026-05-28, branch `handle-handlers`)
+
+> Completes the handler architecture: `handler()` no longer contains any HTML-specific
+> code. Plan: `docs/plans/point7/2026-05-27-generic-handler-pipeline.md`.
+
+### `dispatch` — single content → blobject entry point
+
+The handler-selection logic described under "Handler System Concept" is now a real
+helper on the indexer instance:
+
+```javascript
+indexer.dispatch(content, contentType, harmonizer, uri)  // → blobject
+```
+
+It resolves the handler (harmonizer `mode` > content-type > `html` fallback), calls the
+handler's `harmonize`, and patches `@id === 'source'` to the source URI. `handler()`
+calls it twice: once for the policy probe, once for the final ingest. Throws
+`No handler available for contentType=… mode=…` if nothing resolves.
+
+### `resolveIndexPolicy` — policy with caller-context precedence
+
+```javascript
+resolveIndexPolicy({ blobject, callerContext })  // → { optedIn, harmonizer }
+```
+
+Precedence:
+1. `callerContext.policyMode === 'active'` (and not `policyCheck`) → opted in, skip page check
+2. `callerContext.feedApproved === true` → opted in (stub slot for future feed work; no caller sets it yet)
+3. Else per-blobject markers: truthy `indexPolicy` (not `'no-index'`) **or** non-empty `octothorpes`
+
+`checkIndexingPolicy(blobject)` is kept as a thin blobject-only alias for existing callers.
+
+### `indexPolicy: 'active'` wired end to end
+
+`createClient({ indexPolicy: 'active' })` now forwards `policyMode`/`policyCheck` into
+`handler()`'s caller context, so active mode bypasses **both** origin verification **and**
+the on-page opt-in gate. Previously only origin verification was bypassed, so an active
+Client still got "Page has not opted in to indexing" on unmarked pages.
+
+### `handler()` pipeline shape
+
+`parseUri` → same-origin check → **single fetch (captures content-type)** → policy
+(skipped if caller grants opt-in, else dispatch-probe) → origin verify → rate limit →
+harmonizer validation → cooldown → **dispatch + `ingestBlobject`**. The old double fetch,
+the `handleHTML` method, and the hardcoded `'text/html'` content type are gone.
+
+### `harmonizeSource` accepts a pre-resolved schema object
+
+Since `dispatch` resolves a harmonizer ID/URL to a schema object before selecting a
+handler, `harmonizeSource` now accepts that object in addition to a string ID/URL
+(`{ schema, mode, … }` → merged with the default schema). Additive — existing string
+callers are unchanged. This fixed a latent crash on the real `createClient` HTML path.
+
+### Known follow-up — SvelteKit routes
+
+`src/lib/indexing.js` builds its indexer **without** a `handlerRegistry`, so the 3 live
+routes importing its `handler` (`indexwrapper`, `badge`, `debug/rolodex`) now throw at
+runtime (`handler()` requires a registry). Per the "only use core" direction these should
+migrate to `createClient`. Tracked: `docs/plans/point7/halfbaked/sveltekit-handler-dispatch-wiring.md`.
+**Live-endpoint verification is blocked until this lands.**

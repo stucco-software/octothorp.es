@@ -22,7 +22,9 @@
 - [x] Schema.org JSON-LD harmonizer — built-in entry in `packages/core/harmonizers.js`
 - [x] Run full test suite: `npx vitest run` — 17 pre-existing failures in publish-core/publish (atproto publisher, tracked in Wave 0b); 0 new failures
 - [x] Docs handoff written — `docs/plans/point7/wave-0a-docs-handoff.md`
-- [ ] Verify live endpoints (see Task 8 of handler plan)
+- [x] **Generic handler pipeline** — `handler()` is now fully generic over content type. Plan: `docs/plans/point7/2026-05-27-generic-handler-pipeline.md` (branch `handle-handlers`, 2026-05-28). Adds `resolveIndexPolicy` (caller-context precedence) + a `dispatch` helper; single fetch captures content-type; both the policy probe and final ingest route through the registry; `harmonizeSource` injection and `handleHTML` removed. `createClient({ indexPolicy: 'active' })` now bypasses the on-page gate end to end. Also fixed a latent crash: `harmonizeSource` now accepts a pre-resolved schema object (additive; string callers unchanged). Suite green (776 passed, 0 failures).
+- [ ] **Follow-up (blocks live-endpoint verification):** `src/lib/indexing.js` still builds its indexer with **no `handlerRegistry`**, so the 3 live routes importing `handler` from it (`indexwrapper`, `badge`, `debug/rolodex`) now throw at runtime — `handler()` requires a registry. Per "only use core", migrate these to `createClient` (or wire a registry). Tracked: `docs/plans/point7/halfbaked/sveltekit-handler-dispatch-wiring.md`.
+- [ ] Verify live endpoints (see Task 8 of handler plan) — **blocked by the SvelteKit registry follow-up above**
 
 ### 0b — Publishers MVP (#161, moved from Wave 6)
 > Core is implemented; integration, generic `prepare()`, and docs remain.
@@ -143,6 +145,7 @@
 | 2026-05-19 | New Wave 1.5 — OP Client Profile epic created (#215) with Rev 1 MVP (#216) and Rev 2 Integration (#217); supersedes #165 |
 | 2026-05-19 | Wave 5 reorganized: #202, #185, #191 bundled as Domain Pages Overhaul epic (#218); #158 and #199 remain standalone; design considerations skipped (functional only) |
 | 2026-05-19 | Bridges dropped from #217 deliverables and from v0.7 scope; not to be considered until further notice |
+| 2026-05-28 | Generic handler pipeline landed on `handle-handlers` (plan `2026-05-27-generic-handler-pipeline.md`): `handler()` is content-type-agnostic via `dispatch` + `resolveIndexPolicy`; `harmonizeSource` injection and `handleHTML` removed; `harmonizeSource` now accepts a pre-resolved schema object. Per "only use core", `src/lib/indexing.js` was NOT given a registry — its 3 live routes need migration to `createClient` before live-endpoint verification (halfbaked plan exists). |
 
 ---
 

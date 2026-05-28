@@ -1,34 +1,31 @@
-# SvelteKit Handler Dispatch Wiring
+# SvelteKit Route Migration to createClient
+
+**Depends on:** `docs/plans/point7/2026-05-28-harmonizesource-cleanup.md` (adds `defaultHandler` config to `createClient`)
+**Blocks:** live-endpoint verification for wave 0a
 
 ## Problem
 
-`src/lib/indexing.js` creates its own `createIndexer` directly without passing `handlerRegistry` or `getHarmonizer`. This means the indexer's handler dispatch always falls through to the legacy `handleHTML` path — the JSON handler and any custom handlers are never used in SvelteKit routes.
+`src/lib/indexing.js` creates its own `createIndexer` directly and still passes `harmonizeSource` as a dep — which `createIndexer` no longer accepts after the `handle-handlers` work. The three routes that import from it (`indexwrapper`, `badge`, `debug/rolodex`) throw at runtime. Live-endpoint verification is blocked until this is fixed.
 
 ## Context
 
-`src/lib/indexing.js` is already a thin adapter: it imports from `octothorpes`, injects `$env` config, and re-exports everything. No business logic.
+`src/lib/indexing.js` is already a thin adapter: it imports from `octothorpes`, injects `$env` config, and re-exports everything. No business logic lives here. `createClient` does all the same wiring (registries, handlers, harmonizers) and more.
 
-`createClient` does the same wiring (inject config, create registries, wire them together) but goes further — it creates handler registry, harmonizer registry, publisher registry, and registers built-in handlers.
+The routes that use `$lib/indexing.js` fall into two groups:
 
-## The Obstacle
+- **`indexwrapper/+server.js`** — pure indexing endpoint. Only uses `handler` and `parseRequestBody`. Clean Option B migration.
+- **`badge/+server.js`, `debug/rolodex/+server.js`** — reach into indexer internals (`extantPage`, `createTerm`, `handleThorpe`, etc.). Need Option A or a deeper refactor.
 
-`createClient` returns a high-level API (`indexSource`, `get`, `harmonize`). It does not expose the indexer's internal functions (`extantPage`, `createTerm`, `recordTitle`, `handleThorpe`, etc.). SvelteKit routes currently import and use these internals directly.
-
-## Options
-
-### Option A: Expose the indexer on createClient
+## Option A: Expose the indexer on createClient (quick fix for internal-heavy routes)
 
 Add `indexer` to the `createClient` return object so the adapter can destructure internals:
 
 ```javascript
 // packages/core/index.js — in createClient return
-return {
-  ...existing,
-  indexer,  // raw indexer with all internals
-}
+return { ...existing, indexer }
 ```
 
-Then `src/lib/indexing.js` becomes:
+Then `src/lib/indexing.js`:
 
 ```javascript
 import { createClient } from 'octothorpes'
@@ -40,51 +37,118 @@ const op = createClient({
 })
 
 export const {
-  handler, handleHTML, handleThorpe, handleMention,
-  // ... all the internals routes currently use
+  handler, handleThorpe, handleMention,
+  extantPage, createTerm, recordTitle,
+  // ... all internals routes currently use
 } = op.indexer
 ```
 
-**Pro:** Minimal change. Routes don't change. Handler dispatch works immediately.
-**Con:** Exposing indexer internals on the client is a leaky abstraction. But it's already the reality — routes use these functions today.
+**Pro:** One-file change, no route changes, handler dispatch works immediately.
+**Con:** Leaky abstraction — exposes indexer internals on the client. Keeps `$lib/indexing.js` as a long re-export list.
 
-### Option B: Migrate routes to high-level APIs
+## Option B: Migrate routes to high-level client API (right end state)
 
-Rewrite SvelteKit routes to use `op.indexSource()` instead of calling indexer internals. Remove `$lib/indexing.js` entirely.
+Rewrite routes to call `client.indexSource()`. Remove the `$lib/indexing.js` re-export barrel.
 
-**Pro:** Clean architecture. Routes become thin HTTP adapters calling `createClient` methods.
-**Con:** Larger migration. Every route that touches indexer internals needs rewriting. Some routes (orchestra-pit, debug endpoints) reach deep into internals for good reason.
-
-### Option C: Quick fix — pass registries to existing createIndexer call
-
-Just add `handlerRegistry` and `getHarmonizer` to the existing `createIndexer` call in `src/lib/indexing.js`:
+### `src/lib/indexing.js` — after
 
 ```javascript
-import { createIndexer, createHandlerRegistry, createHarmonizerRegistry } from 'octothorpes'
-import htmlHandler from 'octothorpes/handlers/html/handler.js'
-import jsonHandler from 'octothorpes/handlers/json/handler.js'
+import { createClient } from 'octothorpes'
+import { sparql_endpoint, sparql_user, sparql_password, instance } from '$env/static/private'
 
-const harmonizerRegistry = createHarmonizerRegistry(instance)
-const handlerRegistry = createHandlerRegistry()
-handlerRegistry.register('html', htmlHandler)
-handlerRegistry.register('json', jsonHandler)
-handlerRegistry.markBuiltins()
-
-const indexer = createIndexer({
-  insert, query, queryBoolean, queryArray,
-  harmonizeSource, instance,
-  handlerRegistry,
-  getHarmonizer: harmonizerRegistry.getHarmonizer,
+export const client = createClient({
+  instance,
+  sparql: { sparql_endpoint, sparql_user, sparql_password },
+  defaultHandler: 'html',
 })
 ```
 
-**Pro:** One-file change, no route changes, handler dispatch works.
-**Con:** Duplicates wiring that `createClient` already does. Two places to update when adding built-in handlers.
+The handler is declared once, at construction time. No route needs to know about it.
+
+### `src/routes/indexwrapper/+server.js` — after
+
+```javascript
+import { json, error } from '@sveltejs/kit'
+import { parseRequestBody } from 'octothorpes'
+import { client } from '$lib/indexing.js'
+
+const knownErrors = [
+  'not registered', 'Rate limit', 'recently indexed',
+  'different origin', 'Harmonizer not allowed', 'Invalid URI',
+  'no scheme found', 'not opted in',
+]
+
+const mapErrorToStatus = (message) => {
+  if (message.includes('not registered')) return 401
+  if (message.includes('Rate limit')) return 429
+  if (message.includes('recently indexed')) return 429
+  if (message.includes('different origin')) return 403
+  if (message.includes('Harmonizer not allowed')) return 403
+  if (message.includes('not opted in')) return 403
+  if (knownErrors.some(e => message.includes(e))) return 400
+  return 500
+}
+
+export async function GET(req) {
+  const url = new URL(req.request.url)
+  const uri = url.searchParams.get('uri')
+  if (!uri) return error(400, 'URI parameter is required.')
+
+  const harmonizer = url.searchParams.get('as') ?? 'default'
+  const requestOrigin = req.request.headers.get('origin') || req.request.headers.get('referer') || null
+
+  try {
+    const result = await client.indexSource(uri, { harmonizer, origin: requestOrigin })
+    return json({ status: 'success', ...result })
+  } catch (e) {
+    console.error('indexwrapper GET error:', e)
+    return error(mapErrorToStatus(e.message), e.message)
+  }
+}
+
+export async function POST({ request }) {
+  const requestOrigin = request.headers.get('origin') || request.headers.get('referer')
+  if (!requestOrigin) return error(400, 'Origin or Referer header required.')
+
+  let data
+  try {
+    data = await parseRequestBody(request)
+  } catch (e) {
+    return error(400, 'Invalid request body format.')
+  }
+
+  const { uri, harmonizer = 'default' } = data
+  if (!uri) return error(400, 'URI parameter is required.')
+
+  try {
+    const result = await client.indexSource(uri, { harmonizer, origin: requestOrigin })
+    return json({ status: 'success', message: 'Page indexed successfully', ...result })
+  } catch (e) {
+    console.error('Indexing error:', e)
+    return error(mapErrorToStatus(e.message), e.message)
+  }
+}
+```
+
+What disappears: the `config()` factory, the `instance`/`server_name`/`queryBoolean` imports, and all handler/SPARQL knowledge. The route drops from ~90 lines to ~45 and is a pure HTTP adapter.
+
+**Pro:** Clean architecture. Routes become thin HTTP adapters.
+**Con:** `badge` and `debug/rolodex` routes reach into indexer internals — those need Option A or deeper refactoring. Do them separately.
 
 ## Recommendation
 
-Option A is the best balance — one small change to `createClient`, one small change to the adapter, and handler dispatch works across the whole app. Option B is the right end state but should be a separate migration.
+**For `indexwrapper`: Option B.** The code above is the exact migration — it's a net reduction in complexity and unblocks live-endpoint verification.
+
+**For `badge` and `debug/rolodex`: Option A first, Option B later.** Add `indexer` to the `createClient` return so `$lib/indexing.js` can keep re-exporting internals while those routes are migrated incrementally.
+
+## Sequence
+
+1. Land `docs/plans/point7/2026-05-28-harmonizesource-cleanup.md` (adds `defaultHandler` to `createClient`)
+2. Migrate `indexwrapper` using the Option B code above — unblocks live-endpoint verification
+3. Add `indexer` to `createClient` return (Option A) — fixes `badge` and `debug/rolodex` at runtime
+4. Migrate `badge` and `debug/rolodex` to Option B incrementally
 
 ## Related
 
-- `docs/plans/indexSource-content-cleanup.md` — the `indexSource` content path also needs cleanup
+- `docs/plans/point7/2026-05-28-harmonizesource-cleanup.md` — prerequisite; adds `defaultHandler`
+- `docs/plans/point7/wave-0a-docs-handoff.md` — live-endpoint verification blocked on this
