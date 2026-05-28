@@ -126,6 +126,8 @@ export const createClient = (config) => {
       verifyOrigin: policy.mode === 'active'
         ? async () => true
         : undefined,
+      policyMode: policy.mode,
+      policyCheck,
     }
 
     if (content !== undefined) {

@@ -550,7 +550,12 @@ export async function harmonizeSource(html, harmonizer = "default", options = {}
   let schema = {}
   const d = await getHarmonizer("default")
 
-  if (harmonizer != "default") {
+  if (harmonizer && typeof harmonizer === 'object' && harmonizer.schema) {
+    // Pre-resolved harmonizer object (e.g. from the indexer's dispatch helper,
+    // which resolves the ID/URL to a schema before selecting a handler).
+    schema = mergeSchemas(d.schema, harmonizer.schema)
+  }
+  else if (harmonizer != "default") {
     // TKTK might need other checks if you want to accept a json blob directly
     // but on the other hand, when are you going to get one except from a remote harmonizer?
       if (harmonizer.startsWith("http")){
