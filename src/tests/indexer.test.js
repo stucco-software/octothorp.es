@@ -463,3 +463,86 @@ describe('createIndexer dispatch', () => {
     expect(blob['@id']).toBe('https://other.com/x')
   })
 })
+
+describe('handler() routes policy and dispatch through the registry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    globalThis.fetch = vi.fn()
+  })
+
+  const setupRegistry = (harmonizeImpl) => ({
+    getHandler: (mode) => mode === 'html'
+      ? { mode: 'html', contentTypes: ['text/html'], harmonize: harmonizeImpl }
+      : null,
+    getHandlerForContentType: (ct) =>
+      ct?.startsWith('text/html')
+        ? { mode: 'html', contentTypes: ['text/html'], harmonize: harmonizeImpl }
+        : null,
+  })
+
+  it('skips on-page policy when callerContext.policyMode is active', async () => {
+    const harmonize = vi.fn().mockResolvedValue({
+      '@id': 'source',
+      // NOTE: no indexPolicy, no octothorpes — would fail page-level gate.
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => '<html></html>',
+      headers: { get: () => 'text/html; charset=utf-8' },
+    })
+
+    mockQueryBoolean.mockResolvedValue(true) // origin verified, no cooldown collisions
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: setupRegistry(harmonize),
+    })
+
+    // Should NOT throw "Page has not opted in to indexing"
+    await indexer.handler(
+      'https://example.com/page',
+      'default',
+      null,
+      {
+        instance,
+        serverName: instance,
+        queryBoolean: mockQueryBoolean,
+        verifyOrigin: async () => true,
+        policyMode: 'active',
+      }
+    )
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('still enforces on-page policy when callerContext is plain registered', async () => {
+    const harmonize = vi.fn().mockResolvedValue({
+      '@id': 'source',
+      // no policy markers
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => '<html></html>',
+      headers: { get: () => 'text/html' },
+    })
+    mockQueryBoolean.mockResolvedValue(true)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: setupRegistry(harmonize),
+    })
+
+    await expect(indexer.handler(
+      'https://example.com/page2',
+      'default',
+      null,
+      {
+        instance,
+        serverName: instance,
+        queryBoolean: mockQueryBoolean,
+        verifyOrigin: async () => true,
+      }
+    )).rejects.toThrow(/not opted in/i)
+  })
+})
