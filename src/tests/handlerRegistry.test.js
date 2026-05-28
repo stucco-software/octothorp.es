@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 import htmlHandler from '../../packages/core/handlers/html/handler.js'
 import jsonHandler, { resolvePath, extractValues } from '../../packages/core/handlers/json/handler.js'
+import blobjectHandler from '../../packages/core/handlers/blobject/handler.js'
 
 describe('createHandlerRegistry', () => {
   it('should register and retrieve a handler by mode', () => {
@@ -295,5 +296,126 @@ describe('json handler', () => {
       const result = jsonHandler.harmonize(JSON.stringify(data), harmonizer)
       expect(result.octothorpes).toEqual(['cats', 'dogs', 'bikes'])
     })
+  })
+})
+
+describe('schema-org harmonizer schema via json handler', () => {
+  const schemaOrgHarmonizer = {
+    mode: 'json',
+    schema: {
+      subject: {
+        s: ['url', '@id'],
+        title: ['name', 'headline'],
+        description: 'description',
+        image: [
+          { path: 'image', filterResults: { method: 'startsWith', params: 'http' } },
+          'image.url'
+        ],
+        postDate: ['datePublished', 'dateCreated', 'dateModified']
+      },
+      hashtag: { path: 'keywords', postProcess: { method: 'split', params: ',' } }
+    }
+  }
+
+  it('should extract standard schema.org fields', () => {
+    const data = {
+      '@type': 'Article',
+      url: 'https://example.com/post',
+      name: 'My Article',
+      description: 'An article about things',
+      image: 'https://example.com/img.jpg',
+      datePublished: '2026-01-15',
+      keywords: 'web,design,css'
+    }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result['@id']).toBe('https://example.com/post')
+    expect(result.title).toBe('My Article')
+    expect(result.description).toBe('An article about things')
+    expect(result.image).toBe('https://example.com/img.jpg')
+    expect(result.postDate).toBe('2026-01-15')
+    expect(result.octothorpes).toContain('web')
+    expect(result.octothorpes).toContain('design')
+    expect(result.octothorpes).toContain('css')
+  })
+
+  it('should prefer url over @id for subject', () => {
+    const data = { url: 'https://example.com/post', '@id': 'https://other.com', name: 'Test' }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result['@id']).toBe('https://example.com/post')
+  })
+
+  it('should fall back to @id when url is absent', () => {
+    const data = { '@id': 'https://example.com/post', name: 'Test' }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result['@id']).toBe('https://example.com/post')
+  })
+
+  it('should prefer name over headline for title', () => {
+    const data = { url: 'https://example.com', name: 'Name', headline: 'Headline' }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result.title).toBe('Name')
+  })
+
+  it('should fall back to headline when name is absent', () => {
+    const data = { url: 'https://example.com', headline: 'Headline' }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result.title).toBe('Headline')
+  })
+
+  it('should extract image from ImageObject via fallback to image.url', () => {
+    const data = {
+      url: 'https://example.com/post',
+      image: { '@type': 'ImageObject', url: 'https://example.com/img.jpg' }
+    }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result.image).toBe('https://example.com/img.jpg')
+  })
+
+  it('should handle missing optional fields gracefully', () => {
+    const data = { url: 'https://example.com', name: 'Minimal' }
+    const result = jsonHandler.harmonize(JSON.stringify(data), schemaOrgHarmonizer)
+    expect(result['@id']).toBe('https://example.com')
+    expect(result.title).toBe('Minimal')
+    expect(result.description).toBeUndefined()
+    expect(result.octothorpes).toEqual([])
+  })
+})
+
+describe('blobject handler', () => {
+  it('should export the correct shape', () => {
+    expect(blobjectHandler.mode).toBe('blobject')
+    expect(Array.isArray(blobjectHandler.contentTypes)).toBe(true)
+    expect(typeof blobjectHandler.harmonize).toBe('function')
+  })
+
+  it('should pass a pre-formed blobject through unchanged', () => {
+    const blobject = {
+      '@id': 'https://example.com/page',
+      title: 'My Page',
+      description: 'A page',
+      octothorpes: ['demo', { type: 'link', uri: 'https://other.com' }]
+    }
+    const result = blobjectHandler.harmonize(JSON.stringify(blobject))
+    expect(result['@id']).toBe('https://example.com/page')
+    expect(result.title).toBe('My Page')
+    expect(result.octothorpes).toHaveLength(2)
+  })
+
+  it('should accept a parsed object as content', () => {
+    const blobject = { '@id': 'https://example.com', octothorpes: [] }
+    const result = blobjectHandler.harmonize(blobject)
+    expect(result['@id']).toBe('https://example.com')
+  })
+
+  it('should default @id to source when missing', () => {
+    const result = blobjectHandler.harmonize(JSON.stringify({ title: 'No ID' }))
+    expect(result['@id']).toBe('source')
+  })
+
+  it('should register in handler registry by mode', () => {
+    const reg = createHandlerRegistry()
+    reg.register('blobject', blobjectHandler)
+    expect(reg.getHandler('blobject')).toBeDefined()
+    expect(reg.getHandlerForContentType('application/json')).toBeNull()
   })
 })

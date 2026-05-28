@@ -252,6 +252,29 @@ export const createHarmonizerRegistry = (instance) => {
     }
   }
   },
+  "schema-org": {
+    "@context": context,
+    "@id": `${baseId}schema-org`,
+    "@type": "harmonizer",
+    "title": "Schema.org JSON-LD Harmonizer",
+    "mode": "json",
+    "schema": {
+      "subject": {
+        "s": ["url", "@id"],
+        "title": ["name", "headline"],
+        "description": "description",
+        "image": [
+          { "path": "image", "filterResults": { "method": "startsWith", "params": "http" } },
+          "image.url"
+        ],
+        "postDate": ["datePublished", "dateCreated", "dateModified"]
+      },
+      "hashtag": {
+        "path": "keywords",
+        "postProcess": { "method": "split", "params": "," }
+      }
+    }
+  },
   "standardSite": {
     "@context": context,
     "@id": `${baseId}standardSite`,

@@ -37,6 +37,7 @@ describe('harmonizer registry', () => {
     expect(all.default).toBeDefined()
     expect(all.openGraph).toBeDefined()
     expect(all.ghost).toBeDefined()
+    expect(all['schema-org']).toBeDefined()
   })
 
   it('should register a custom harmonizer', () => {
@@ -77,6 +78,28 @@ describe('harmonizer registry', () => {
     const jsonHarmonizers = op.harmonizer.getHarmonizersForMode('json')
     expect(Object.keys(htmlHarmonizers)).not.toContain('custom-json')
     expect(Object.keys(jsonHarmonizers)).toContain('custom-json')
+    expect(Object.keys(jsonHarmonizers)).not.toContain('default')
+  })
+})
+
+describe('schema-org harmonizer', () => {
+  it('should be registered with mode json', async () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const h = await op.harmonizer.getHarmonizer('schema-org')
+    expect(h).toBeDefined()
+    expect(h.mode).toBe('json')
+  })
+
+  it('should appear in json-mode harmonizer list', () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const jsonHarmonizers = op.harmonizer.getHarmonizersForMode('json')
+    expect(Object.keys(jsonHarmonizers)).toContain('schema-org')
     expect(Object.keys(jsonHarmonizers)).not.toContain('default')
   })
 })
