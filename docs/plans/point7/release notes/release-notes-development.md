@@ -369,3 +369,36 @@ Web components no longer require an explicit `server` attribute. The default for
 
 **Files affected:** `packages/core/index.js`, `src/tests/publish-core.test.js`
 **Plan:** `docs/plans/point7/2026-05-19-generic-prepare.md`
+
+## Generic Handler Pipeline
+
+The indexer pipeline is now fully generic over content type. `handler()` orchestrates
+the same fetch / policy / verify / rate-limit / cooldown / ingest sequence regardless
+of source format; all parsing happens through a handler resolved from the registry.
+
+- `resolveIndexPolicy({ blobject, callerContext })` replaces inline policy logic and
+  honors caller-context overrides: `policyMode: 'active'` and `feedApproved: true`
+  short-circuit the per-page check. `checkIndexingPolicy` is kept as a thin
+  blobject-only alias for existing callers.
+- `handler()` now does a single fetch (capturing content-type) and routes both the
+  policy probe and the final ingest through a new `dispatch` helper on the indexer
+  instance (`dispatch(content, contentType, harmonizer, uri)`). Resolution order is
+  harmonizer `mode` > content-type > `html` fallback.
+- `createClient({ indexPolicy: 'active' })` now bypasses the on-page opt-in gate as
+  well as origin verification — the two pieces of the `'active'` mode are wired
+  together end to end.
+- `harmonizeSource` now accepts a pre-resolved harmonizer schema object in addition to
+  a string ID/URL (additive — string callers unchanged). This fixes a latent crash on
+  the real `createClient` HTML path, where `dispatch` resolves the harmonizer before
+  calling the handler.
+- `handleHTML` is removed from `packages/core/indexer.js`, the `createClient`
+  `harmonizeSource` injection, and the `src/lib/indexing.js` re-export. `dispatch` is
+  the single entry point for content → blobject.
+
+**Follow-up (not in this change):** `src/lib/indexing.js` still builds its indexer
+without a `handlerRegistry`, so the three SvelteKit routes importing `handler` from it
+(`indexwrapper`, `badge`, `debug/rolodex`) need migration to call core (`createClient`)
+or to wire a registry. Tracked in `docs/plans/point7/halfbaked/sveltekit-handler-dispatch-wiring.md`.
+
+**Files affected:** `packages/core/indexer.js`, `packages/core/index.js`, `packages/core/harmonizeSource.js`, `src/lib/indexing.js`, `src/tests/indexer.test.js`, `src/tests/indexing.test.js`, `src/tests/client-policy.test.js` (new)
+**Plan:** `docs/plans/point7/2026-05-27-generic-handler-pipeline.md`
