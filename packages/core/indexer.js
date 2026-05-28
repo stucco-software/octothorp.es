@@ -1,7 +1,8 @@
 // packages/core/indexer.js
 //
 // Framework-agnostic indexing pipeline.
-// All SPARQL functions and harmonizeSource are injected — no $lib imports.
+// All SPARQL functions are injected — no $lib imports. Content parsing is
+// delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash } from './utils.js'
 import { parseUri, validateSameOrigin } from './uri.js'
@@ -157,14 +158,13 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {Function} deps.query
  * @param {Function} deps.queryBoolean
  * @param {Function} deps.queryArray
- * @param {Function} deps.harmonizeSource
  * @param {string} deps.instance
  * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
  * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, harmonizeSource, instance, handlerRegistry, getHarmonizer } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer } = deps
 
   const p = 'octo:octothorpes'
   const indexCooldown = 300000 // 5min
@@ -714,14 +714,6 @@ export const createIndexer = (deps) => {
     }
   }
 
-  const handleHTML = async (response, uri, harmonizer, { instance: inst } = {}) => {
-    const base = inst || instance
-    const src = await response.text()
-    const harmed = await harmonizeSource(src, harmonizer)
-    if (harmed['@id'] === 'source') harmed['@id'] = uri
-    await ingestBlobject(harmed, { instance: base })
-  }
-
   const handler = async (uri, harmonizer, requestingOrigin, config) => {
     const {
       instance: inst,
@@ -846,7 +838,6 @@ export const createIndexer = (deps) => {
 
   return {
     handler,
-    handleHTML,
     dispatch,
     ingestBlobject,
     handleThorpe,

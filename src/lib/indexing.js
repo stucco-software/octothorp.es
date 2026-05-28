@@ -13,7 +13,6 @@ const indexer = createIndexer({
 
 export const {
   handler,
-  handleHTML,
   handleThorpe,
   handleMention,
   handleWebring,

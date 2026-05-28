@@ -97,7 +97,6 @@ export const createClient = (config) => {
     query: sparql.query,
     queryBoolean: sparql.queryBoolean,
     queryArray: sparql.queryArray,
-    harmonizeSource: harmonize,
     instance: config.instance,
     handlerRegistry,
     getHarmonizer: registry.getHarmonizer,

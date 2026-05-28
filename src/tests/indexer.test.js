@@ -6,7 +6,6 @@ const mockInsert = vi.fn()
 const mockQuery = vi.fn()
 const mockQueryBoolean = vi.fn()
 const mockQueryArray = vi.fn()
-const mockHarmonizeSource = vi.fn()
 
 const instance = 'http://localhost:5173/'
 
@@ -15,7 +14,6 @@ const makeIndexer = () => createIndexer({
   query: mockQuery,
   queryBoolean: mockQueryBoolean,
   queryArray: mockQueryArray,
-  harmonizeSource: mockHarmonizeSource,
   instance,
 })
 

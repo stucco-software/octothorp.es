@@ -18,13 +18,26 @@ const mockHarmonizeSource = vi.fn()
 
 const instance = 'http://localhost:5173/'
 
+const makeHandlerRegistry = () => {
+  const htmlHandler = {
+    mode: 'html',
+    contentTypes: ['text/html'],
+    harmonize: (content, schema) => mockHarmonizeSource(content, schema),
+  }
+  return {
+    getHandler: (mode) => (mode === 'html' ? htmlHandler : null),
+    getHandlerForContentType: (ct) =>
+      ct?.startsWith('text/html') ? htmlHandler : null,
+  }
+}
+
 const makeIndexer = () => createIndexer({
   insert: mockInsert,
   query: mockQuery,
   queryBoolean: mockQueryBoolean,
   queryArray: mockQueryArray,
-  harmonizeSource: mockHarmonizeSource,
   instance,
+  handlerRegistry: makeHandlerRegistry(),
 })
 
 let indexer
@@ -515,81 +528,61 @@ describe('Indexing Business Logic', () => {
     })
   })
 
-  describe('handleHTML', () => {
-    it('should process harmonized output and record metadata', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html><body>test</body></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: 'A test page',
-        octothorpes: [
-          { type: 'hashtag', uri: 'demo' },
-        ],
-        type: null,
-      })
+  describe('ingestBlobject', () => {
+    it('should process a blobject and record metadata', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: 'A test page',
+        octothorpes: [{ type: 'hashtag', uri: 'demo' }],
+        type: null,
+      }, { instance })
 
-      expect(mockHarmonizeSource).toHaveBeenCalledWith('<html><body>test</body></html>', 'default')
-      // Should have called insert for: createPage, createTerm, createOctothorpe, recordUsage, recordTitle, recordDescription
       expect(mockInsert.mock.calls.length).toBeGreaterThanOrEqual(4)
     })
 
-    it('should use uri as subject when harmonizer returns "source"', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'source',
-        title: 'Title',
-        description: null,
-        octothorpes: [],
-        type: null,
-      })
+    it('should record metadata against the resolved subject URI', async () => {
       mockQueryBoolean.mockResolvedValue(true) // page exists
       mockQuery.mockResolvedValue({})
       mockInsert.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/fallback', 'default', { instance })
+      // dispatch() resolves @id before ingest; simulate the resolved blobject.
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/fallback',
+        title: 'Title',
+        description: null,
+        octothorpes: [],
+        type: null,
+      }, { instance })
 
-      // recordTitle should be called with the fallback URI
       const titleUpdate = mockQuery.mock.calls.find(call => call[0].includes('octo:title'))
       expect(titleUpdate[0]).toContain('https://example.com/fallback')
     })
 
     it('should handle unrecognized typed objects (e.g. cite) as mentions without crashing', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: 'A test page',
-        octothorpes: [
-          { type: 'cite', uri: 'https://sweetfish.site' },
-        ],
-        type: null,
-      })
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: 'A test page',
+        octothorpes: [{ type: 'cite', uri: 'https://sweetfish.site' }],
+        type: null,
+      }, { instance })
 
       expect(mockInsert).toHaveBeenCalled()
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
-      // Should not create a term from the object
       const termCreations = insertCalls.filter(c => c.includes('octo:Term'))
       termCreations.forEach(call => {
         expect(call).not.toContain('[object Object]')
         expect(call).not.toContain('~/cite')
       })
-      // Should write the backlink blank node with octo:Cite subtype
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
       expect(backlinkInsert).toBeDefined()
       expect(backlinkInsert).toContain('rdf:type <octo:Cite>')
@@ -597,23 +590,17 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should write octo:Bookmark subtype for bookmark octothorpes', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: null,
-        octothorpes: [
-          { type: 'bookmark', uri: 'https://saved.com/article' },
-        ],
-        type: null,
-      })
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [{ type: 'bookmark', uri: 'https://saved.com/article' }],
+        type: null,
+      }, { instance })
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
@@ -621,23 +608,17 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should write octo:Link subtype for link octothorpes', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: null,
-        octothorpes: [
-          { type: 'link', uri: 'https://other.com/page' },
-        ],
-        type: null,
-      })
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [{ type: 'link', uri: 'https://other.com/page' }],
+        type: null,
+      }, { instance })
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
@@ -645,46 +626,36 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should handle plain string octothorpes', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: null,
-        octothorpes: [
-          'my-tag',
-        ],
-        type: null,
-      })
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: ['my-tag'],
+        type: null,
+      }, { instance })
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
       const termCreation = insertCalls.find(c => c.includes('octo:Term') && c.includes('my-tag'))
       expect(termCreation).toBeDefined()
     })
 
-    it('should record postDate from harmonized output', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
+    it('should record postDate from the blobject', async () => {
+      mockQueryBoolean.mockResolvedValue(true) // page exists
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+
+      await indexer.ingestBlobject({
         '@id': 'https://example.com/page',
         title: 'Test Page',
         description: null,
         postDate: '2024-06-15T10:00:00Z',
         octothorpes: [],
         type: null,
-      })
-      mockQueryBoolean.mockResolvedValue(true) // page exists
-      mockQuery.mockResolvedValue({})
-      mockInsert.mockResolvedValue({})
-
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      }, { instance })
 
       const updateCalls = mockQuery.mock.calls.map(c => c[0])
       const postDateUpdate = updateCalls.find(c => c.includes('octo:postDate'))
@@ -693,23 +664,17 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should handle typed object with no uri gracefully', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: null,
-        octothorpes: [
-          { type: 'unknown' },
-        ],
-        type: null,
-      })
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [{ type: 'unknown' }],
+        type: null,
+      }, { instance })
     })
   })
 
@@ -990,19 +955,7 @@ describe('Indexing Business Logic', () => {
       expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/bikes>`)
     })
 
-    it('should pass terms from harmonized output through handleHTML', async () => {
-      const mockResponse = {
-        text: vi.fn().mockResolvedValue('<html></html>')
-      }
-      mockHarmonizeSource.mockResolvedValue({
-        '@id': 'https://example.com/page',
-        title: 'Test Page',
-        description: null,
-        octothorpes: [
-          { type: 'bookmark', uri: 'https://saved.com/article', terms: ['gadgets', 'bikes'] },
-        ],
-        type: null,
-      })
+    it('should pass terms from a blobject through to the backlink', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage for source
         .mockResolvedValueOnce(false) // extantPage (Webring check)
@@ -1013,7 +966,15 @@ describe('Indexing Business Logic', () => {
       mockInsert.mockResolvedValue({})
       mockQuery.mockResolvedValue({})
 
-      await indexer.handleHTML(mockResponse, 'https://example.com/page', 'default', { instance })
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/page',
+        title: 'Test Page',
+        description: null,
+        octothorpes: [
+          { type: 'bookmark', uri: 'https://saved.com/article', terms: ['gadgets', 'bikes'] },
+        ],
+        type: null,
+      }, { instance })
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
 
@@ -1164,7 +1125,7 @@ describe('Indexing Business Logic', () => {
       }
       global.fetch = vi.fn().mockResolvedValue(mockResponse)
 
-      // First call: policy harmonization; second call: handleHTML harmonization
+      // First call: policy-probe dispatch; second call: final ingest dispatch
       mockHarmonizeSource
         .mockResolvedValueOnce({
           '@id': 'source',
@@ -1231,7 +1192,7 @@ describe('Indexing Business Logic', () => {
         instance, verifyOrigin: mockVerifyOrigin
       })
 
-      // The second harmonizeSource call (in handleHTML) should use the on-page harmonizer
+      // The second harmonizeSource call (final ingest dispatch) should use the on-page harmonizer
       expect(mockHarmonizeSource.mock.calls[1][1]).toBe('https://example.com/custom-harmonizer.json')
     })
 
