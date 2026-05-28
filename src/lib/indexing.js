@@ -1,4 +1,4 @@
-import { createIndexer, harmonizeSource } from 'octothorpes'
+import { createIndexer } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 
@@ -7,7 +7,6 @@ const indexer = createIndexer({
   query,
   queryBoolean,
   queryArray,
-  harmonizeSource,
   instance,
 })
 

@@ -142,11 +142,11 @@ describe('op.get()', () => {
   })
 })
 
-describe('harmonizeSource direct import', () => {
+describe('HTML handler direct import (formerly harmonizeSource direct import)', () => {
   it('should work without options.getHarmonizer when options.instance is provided', async () => {
-    const { harmonizeSource } = await import('../../packages/core/harmonizeSource.js')
+    const { default: htmlHandler } = await import('../../packages/core/handlers/html/handler.js')
     const html = '<html><head><title>Test</title></head><body><octo-thorpe>demo</octo-thorpe></body></html>'
-    const result = await harmonizeSource(html, 'default', { instance: 'http://localhost:5173/' })
+    const result = await htmlHandler.harmonize(html, 'default', { instance: 'http://localhost:5173/' })
     expect(result).toBeDefined()
     expect(result.title).toBe('Test')
   })

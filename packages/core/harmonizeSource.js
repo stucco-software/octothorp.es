@@ -1,14 +1,8 @@
 /**
- * Harmonizes HTML source content using predefined schemas to extract structured data
+ * Shared utility module for harmonizer schema fetching and value transformation.
+ * Provides format-agnostic utilities that any handler may use.
  * @module harmonizeSource
- * @todo Iterate over unique subjects and output one object per
- * @todo Add support for type=json
- * @todo Add support for type=xpath
  */
-import normalizeUrl from 'normalize-url'
-import { createHarmonizerRegistry } from './harmonizers.js'
-
-
 
 /**
  * Maximum size for remote harmonizer files (56KB)
@@ -62,16 +56,16 @@ const RATE_LIMIT_WINDOW = 60 * 1000
 const isAllowedHarmonizerUrl = (url) => {
   try {
     const parsed = new URL(url)
-    
+
     // Only allow HTTPS (and HTTP for localhost in development)
-    if (parsed.protocol !== 'https:' && 
+    if (parsed.protocol !== 'https:' &&
         !(parsed.protocol === 'http:' && parsed.hostname === 'localhost')) {
       console.warn('Harmonizer URL must use HTTPS')
       return false
     }
-    
+
     // Block private/internal IPs (except localhost)
-    if (parsed.hostname !== 'localhost' && 
+    if (parsed.hostname !== 'localhost' &&
         (parsed.hostname.startsWith('127.') ||
          parsed.hostname.startsWith('192.168.') ||
          parsed.hostname.startsWith('10.') ||
@@ -79,13 +73,13 @@ const isAllowedHarmonizerUrl = (url) => {
       console.warn('Harmonizer URL cannot point to private IP ranges')
       return false
     }
-    
+
     // Block cloud metadata endpoints
     if (parsed.hostname === '169.254.169.254') {
       console.warn('Harmonizer URL cannot point to cloud metadata endpoint')
       return false
     }
-    
+
     // All other URL validation (domain allowlist, same-origin) happens at API boundary
     return true
   } catch (e) {
@@ -102,7 +96,7 @@ const isAllowedHarmonizerUrl = (url) => {
 const checkRateLimit = (url) => {
   const now = Date.now()
   const limit = rateLimitMap.get(url)
-  
+
   if (!limit || now > limit.resetTime) {
     // Reset or initialize
     rateLimitMap.set(url, {
@@ -111,12 +105,12 @@ const checkRateLimit = (url) => {
     })
     return true
   }
-  
+
   if (limit.count >= MAX_FETCHES_PER_WINDOW) {
     console.warn(`Rate limit exceeded for harmonizer URL: ${url}`)
     return false
   }
-  
+
   limit.count++
   return true
 }
@@ -129,13 +123,13 @@ const checkRateLimit = (url) => {
 const getCachedHarmonizer = (url) => {
   const cached = harmonizerCache.get(url)
   if (!cached) return null
-  
+
   const now = Date.now()
   if (now - cached.timestamp > CACHE_TTL) {
     harmonizerCache.delete(url)
     return null
   }
-  
+
   return cached.data
 }
 
@@ -158,7 +152,7 @@ const cacheHarmonizer = (url, data) => {
  * @param {string|Array} p - Parameters for the processing method
  * @returns {string|Array|null} Processed value(s) or null if regex doesn't match
  */
-const processValue = (value, flag, p) => {
+export const processValue = (value, flag, p) => {
   // regex
   if ( flag === "regex") {
     const regex = new RegExp(p)
@@ -179,7 +173,6 @@ const processValue = (value, flag, p) => {
   }
 
   if (flag === "split") {
-    // console.log(value.split(p))
     return value.split(p)
   }
 
@@ -197,8 +190,7 @@ const processValue = (value, flag, p) => {
  * @param {string} filterResults.params - Parameters for the filter method
  * @returns {Array} Filtered array of values
  */
-function filterValues(values, filterResults) {
-  console.log('VALUES', values)
+export function filterValues(values, filterResults) {
   const { method, params } = filterResults;
 
   switch (method) {
@@ -224,87 +216,12 @@ function filterValues(values, filterResults) {
 }
 
 /**
- * Removes trailing slashes from URLs
- * @param {string} url - URL string to process
- * @returns {string} URL without trailing slashes
- */
-function removeTrailingSlash(url) {
-  // Check if the URL ends with a slash (or slash followed by query/hash)
-  return url.replace(/\/+$/g, '');
-}
-
-
-/**
- * Extracts values from HTML based on a schema rule using CSS selectors
- * @param {string} html - HTML content to extract from
- * @param {Object|string} rule - Extraction rule object or static string value
- * @param {string} [rule.selector] - CSS selector for elements
- * @param {string} [rule.attribute] - Element attribute to extract
- * @param {Object} [rule.postProcess] - Post-processing configuration
- * @param {Object} [rule.terms] - Terms extraction configuration
- * @param {string} [rule.terms.attribute] - Attribute containing comma-separated terms
- * @returns {Array} Array of extracted values (strings or objects with uri/terms)
- */
-const extractValues = async (html, rule) => {
-  if (rule === undefined || rule === null) return []
-  if (typeof rule === "string") {
-    // If the rule is a string, return it as-is
-    return [rule]
-  }
-  const { selector, attribute, postProcess, terms } = rule
-  const { JSDOM } = await import('jsdom')
-  const dom = new JSDOM(html, { contentType: "text/html" })
-  let tempContainer = dom.window.document
-  const elements = [...tempContainer.querySelectorAll(selector)]
-  const values = elements
-    .map((element) => {
-      let value = element[attribute]
-      if (value === undefined || value === null) {
-        value = element.getAttribute(attribute)
-      }
-      value = removeTrailingSlash(value)
-      
-      // If terms extraction is configured, return object with uri and terms
-      if (terms) {
-        const termsAttr = element.getAttribute(terms.attribute)
-        let extractedTerms = null
-        if (termsAttr) {
-          extractedTerms = termsAttr.split(',').map(t => t.trim()).filter(Boolean)
-        }
-        return { uri: value, terms: extractedTerms }
-      }
-      
-      return value
-    })
-  return values
-}
-
-/**
- * Sets a nested property in an object using dot notation path
- * @param {Object} obj - Target object to modify
- * @param {string} keyPath - Dot notation path (e.g., "nested.property")
- * @param {*} value - Value to set at the nested path
- */
-const setNestedProperty = (obj, keyPath, value) => {
-  const keys = keyPath.split(".")
-  let current = obj
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i]
-    if (!current[key]) {
-      current[key] = {}
-    }
-    current = current[key]
-  }
-  current[keys[keys.length - 1]] = value
-}
-
-/**
  * Merges two harmonizer schemas, with override values taking precedence
  * @param {Object} baseSchema - Base schema to merge into
  * @param {Object} override - Override schema with new values
  * @returns {Object} Merged schema object
  */
-function mergeSchemas(baseSchema, override) {
+export function mergeSchemas(baseSchema, override) {
   const mergedSchema = { ...baseSchema };
 
   for (const key in override) {
@@ -321,10 +238,10 @@ function mergeSchemas(baseSchema, override) {
   return mergedSchema;
 }
 
-// exporting in case anything else is gonna need to grab harmonizers remotely
-
 /**
  * Maximum complexity for CSS selectors to prevent ReDoS and performance issues
+ * Note: these constants are used by isSchemaValid which is called from remoteHarmonizer.
+ * They remain here to avoid a circular import with the HTML handler.
  * @constant {number}
  */
 const MAX_SELECTOR_LENGTH = 200
@@ -338,20 +255,20 @@ const MAX_RULES_PER_TYPE = 50 // Max extraction rules per object type
  */
 const isSafeSelectorComplexity = (selector) => {
   if (!selector || typeof selector !== 'string') return false
-  
+
   // Check length
   if (selector.length > MAX_SELECTOR_LENGTH) {
     console.warn(`Selector too long: ${selector.length} chars (max: ${MAX_SELECTOR_LENGTH})`)
     return false
   }
-  
+
   // Count depth (combinators)
   const combinators = selector.match(/[>+~\s]+/g) || []
   if (combinators.length > MAX_SELECTOR_DEPTH) {
     console.warn(`Selector too deep: ${combinators.length} levels (max: ${MAX_SELECTOR_DEPTH})`)
     return false
   }
-  
+
   // Block dangerous patterns
   const dangerousPatterns = [
     /:has\(/i,           // :has() can be very expensive
@@ -359,32 +276,33 @@ const isSafeSelectorComplexity = (selector) => {
     /\*{2,}/,            // Multiple wildcards in sequence
     /\[[^\]]{100,}\]/,   // Very long attribute selectors
   ]
-  
+
   for (const pattern of dangerousPatterns) {
     if (pattern.test(selector)) {
       console.warn(`Selector contains dangerous pattern: ${selector}`)
       return false
     }
   }
-  
+
   return true
 }
 
 /**
- * Validates a harmonizer schema for safety and structure
+ * Validates a harmonizer schema for safety and structure.
+ * Called by remoteHarmonizer before caching a fetched schema.
  * @param {Object} schema - Schema object to validate
  * @returns {boolean} True if schema is safe, false otherwise
  */
 const isSchemaValid = (schema) => {
   if (!schema || typeof schema !== 'object') return false
-  
+
   // Validate each object type in schema
   for (const [objectType, config] of Object.entries(schema)) {
     if (!config || typeof config !== 'object') {
       console.warn(`Invalid config for object type: ${objectType}`)
       return false
     }
-    
+
     // Check if it has extraction rules
     if (config.o && Array.isArray(config.o)) {
       // Limit number of rules
@@ -392,21 +310,21 @@ const isSchemaValid = (schema) => {
         console.warn(`Too many rules for ${objectType}: ${config.o.length} (max: ${MAX_RULES_PER_TYPE})`)
         return false
       }
-      
+
       // Validate each rule
       for (const rule of config.o) {
         if (typeof rule === 'object' && rule.selector) {
           if (!isSafeSelectorComplexity(rule.selector)) {
             return false
           }
-          
+
           // Validate postProcess regex if present
           if (rule.postProcess?.method === 'regex') {
             try {
               // Test regex compilation and check for catastrophic backtracking patterns
               const testRegex = new RegExp(rule.postProcess.params)
               const regexStr = rule.postProcess.params
-              
+
               // Block common catastrophic backtracking patterns
               if (/(\(.+\)\+|\(.+\)\*){2,}/.test(regexStr)) {
                 console.warn(`Potentially dangerous regex pattern: ${regexStr}`)
@@ -421,7 +339,7 @@ const isSchemaValid = (schema) => {
       }
     }
   }
-  
+
   return true
 }
 
@@ -440,47 +358,47 @@ export async function remoteHarmonizer(url) {
     console.log('Using cached harmonizer for:', url)
     return cached
   }
-  
+
   // Validate URL is allowed (SSRF protection only)
   if (!isAllowedHarmonizerUrl(url)) {
     console.error('Harmonizer URL not allowed:', url)
     return null
   }
-  
+
   // Check rate limit
   if (!checkRateLimit(url)) {
     console.error('Rate limit exceeded for harmonizer URL:', url)
     return null
   }
-  
+
   try {
     // Set up abort controller for timeout
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), HARMONIZER_FETCH_TIMEOUT)
-    
+
     try {
       // Fetch the remote URL with timeout and JSON headers
       const response = await fetch(url, {
         signal: controller.signal,
-        headers: { 
+        headers: {
           'Accept': 'application/json',
           'User-Agent': 'Octothorpes/1.0'
         }
       })
-      
+
       clearTimeout(timeoutId)
 
       // Check if the response is OK (status code 200-299)
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`)
       }
-      
+
       // Validate Content-Type header
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         throw new Error(`Invalid content type: ${contentType}`)
       }
-      
+
       // Check Content-Length if available
       const contentLength = response.headers.get('content-length')
       if (contentLength && parseInt(contentLength) > MAX_HARMONIZER_SIZE) {
@@ -494,27 +412,27 @@ export async function remoteHarmonizer(url) {
       if (!data || typeof data !== 'object') {
         throw new Error("Harmonizer must be a JSON object")
       }
-      
+
       if (!data.title || typeof data.title !== 'string') {
         throw new Error("Harmonizer missing required 'title' string property")
       }
-      
+
       if (!data.schema || typeof data.schema !== 'object') {
         throw new Error("Harmonizer missing required 'schema' object property")
       }
-      
+
       // Validate schema safety and complexity
       if (!isSchemaValid(data.schema)) {
         throw new Error("Harmonizer schema failed safety validation")
       }
-      
+
       // Cache the successful result
       cacheHarmonizer(url, data)
-      
+
       return data
     } catch (fetchError) {
       clearTimeout(timeoutId)
-      
+
       // Check if error was due to abort (timeout)
       if (fetchError.name === 'AbortError') {
         throw new Error(`Fetch timeout after ${HARMONIZER_FETCH_TIMEOUT}ms`)
@@ -526,194 +444,4 @@ export async function remoteHarmonizer(url) {
     console.error("Error fetching or validating harmonizer:", error.message)
     return null
   }
-}
-
-/**
- * Harmonizes HTML content using a specified harmonizer schema
- * Note: Domain/origin validation for remote harmonizers happens at API boundary
- * @async
- * @param {string} html - HTML content to harmonize
- * @param {string} [harmonizer="default"] - Harmonizer ID or URL ("default", "openGraph", "keywords", "ghost", or remote URL)
- * @returns {Promise<Object>} Harmonized output object with extracted metadata
- * @returns {string} output['@id'] - Source URL identifier
- * @returns {string} [output.title] - Extracted title
- * @returns {string} [output.description] - Extracted description
- * @returns {string} [output.image] - Extracted image URL
- * @returns {string} [output.contact] - Extracted contact information
- * @returns {string} [output.type] - Extracted content type
- * @returns {Array} output.octothorpes - Array of extracted octothorpes (tags/links)
- * @returns {string|Object} octothorpes[] - Either string (hashtag) or object with type and uri properties
- * @throws {Error} If harmonizer is invalid or processing fails
- */
-export async function harmonizeSource(html, harmonizer = "default", options = {}) {
-  const getHarmonizer = options.getHarmonizer ?? createHarmonizerRegistry(options.instance ?? '').getHarmonizer
-  let schema = {}
-  const d = await getHarmonizer("default")
-
-  if (harmonizer && typeof harmonizer === 'object' && harmonizer.schema) {
-    // Pre-resolved harmonizer object (e.g. from the indexer's dispatch helper,
-    // which resolves the ID/URL to a schema before selecting a handler).
-    schema = mergeSchemas(d.schema, harmonizer.schema)
-  }
-  else if (harmonizer != "default") {
-    // TKTK might need other checks if you want to accept a json blob directly
-    // but on the other hand, when are you going to get one except from a remote harmonizer?
-      if (harmonizer.startsWith("http")){
-          let h = await remoteHarmonizer(harmonizer)
-
-        if (h) {
-          schema = mergeSchemas(d.schema, h.schema)
-        }
-        else {
-          throw new Error('Invalid harmonizer structure')
-        }
-      }
-      else {
-        let h = await getHarmonizer(harmonizer)
-        schema = mergeSchemas(d.schema, h.schema)
-      }
-    }
-  else {
-    schema = d.schema
-  }
-
-
-  let output = {}
-
-  // Process each top-level object in the schema
-  let typedOutput = {}
-  /**
-   * Processes object extraction rules and returns extracted values
-   * @async
-   * @param {Array} obj - Array of object extraction rules
-   * @returns {Promise<Array>} Array of extracted object values
-   */
-  async function getObjectVals(obj) {
-    const oValues = []
-      // Process each rule in the "o" array
-      for (const rule of obj) {
-        let values = await extractValues(html, rule)
-        if (rule.filterResults) {
-          values = filterValues(values, rule.filterResults)
-        }
-        // If the rule has a "name", use it to reconstruct the nested structure.
-        // Unless the API spec changes, this will never run, but since we have it on DocumentRecord, might as well account for it here.
-        if (rule.name) {
-          setNestedProperty(oValues, rule.name, values)
-        } else {
-          if (rule.postProcess) {
-            let pVals = []
-            values.forEach((val) =>{
-               // Handle objects with terms - apply postProcess to uri only
-               if (typeof val === 'object' && val.uri) {
-                 let pv = processValue(val.uri, rule.postProcess.method, rule.postProcess.params)
-                 if (pv) {
-                   if (Array.isArray(pv)) {
-                     pVals.push(...pv.map(v => ({ uri: v, terms: val.terms })))
-                   } else {
-                     pVals.push({ uri: pv, terms: val.terms })
-                   }
-                 }
-               } else {
-                 let pv = processValue(val, rule.postProcess.method, rule.postProcess.params)
-                 if (pv) {
-                  // Flatten arrays (e.g., from split) into individual values
-                  if (Array.isArray(pv)) {
-                    pVals.push(...pv)
-                  } else {
-                    pVals.push(pv)
-                  }
-                 }
-               }
-              values = pVals
-            })
-            // console.log(rule.postProcess.method)
-            // console.log(pVals)
-          }
-          // Otherwise, add the values directly to the oValues array
-          oValues.push(...values)
-        }
-      }
-      return oValues
-    }
-
-
-  for (const key in schema) {
-    typedOutput[key] = []
-    const thisObj = schema.key
-    const s = schema[key].s
-    const o = schema[key].o
-    // TKTK think about how to handle multiple sources one day
-    const sValues = await extractValues(html, s) // Extract all s values
-  // Special handling for schema.subject and schema.documentRecord
-    if (key === "subject" || key === "documentRecord") {
-      // props for subject go in the top level of the blobject
-      if (key === "subject") {
-        // TKTK will need a refactor if we want to allow non-source indexing
-        // ie from a proactive-indexing standpoint
-        // build subjects array ?
-        output["@id"] = sValues.toString()
-      } else {
-        // documentRecord goes in own object at top level as-is
-        output[key] = {}
-      }
-      // Process each rule in the "o" array
-
-      for (const [prop, val] of Object.entries(schema[key])) {
-              // skip source because it's already in the subject array
-              let values = []
-              if (prop != "s") {
-                  values = await getObjectVals(val)
-              // Use the "key" property to reconstruct the nested structure
-              if (key == "subject") {
-                  // Subject scalars (title, description, image, etc.) are
-                  // single-valued. The schema lists multiple selectors as
-                  // ordered fallbacks, so take the first non-empty match
-                  // rather than concatenating every match into a comma string.
-                  const firstValue = values.find(v => {
-                    if (v === null || v === undefined) return false
-                    if (typeof v === 'string') return v.trim() !== ''
-                    return true
-                  })
-                setNestedProperty(output, prop, firstValue ?? '')
-                }
-                else {
-                // TKTK documentRecords
-                setNestedProperty(output[key], prop, values)
-                }
-              }
-            }
-        }
-    // end subject/doc record
-    else {
-      // Default handling for other top-level objects
-      typedOutput[key] = await getObjectVals(schema[key].o)
-      // console.log(schema[key].o)
-      // console.log(typedOutput[key].o)
-    }
-    // end else
-  }
-
-  // end process key
-
-  output["octothorpes"] = [
-    ...(typedOutput.hashtag || []),
-    ...Object.entries(typedOutput)
-      .filter(([key, value]) => key !== 'hashtag' && value.length > 0)
-      .flatMap(([key, items]) =>
-        items.map(item => {
-          // Handle objects with terms (from link types with data-octothorpes)
-          if (typeof item === 'object' && item.uri) {
-            const result = { type: key, uri: item.uri }
-            if (item.terms && item.terms.length > 0) {
-              result.terms = item.terms
-            }
-            return result
-          }
-          // Plain string uri
-          return { type: key, uri: item }
-        })
-      )
-  ]
-  return output
 }

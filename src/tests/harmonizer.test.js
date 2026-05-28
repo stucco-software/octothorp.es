@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { harmonizeSource, remoteHarmonizer } from 'octothorpes'
+import { remoteHarmonizer } from 'octothorpes'
+import htmlHandler from '../../packages/core/handlers/html/handler.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
+
+const harmonizeSource = (html, harmonizer, options = {}) =>
+  htmlHandler.harmonize(html, harmonizer, { getHarmonizer, ...options })
 
 describe('External Harmonizer Support', () => {
   // Sample HTML for testing
