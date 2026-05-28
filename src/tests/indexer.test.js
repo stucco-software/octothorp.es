@@ -360,3 +360,106 @@ describe('resolveIndexPolicy', () => {
     expect(result.harmonizer).toBe('custom')
   })
 })
+
+describe('createIndexer dispatch', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const makeRegistry = (handlers = {}) => ({
+    getHandler: (mode) => handlers[mode] ?? null,
+    getHandlerForContentType: (ct) => {
+      for (const h of Object.values(handlers)) {
+        if (h.contentTypes?.includes(ct)) return h
+      }
+      return null
+    },
+  })
+
+  it('routes content through the handler resolved by harmonizer.mode', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source', title: 't' })
+    const registry = makeRegistry({
+      json: { mode: 'json', contentTypes: ['application/json'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    const blobject = await indexer.dispatch('{"x":1}', 'text/html', { mode: 'json' }, 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+    expect(blobject['@id']).toBe('https://e.com/p')
+  })
+
+  it('falls back to content-type when harmonizer has no mode', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source' })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    await indexer.dispatch('<html></html>', 'text/html', 'default', 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('falls back to html handler if nothing else matches', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source' })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    await indexer.dispatch('<weird/>', 'application/unknown', 'default', 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('throws if no handler can be resolved', async () => {
+    const registry = makeRegistry({})
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    await expect(
+      indexer.dispatch('x', 'application/unknown', 'default', 'https://e.com/p')
+    ).rejects.toThrow(/no handler/i)
+  })
+
+  it('patches blobject @id when handler returns "source"', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source', x: 1 })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    const blob = await indexer.dispatch('<x/>', 'text/html', 'default', 'https://e.com/p')
+    expect(blob['@id']).toBe('https://e.com/p')
+  })
+
+  it('preserves blobject @id when handler sets a real URI', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'https://other.com/x' })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    const blob = await indexer.dispatch('<x/>', 'text/html', 'default', 'https://e.com/p')
+    expect(blob['@id']).toBe('https://other.com/x')
+  })
+})

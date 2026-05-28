@@ -510,6 +510,33 @@ export const createIndexer = (deps) => {
     }
   }
 
+  ////////// dispatch //////////
+
+  /**
+   * Resolve a handler for the given harmonizer/contentType and produce a blobject.
+   * Resolution order: harmonizer.mode > contentType > 'html' fallback.
+   * Patches @id === 'source' to the source URI before returning.
+   */
+  const dispatch = async (content, contentType, harmonizer, uri) => {
+    // Resolve the harmonizer schema if it's a string name and a lookup is wired in.
+    const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
+      ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
+      : harmonizer
+
+    const mode = resolvedHarmonizer?.mode
+
+    let selected = mode ? handlerRegistry?.getHandler(mode) : null
+    if (!selected) selected = handlerRegistry?.getHandlerForContentType(contentType)
+    if (!selected) selected = handlerRegistry?.getHandler('html')
+    if (!selected) {
+      throw new Error(`No handler available for contentType="${contentType}" mode="${mode || ''}"`)
+    }
+
+    const blobject = await selected.harmonize(content, resolvedHarmonizer, { instance })
+    if (blobject && blobject['@id'] === 'source') blobject['@id'] = uri
+    return blobject
+  }
+
   ////////// handlers //////////
 
   const handleThorpe = async (s, o, { instance: inst } = {}) => {
@@ -835,6 +862,7 @@ export const createIndexer = (deps) => {
   return {
     handler,
     handleHTML,
+    dispatch,
     ingestBlobject,
     handleThorpe,
     handleMention,
