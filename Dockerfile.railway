@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# Production image for Railway. The repo's ./Dockerfile is the dev image and is
+# intentionally NOT used here.
+FROM node:20-alpine AS build
+WORKDIR /app
+ENV ADAPTER=node
+# Install with the workspace (packages/*) present so the `octothorpes` workspace
+# package resolves.
+COPY package.json package-lock.json ./
+COPY packages ./packages
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV ADAPTER=node
+# adapter-node externalizes dependencies, so the runtime needs node_modules.
+# Copy the full tree (incl. the octothorpes workspace symlink and its target)
+# rather than a pruned prod install, so the symlink resolves.
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/build ./build
+COPY --from=build /app/package.json ./package.json
+EXPOSE 3000
+CMD ["node", "build"]
