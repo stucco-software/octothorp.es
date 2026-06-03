@@ -1,8 +1,8 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
-import { admin_email } from '$env/static/private'
+import { admin_email } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
-import { server_name } from '$env/static/private'
+import { server_name } from '$lib/config.js'
 
 const domainBanned = async (domain) => await queryBoolean(`ask {
   <${domain}> octo:banned "true" .

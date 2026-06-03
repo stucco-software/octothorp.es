@@ -1,5 +1,5 @@
 import { queryArray } from '$lib/sparql.js'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { json, error } from '@sveltejs/kit'
 import { rss } from "octothorpes"
 

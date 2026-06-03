@@ -1,5 +1,5 @@
 import { send } from '$lib/mail/send.js'
-import { instance, admin_email } from '$env/static/private'
+import { instance, admin_email } from '$lib/config.js'
 
 const alertAdmin = async ({s, o}) => {
   let success
