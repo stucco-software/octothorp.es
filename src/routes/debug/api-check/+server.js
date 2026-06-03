@@ -1,4 +1,4 @@
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { queryArray, queryBoolean, query, insert } from '$lib/sparql.js'
 import { createApi } from '$lib/api.js'
 import { json } from '@sveltejs/kit'

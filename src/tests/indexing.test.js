@@ -11,7 +11,7 @@ vi.mock('$lib/harmonizeSource.js', () => ({
   harmonizeSource: vi.fn(),
 }))
 
-vi.mock('$env/static/private', () => ({
+vi.mock('$lib/config.js', () => ({
   server_name: 'test-server',
 }))
 

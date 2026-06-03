@@ -1,5 +1,5 @@
-import { sparql_endpoint, sparql_user, sparql_password } from '$env/static/private'
-import { instance } from '$env/static/private'
+import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
+import { instance } from '$lib/config.js'
 import { createSparqlClient } from '$lib/sparqlClient.js'
 import { createQueryBuilders } from '$lib/queryBuilders.js'
 

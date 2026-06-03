@@ -1,4 +1,4 @@
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { queryBoolean, insert, query } from '$lib/sparql.js'
 import { asyncMap} from '$lib/asyncMap.js'
 import emailAdministrator from "$lib/emails/alertAdmin.js"

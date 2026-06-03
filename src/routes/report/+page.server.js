@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit'
-import { admin_email } from '$env/static/private'
+import { admin_email } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
 
 const alertAdmin = async ({url}) => {

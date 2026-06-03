@@ -1,5 +1,5 @@
 import { queryArray } from '$lib/sparql.js'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 
 const mergeBacklinks = (backlinks) => {
   let uIDs = [...new Set(backlinks.map(b => b.from))]

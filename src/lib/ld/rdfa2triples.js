@@ -1,5 +1,5 @@
 import { arrayify } from '$lib/arrayify.js'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 let p = 'octo:octothorpes'
 
 // Private Function Test

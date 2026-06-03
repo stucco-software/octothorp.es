@@ -1,4 +1,4 @@
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { createHarmonizerRegistry } from '$lib/harmonizers.js'
 
 const registry = createHarmonizerRegistry(instance)

@@ -1,4 +1,4 @@
-import { instance, badge_image, server_name } from '$env/static/private'
+import { instance, badge_image, server_name } from '$lib/config.js'
 import { verifiedOrigin } from '$lib/origin.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'

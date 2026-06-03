@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit'
-import { instance, server_name } from '$env/static/private'
+import { instance, server_name } from '$lib/config.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
 import { parseUri } from '$lib/uri.js'

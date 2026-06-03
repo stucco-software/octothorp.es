@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { verifiedOrigin } from '$lib/origin.js'
 import normalizeUrl from 'normalize-url'
