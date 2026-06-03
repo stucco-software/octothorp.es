@@ -6,6 +6,7 @@ node_modules
 .env
 .env.*
 !.env.example
+!.env.railway.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 runbook.md
