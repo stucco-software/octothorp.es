@@ -12,6 +12,7 @@ runbook.md
 .vscode/settings.json
 .zed/settings.json
 .worktrees
+.claude/worktrees
 packages/core/.npmrc
 .npmrc
 .npmrc
