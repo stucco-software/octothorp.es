@@ -1,3 +1,13 @@
+export const nullHandler = {
+  mode: 'null',
+  contentTypes: [],
+  meta: {
+    name: 'Null Handler',
+    description: 'Last-resort fallback. Returns a minimal blobject with no extracted metadata.',
+  },
+  harmonize: (content, schema, options = {}) => ({ '@id': 'source', octothorpes: [] }),
+}
+
 export const createHandlerRegistry = () => {
   const handlers = {}
   const contentTypeMap = {}

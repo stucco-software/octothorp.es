@@ -1,4 +1,4 @@
-import { processValue, filterValues } from '../../harmonizeSource.js'
+import { processValue, filterValues, validators } from '../../harmonizeSource.js'
 
 /**
  * Resolve a dot-notation path against an object.
@@ -73,12 +73,12 @@ const extractValues = (data, rules) => {
 
 /**
  * Harmonize JSON content using a harmonizer schema with dot-notation paths.
- * Returns the same blobject shape as harmonizeSource.
  */
 const harmonize = (content, harmonizerSchema, options = {}) => {
   const data = typeof content === 'string' ? JSON.parse(content) : content
   const s = harmonizerSchema?.schema || harmonizerSchema
   if (!s) throw new Error('JSON handler requires a schema')
+  if (!validators.json(s)) throw new Error('JSON harmonizer schema failed safety validation')
 
   const output = {}
   const typedOutput = {}

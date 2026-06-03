@@ -13,7 +13,7 @@ describe('octothorpes package exports', () => {
     'checkIndexingRateLimit', 'checkIndexingPolicy', 'parseRequestBody', 'isURL',
     // newly added
     'badgeVariant', 'determineBadgeUri',
-    'remoteHarmonizer', 'mergeSchemas', 'processValue', 'filterValues',
+    'remoteHarmonizer', 'mergeSchemas', 'processValue', 'filterValues', 'validators',
     'verifyApprovedDomain',
     'createEnrichBlobjectTargets',
     // utils additions

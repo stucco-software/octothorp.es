@@ -47,9 +47,9 @@ const MAX_FETCHES_PER_WINDOW = 10
 const RATE_LIMIT_WINDOW = 60 * 1000
 
 /**
- * Validates if a URL is allowed for remote harmonizer fetching
- * Note: This now only validates SSRF protection (HTTPS, private IPs, cloud metadata)
- * Domain allowlist validation happens at the API boundary in index/+server.js
+ * Validates if a URL is allowed for remote harmonizer fetching.
+ * Blocks private IP ranges and cloud metadata endpoints (SSRF protection).
+ * Domain allowlist validation happens at the API boundary.
  * @param {string} url - URL to validate
  * @returns {boolean} True if URL is allowed, false otherwise
  */
@@ -57,12 +57,10 @@ const isAllowedHarmonizerUrl = (url) => {
   try {
     const parsed = new URL(url)
 
-    // Only allow HTTPS (and HTTP for localhost in development)
-    if (parsed.protocol !== 'https:' &&
-        !(parsed.protocol === 'http:' && parsed.hostname === 'localhost')) {
-      console.warn('Harmonizer URL must use HTTPS')
-      return false
-    }
+    // if (parsed.protocol !== 'https:') {
+    //   console.warn('Harmonizer URL must use HTTPS')
+    //   return false
+    // }
 
     // Block private/internal IPs (except localhost)
     if (parsed.hostname !== 'localhost' &&
@@ -238,21 +236,21 @@ export function mergeSchemas(baseSchema, override) {
   return mergedSchema;
 }
 
-/**
- * Maximum complexity for CSS selectors to prevent ReDoS and performance issues
- * Note: these constants are used by isSchemaValid which is called from remoteHarmonizer.
- * They remain here to avoid a circular import with the HTML handler.
- * @constant {number}
- */
 const MAX_SELECTOR_LENGTH = 200
-const MAX_SELECTOR_DEPTH = 10 // Max number of combinators (>, +, ~, space)
-const MAX_RULES_PER_TYPE = 50 // Max extraction rules per object type
+const MAX_SELECTOR_DEPTH = 10
+const MAX_RULES_PER_TYPE = 50
 
-/**
- * Validates a CSS selector for complexity and safety
- * @param {string} selector - CSS selector to validate
- * @returns {boolean} True if selector is safe, false otherwise
- */
+const isSafeRegex = (regexStr) => {
+  if (!regexStr || typeof regexStr !== 'string') return false
+  try {
+    new RegExp(regexStr)
+    if (/(\(.+\)\+|\(.+\)\*){2,}/.test(regexStr)) return false
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
 const isSafeSelectorComplexity = (selector) => {
   if (!selector || typeof selector !== 'string') return false
 
@@ -287,51 +285,30 @@ const isSafeSelectorComplexity = (selector) => {
   return true
 }
 
-/**
- * Validates a harmonizer schema for safety and structure.
- * Called by remoteHarmonizer before caching a fetched schema.
- * @param {Object} schema - Schema object to validate
- * @returns {boolean} True if schema is safe, false otherwise
- */
-const isSchemaValid = (schema) => {
+const validateHtmlSchema = (schema) => {
   if (!schema || typeof schema !== 'object') return false
 
-  // Validate each object type in schema
   for (const [objectType, config] of Object.entries(schema)) {
     if (!config || typeof config !== 'object') {
       console.warn(`Invalid config for object type: ${objectType}`)
       return false
     }
 
-    // Check if it has extraction rules
     if (config.o && Array.isArray(config.o)) {
-      // Limit number of rules
       if (config.o.length > MAX_RULES_PER_TYPE) {
         console.warn(`Too many rules for ${objectType}: ${config.o.length} (max: ${MAX_RULES_PER_TYPE})`)
         return false
       }
 
-      // Validate each rule
       for (const rule of config.o) {
         if (typeof rule === 'object' && rule.selector) {
           if (!isSafeSelectorComplexity(rule.selector)) {
             return false
           }
 
-          // Validate postProcess regex if present
           if (rule.postProcess?.method === 'regex') {
-            try {
-              // Test regex compilation and check for catastrophic backtracking patterns
-              const testRegex = new RegExp(rule.postProcess.params)
-              const regexStr = rule.postProcess.params
-
-              // Block common catastrophic backtracking patterns
-              if (/(\(.+\)\+|\(.+\)\*){2,}/.test(regexStr)) {
-                console.warn(`Potentially dangerous regex pattern: ${regexStr}`)
-                return false
-              }
-            } catch (e) {
-              console.warn(`Invalid regex in postProcess: ${rule.postProcess.params}`)
+            if (!isSafeRegex(rule.postProcess.params)) {
+              console.warn(`Unsafe regex in postProcess: ${rule.postProcess.params}`)
               return false
             }
           }
@@ -343,6 +320,47 @@ const isSchemaValid = (schema) => {
   return true
 }
 
+const validateJsonSchema = (schema) => {
+  if (!schema || typeof schema !== 'object') return false
+
+  for (const [objectType, config] of Object.entries(schema)) {
+    if (!config || typeof config !== 'object') {
+      console.warn(`Invalid config for object type: ${objectType}`)
+      return false
+    }
+
+    // Collect all rule sets (arrays of rules) from this config
+    const ruleSets = Object.values(config)
+      .map(v => Array.isArray(v) ? v : (v && typeof v === 'object' ? [v] : null))
+      .filter(Boolean)
+
+    for (const rules of ruleSets) {
+      if (rules.length > MAX_RULES_PER_TYPE) {
+        console.warn(`Too many rules for ${objectType}: ${rules.length} (max: ${MAX_RULES_PER_TYPE})`)
+        return false
+      }
+      for (const rule of rules) {
+        if (!rule || typeof rule !== 'object') continue
+        if (rule.postProcess?.method === 'regex' && !isSafeRegex(rule.postProcess.params)) {
+          console.warn(`Unsafe regex in postProcess: ${rule.postProcess.params}`)
+          return false
+        }
+        if (rule.filterResults?.method === 'regex' && !isSafeRegex(rule.filterResults.params)) {
+          console.warn(`Unsafe regex in filterResults: ${rule.filterResults.params}`)
+          return false
+        }
+      }
+    }
+  }
+
+  return true
+}
+
+export const validators = {
+  html: validateHtmlSchema,
+  json: validateJsonSchema,
+}
+
 /**
  * Fetches a harmonizer schema from a remote URL with security validations
  * Note: Domain/origin validation happens at API boundary. This only validates SSRF protection.
@@ -351,7 +369,12 @@ const isSchemaValid = (schema) => {
  * @returns {Promise<Object|null>} Harmonizer schema object or null if fetch fails
  * @throws {Error} If HTTP request fails or schema is invalid
  */
-export async function remoteHarmonizer(url) {
+export async function remoteHarmonizer(url, { validateSchema } = {}) {
+  const schemaValidator = typeof validateSchema === 'function'
+    ? validateSchema
+    : typeof validateSchema === 'string'
+      ? validators[validateSchema] ?? null
+      : null
   // Check cache first
   const cached = getCachedHarmonizer(url)
   if (cached) {
@@ -421,8 +444,8 @@ export async function remoteHarmonizer(url) {
         throw new Error("Harmonizer missing required 'schema' object property")
       }
 
-      // Validate schema safety and complexity
-      if (!isSchemaValid(data.schema)) {
+      // Validate schema safety and complexity if a validator was provided
+      if (schemaValidator && !schemaValidator(data.schema)) {
         throw new Error("Harmonizer schema failed safety validation")
       }
 
