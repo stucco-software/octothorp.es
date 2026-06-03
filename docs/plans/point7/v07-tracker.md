@@ -54,15 +54,19 @@
 - [ ] **#212** Recent/date filters broken
 - [ ] **#150** Pages queries returning octothorpes as pages
 - [ ] **#115** Fuzzy tags broken with separator chars (hyphen, camelCase, spaces)
+- [ ] **#213** Wire endorsement gating in `handleMention` — `ingestBlobject` owns the logic cleanly now
 
 ---
 
-## Wave 1.5 — OP Client Profile
+## Wave 2 — OP Client Profile and Vocabulary 
+
 > Foundational. Establishes a single config source-of-truth for OP Clients. Closes #165 as a superset.
 > Epic: **#215**. Two revs; Rev 2 may slip to v0.8.
 
 - [ ] **#216** Rev 1 (MVP) — schema, loader, `profile.public.json`, `/profile` HTML + `/profile.json` endpoints. No behavior changes.
 - [ ] **#217** Rev 2 (Integration) — `createClient`, publishers, harmonizers, and indexing pipeline all read from the profile. Deprecates ad-hoc config sites.
+- [ ] **#192** Add Content Labels to OP vocabulary
+- [ ]  **#166** Harmonize non-canonical Document Record content on request < DRs should be defined in the Client Profile
 
 **Design notes:**
 - `profile.public.json` (committed) + `.env` (secrets); loader merges to `profile.full`
@@ -70,9 +74,20 @@
 - Not stored in triplestore — purely operational
 - One profile per OP install
 
+
 ---
 
-## Wave 2 — API surface completeness
+## Wave 3 — Batch indexing
+> Depends on Wave 0a being complete (handler dispatch, `ingestBlobject` callable directly). Independent of 0b.
+
+- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md`
+- [ ] **#43** Index statements via Octothorpes blobject file — calls `ingestBlobject` directly
+- [ ] **#177** Harmonize standard sitemap.xml files — depends on #180
+
+
+---
+
+## Wave 4 — API additions
 > Independent.
 
 - [ ] **#200** Add `?st=` parameter for arbitrary relationship subtype queries (`multipass.js`)
@@ -80,33 +95,36 @@
 
 ---
 
-## Wave 3 — Data lifecycle
+## Wave 5 — Deletion
+
 > Independent.
 
 - [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md`
 - [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md`
+- [ ] make sure a generic deleterecord() function is exposed to the OP client 
 
 ---
 
-## Wave 4 — Handler-enabled indexing features
-> Depends on Wave 0a being complete (handler dispatch, `ingestBlobject` callable directly). Independent of 0b.
-
-- [ ] **#213** Wire endorsement gating in `handleMention` — `ingestBlobject` owns the logic cleanly now
-- [ ] **#43** Index statements via Octothorpes blobject file — calls `ingestBlobject` directly
-- [ ] **#145** Indexing via webmention — new handler mode or pre-harmonized blobject input
-- [ ] **#168** Use badge.png to trigger a registration request
-- [ ] **#160** More levers for query param handling (server config for accepted/rejected params)
-
----
-
-## Wave 5 — UI & discovery
+## Wave 6 — UI & discovery
 > Functional UI work; design considerations skipped. op-core stable, no blockers.
 > Note: "domains" here = origins registered on the Server, distinct from Client Profile (Wave 1.5).
 
+* [ ] Implement a lewk.css based layout system
+* [ ] 
 ### Standalone
 - [ ] **#158** Default to fuzzy results on hashtag list + add a fuzzy/exact toggle — tiny, standalone
 - [ ] **#199** Add "links with this hashtag" view to hashtag-based lists — pure UI plumbing over existing endpoints
+- [ ] add ui for /discover
 
+---
+
+## Wave 7 — Stretch goals
+
+Everything here could get pushed to the next version without dependencies 
+
+- [ ] **#168** Use badge.png to trigger a registration request
+- [ ] **#160** More levers for query param handling (client config for accepted/rejected params)
+- [ ] **#145** Indexing via webmention — new handler mode or pre-harmonized blobject input
 ### Domain Pages Overhaul (bundled)
 > Epic: **#218**. Sequence: refactor → posted view → numerical alias. All three touch `/domains/[uri]`.
 
@@ -114,23 +132,11 @@
 - [ ] **#185** Add "posted" view alongside thorped, with pagination/limits
 - [ ] **#191** Numerical alias via `octo:siteNum` predicate (string literal); minted as `MAX(?siteNum)+1` at registration; retired numbers not reused
 
----
-
-## Wave 6 — Major features
-> Each is multi-session work. `#180` and `#43` (Wave 4) share `ingestBlobject` as the ingest entry point.
-> **#161 Publishers MVP moved to Wave 0b** — core landed; closeout work tracked there.
-
-- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md`
-- [ ] **#177** Harmonize standard sitemap.xml files — depends on #180
-
----
-
-## Wave 7 — Vocabulary & protocol
+### Vocabulary & protocol
 > Lower priority, design-heavy. Consider whether these belong in v0.7 or a future milestone.
 
-- [ ] **#192** Add Content Labels to OP vocabulary
 - [ ] **#196** Add basic graph relationship primitives (CLI: `op related`, `op neighbors`, `op path`)
-- [ ] **#166** Harmonize non-canonical Document Record content on request
+
 
 ---
 
