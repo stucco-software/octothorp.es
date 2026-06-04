@@ -68,20 +68,50 @@ export const verifyWebOfTrust = async (origin, { queryBoolean }) => {
   return false
 }
 
-export const verifiedOrigin = async (origin, { serverName, queryBoolean }) => {
-  // TKTK this should use env vars, but something like an object
-  // that contains both the flag for method to use 
-  // and the params to send it. that way you can't just look at the repo
-  // and find the verification criteria for different services.
-  // We can also add a couple more basic methods, like verifying
-  // on origin (ie *.glitch.com) and white/blacklists.
+// Assert a verified origin (used by open-mode auto-verification). Mirrors the
+// origin triples written during normal processing (see indexer.js createOctothorpe).
+export const createVerifiedOrigin = async (origin, { insert }) => {
+  return await insert(`
+    <${origin}> rdf:type <octo:Origin> .
+    <${origin}> octo:verified "true" .
+  `)
+}
+
+export const verifiedOrigin = async (origin, { serverName, queryBoolean, registration_mode, insert }) => {
   if (serverName == "Bear Blog") {
-    // this will work with Bear Blog but we should consider 
+    // this will work with Bear Blog but we should consider
     // whether we should try to do this on the full url that requests indexing
     return await verifiyContent(origin)
-  } else {
-    // TKTK verify web trusted domain
-    // let webbed = await verifyWebOfTrust(origin)
-    return await verifyApprovedDomain(origin, { queryBoolean })
   }
+  const approved = await verifyApprovedDomain(origin, { queryBoolean })
+  if (approved) return true
+  // Open mode: the on-page opt-in already ran upstream (proof of control) and the
+  // ban gate already rejected banned origins, so auto-create + verify.
+  if (registration_mode === 'open' && insert) {
+    await createVerifiedOrigin(origin, { insert })
+    return true
+  }
+  return false
+}
+
+// Block + purge an origin. Order matters: delete the origin's pages and their blank
+// nodes FIRST, then GC terms left with zero references, then write the tombstone.
+export const banOrigin = async (domain, { query }) => {
+  await query(`
+    delete { ?page ?pp ?po . ?bn ?bp ?bo . }
+    where {
+      <${domain}> octo:hasPart ?page .
+      ?page ?pp ?po .
+      optional { ?page octo:octothorpes ?bn . filter(isBlank(?bn)) . ?bn ?bp ?bo . }
+    }
+  `)
+  await query(`
+    delete { ?term ?tp ?to . }
+    where {
+      ?term rdf:type <octo:Term> ; ?tp ?to .
+      filter not exists { ?p octo:octothorpes ?term . }
+    }
+  `)
+  await query(`delete { <${domain}> ?p ?o . } where { <${domain}> ?p ?o . }`)
+  await query(`insert data { <${domain}> rdf:type <octo:Origin> . <${domain}> octo:banned "true" . }`)
 }

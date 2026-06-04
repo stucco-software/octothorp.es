@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit'
-import { instance, server_name } from '$lib/config.js'
-import { queryBoolean } from '$lib/sparql.js'
+import { instance, server_name, registration_mode } from '$lib/config.js'
+import { queryBoolean, insert } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
 import { parseUri } from '$lib/uri.js'
 
@@ -12,6 +12,7 @@ const knownErrors = [
   'Invalid URI',
   'no scheme found',
   'not opted in',
+  'banned',
 ]
 
 const mapErrorToStatus = (message) => {
@@ -20,6 +21,7 @@ const mapErrorToStatus = (message) => {
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
   if (message.includes('not opted in')) return 403
+  if (message.includes('banned')) return 403
   if (knownErrors.some(e => message.includes(e))) return 400
   return 500
 }
@@ -45,7 +47,9 @@ const withCors = (res) => {
 const config = () => ({
   instance,
   serverName: server_name,
-  queryBoolean
+  queryBoolean,
+  registration_mode,
+  insert
 })
 
 export async function OPTIONS() {

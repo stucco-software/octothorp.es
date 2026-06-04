@@ -664,7 +664,7 @@ export const handleHTML = async (response, uri, harmonizer, { instance }) => {
 }
 
 export const handler = async (uri, harmonizer, requestingOrigin, config) => {
-  const { instance, serverName, queryBoolean: configQueryBoolean, verifyOrigin } = config
+  const { instance, serverName, queryBoolean: configQueryBoolean, verifyOrigin, registration_mode, insert: configInsert } = config
 
   // 1. Parse and normalize URI
   const parsed = parseUri(uri)
@@ -679,6 +679,14 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
     } catch (_) {
       validateSameOrigin(parsed, requestingOrigin)
     }
+  }
+
+  // 2.5 Ban gate (unconditional — NOT inside verifiedOrigin, so a verifyOrigin
+  // override cannot bypass it). Rejects before any network work.
+  const banCheck = configQueryBoolean || queryBoolean
+  const isBanned = await banCheck(`ask { <${parsed.origin}> octo:banned "true" . }`)
+  if (isBanned) {
+    throw new Error('This origin is banned.')
   }
 
   // 3. On-page policy check (always runs)
@@ -713,7 +721,9 @@ export const handler = async (uri, harmonizer, requestingOrigin, config) => {
   // 4. Origin verification
   const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
     serverName,
-    queryBoolean: configQueryBoolean || queryBoolean
+    queryBoolean: configQueryBoolean || queryBoolean,
+    registration_mode,
+    insert: configInsert || insert
   }))
   const isVerified = await verify(parsed.origin)
   if (!isVerified) {

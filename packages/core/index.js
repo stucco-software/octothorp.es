@@ -121,6 +121,8 @@ export const createClient = (config) => {
       instance: config.instance,
       serverName: config.instance,
       queryBoolean: sparql.queryBoolean,
+      registration_mode: config.registration_mode,
+      insert: sparql.insert,
       verifyOrigin: policy.mode === 'active'
         ? async () => true
         : undefined,

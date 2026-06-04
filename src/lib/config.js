@@ -11,6 +11,8 @@ export const {
   instance,
   server_name,
   admin_email,
+  admin_secret,
+  registration_mode,
   badge_image,
   smtp_host,
   smtp_port,

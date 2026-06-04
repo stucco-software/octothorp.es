@@ -1,8 +1,9 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
-import { admin_email } from '$lib/config.js'
+import { admin_email, registration_mode } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
 import { server_name } from '$lib/config.js'
+import { parseUri } from '$lib/uri.js'
 
 const domainBanned = async (domain) => await queryBoolean(`ask {
   <${domain}> octo:banned "true" .
@@ -64,12 +65,24 @@ export const actions = {
       ? data.get('domain')
       : `${data.get('domain')}/`
 
-    if (await domainBanned(domain)) {
+    // Canonical origin (no trailing slash) — matches the form indexing/banOrigin use.
+    const canonical = (() => { try { return parseUri(domain).origin } catch { return domain } })()
+
+    if (await domainBanned(canonical)) {
       return fail(403, { domain, banned: true })
     }
 
     if(await domainVerified(domain)) {
       return redirect(303, `/domains#${domain}`)
+    }
+
+    // Open mode: verify immediately (first-index would also auto-verify); no admin email.
+    if (registration_mode === 'open') {
+      await insert(`
+        <${canonical}> rdf:type <octo:Origin> .
+        <${canonical}> octo:verified "true" .
+      `)
+      return redirect(303, `/domains#${canonical}`)
     }
 
     await insertRequest({

@@ -659,13 +659,14 @@ export const createIndexer = (deps) => {
   }
 
   const handler = async (uri, harmonizer, requestingOrigin, config) => {
-    const { instance: inst, serverName, queryBoolean: configQueryBoolean, verifyOrigin } = config
+    const { instance: inst, serverName, queryBoolean: configQueryBoolean, verifyOrigin, registration_mode, insert: configInsert } = config
     const base = inst || instance
 
     // 1. Parse and normalize URI
     const parsed = parseUri(uri)
 
     // 2. Cross-origin check
+    let optInProven = false
     if (requestingOrigin) {
       validateSameOrigin(parsed, requestingOrigin)
     } else {
@@ -680,6 +681,7 @@ export const createIndexer = (deps) => {
       if (!policy.optedIn) {
         throw new Error('Page has not opted in to indexing.')
       }
+      optInProven = true
 
       // On-page harmonizer overrides request param (must be an absolute URL)
       if (policy.harmonizer) {
@@ -687,10 +689,19 @@ export const createIndexer = (deps) => {
       }
     }
 
+    // 2.5 Ban gate (unconditional — not bypassable by a verifyOrigin override).
+    const banCheck = configQueryBoolean || queryBoolean
+    if (await banCheck(`ask { <${parsed.origin}> octo:banned "true" . }`)) {
+      throw new Error('This origin is banned.')
+    }
+
     // 3. Origin verification
     const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
       serverName,
-      queryBoolean: configQueryBoolean || queryBoolean
+      queryBoolean: configQueryBoolean || queryBoolean,
+      // never auto-verify on a path that skipped the opt-in proof
+      registration_mode: optInProven ? registration_mode : 'approval',
+      insert: configInsert || insert
     }))
     const isVerified = await verify(parsed.origin)
     if (!isVerified) {

@@ -203,7 +203,7 @@ describe('Indexing Business Logic', () => {
 
   describe('extantTerm', () => {
     it('should query with instance-prefixed term URI', async () => {
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
       const result = await extantTerm('demo', { instance })
       expect(result).toBe(true)
       expect(queryBoolean).toHaveBeenCalledWith(
@@ -220,7 +220,7 @@ describe('Indexing Business Logic', () => {
 
   describe('extantPage', () => {
     it('should check for Page type by default', async () => {
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
       const result = await extantPage('https://example.com/page')
       expect(result).toBe(true)
       expect(queryBoolean).toHaveBeenCalledWith(
@@ -474,7 +474,7 @@ describe('Indexing Business Logic', () => {
     })
 
     it('should skip everything when both exist', async () => {
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
       await handleThorpe('https://example.com/page', 'demo', { instance })
       expect(insert).not.toHaveBeenCalled()
     })
@@ -577,7 +577,7 @@ describe('Indexing Business Logic', () => {
         octothorpes: [],
         type: null,
       })
-      queryBoolean.mockResolvedValue(true) // page exists
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned')) // page exists
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
 
@@ -739,7 +739,7 @@ describe('Indexing Business Logic', () => {
         octothorpes: [],
         type: null,
       })
-      queryBoolean.mockResolvedValue(true) // page exists
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned')) // page exists
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
 
@@ -940,7 +940,7 @@ describe('Indexing Business Logic', () => {
           octothorpes: [],
           type: null,
         })
-      queryBoolean.mockResolvedValue(true) // extantPage
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned')) // extantPage
 
       await handler('https://example.com/page', 'default', 'https://example.com', {
         instance, verifyOrigin: mockVerifyOrigin
@@ -1224,7 +1224,7 @@ describe('Indexing Business Logic', () => {
 
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
 
       await handler('https://keywords-site.test/page', 'keywords', 'https://keywords-site.test', {
         instance, verifyOrigin: mockVerifyOrigin
@@ -1270,7 +1270,7 @@ describe('Indexing Business Logic', () => {
 
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true) // extantPage
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned')) // extantPage
 
       await handler('https://example.com/page', 'default', null, {
         instance, verifyOrigin: mockVerifyOrigin
@@ -1311,7 +1311,7 @@ describe('Indexing Business Logic', () => {
 
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
 
       await handler('https://example.com/page', 'default', null, {
         instance, verifyOrigin: mockVerifyOrigin
@@ -1377,7 +1377,7 @@ describe('Indexing Business Logic', () => {
 
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
 
       // Should NOT throw 'Harmonizer not allowed' because no origin header
       await handler('https://example.com/page', 'default', null, {
@@ -1442,7 +1442,7 @@ describe('Indexing Business Logic', () => {
 
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
 
       // Instance-hosted harmonizer should be allowed without headers
       await handler('https://example.com/page', `${instance}harmonizer/custom`, null, {
@@ -1751,7 +1751,7 @@ describe('Indexing Business Logic', () => {
       queryArray.mockResolvedValue({ results: { bindings: [] } })
       query.mockResolvedValue({})
       insert.mockResolvedValue({})
-      queryBoolean.mockResolvedValue(true)
+      queryBoolean.mockImplementation(async (q) => !q.includes('octo:banned'))
 
       // Same-origin harmonizer should be allowed
       await handler(
@@ -1763,5 +1763,19 @@ describe('Indexing Business Logic', () => {
 
       expect(harmonizeSource).toHaveBeenCalledTimes(2)
     })
+  })
+})
+
+describe('ban gate', () => {
+  it('should reject a banned origin before fetching the page', async () => {
+    const queryBoolean = vi.fn().mockResolvedValue(true) // banned ASK -> true
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await expect(
+      handler('https://banned.example/page', 'default', null, {
+        instance: 'https://relay.example/', serverName: 'relay', queryBoolean
+      })
+    ).rejects.toThrow('This origin is banned.')
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 })
