@@ -27,7 +27,18 @@ export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators 
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry } from './publishers.js'
-export { createHandlerRegistry } from './handlerRegistry.js'
+export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
+
+export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) => {
+  const registry = createHandlerRegistry()
+  registry.register('html', htmlHandler)
+  registry.register('json', jsonHandler)
+  registry.register('blobject', blobjectHandler)
+  registry.markBuiltins()
+  registry.register('null', nullHandler)
+  registry.setDefault(defaultHandler)
+  return registry
+}
 
 const normalizeSparqlConfig = (sparql) => {
   if (!sparql) return {}

@@ -188,3 +188,56 @@ routes importing its `handler` (`indexwrapper`, `badge`, `debug/rolodex`) now th
 runtime (`handler()` requires a registry). Per the "only use core" direction these should
 migrate to `createClient`. Tracked: `docs/plans/point7/halfbaked/sveltekit-handler-dispatch-wiring.md`.
 **Live-endpoint verification is blocked until this lands.**
+
+> **Resolved — 2026-06-03.** See addendum below.
+
+---
+
+## Addendum — Handler pipeline cleanup + SvelteKit wiring (2026-06-03, branch `handle-handlers`)
+
+### Null handler inlined
+
+`packages/core/handlers/null/` deleted. The null handler is now a named export `nullHandler` on `handlerRegistry.js` — it's the registry's own fallback sentinel, not a separate file. `index.js` imports it from there.
+
+### Named validators + `validateSchema` callback on `remoteHarmonizer`
+
+`harmonizeSource.js` now exports a `validators` map:
+
+```javascript
+import { validators } from 'octothorpes'
+validators.html  // CSS selector depth/length/pattern checks + regex safety
+validators.json  // Rule-count limits + regex safety across postProcess/filterResults
+```
+
+`remoteHarmonizer` gains an options second argument:
+
+```javascript
+remoteHarmonizer(url, { validateSchema })
+// validateSchema: a function, or a named key ('html', 'json')
+// If omitted, schema-level validation is skipped (structural checks still run)
+```
+
+The HTML handler now passes `{ validateSchema: 'html' }` explicitly. Any future handler that fetches remote harmonizers brings its own validator or picks a named one. The old implicit HTML-only validation and the "avoid circular import" workaround are gone.
+
+### `isSafeRegex` shared utility
+
+Extracted into a module-level helper in `harmonizeSource.js`. Both `validators.html` and `validators.json` use it. Checks regex compilation and blocks common catastrophic backtracking patterns.
+
+### JSON handler schema validation
+
+`json/handler.js` now calls `validators.json(schema)` at the top of `harmonize()` and throws on unsafe regexes or oversized rule sets. Previously the JSON handler had no schema-level validation.
+
+### `createDefaultHandlerRegistry` exported from package
+
+```javascript
+import { createDefaultHandlerRegistry } from 'octothorpes'
+
+const registry = createDefaultHandlerRegistry()                          // default: 'html'
+const registry = createDefaultHandlerRegistry({ defaultHandler: 'json' })
+```
+
+Registers all four built-in handlers (`html`, `json`, `blobject`, `null`) and sets the default. Same wiring `createClient` does internally, now available as a standalone export for callers using `createIndexer` directly.
+
+### SvelteKit routes unblocked
+
+`src/lib/indexing.js` now passes `handlerRegistry: createDefaultHandlerRegistry()` to `createIndexer`. The `indexwrapper`, `badge`, and `debug/rolodex` routes that import `handler` from it all work again. Live-endpoint verification is no longer blocked.

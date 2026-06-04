@@ -1,4 +1,4 @@
-import { createIndexer } from 'octothorpes'
+import { createIndexer, createDefaultHandlerRegistry } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$env/static/private'
 
@@ -8,6 +8,7 @@ const indexer = createIndexer({
   queryBoolean,
   queryArray,
   instance,
+  handlerRegistry: createDefaultHandlerRegistry(),
 })
 
 export const {

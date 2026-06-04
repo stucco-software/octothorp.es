@@ -23,8 +23,8 @@
 - [x] Run full test suite: `npx vitest run` — 17 pre-existing failures in publish-core/publish (atproto publisher, tracked in Wave 0b); 0 new failures
 - [x] Docs handoff written — `docs/plans/point7/wave-0a-docs-handoff.md`
 - [x] **Generic handler pipeline** — `handler()` is now fully generic over content type. Plan: `docs/plans/point7/2026-05-27-generic-handler-pipeline.md` (branch `handle-handlers`, 2026-05-28). Adds `resolveIndexPolicy` (caller-context precedence) + a `dispatch` helper; single fetch captures content-type; both the policy probe and final ingest route through the registry; `harmonizeSource` injection and `handleHTML` removed. `createClient({ indexPolicy: 'active' })` now bypasses the on-page gate end to end. Also fixed a latent crash: `harmonizeSource` now accepts a pre-resolved schema object (additive; string callers unchanged). Suite green (776 passed, 0 failures).
-- [ ] **Follow-up (blocks live-endpoint verification):** `src/lib/indexing.js` still builds its indexer with **no `handlerRegistry`**, so the 3 live routes importing `handler` from it (`indexwrapper`, `badge`, `debug/rolodex`) now throw at runtime — `handler()` requires a registry. Per "only use core", migrate these to `createClient` (or wire a registry). Tracked: `docs/plans/point7/halfbaked/sveltekit-handler-dispatch-wiring.md`.
-- [ ] Verify live endpoints (see Task 8 of handler plan) — **blocked by the SvelteKit registry follow-up above**
+- [x] **Follow-up (blocks live-endpoint verification):** `src/lib/indexing.js` now passes `handlerRegistry: createDefaultHandlerRegistry()` to `createIndexer`. `indexwrapper`, `badge`, `debug/rolodex` all work again. `createDefaultHandlerRegistry` exported from package. 2026-06-03.
+- [ ] Verify live endpoints (see Task 8 of handler plan)
 
 ### 0b — Publishers MVP (#161, moved from Wave 6)
 > Core is implemented; integration, generic `prepare()`, and docs remain.
@@ -73,6 +73,8 @@
 - `/profile` (HTML) and `/profile.json` (raw JSON) — public view only, secrets stripped defensively
 - Not stored in triplestore — purely operational
 - One profile per OP install
+- allowed protocols should be in there (ie https only, etc)
+
 
 
 ---
@@ -92,7 +94,7 @@
 
 - [ ] **#200** Add `?st=` parameter for arbitrary relationship subtype queries (`multipass.js`)
 - [ ] **#204** Typed `IndexError` from core indexer — labeled `review`, may have existing code
-
+- [ ] make orchestra-pit and rolodex core utilities
 ---
 
 ## Wave 5 — Deletion
@@ -110,7 +112,7 @@
 > Note: "domains" here = origins registered on the Server, distinct from Client Profile (Wave 1.5).
 
 * [ ] Implement a lewk.css based layout system
-* [ ] 
+
 ### Standalone
 - [ ] **#158** Default to fuzzy results on hashtag list + add a fuzzy/exact toggle — tiny, standalone
 - [ ] **#199** Add "links with this hashtag" view to hashtag-based lists — pure UI plumbing over existing endpoints
