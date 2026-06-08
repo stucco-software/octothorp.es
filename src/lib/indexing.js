@@ -1,6 +1,6 @@
 import { createIndexer, harmonizeSource } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 
 const indexer = createIndexer({
   insert,
