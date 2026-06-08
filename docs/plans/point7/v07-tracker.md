@@ -103,7 +103,8 @@
 
 - [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md`
 - [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md`
-- [ ] make sure a generic deleterecord() function is exposed to the OP client 
+- [ ] make sure a generic deleterecord() function is exposed to the OP client
+- [ ] explore what attached records there are where the s? is the o?
 
 ---
 
