@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { instance, badge_image, server_name } from '$env/static/private'
+import { instance, badge_image, server_name } from '$lib/config.js'
 import { verifiedOrigin, determineBadgeUri, badgeVariant } from 'octothorpes'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'

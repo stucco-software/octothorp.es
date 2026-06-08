@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit'
-import { instance, sparql_endpoint, sparql_user, sparql_password } from '$env/static/private'
+import { instance, sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
 import { createClient } from 'octothorpes'
 import { publishers } from '$lib/publishers'
 

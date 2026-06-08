@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import { JSDOM } from 'jsdom'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { asyncMap} from '$lib/asyncMap.js'
 import { insert, query } from '$lib/sparql.js'
 import { queryBoolean, queryArray } from '$lib/sparql.js'

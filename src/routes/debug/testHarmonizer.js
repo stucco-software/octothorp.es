@@ -1,5 +1,5 @@
 // src/lib/utils/harmonizerPicker.js
-import { instance } from '$env/static/private';
+import { instance } from '$lib/config.js';
 
 // Cache for harmonizer schemas
 const harmonizerCache = new Map();
