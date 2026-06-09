@@ -708,7 +708,7 @@ export async function GET(req) {
   let origin = normalizeUrl(uri.origin)
 
   // 2. Verify origin is registered
-  let isVerifiedOrigin = await verifiedOrigin(origin)
+  let isVerifiedOrigin = await verifiedOrigin(origin, { queryBoolean })
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }
@@ -738,7 +738,7 @@ export async function POST({request}) {
     return error(400, 'Invalid origin format.')
   }
 
-  const isVerifiedOrigin = await verifiedOrigin(origin)
+  const isVerifiedOrigin = await verifiedOrigin(origin, { queryBoolean })
   if (!isVerifiedOrigin) {
     return error(401, 'Origin is not registered with this server.')
   }

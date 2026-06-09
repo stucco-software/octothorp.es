@@ -45,7 +45,7 @@ export async function GET({ request, url }) {
 
   // Badge needs to know verification status to pick the right image,
   // so we check here rather than letting handler() do it.
-  const isVerified = await verifiedOrigin(origin, { serverName: server_name, queryBoolean })
+  const isVerified = await verifiedOrigin(origin, { queryBoolean })
   if (!isVerified) {
     console.log(`[badge] -> unregistered (origin not verified: ${origin})`)
     return pngResponse(badgeUnregistered)

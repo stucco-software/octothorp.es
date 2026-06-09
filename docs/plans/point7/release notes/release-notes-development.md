@@ -369,3 +369,14 @@ Web components no longer require an explicit `server` attribute. The default for
 
 **Files affected:** `packages/core/index.js`, `src/tests/publish-core.test.js`
 **Plan:** `docs/plans/point7/2026-05-19-generic-prepare.md`
+
+## Removed obsolete `verifiyContent` origin check (#220, follow-up #221)
+
+Stripped the obsolete `verifiyContent` function from `packages/core/origin.js`. It performed two hardcoded checks (a `serverName === "Bear Blog"` opt-in meta marker and a robots `nofollow`+`noindex` refusal) and required a `serverName` config var that is no longer threaded through the pipeline — `verifiedOrigin` threw at the destructure when called without it.
+
+- **`verifiedOrigin`** no longer takes `serverName`; it delegates directly to `verifyApprovedDomain`. Signature defaults to `{}` so a bare `verifiedOrigin(origin)` call no longer throws.
+- **Dropped `serverName`** from all call sites and config threading: `indexer.js` handler, `createClient`'s `handlerConfig` in `index.js`, and the badge / indexwrapper / rolodex routes (including the now-unused `server_name` config imports).
+- **Removed `verifiyContent`** from the package export barrel and the exports test; removed the Bear Blog content-verification test.
+- **Filed #221** to re-implement the two dropped behaviors properly: the Bear Blog marker as a custom index-policy harmonizer, and robots nofollow/noindex as part of the active indexing policy definition (stubbed, needs design).
+
+**Files affected:** `packages/core/origin.js`, `packages/core/index.js`, `packages/core/indexer.js`, `src/routes/badge/+server.js`, `src/routes/indexwrapper/+server.js`, `src/routes/debug/rolodex/+server.js`, `src/tests/indexing.test.js`, `src/tests/exports.test.js`
