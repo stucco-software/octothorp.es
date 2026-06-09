@@ -8,7 +8,7 @@ describe('octothorpes package exports', () => {
     'buildMultiPass', 'getBlobjectFromResponse', 'createHarmonizerRegistry',
     'parseUri', 'validateSameOrigin', 'getScheme',
     'verifiedOrigin', 'parseBindings', 'deslash', 'getFuzzyTags', 'isSparqlSafe',
-    'rss', 'arrayify',
+    'rss', 'arrayify', 'harmonizeSource',
     'createIndexer', 'resolveSubtype', 'isHarmonizerAllowed',
     'checkIndexingRateLimit', 'checkIndexingPolicy', 'parseRequestBody', 'isURL',
     // newly added

@@ -1,4 +1,4 @@
-import { remoteHarmonizer, mergeSchemas, processValue, filterValues } from '../../harmonizeSource.js'
+import { remoteHarmonizer, mergeSchemas, processValue, filterValues } from '../../harmonizerUtils.js'
 import { createHarmonizerRegistry } from '../../harmonizers.js'
 
 const MAX_SELECTOR_LENGTH = 200

@@ -1,6 +1,6 @@
 ---
 name: octothorpes:harmonizers
-description: Use when working with OP harmonizers — creating or editing harmonizer schemas, debugging metadata extraction, understanding extraction rules, or working with remote harmonizers. Load when touching harmonizeSource.js, getHarmonizer.js, or harmonizer JSON documents.
+description: Use when working with OP harmonizers — creating or editing harmonizer schemas, debugging metadata extraction, understanding extraction rules, or working with remote harmonizers. Load when touching harmonizerUtils.js, the content handlers, getHarmonizer.js, or harmonizer JSON documents. For the handler contract and registry dispatch itself, see octothorpes:handlers.
 ---
 
 # OP Harmonizers

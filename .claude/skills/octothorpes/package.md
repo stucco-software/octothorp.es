@@ -23,7 +23,8 @@ All source files live directly in `packages/core/` (flat layout, no build step).
 | `multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
 | `blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
 | `harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
-| `harmonizeSource.js` | HTML metadata extraction engine |
+| `harmonizerUtils.js` | Shared harmonizer utilities: remote schema fetch, value processing/filtering, validation (formerly `harmonizeSource.js`) |
+| `handlers/`, `handlerRegistry.js` | Content handlers (html/json/blobject/null) + registry; `harmonizeSource()` dispatch entry lives in `index.js`. See `octothorpes:handlers` |
 | `indexer.js` | Framework-agnostic indexing pipeline |
 | `origin.js` | Origin verification (accepts config, no $env) |
 | `uri.js` | URI validation (HTTP, AT Protocol) |
@@ -100,9 +101,9 @@ export function buildTermUri(term, instance) {
 }
 ```
 
-## `harmonizeSource` Lazy Import
+## Harmonizer resolution without an injected `getHarmonizer`
 
-`harmonizeSource.js` has a fallback `await import("./getHarmonizer.js")` for SvelteKit contexts. Outside SvelteKit, always pass `getHarmonizer` via options or use `client.harmonize()` from `createClient`, which wires the registry automatically.
+The HTML handler's `harmonize` defaults `getHarmonizer` to `createHarmonizerRegistry(options.instance ?? '').getHarmonizer` when none is passed via options. Outside SvelteKit, pass `getHarmonizer` (or `instance`) through options, or use `client.harmonize()` from `createClient`, which wires the registry automatically.
 
 ## Dual utils.js During Core Extraction
 

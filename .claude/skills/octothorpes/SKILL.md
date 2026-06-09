@@ -29,7 +29,9 @@ Understanding these terms is essential for working on OP:
 
 - **Indexer**: Fetches content from a URI and produces a blobject via harmonization. Indexers are protocol-specific (HTTP, ATProto, ActivityPub) and pluggable. The current implementation only has an HTTP indexer.
 
-- **Blobject**: The canonical data shape for indexed content. All inputs (HTML, JSON, etc.) get harmonized into blobjects, and all outputs (RSS, ATProto) are transformed from blobjects.
+- **Handler**: Converts one source format (HTML, JSON, blobject, …) into a blobject. A **handler registry** dispatches content to the right handler by explicit `mode` or by content-type (precedence: mode → content-type → default → null; HTML is the default). The standalone `harmonizeSource()` entry point and the indexer both dispatch through this same registry; shared extraction utilities (schema fetching, value processing/filtering, validation) live in `harmonizerUtils.js`. **When creating, choosing, registering, or debugging a handler — or working with handler-registry dispatch — load `octothorpes:handlers`.**
+
+- **Blobject**: The canonical data shape for indexed content. All inputs (HTML, JSON, etc.) get harmonized into blobjects **by handlers**, and all outputs (RSS, ATProto) are transformed from blobjects by publishers.
 
 ### Triplestore Philosophy
 
@@ -123,7 +125,10 @@ At the start of any development session, perform these checks:
 | `/src/lib/indexing.js` | Indexing logic: handlers, storage, validation |
 | `/src/lib/converters.js` | URL ↔ MultiPass |
 | `/src/lib/sparql.js` | Query building |
-| `/src/lib/harmonizeSource.js` | Harmonization engine: extraction, processing, filtering, remote fetching |
+| `/packages/core/handlers/` | Content handlers (`html`, `json`, `blobject`, `null`); each does format → blobject. See `octothorpes:handlers` |
+| `/packages/core/handlerRegistry.js` | Handler registry: dispatch by `mode` or content-type |
+| `/packages/core/index.js` (`harmonizeSource`) | Standalone dispatch entry point — harmonize a source via the right handler (defaults to HTML) |
+| `/packages/core/harmonizerUtils.js` | Shared harmonizer utilities: remote schema fetching, value processing/filtering, validation (formerly `harmonizeSource.js`) |
 | `/src/lib/getHarmonizer.js` | Local harmonizer definitions and lookup |
 | `/src/lib/uri.js` | Modular URI validation (HTTP, AT Protocol) |
 | `/src/lib/origin.js` | Origin verification (decoupled, accepts config) |

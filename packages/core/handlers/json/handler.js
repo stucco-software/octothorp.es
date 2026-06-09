@@ -1,4 +1,4 @@
-import { processValue, filterValues, validators } from '../../harmonizeSource.js'
+import { processValue, filterValues, validators } from '../../harmonizerUtils.js'
 
 /**
  * Resolve a dot-notation path against an object.

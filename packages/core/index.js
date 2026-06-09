@@ -23,7 +23,7 @@ export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
 export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, resolveIndexPolicy, parseRequestBody, isURL } from './indexer.js'
 export { badgeVariant, determineBadgeUri } from './badge.js'
-export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators } from './harmonizeSource.js'
+export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators } from './harmonizerUtils.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry } from './publishers.js'
@@ -38,6 +38,23 @@ export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) =
   registry.register('null', nullHandler)
   registry.setDefault(defaultHandler)
   return registry
+}
+
+// Harmonization entry point: dispatch a source to the right handler and return a
+// blobject. Defaults to the HTML handler; pass `options.mode` (e.g. 'json',
+// 'blobject') or `options.contentType` to select another — mirroring the
+// indexer's dispatch precedence (mode → content-type → default → null). Callers
+// may supply their own `options.handlerRegistry`; otherwise a shared default
+// registry (html/json/blobject/null, default 'html') is created lazily.
+let defaultHandlerRegistry
+export const harmonizeSource = (content, harmonizer, options = {}) => {
+  const registry = options.handlerRegistry ?? (defaultHandlerRegistry ??= createDefaultHandlerRegistry())
+  const handler =
+    (options.mode ? registry.getHandler(options.mode) : null) ??
+    (options.contentType ? registry.getHandlerForContentType(options.contentType) : null) ??
+    registry.getDefault() ??
+    registry.getHandler('null')
+  return handler.harmonize(content, harmonizer, options)
 }
 
 const normalizeSparqlConfig = (sparql) => {
@@ -75,10 +92,10 @@ export const createClient = (config) => {
   const registry = createHarmonizerRegistry(config.instance)
   const policy = normalizeIndexPolicy(config.indexPolicy)
 
-  // Delegate to the HTML handler's harmonize function so createClient
-  // does not depend on the removed harmonizeSource function.
+  // Default harmonizeSource convenience function
+  // TKTK client profile should set the defaults
   const harmonize = async (html, harmonizerName, options = {}) => {
-    return htmlHandler.harmonize(html, harmonizerName, {
+    return harmonizeSource(html, harmonizerName, {
       ...options,
       getHarmonizer: options.getHarmonizer ?? registry.getHarmonizer,
     })

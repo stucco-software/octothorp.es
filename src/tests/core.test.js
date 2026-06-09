@@ -152,6 +152,29 @@ describe('HTML handler direct import (formerly harmonizeSource direct import)', 
   })
 })
 
+describe('harmonizeSource handler dispatch', () => {
+  it('defaults to the HTML handler when no mode is given', async () => {
+    const { harmonizeSource } = await import('octothorpes')
+    const html = '<html><head><title>Test</title></head><body><octo-thorpe>demo</octo-thorpe></body></html>'
+    const result = await harmonizeSource(html, 'default', { instance: 'http://localhost:5173/' })
+    expect(result.title).toBe('Test')
+  })
+
+  it('dispatches to the blobject handler by mode (passthrough)', async () => {
+    const { harmonizeSource } = await import('octothorpes')
+    const blob = { '@id': 'https://example.com/a', octothorpes: ['demo'] }
+    const result = await harmonizeSource(blob, null, { mode: 'blobject' })
+    expect(result['@id']).toBe('https://example.com/a')
+    expect(result.octothorpes).toEqual(['demo'])
+  })
+
+  it('dispatches by mode "null" to the empty-blobject fallback', async () => {
+    const { harmonizeSource } = await import('octothorpes')
+    const result = await harmonizeSource('anything', null, { mode: 'null' })
+    expect(result).toEqual({ '@id': 'source', octothorpes: [] })
+  })
+})
+
 describe('custom publishers via createClient', () => {
   // Mirrors the flat shape a renderer.js would export:
   // resolver fields at top level + render function

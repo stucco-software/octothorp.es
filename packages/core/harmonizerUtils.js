@@ -1,7 +1,7 @@
 /**
  * Shared utility module for harmonizer schema fetching and value transformation.
  * Provides format-agnostic utilities that any handler may use.
- * @module harmonizeSource
+ * @module harmonizerUtils
  */
 
 /**

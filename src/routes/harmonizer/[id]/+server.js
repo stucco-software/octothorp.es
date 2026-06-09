@@ -1,7 +1,6 @@
 // src/routes/harmonizers/[id]/+server.js
 import { json } from '@sveltejs/kit'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
-import { harmonizeSource } from 'octothorpes'
 // Cache for harmonizer schemas
 const harmonizerCache = new Map();
 
