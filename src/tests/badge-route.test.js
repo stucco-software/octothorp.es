@@ -8,7 +8,7 @@ vi.mock('fs', () => ({
   })
 }))
 
-vi.mock('$env/static/private', () => ({
+vi.mock('$lib/config.js', () => ({
   instance: 'http://localhost:5173/',
   badge_image: 'badge.png',
   server_name: 'Test Server',

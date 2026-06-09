@@ -795,7 +795,6 @@ describe('Indexing Business Logic', () => {
       await expect(
         indexer.handler('https://unverified-test.com/page', 'default', 'https://unverified-test.com', {
           instance,
-          serverName: 'test',
           queryBoolean: mockQueryBoolean,
           verifyOrigin: mockVerifyOrigin
         })
@@ -812,7 +811,6 @@ describe('Indexing Business Logic', () => {
       await expect(
         indexer.handler(`${origin}/page`, 'default', origin, {
           instance,
-          serverName: 'test',
           queryBoolean: mockQueryBoolean,
           verifyOrigin: mockVerifyOrigin
         })
@@ -1529,33 +1527,13 @@ describe('Indexing Business Logic', () => {
       expect(result).toBe(false)
     })
 
-    it('verifiedOrigin dispatches to verifyApprovedDomain by default', async () => {
+    it('verifiedOrigin delegates to verifyApprovedDomain', async () => {
       const localMockQueryBoolean = vi.fn().mockResolvedValue(true)
       const result = await verifiedOrigin('https://example.com', {
-        serverName: 'Default Server',
         queryBoolean: localMockQueryBoolean
       })
       expect(result).toBe(true)
       expect(localMockQueryBoolean).toHaveBeenCalled()
-    })
-
-    it('verifiedOrigin dispatches to verifiyContent when serverName is Bear Blog', async () => {
-      // Mock global fetch for verifiyContent
-      const originalFetch = global.fetch
-      global.fetch = vi.fn().mockResolvedValue({
-        text: () => Promise.resolve('<html><head><meta content="look-for-the-bear-necessities"></head><body></body></html>')
-      })
-
-      const localMockQueryBoolean = vi.fn()
-      const result = await verifiedOrigin('https://bearblog.example.com', {
-        serverName: 'Bear Blog',
-        queryBoolean: localMockQueryBoolean
-      })
-      expect(result).toBe(true)
-      // queryBoolean should NOT be called -- Bear Blog uses content verification
-      expect(localMockQueryBoolean).not.toHaveBeenCalled()
-
-      global.fetch = originalFetch
     })
   })
 })

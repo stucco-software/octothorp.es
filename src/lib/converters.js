@@ -1,4 +1,4 @@
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 import { buildMultiPass, getBlobjectFromResponse } from 'octothorpes'
 
 export { getBlobjectFromResponse }

@@ -17,7 +17,7 @@ export { buildMultiPass } from './multipass.js'
 export { getBlobjectFromResponse } from './blobject.js'
 export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
-export { verifiyContent, verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin.js'
+export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin.js'
 export { parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
@@ -127,7 +127,6 @@ export const createClient = (config) => {
 
     const handlerConfig = {
       instance: config.instance,
-      serverName: config.instance,
       queryBoolean: sparql.queryBoolean,
       verifyOrigin: policy.mode === 'active'
         ? async () => true

@@ -21,7 +21,7 @@ describe('octothorpes package exports', () => {
     'areUrlsFuzzy', 'isValidMultipass', 'extractMultipassFromGif',
     'injectMultipassIntoGif', 'getWebrings', 'countWebrings',
     // origin additions
-    'verifiyContent', 'verifyWebOfTrust',
+    'verifyWebOfTrust',
     // publisher system (added in Task 2)
     'publish', 'resolve', 'validateResolver', 'loadResolver',
     'createPublisherRegistry',

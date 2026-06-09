@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { instance, badge_image, server_name } from '$env/static/private'
+import { instance, badge_image, server_name } from '$lib/config.js'
 import { verifiedOrigin, determineBadgeUri, badgeVariant } from 'octothorpes'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'
@@ -45,7 +45,7 @@ export async function GET({ request, url }) {
 
   // Badge needs to know verification status to pick the right image,
   // so we check here rather than letting handler() do it.
-  const isVerified = await verifiedOrigin(origin, { serverName: server_name, queryBoolean })
+  const isVerified = await verifiedOrigin(origin, { queryBoolean })
   if (!isVerified) {
     console.log(`[badge] -> unregistered (origin not verified: ${origin})`)
     return pngResponse(badgeUnregistered)

@@ -1,6 +1,6 @@
 {
 	"name": "octothorp.es",
-	"version": "0.6",
+	"version": "0.6.7",
 	"private": true,
 	"workspaces": [
 		"packages/*"
@@ -15,6 +15,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-node": "^5.5.4",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
 		"graph-rdfa-processor": "^2.0.0",

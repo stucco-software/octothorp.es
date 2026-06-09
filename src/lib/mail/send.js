@@ -5,7 +5,7 @@ import {
   smtp_user,
   smtp_password,
   robot_email
-} from '$env/static/private'
+} from '$lib/config.js'
 import nodemailer from 'nodemailer'
 
 if (import.meta.vitest) {

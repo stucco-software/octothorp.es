@@ -1,5 +1,5 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
-import { instance } from '$env/static/private'
+import { instance } from '$lib/config.js'
 
 export async function load(req) {
 
