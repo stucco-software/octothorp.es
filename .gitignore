@@ -18,3 +18,4 @@ packages/core/.npmrc
 .npmrc
 docs/.obsidian
 docs/examples
+.vercel
