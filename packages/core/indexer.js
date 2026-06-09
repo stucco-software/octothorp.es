@@ -718,6 +718,9 @@ export const createIndexer = (deps) => {
   const handler = async (uri, harmonizer, requestingOrigin, config) => {
     const {
       instance: inst,
+      // serverName identifies this relay (from config.js). No longer consumed by
+      // verifiedOrigin (the old Bear Blog content check was removed); threaded
+      // through for the future index-policy work — see #221.
       serverName,
       queryBoolean: configQueryBoolean,
       verifyOrigin,
@@ -725,10 +728,6 @@ export const createIndexer = (deps) => {
       policyCheck,
       feedApproved,
     } = config
-    // serverName comes from config.js and identifies this relay. It is no longer
-    // consumed by verifiedOrigin (the old Bear Blog content check was removed),
-    // but is threaded through here for the future index-policy work — see #221.
-    const { instance: inst, serverName, queryBoolean: configQueryBoolean, verifyOrigin } = config
     const base = inst || instance
     const callerContext = { policyMode, policyCheck, feedApproved }
 
