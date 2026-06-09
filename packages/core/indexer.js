@@ -1,7 +1,8 @@
 // packages/core/indexer.js
 //
 // Framework-agnostic indexing pipeline.
-// All SPARQL functions and harmonizeSource are injected — no $lib imports.
+// All SPARQL functions are injected — no $lib imports. Content parsing is
+// delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash } from './utils.js'
 import { parseUri, validateSameOrigin } from './uri.js'
@@ -111,22 +112,43 @@ export const isURL = (term) => {
   }
 }
 
-export const checkIndexingPolicy = (harmed, instance) => {
+/**
+ * Resolve whether a source is opted in to indexing.
+ * Precedence: caller-context overrides (Client policy mode, feed approval) >
+ * per-blobject markers (indexPolicy, octothorpes).
+ *
+ * @param {Object} args
+ * @param {Object} [args.blobject] - The harmonized blobject (may be null if caller short-circuits).
+ * @param {Object} [args.callerContext] - { policyMode, policyCheck, feedApproved }
+ * @returns {{ optedIn: boolean, harmonizer: string|null }}
+ */
+export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
+  // Caller-context overrides
+  if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
+    return { optedIn: true, harmonizer: null }
+  }
+  if (callerContext.feedApproved === true) {
+    return { optedIn: true, harmonizer: null }
+  }
+
+  // Per-blobject fallback (current behavior)
   // indexPolicy is populated by any opt-in signal the harmonizer finds:
   //   - <meta name="octo-policy" content="index">
   //   - <link rel="octo:index" href="..."> pointing at this instance
   //   - <link rel="preload" href="..."> pointing at this instance
   // Any truthy value means the page has opted in, unless explicitly "no-index".
-  const hasPolicy = !!(harmed.indexPolicy) && harmed.indexPolicy !== 'no-index'
-
-  // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup
-  const hasOctothorpes = Array.isArray(harmed.octothorpes) && harmed.octothorpes.length > 0
-
+  // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup.
+  const b = blobject || {}
+  const hasPolicy = !!(b.indexPolicy) && b.indexPolicy !== 'no-index'
+  const hasOctothorpes = Array.isArray(b.octothorpes) && b.octothorpes.length > 0
   const optedIn = hasPolicy || hasOctothorpes
-
-  const harmonizer = harmed.indexHarmonizer || null
-
+  const harmonizer = b.indexHarmonizer || null
   return { optedIn: !!optedIn, harmonizer }
+}
+
+export const checkIndexingPolicy = (harmed, instance) => {
+  // Backward-compat wrapper: no caller context, blobject-only.
+  return resolveIndexPolicy({ blobject: harmed, callerContext: {} })
 }
 
 /**
@@ -136,14 +158,13 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {Function} deps.query
  * @param {Function} deps.queryBoolean
  * @param {Function} deps.queryArray
- * @param {Function} deps.harmonizeSource
  * @param {string} deps.instance
  * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
  * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, harmonizeSource, instance, handlerRegistry, getHarmonizer } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer } = deps
 
   const p = 'octo:octothorpes'
   const indexCooldown = 300000 // 5min
@@ -489,6 +510,34 @@ export const createIndexer = (deps) => {
     }
   }
 
+  ////////// dispatch //////////
+
+  /**
+   * Resolve a handler for the given harmonizer/contentType and produce a blobject.
+   * Resolution order: harmonizer.mode > contentType > 'html' fallback.
+   * Patches @id === 'source' to the source URI before returning.
+   */
+  const dispatch = async (content, contentType, harmonizer, uri) => {
+    // Resolve the harmonizer schema if it's a string name and a lookup is wired in.
+    const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
+      ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
+      : harmonizer
+
+    const mode = resolvedHarmonizer?.mode
+
+    let selected = mode ? handlerRegistry?.getHandler(mode) : null
+    if (!selected) selected = handlerRegistry?.getHandlerForContentType(contentType)
+    if (!selected) selected = handlerRegistry?.getDefault()
+    if (!selected) selected = handlerRegistry?.getHandler('null')
+    if (!selected) {
+      throw new Error(`No handler available for contentType="${contentType}" mode="${mode || ''}"`)
+    }
+
+    const blobject = await selected.harmonize(content, resolvedHarmonizer, { instance })
+    if (blobject && blobject['@id'] === 'source') blobject['@id'] = uri
+    return blobject
+  }
+
   ////////// handlers //////////
 
   const handleThorpe = async (s, o, { instance: inst } = {}) => {
@@ -666,20 +715,22 @@ export const createIndexer = (deps) => {
     }
   }
 
-  const handleHTML = async (response, uri, harmonizer, { instance: inst } = {}) => {
-    const base = inst || instance
-    const src = await response.text()
-    const harmed = await harmonizeSource(src, harmonizer)
-    if (harmed['@id'] === 'source') harmed['@id'] = uri
-    await ingestBlobject(harmed, { instance: base })
-  }
-
   const handler = async (uri, harmonizer, requestingOrigin, config) => {
+    const {
+      instance: inst,
+      serverName,
+      queryBoolean: configQueryBoolean,
+      verifyOrigin,
+      policyMode,
+      policyCheck,
+      feedApproved,
+    } = config
     // serverName comes from config.js and identifies this relay. It is no longer
     // consumed by verifiedOrigin (the old Bear Blog content check was removed),
     // but is threaded through here for the future index-policy work — see #221.
     const { instance: inst, serverName, queryBoolean: configQueryBoolean, verifyOrigin } = config
     const base = inst || instance
+    const callerContext = { policyMode, policyCheck, feedApproved }
 
     // 1. Parse and normalize URI
     const parsed = parseUri(uri)
@@ -696,35 +747,41 @@ export const createIndexer = (deps) => {
       }
     }
 
-    // 3. On-page policy check (always runs)
-    // For local harmonizer IDs, run the requested harmonizer so its extracted
-    // octothorpes can satisfy the implicit opt-in (e.g. `keywords` harmonizer
-    // on a page with <meta name="keywords">). For remote harmonizer URLs, use
-    // 'default' — an attacker-supplied schema must not influence the opt-in
-    // decision. Remote harmonizers are validated at step 6 before they run
-    // against the page content.
-    const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http')) ? 'default' : harmonizer
-    const policyResponse = await fetch(parsed.normalized, {
+    // 3. Single fetch — capture content AND content-type
+    const response = await fetch(parsed.normalized, {
       headers: { 'User-Agent': 'Octothorpes/1.0' }
     })
-    const prefetchedContent = await policyResponse.text()
-    const policyHarmed = await harmonizeSource(prefetchedContent, policyHarmonizer)
-    if (!policyHarmed) {
-      throw new Error('Harmonization failed — could not extract page metadata.')
-    }
-    const policy = checkIndexingPolicy(policyHarmed, base)
+    const content = await response.text()
+    const contentType = response.headers.get('content-type') || 'text/html'
+
+    // 4. Policy resolution.
+    // If caller context grants opt-in, skip page-level harmonization entirely.
+    // Otherwise dispatch through the registry to extract policy markers.
+    let policy = resolveIndexPolicy({ callerContext })
+    let harmonizerDeclaredOnPage = false
 
     if (!policy.optedIn) {
-      throw new Error('Page has not opted in to indexing.')
+      // For remote (URL) harmonizers, use 'default' for the policy probe — an
+      // attacker-supplied schema must not influence opt-in. Local harmonizer
+      // IDs are run as-is so their extracted octothorpes can satisfy implicit opt-in.
+      const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
+        ? 'default'
+        : harmonizer
+      const policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized)
+      if (!policyBlobject) {
+        throw new Error('Harmonization failed — could not extract page metadata.')
+      }
+      policy = resolveIndexPolicy({ blobject: policyBlobject, callerContext })
+      if (!policy.optedIn) {
+        throw new Error('Page has not opted in to indexing.')
+      }
+      harmonizerDeclaredOnPage = !!policy.harmonizer
+      if (policy.harmonizer) {
+        harmonizer = policy.harmonizer
+      }
     }
 
-    // On-page harmonizer overrides request param (page owner controls their markup)
-    const harmonizerDeclaredOnPage = !!policy.harmonizer
-    if (policy.harmonizer) {
-      harmonizer = policy.harmonizer
-    }
-
-    // 4. Origin verification
+    // 5. Origin verification
     const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
       queryBoolean: configQueryBoolean || queryBoolean
     }))
@@ -733,12 +790,12 @@ export const createIndexer = (deps) => {
       throw new Error('Origin is not registered with this server.')
     }
 
-    // 5. Rate limiting
+    // 6. Rate limiting
     if (!checkIndexingRateLimit(parsed.origin)) {
       throw new Error('Rate limit exceeded. Please try again later.')
     }
 
-    // 6. Harmonizer validation
+    // 7. Harmonizer validation
     // Page-declared harmonizers are always trusted (page owner controls their markup).
     // For request-supplied harmonizers:
     //   - With confirmed external origin header: run isHarmonizerAllowed (same-origin or whitelisted)
@@ -757,7 +814,7 @@ export const createIndexer = (deps) => {
         if (!isHarmonizerAllowed(harmonizer, requestingOrigin, { instance: base })) {
           throw new Error('Harmonizer not allowed for this origin.')
         }
-      } else if (harmonizer.startsWith('http')) {
+      } else if (typeof harmonizer === 'string' && harmonizer.startsWith('http')) {
         try {
           if (new URL(harmonizer).origin !== new URL(base).origin) {
             throw new Error('Remote harmonizers require a confirmed origin header.')
@@ -769,7 +826,7 @@ export const createIndexer = (deps) => {
       }
     }
 
-    // 7. Cooldown
+    // 8. Cooldown
     let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
     if (isRecentlyIndexed) {
       const w = new Error('This page has been recently indexed.')
@@ -777,45 +834,15 @@ export const createIndexer = (deps) => {
       throw w
     }
 
-    // 8. Process (reuse prefetched content from policy check)
+    // 9. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
-    const contentType = 'text/html'
-    const content = prefetchedContent
-
-    // Resolve harmonizer name to schema
-    const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
-      ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
-      : harmonizer
-
-    const mode = resolvedHarmonizer?.mode
-
-    let selectedHandler = mode ? handlerRegistry?.getHandler(mode) : null
-    if (!selectedHandler) {
-      selectedHandler = handlerRegistry?.getHandlerForContentType(contentType)
-    }
-    if (!selectedHandler) {
-      selectedHandler = handlerRegistry?.getHandler('html')
-    }
-
-    if (selectedHandler) {
-      const harmed = await selectedHandler.harmonize(content, resolvedHarmonizer, { instance: base })
-      if (harmed['@id'] === 'source') harmed['@id'] = parsed.normalized
-      await ingestBlobject(harmed, { instance: base })
-    } else {
-      if (contentType.includes('text/html')) {
-        return await handleHTML(
-          { text: async () => content },
-          parsed.normalized,
-          harmonizer,
-          { instance: base }
-        )
-      }
-    }
+    const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized)
+    await ingestBlobject(blobject, { instance: base })
   }
 
   return {
     handler,
-    handleHTML,
+    dispatch,
     ingestBlobject,
     handleThorpe,
     handleMention,

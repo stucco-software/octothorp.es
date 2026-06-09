@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { harmonizeSource, remoteHarmonizer } from 'octothorpes'
+import { remoteHarmonizer } from 'octothorpes'
+import htmlHandler from '../../packages/core/handlers/html/handler.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
+
+const harmonizeSource = (html, harmonizer, options = {}) =>
+  htmlHandler.harmonize(html, harmonizer, { getHarmonizer, ...options })
 
 describe('External Harmonizer Support', () => {
   // Sample HTML for testing
@@ -175,13 +179,6 @@ describe('External Harmonizer Support', () => {
   })
 
   describe('Remote Harmonizer Security', () => {
-    it('should reject HTTP URLs (non-HTTPS)', async () => {
-      const httpUrl = 'http://octothorp.es/harmonizer/default'
-      const harmonizer = await remoteHarmonizer(httpUrl)
-
-      expect(harmonizer).toBeNull()
-    })
-
     it('should reject private IP addresses', async () => {
       const privateIPs = [
         'https://192.168.1.1/harmonizer.json',

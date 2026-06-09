@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createIndexer } from '../../packages/core/indexer.js'
+import { createIndexer, resolveIndexPolicy } from '../../packages/core/indexer.js'
 import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
 const mockQueryBoolean = vi.fn()
 const mockQueryArray = vi.fn()
-const mockHarmonizeSource = vi.fn()
 
 const instance = 'http://localhost:5173/'
 
@@ -15,7 +14,6 @@ const makeIndexer = () => createIndexer({
   query: mockQuery,
   queryBoolean: mockQueryBoolean,
   queryArray: mockQueryArray,
-  harmonizeSource: mockHarmonizeSource,
   instance,
 })
 
@@ -305,5 +303,295 @@ describe('handler dispatch', () => {
       selectedHandler = reg.getHandler('html')
     }
     expect(selectedHandler.mode).toBe('html')
+  })
+})
+
+describe('resolveIndexPolicy', () => {
+  it('returns opted-in when callerContext.policyMode is active', () => {
+    const result = resolveIndexPolicy({ blobject: {}, callerContext: { policyMode: 'active' } })
+    expect(result.optedIn).toBe(true)
+    expect(result.harmonizer).toBeNull()
+  })
+
+  it('respects policyCheck override even when policyMode is active', () => {
+    const result = resolveIndexPolicy({
+      blobject: {},
+      callerContext: { policyMode: 'active', policyCheck: true }
+    })
+    expect(result.optedIn).toBe(false)
+  })
+
+  it('returns opted-in when callerContext.feedApproved is true', () => {
+    const result = resolveIndexPolicy({ blobject: {}, callerContext: { feedApproved: true } })
+    expect(result.optedIn).toBe(true)
+  })
+
+  it('falls back to blobject indexPolicy when no caller override', () => {
+    const result = resolveIndexPolicy({
+      blobject: { indexPolicy: 'index' },
+      callerContext: {}
+    })
+    expect(result.optedIn).toBe(true)
+  })
+
+  it('treats blobject.indexPolicy === "no-index" as opted-out', () => {
+    const result = resolveIndexPolicy({
+      blobject: { indexPolicy: 'no-index' },
+      callerContext: {}
+    })
+    expect(result.optedIn).toBe(false)
+  })
+
+  it('falls back to octothorpes presence when no indexPolicy', () => {
+    const result = resolveIndexPolicy({
+      blobject: { octothorpes: ['foo'] },
+      callerContext: {}
+    })
+    expect(result.optedIn).toBe(true)
+  })
+
+  it('surfaces blobject.indexHarmonizer in the result', () => {
+    const result = resolveIndexPolicy({
+      blobject: { indexPolicy: 'index', indexHarmonizer: 'custom' },
+      callerContext: {}
+    })
+    expect(result.harmonizer).toBe('custom')
+  })
+})
+
+describe('createIndexer dispatch', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const makeRegistry = (handlers = {}, defaultMode = null) => ({
+    getHandler: (mode) => handlers[mode] ?? null,
+    getHandlerForContentType: (ct) => {
+      for (const h of Object.values(handlers)) {
+        if (h.contentTypes?.includes(ct)) return h
+      }
+      return null
+    },
+    getDefault: () => defaultMode ? (handlers[defaultMode] ?? null) : null,
+  })
+
+  it('routes content through the handler resolved by harmonizer.mode', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source', title: 't' })
+    const registry = makeRegistry({
+      json: { mode: 'json', contentTypes: ['application/json'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    const blobject = await indexer.dispatch('{"x":1}', 'text/html', { mode: 'json' }, 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+    expect(blobject['@id']).toBe('https://e.com/p')
+  })
+
+  it('falls back to content-type when harmonizer has no mode', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source' })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    await indexer.dispatch('<html></html>', 'text/html', 'default', 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('falls back to configured default when content-type has no match', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source' })
+    const registry = makeRegistry(
+      { html: { mode: 'html', contentTypes: ['text/html'], harmonize } },
+      'html',
+    )
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    await indexer.dispatch('<weird/>', 'application/unknown', 'default', 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('throws if no handler can be resolved', async () => {
+    const registry = makeRegistry({})
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    await expect(
+      indexer.dispatch('x', 'application/unknown', 'default', 'https://e.com/p')
+    ).rejects.toThrow(/no handler/i)
+  })
+
+  it('patches blobject @id when handler returns "source"', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source', x: 1 })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    const blob = await indexer.dispatch('<x/>', 'text/html', 'default', 'https://e.com/p')
+    expect(blob['@id']).toBe('https://e.com/p')
+  })
+
+  it('preserves blobject @id when handler sets a real URI', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'https://other.com/x' })
+    const registry = makeRegistry({
+      html: { mode: 'html', contentTypes: ['text/html'], harmonize },
+    })
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+
+    const blob = await indexer.dispatch('<x/>', 'text/html', 'default', 'https://e.com/p')
+    expect(blob['@id']).toBe('https://other.com/x')
+  })
+})
+
+describe('dispatch default handler', () => {
+  const makeRegistry = (handlers = {}, defaultMode = null) => {
+    const r = {
+      handlers,
+      getHandler: (mode) => handlers[mode] ?? null,
+      getHandlerForContentType: () => null,
+      getDefault: () => defaultMode ? (handlers[defaultMode] ?? null) : null,
+    }
+    return r
+  }
+
+  it('uses the configured default when content-type has no match', async () => {
+    const harmonize = vi.fn().mockResolvedValue({ '@id': 'source' })
+    const registry = makeRegistry({ json: { mode: 'json', contentTypes: [], harmonize } }, 'json')
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+    await indexer.dispatch('{}', 'application/unknown', 'default', 'https://e.com/p')
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('falls through to null handler when no default is set', async () => {
+    const nullHarmonize = vi.fn().mockResolvedValue({ '@id': 'source', octothorpes: [] })
+    const registry = makeRegistry({ null: { mode: 'null', contentTypes: [], harmonize: nullHarmonize } }, null)
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+    const result = await indexer.dispatch('anything', 'application/unknown', 'default', 'https://e.com/p')
+    expect(nullHarmonize).toHaveBeenCalled()
+    expect(result.octothorpes).toEqual([])
+  })
+
+  it('throws when neither default nor null handler is registered', async () => {
+    const registry = makeRegistry({}, null)
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+    await expect(
+      indexer.dispatch('x', 'application/unknown', 'default', 'https://e.com/p')
+    ).rejects.toThrow(/no handler/i)
+  })
+})
+
+describe('handler() routes policy and dispatch through the registry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    globalThis.fetch = vi.fn()
+  })
+
+  const setupRegistry = (harmonizeImpl) => ({
+    getHandler: (mode) => mode === 'html'
+      ? { mode: 'html', contentTypes: ['text/html'], harmonize: harmonizeImpl }
+      : null,
+    getHandlerForContentType: (ct) =>
+      ct?.startsWith('text/html')
+        ? { mode: 'html', contentTypes: ['text/html'], harmonize: harmonizeImpl }
+        : null,
+  })
+
+  it('skips on-page policy when callerContext.policyMode is active', async () => {
+    const harmonize = vi.fn().mockResolvedValue({
+      '@id': 'source',
+      // NOTE: no indexPolicy, no octothorpes — would fail page-level gate.
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => '<html></html>',
+      headers: { get: () => 'text/html; charset=utf-8' },
+    })
+
+    mockQueryBoolean.mockResolvedValue(true) // origin verified, no cooldown collisions
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: setupRegistry(harmonize),
+    })
+
+    // Should NOT throw "Page has not opted in to indexing"
+    await indexer.handler(
+      'https://example.com/page',
+      'default',
+      null,
+      {
+        instance,
+        serverName: instance,
+        queryBoolean: mockQueryBoolean,
+        verifyOrigin: async () => true,
+        policyMode: 'active',
+      }
+    )
+    expect(harmonize).toHaveBeenCalled()
+  })
+
+  it('still enforces on-page policy when callerContext is plain registered', async () => {
+    const harmonize = vi.fn().mockResolvedValue({
+      '@id': 'source',
+      // no policy markers
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => '<html></html>',
+      headers: { get: () => 'text/html' },
+    })
+    mockQueryBoolean.mockResolvedValue(true)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: setupRegistry(harmonize),
+    })
+
+    await expect(indexer.handler(
+      'https://example.com/page2',
+      'default',
+      null,
+      {
+        instance,
+        serverName: instance,
+        queryBoolean: mockQueryBoolean,
+        verifyOrigin: async () => true,
+      }
+    )).rejects.toThrow(/not opted in/i)
   })
 })

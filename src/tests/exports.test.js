@@ -8,12 +8,12 @@ describe('octothorpes package exports', () => {
     'buildMultiPass', 'getBlobjectFromResponse', 'createHarmonizerRegistry',
     'parseUri', 'validateSameOrigin', 'getScheme',
     'verifiedOrigin', 'parseBindings', 'deslash', 'getFuzzyTags', 'isSparqlSafe',
-    'rss', 'arrayify', 'harmonizeSource',
+    'rss', 'arrayify',
     'createIndexer', 'resolveSubtype', 'isHarmonizerAllowed',
     'checkIndexingRateLimit', 'checkIndexingPolicy', 'parseRequestBody', 'isURL',
     // newly added
     'badgeVariant', 'determineBadgeUri',
-    'remoteHarmonizer',
+    'remoteHarmonizer', 'mergeSchemas', 'processValue', 'filterValues', 'validators',
     'verifyApprovedDomain',
     'createEnrichBlobjectTargets',
     // utils additions
@@ -25,7 +25,7 @@ describe('octothorpes package exports', () => {
     // publisher system (added in Task 2)
     'publish', 'resolve', 'validateResolver', 'loadResolver',
     'createPublisherRegistry',
-    'createHandlerRegistry',
+    'createHandlerRegistry', 'createDefaultHandlerRegistry', 'nullHandler',
   ]
 
   it('should export all expected functions', () => {

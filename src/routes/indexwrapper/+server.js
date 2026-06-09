@@ -74,6 +74,8 @@ export async function POST({ request }) {
     return error(400, 'URI parameter is required.')
   }
 
+  // everything up to here seems like it could move into the package
+
   try {
     await handler(uri, harmonizer, requestOrigin, config())
     const normalized = parseUri(uri).normalized

@@ -1,3 +1,5 @@
+import { processValue, filterValues, validators } from '../../harmonizeSource.js'
+
 /**
  * Resolve a dot-notation path against an object.
  * Returns the value at the path, or undefined if not found.
@@ -22,31 +24,6 @@ const normalizeRule = (rule) => {
   if (typeof rule === 'string') return { path: rule }
   if (rule && typeof rule === 'object' && rule.path) return rule
   return null
-}
-
-const processValue = (value, method, params) => {
-  if (method === 'regex') {
-    const match = value.match(new RegExp(params))
-    return match ? match[1] : null
-  }
-  if (method === 'substring') {
-    const [start, end] = params
-    return value.substring(start, end)
-  }
-  if (method === 'split') return value.split(params)
-  if (method === 'trim') return value.trim()
-  return value
-}
-
-const filterValues = (values, { method, params }) => {
-  switch (method) {
-    case 'regex': return values.filter(v => new RegExp(params).test(v))
-    case 'contains': return values.filter(v => v.includes(params))
-    case 'exclude': return values.filter(v => !v.includes(params))
-    case 'startsWith': return values.filter(v => v.startsWith(params))
-    case 'endsWith': return values.filter(v => v.endsWith(params))
-    default: return values
-  }
 }
 
 /**
@@ -96,12 +73,12 @@ const extractValues = (data, rules) => {
 
 /**
  * Harmonize JSON content using a harmonizer schema with dot-notation paths.
- * Returns the same blobject shape as harmonizeSource.
  */
 const harmonize = (content, harmonizerSchema, options = {}) => {
   const data = typeof content === 'string' ? JSON.parse(content) : content
   const s = harmonizerSchema?.schema || harmonizerSchema
   if (!s) throw new Error('JSON handler requires a schema')
+  if (!validators.json(s)) throw new Error('JSON harmonizer schema failed safety validation')
 
   const output = {}
   const typedOutput = {}
@@ -149,4 +126,4 @@ export default {
   harmonize,
 }
 
-export { resolvePath, extractValues, normalizeRule, processValue, filterValues }
+export { resolvePath, extractValues, normalizeRule }

@@ -22,6 +22,8 @@
 - [x] Schema.org JSON-LD harmonizer — built-in entry in `packages/core/harmonizers.js`
 - [x] Run full test suite: `npx vitest run` — 17 pre-existing failures in publish-core/publish (atproto publisher, tracked in Wave 0b); 0 new failures
 - [x] Docs handoff written — `docs/plans/point7/wave-0a-docs-handoff.md`
+- [x] **Generic handler pipeline** — `handler()` is now fully generic over content type. Plan: `docs/plans/point7/2026-05-27-generic-handler-pipeline.md` (branch `handle-handlers`, 2026-05-28). Adds `resolveIndexPolicy` (caller-context precedence) + a `dispatch` helper; single fetch captures content-type; both the policy probe and final ingest route through the registry; `harmonizeSource` injection and `handleHTML` removed. `createClient({ indexPolicy: 'active' })` now bypasses the on-page gate end to end. Also fixed a latent crash: `harmonizeSource` now accepts a pre-resolved schema object (additive; string callers unchanged). Suite green (776 passed, 0 failures).
+- [x] **Follow-up (blocks live-endpoint verification):** `src/lib/indexing.js` now passes `handlerRegistry: createDefaultHandlerRegistry()` to `createIndexer`. `indexwrapper`, `badge`, `debug/rolodex` all work again. `createDefaultHandlerRegistry` exported from package. 2026-06-03.
 - [ ] Verify live endpoints (see Task 8 of handler plan)
 
 ### 0b — Publishers MVP (#161, moved from Wave 6)
@@ -52,59 +54,80 @@
 - [ ] **#212** Recent/date filters broken
 - [ ] **#150** Pages queries returning octothorpes as pages
 - [ ] **#115** Fuzzy tags broken with separator chars (hyphen, camelCase, spaces)
+- [ ] **#213** Wire endorsement gating in `handleMention` — `ingestBlobject` owns the logic cleanly now
 
 ---
 
-## Wave 1.5 — OP Client Profile
+## Wave 2 — OP Client Profile and Vocabulary 
+
 > Foundational. Establishes a single config source-of-truth for OP Clients. Closes #165 as a superset.
 > Epic: **#215**. Two revs; Rev 2 may slip to v0.8.
 
 - [ ] **#216** Rev 1 (MVP) — schema, loader, `profile.public.json`, `/profile` HTML + `/profile.json` endpoints. No behavior changes.
 - [ ] **#217** Rev 2 (Integration) — `createClient`, publishers, harmonizers, and indexing pipeline all read from the profile. Deprecates ad-hoc config sites.
+- [ ] **#192** Add Content Labels to OP vocabulary
+- [ ]  **#166** Harmonize non-canonical Document Record content on request < DRs should be defined in the Client Profile
 
 **Design notes:**
 - `profile.public.json` (committed) + `.env` (secrets); loader merges to `profile.full`
 - `/profile` (HTML) and `/profile.json` (raw JSON) — public view only, secrets stripped defensively
 - Not stored in triplestore — purely operational
 - One profile per OP install
+- allowed protocols should be in there (ie https only, etc)
+
+
 
 ---
 
-## Wave 2 — API surface completeness
+## Wave 3 — Batch indexing
+> Depends on Wave 0a being complete (handler dispatch, `ingestBlobject` callable directly). Independent of 0b.
+
+- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md`
+- [ ] **#43** Index statements via Octothorpes blobject file — calls `ingestBlobject` directly
+- [ ] **#177** Harmonize standard sitemap.xml files — depends on #180
+
+
+---
+
+## Wave 4 — API additions
 > Independent.
 
 - [ ] **#200** Add `?st=` parameter for arbitrary relationship subtype queries (`multipass.js`)
 - [ ] **#204** Typed `IndexError` from core indexer — labeled `review`, may have existing code
-
+- [ ] make orchestra-pit and rolodex core utilities
 ---
 
-## Wave 3 — Data lifecycle
+## Wave 5 — Deletion
+
 > Independent.
 
 - [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md`
 - [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md`
+- [ ] make sure a generic deleterecord() function is exposed to the OP client
+- [ ] explore what attached records there are where the s? is the o?
 
 ---
 
-## Wave 4 — Handler-enabled indexing features
-> Depends on Wave 0a being complete (handler dispatch, `ingestBlobject` callable directly). Independent of 0b.
-
-- [ ] **#213** Wire endorsement gating in `handleMention` — `ingestBlobject` owns the logic cleanly now
-- [ ] **#43** Index statements via Octothorpes blobject file — calls `ingestBlobject` directly
-- [ ] **#145** Indexing via webmention — new handler mode or pre-harmonized blobject input
-- [ ] **#168** Use badge.png to trigger a registration request
-- [ ] **#160** More levers for query param handling (server config for accepted/rejected params)
-
----
-
-## Wave 5 — UI & discovery
+## Wave 6 — UI & discovery
 > Functional UI work; design considerations skipped. op-core stable, no blockers.
 > Note: "domains" here = origins registered on the Server, distinct from Client Profile (Wave 1.5).
+
+* [ ] Implement a lewk.css based layout system
 
 ### Standalone
 - [ ] **#158** Default to fuzzy results on hashtag list + add a fuzzy/exact toggle — tiny, standalone
 - [ ] **#199** Add "links with this hashtag" view to hashtag-based lists — pure UI plumbing over existing endpoints
+- [ ] add ui for /discover
 
+---
+
+## Wave 7 — Stretch goals
+
+Everything here could get pushed to the next version without dependencies 
+
+- [ ] **#168** Use badge.png to trigger a registration request
+- [ ] **#160** More levers for query param handling (client config for accepted/rejected params)
+- [ ] **#145** Indexing via webmention — new handler mode or pre-harmonized blobject input
 ### Domain Pages Overhaul (bundled)
 > Epic: **#218**. Sequence: refactor → posted view → numerical alias. All three touch `/domains/[uri]`.
 
@@ -112,23 +135,11 @@
 - [ ] **#185** Add "posted" view alongside thorped, with pagination/limits
 - [ ] **#191** Numerical alias via `octo:siteNum` predicate (string literal); minted as `MAX(?siteNum)+1` at registration; retired numbers not reused
 
----
-
-## Wave 6 — Major features
-> Each is multi-session work. `#180` and `#43` (Wave 4) share `ingestBlobject` as the ingest entry point.
-> **#161 Publishers MVP moved to Wave 0b** — core landed; closeout work tracked there.
-
-- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md`
-- [ ] **#177** Harmonize standard sitemap.xml files — depends on #180
-
----
-
-## Wave 7 — Vocabulary & protocol
+### Vocabulary & protocol
 > Lower priority, design-heavy. Consider whether these belong in v0.7 or a future milestone.
 
-- [ ] **#192** Add Content Labels to OP vocabulary
 - [ ] **#196** Add basic graph relationship primitives (CLI: `op related`, `op neighbors`, `op path`)
-- [ ] **#166** Harmonize non-canonical Document Record content on request
+
 
 ---
 
@@ -143,6 +154,7 @@
 | 2026-05-19 | New Wave 1.5 — OP Client Profile epic created (#215) with Rev 1 MVP (#216) and Rev 2 Integration (#217); supersedes #165 |
 | 2026-05-19 | Wave 5 reorganized: #202, #185, #191 bundled as Domain Pages Overhaul epic (#218); #158 and #199 remain standalone; design considerations skipped (functional only) |
 | 2026-05-19 | Bridges dropped from #217 deliverables and from v0.7 scope; not to be considered until further notice |
+| 2026-05-28 | Generic handler pipeline landed on `handle-handlers` (plan `2026-05-27-generic-handler-pipeline.md`): `handler()` is content-type-agnostic via `dispatch` + `resolveIndexPolicy`; `harmonizeSource` injection and `handleHTML` removed; `harmonizeSource` now accepts a pre-resolved schema object. Per "only use core", `src/lib/indexing.js` was NOT given a registry — its 3 live routes need migration to `createClient` before live-endpoint verification (halfbaked plan exists). |
 
 ---
 

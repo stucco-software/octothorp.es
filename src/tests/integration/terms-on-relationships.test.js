@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { harmonizeSource } from 'octothorpes'
+import htmlHandler from '../../../packages/core/handlers/html/handler.js'
+import { getHarmonizer } from '$lib/getHarmonizer.js'
+
+const harmonizeSource = (html, harmonizer, options = {}) =>
+  htmlHandler.harmonize(html, harmonizer, { getHarmonizer, ...options })
 
 describe('Terms on Relationships - Integration', () => {
   const fullHtml = `

@@ -1,4 +1,4 @@
-import { createIndexer, harmonizeSource } from 'octothorpes'
+import { createIndexer, createDefaultHandlerRegistry } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$lib/config.js'
 
@@ -7,13 +7,12 @@ const indexer = createIndexer({
   query,
   queryBoolean,
   queryArray,
-  harmonizeSource,
   instance,
+  handlerRegistry: createDefaultHandlerRegistry(),
 })
 
 export const {
   handler,
-  handleHTML,
   handleThorpe,
   handleMention,
   handleWebring,

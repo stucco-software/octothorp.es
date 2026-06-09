@@ -149,6 +149,7 @@ For domain-specific details, invoke with the Skill tool:
 | `octothorpes:server-architecture` | MultiPass object, RDF schema, SvelteKit request pipeline |
 | `octothorpes:indexing` | Indexing pipeline, `/index` endpoint, origin verification, rate limiting |
 | `octothorpes:harmonizers` | Harmonizer structure, extraction rules, adding or debugging harmonizers |
+| `octothorpes:handlers` | Handler contract, registry dispatch (content-type vs mode), adding a content handler for a new format |
 | `octothorpes:web-components` | `<octo-thorpe>` and other client web components |
 | `octothorpes:publishers` | RSS, ATProto, adding new output formats |
 | `octothorpes:testing` | Vitest patterns, integration testing, Orchestra Pit debug endpoint |

@@ -1,3 +1,13 @@
+export const nullHandler = {
+  mode: 'null',
+  contentTypes: [],
+  meta: {
+    name: 'Null Handler',
+    description: 'Last-resort fallback. Returns a minimal blobject with no extracted metadata.',
+  },
+  harmonize: (content, schema, options = {}) => ({ '@id': 'source', octothorpes: [] }),
+}
+
 export const createHandlerRegistry = () => {
   const handlers = {}
   const contentTypeMap = {}
@@ -30,5 +40,14 @@ export const createHandlerRegistry = () => {
     }
   }
 
-  return { register, getHandler, getHandlerForContentType, listHandlers, markBuiltins }
+  let defaultMode = null
+
+  const setDefault = (mode) => {
+    if (!handlers[mode]) throw new Error(`Cannot set default: handler "${mode}" is not registered`)
+    defaultMode = mode
+  }
+
+  const getDefault = () => (defaultMode ? handlers[defaultMode] : null)
+
+  return { register, getHandler, getHandlerForContentType, listHandlers, markBuiltins, setDefault, getDefault }
 }

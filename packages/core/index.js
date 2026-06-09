@@ -3,17 +3,11 @@ import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
 import { createPublisherRegistry } from './publishers.js'
-import { createHandlerRegistry } from './handlerRegistry.js'
+import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
 import jsonHandler from './handlers/json/handler.js'
 import blobjectHandler from './handlers/blobject/handler.js'
 import { publish } from './publish.js'
-
-// harmonizeSource is intentionally NOT re-exported directly here because
-// its default import of getHarmonizer.js is a SvelteKit adapter (uses $env).
-// Use createClient() which wires it correctly, or import harmonizeSource
-// directly and pass { getHarmonizer } in options.
-export { harmonizeSource } from './harmonizeSource.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
@@ -27,13 +21,24 @@ export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin
 export { parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
-export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, parseRequestBody, isURL } from './indexer.js'
+export { createIndexer, resolveSubtype, isHarmonizerAllowed, checkIndexingRateLimit, checkIndexingPolicy, resolveIndexPolicy, parseRequestBody, isURL } from './indexer.js'
 export { badgeVariant, determineBadgeUri } from './badge.js'
-export { remoteHarmonizer } from './harmonizeSource.js'
+export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators } from './harmonizeSource.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry } from './publishers.js'
-export { createHandlerRegistry } from './handlerRegistry.js'
+export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
+
+export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) => {
+  const registry = createHandlerRegistry()
+  registry.register('html', htmlHandler)
+  registry.register('json', jsonHandler)
+  registry.register('blobject', blobjectHandler)
+  registry.markBuiltins()
+  registry.register('null', nullHandler)
+  registry.setDefault(defaultHandler)
+  return registry
+}
 
 const normalizeSparqlConfig = (sparql) => {
   if (!sparql) return {}
@@ -70,21 +75,23 @@ export const createClient = (config) => {
   const registry = createHarmonizerRegistry(config.instance)
   const policy = normalizeIndexPolicy(config.indexPolicy)
 
-  // Import harmonizeSource lazily so the SvelteKit adapter
-  // (getHarmonizer.js) is never loaded in non-Vite environments.
+  // Delegate to the HTML handler's harmonize function so createClient
+  // does not depend on the removed harmonizeSource function.
   const harmonize = async (html, harmonizerName, options = {}) => {
-    const { harmonizeSource } = await import('./harmonizeSource.js')
-    return harmonizeSource(html, harmonizerName, {
+    return htmlHandler.harmonize(html, harmonizerName, {
       ...options,
       getHarmonizer: options.getHarmonizer ?? registry.getHarmonizer,
     })
   }
 
   const handlerRegistry = createHandlerRegistry()
+  // TKTK there should be a better way to register each format
   handlerRegistry.register('html', htmlHandler)
   handlerRegistry.register('json', jsonHandler)
   handlerRegistry.register('blobject', blobjectHandler)
   handlerRegistry.markBuiltins()
+  handlerRegistry.register('null', nullHandler)
+  handlerRegistry.setDefault(config.defaultHandler ?? 'html')
 
   if (config.handlers) {
     for (const [mode, handler] of Object.entries(config.handlers)) {
@@ -97,7 +104,6 @@ export const createClient = (config) => {
     query: sparql.query,
     queryBoolean: sparql.queryBoolean,
     queryArray: sparql.queryArray,
-    harmonizeSource: harmonize,
     instance: config.instance,
     handlerRegistry,
     getHarmonizer: registry.getHarmonizer,
@@ -125,6 +131,8 @@ export const createClient = (config) => {
       verifyOrigin: policy.mode === 'active'
         ? async () => true
         : undefined,
+      policyMode: policy.mode,
+      policyCheck,
     }
 
     if (content !== undefined) {
