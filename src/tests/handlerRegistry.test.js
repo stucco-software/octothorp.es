@@ -3,6 +3,7 @@ import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 import htmlHandler from '../../packages/core/handlers/html/handler.js'
 import jsonHandler, { resolvePath, extractValues } from '../../packages/core/handlers/json/handler.js'
 import blobjectHandler from '../../packages/core/handlers/blobject/handler.js'
+import { createClient } from '../../packages/core/index.js'
 
 describe('createHandlerRegistry', () => {
   it('should register and retrieve a handler by mode', () => {
@@ -417,5 +418,16 @@ describe('blobject handler', () => {
     reg.register('blobject', blobjectHandler)
     expect(reg.getHandler('blobject')).toBeDefined()
     expect(reg.getHandlerForContentType('application/json')).toBeNull()
+  })
+})
+
+describe('createClient registers XML handler', () => {
+  it('exposes xml handler on the registry', () => {
+    const client = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { sparql_endpoint: 'http://0.0.0.0:7878' },
+    })
+    expect(client.handler.getHandler('xml')).toBeDefined()
+    expect(client.handler.getHandlerForContentType('application/rss+xml').mode).toBe('xml')
   })
 })
