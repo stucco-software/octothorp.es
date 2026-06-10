@@ -412,3 +412,16 @@ Stripped the obsolete `verifiyContent` function from `packages/core/origin.js`. 
 - **Filed #221** to re-implement the two dropped behaviors properly: the Bear Blog marker as a custom index-policy harmonizer, and robots nofollow/noindex as part of the active indexing policy definition (stubbed, needs design).
 
 **Files affected:** `packages/core/origin.js`, `packages/core/index.js`, `packages/core/indexer.js`, `src/routes/badge/+server.js`, `src/routes/indexwrapper/+server.js`, `src/routes/debug/rolodex/+server.js`, `src/tests/indexing.test.js`, `src/tests/exports.test.js`
+
+## XML handler with RSS/Atom support
+
+New XML handler (`packages/core/handlers/xml/handler.js`) harmonizes RSS, Atom, and generic XML into blobjects via `fast-xml-parser` plus the JSON handler's `extractValues` extraction engine. Feed sources are marked implicitly opted-in (`indexPolicy: 'index'`), so origin-verified feeds index without per-item markers. No `indexer.js` changes were needed — the handler is purely additive on top of the generic handler pipeline (the proof the pipeline refactor was complete).
+
+- **Registered as built-in `'xml'`** in both `createDefaultHandlerRegistry` (standalone `harmonizeSource`) and `createClient`'s registry, with content types `application/xml`, `text/xml`, `application/rss+xml`, `application/atom+xml`.
+- **Generalized `resolvePath`** (json handler) to map a key across mid-path arrays, so repeated XML tags (`rss.channel.item.link`) — and JSON arrays-of-objects — auto-expand. A numeric path segment still indexes the array directly. This also fixes schema-org's `image.url` fallback against image arrays.
+- **`harmonize` is async** so a missing schema surfaces as a rejected promise (the indexing pipeline awaits handlers).
+- **Built-in `rss` harmonizer** ships in `packages/core/harmonizers.js` (`mode: 'xml'`), usable via `client.harmonizer.getHarmonizer('rss')` without callers passing a schema.
+- Added `fast-xml-parser` dependency.
+
+**Files affected:** `packages/core/handlers/xml/handler.js` (new), `packages/core/handlers/json/handler.js`, `packages/core/index.js`, `packages/core/harmonizers.js`, `package.json`, `package-lock.json`, `src/tests/xmlHandler.test.js` (new), `src/tests/rss-e2e.test.js` (new), `src/tests/handlerRegistry.test.js`, `src/tests/core.test.js`
+**Plan:** `docs/plans/point7/2026-05-27-xml-handler.md`
