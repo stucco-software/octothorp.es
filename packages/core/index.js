@@ -103,15 +103,10 @@ export const createClient = (config) => {
     })
   }
 
-  const handlerRegistry = createHandlerRegistry()
-  // TKTK there should be a better way to register each format
-  handlerRegistry.register('html', htmlHandler)
-  handlerRegistry.register('json', jsonHandler)
-  handlerRegistry.register('xml', xmlHandler)
-  handlerRegistry.register('blobject', blobjectHandler)
-  handlerRegistry.markBuiltins()
-  handlerRegistry.register('null', nullHandler)
-  handlerRegistry.setDefault(config.defaultHandler ?? 'html')
+  // Builtins (html/json/xml/blobject, frozen) + null + default come from the
+  // shared builder, so there is one place to register a new core format.
+  // Consumer-supplied handlers layer on top as non-builtins.
+  const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: config.defaultHandler })
 
   if (config.handlers) {
     for (const [mode, handler] of Object.entries(config.handlers)) {
