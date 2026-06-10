@@ -9,6 +9,7 @@ export const {
   sparql_user,
   sparql_password,
   instance,
+  default_handler,
   server_name,
   admin_email,
   badge_image,
