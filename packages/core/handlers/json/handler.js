@@ -11,7 +11,14 @@ const resolvePath = (obj, path) => {
   let current = obj
   for (const part of parts) {
     if (current == null) return undefined
-    current = current[part]
+    // Descend through arrays of objects by mapping the key across each element
+    // (e.g. `rss.channel.item.link` over repeated <item> tags, or `items.url`
+    // over a JSON feed). A numeric segment still indexes the array directly.
+    if (Array.isArray(current) && !/^\d+$/.test(part)) {
+      current = current.flatMap(el => (el == null ? [] : el[part] ?? []))
+    } else {
+      current = current[part]
+    }
   }
   return current
 }
