@@ -40,6 +40,17 @@ describe('harmonizer registry', () => {
     expect(all['schema-org']).toBeDefined()
   })
 
+  it('should include a built-in rss harmonizer', async () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql: { endpoint: 'http://0.0.0.0:7878' },
+    })
+    const rss = await op.harmonizer.getHarmonizer('rss')
+    expect(rss).toBeDefined()
+    expect(rss.mode).toBe('xml')
+    expect(rss.schema?.subject?.s).toMatch(/rss\.channel\.link|channel\.link/)
+  })
+
   it('should register a custom harmonizer', () => {
     const op = createClient({
       instance: 'http://localhost:5173/',

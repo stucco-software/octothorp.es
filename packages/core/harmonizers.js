@@ -296,6 +296,22 @@ export const createHarmonizerRegistry = (instance) => {
         ]
       }
   }
+  },
+  "rss": {
+    "@context": context,
+    "@id": `${baseId}rss`,
+    "@type": "harmonizer",
+    "title": "RSS 2.0 Feed Harmonizer",
+    "mode": "xml",
+    "schema": {
+      "subject": {
+        "s": "rss.channel.link",
+        "title": "rss.channel.title",
+        "description": "rss.channel.description"
+      },
+      "link": { "o": "rss.channel.item.link" },
+      "hashtag": { "o": "rss.channel.item.category" }
+    }
   }
   };
 
