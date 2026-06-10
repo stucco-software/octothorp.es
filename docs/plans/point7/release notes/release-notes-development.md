@@ -425,3 +425,15 @@ New XML handler (`packages/core/handlers/xml/handler.js`) harmonizes RSS, Atom, 
 
 **Files affected:** `packages/core/handlers/xml/handler.js` (new), `packages/core/handlers/json/handler.js`, `packages/core/index.js`, `packages/core/harmonizers.js`, `package.json`, `package-lock.json`, `src/tests/xmlHandler.test.js` (new), `src/tests/rss-e2e.test.js` (new), `src/tests/handlerRegistry.test.js`, `src/tests/core.test.js`
 **Plan:** `docs/plans/point7/2026-05-27-xml-handler.md`
+
+## Unify handler registry across the whole indexing path
+
+Closed a gap where custom and default handlers were only honored on the fetch-path. `createClient`'s `harmonize` now forwards the client's `handlerRegistry` to `harmonizeSource`, so a client's configured `defaultHandler` and any `config.handlers` are used on the content-path too (`client.harmonize()` and `indexSource({ content })`) — previously these fell through to a process-wide html-default singleton, making custom handlers invisible to content-path harmonization.
+
+- **`createClient.harmonize`** binds the client registry (override via `options.handlerRegistry`); `handlerRegistry` is now built before `harmonize` so the convenience helper and the indexer share one registry.
+- **`src/lib/indexing.js`** brought up to date: builds a single `handlerRegistry` with a configurable default (new optional `default_handler` env), injects an instance-bound `getHarmonizer` into the indexer (it injected none before, so json/xml harmonizers couldn't resolve on the fetch-path), and exports a content-path `harmonize` bound to the same registry/lookup.
+- **`default_handler`** added to `src/lib/config.js` (optional; falls back to `'html'`).
+
+**Follow-up (not in this change):** the transitional live `/index` route (`src/routes/index/+server.js`) still calls the standalone `harmonizeSource` singleton at its content-path. It can adopt `harmonize` from `$lib/indexing.js` to fully unify the relay's content extraction with the shared registry. Left untouched to avoid disturbing the in-progress handler-pipeline work on that route.
+
+**Files affected:** `packages/core/index.js`, `src/lib/indexing.js`, `src/lib/config.js`, `src/tests/core.test.js`
