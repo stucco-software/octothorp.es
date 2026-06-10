@@ -7,13 +7,16 @@
 
 Build a lightweight OP client that turns a folder of generated + hand-annotated
 markdown into a locally-served static site whose **knowledge graph is backed by
-OP**. An external script (already exists) emits hundreds-to-thousands of `.md`
-files describing assets (images etc.), each stamped with a hash UUID and
-accompanied by a per-directory `manifest.json`. A curator annotates a subset in
-Obsidian — adding tags, `[[wikilinks]]`, external links, and a parent gallery.
-The system builds flat HTML with a JS SSG, serves it locally over a `memex`
-hostname, and uses OP as the **query backend** for all "documents with this
-tag" / "related documents" lists rather than the SSG's native tagging.
+OP**. The client's **generation stage** — folded in from a pre-existing generic
+tool ("make this directory a gallery") — walks a directory of assets (images
+etc.) and emits hundreds-to-thousands of `.md` files plus a per-directory
+`manifest.json` in a **single identity event**: each asset gets a hash UUID
+written into both its md frontmatter and the manifest, so the two agree by
+construction. A curator then annotates a subset in Obsidian — adding tags,
+`[[wikilinks]]`, external links, and a parent gallery. The build stage produces
+flat HTML with a JS SSG, serves it locally over a `memex` hostname, and uses OP
+as the **query backend** for all "documents with this tag" / "related documents"
+lists rather than the SSG's native tagging.
 
 The central architectural result: **this requires no new OP protocol or Core
 features.** OP is used as an RDF triplestore + the `octo:` vocabulary, accessed
@@ -24,43 +27,58 @@ on the Core roadmap).
 
 ## Layered Architecture
 
-Three layers; only the middle one is OP-specific, and OP Core is untouched.
+The OP client is one unified CLI with two stages separated by an **immovable
+human gap** (curator annotation). Generation never touches the triplestore;
+`build` is the sole graph-writing moment. Only the client is OP-specific, and OP
+Core is untouched.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 1. ANNOTATION — Obsidian                                       │
-│    curator edits frontmatter tags, [[wikilinks]], ext links,   │
-│    gallery field. (optional later: Obsidian plugin frontend)   │
+│  OP CLIENT — unified CLI (framework-agnostic pkg)              │
+│                                                                │
+│  STAGE 1 · memex gallery <dir>   (store-free)                  │
+│    assets → md files + manifest.json                           │
+│    one identity event: UUID into frontmatter AND manifest      │
 └───────────────────────────┬──────────────────────────────────┘
-                            │  md files + manifest.json
+                            │  md + manifest
 ┌───────────────────────────▼──────────────────────────────────┐
-│ 2. OP CLIENT — "the brain" (framework-agnostic pkg + CLI)      │
+│  ANNOTATION — Obsidian (human gap)                             │
+│    curator edits tags, [[wikilinks]], ext links, gallery       │
+│    (optional later: Obsidian plugin frontend on the query API) │
+└───────────────────────────┬──────────────────────────────────┘
+                            │  annotated md + manifest
+┌───────────────────────────▼──────────────────────────────────┐
+│  STAGE 2 · memex build                                         │
 │    a. scan & resolve  → UUID-anchored resolution index         │
-│    b. mint identity   → one Document Record per asset (urn)    │
+│    b. mint + enrich   → one Document Record per asset (urn)     │
 │    c. assert graph    → write octo: + dcterms: into triplestore │
 │    d. query API       → direct bulk SPARQL for consumers       │
 └───────────────────────────┬──────────────────────────────────┘
                             │  graph (read)              ▲ graph (read)
 ┌───────────────────────────▼──────────────┐  ┌─────────┴──────────┐
-│ 3. RENDERING — 11ty (dumb, read-only)     │  │ 4. IN-BROWSER       │
-│    _data adapter pulls lists from query    │  │ urn-aware widgets   │
-│    API; emits flat html + DC markup;       │  │ read page's         │
-│    NEVER writes to the graph               │  │ isFormatOf → urn,   │
-└───────────────────────────────────────────┘  │ query urn relations │
+│  RENDERING — 11ty (dumb, read-only)       │  │  IN-BROWSER         │
+│    _data adapter pulls lists from query    │  │  urn-aware widgets  │
+│    API; emits flat html + DC markup;       │  │  read page's        │
+│    NEVER writes to the graph               │  │  isFormatOf → urn,  │
+└───────────────────────────────────────────┘  │  query urn relations│
                                                 └────────────────────┘
 ```
 
 **Build order is a single pass, no chicken-and-egg:**
 `scan → assert graph → 11ty renders from queries → flat html on disk`.
-The graph is built from **source** (md + manifests), never from rendered HTML,
-so backlinks/related lists are computable before any page renders.
+The graph is built from **source** (md + manifest), never from rendered HTML,
+so backlinks/related lists are computable before any page renders. The
+generation stage produces md + manifest only; it carries no triplestore
+dependency and can run independently, ahead of annotation.
 
 ## Identity Model
 
 The UUID is the stable spine; the filename is Obsidian's mutable label.
 
-- The asset generator stamps a hash UUID into each `.md`'s frontmatter and into
-  the directory's `manifest.json` (id ↔ filename).
+- The generation stage stamps a hash UUID into each `.md`'s frontmatter and into
+  the directory's `manifest.json` (id ↔ filename) in one act, so the two never
+  disagree. The manifest is an **internal artifact** of the client, not a
+  cross-tool contract.
 - Every OP association anchors on the **UUID**, never the filename.
 - `[[filename]]` resolves *through* the index (filename → UUID → canonical
   identifier), so Obsidian renames never break links.
@@ -140,23 +158,28 @@ clean. Exact frontmatter keys to be finalized in the implementation plan.
 
 ## Components & Interfaces
 
-### 2. OP client package (framework-agnostic) + CLI
+### OP client package (framework-agnostic) + unified CLI
 
-| Unit | Responsibility | Depends on |
-|------|----------------|------------|
-| `buildIndex(roots)` | scan dirs, read `manifest.json` + md frontmatter → resolution index (`uuid ↔ filename ↔ slug ↔ type ↔ metadata ↔ edges`) | fs, gray-matter |
-| `resolveLink(name, index)` | `[[filename]]` → canonical urn / html href; rename-safe via manifest | index |
-| `toDocumentRecord(doc, index)` | doc + resolved edges → RDF triples (octo: + dcterms:) | index |
-| `assertGraph(records, client)` | write triples to local triplestore, origin-verify off | `@octothorpes/core` write API |
-| `query` (bulk) | direct SPARQL for consumers: terms→records, gallery→members, record→backlinks/related | `@octothorpes/core` query API |
-| CLI | orchestrates scan → assert → (invoke 11ty) → serve | the above |
+| Unit | Stage | Responsibility | Depends on |
+|------|-------|----------------|------------|
+| `gallery(dir)` | generate | walk assets → mint UUIDs → emit md stubs (frontmatter) + `manifest.json`, one identity event | fs, hashing |
+| `frontmatterSchema` | shared | single definition of the md/manifest UUID + field schema (written by generate, read by build) — the drift-eliminating seam | — |
+| `buildIndex(roots)` | build | scan dirs, read `manifest.json` + md frontmatter → resolution index (`uuid ↔ filename ↔ slug ↔ type ↔ metadata ↔ edges`) | fs, gray-matter |
+| `resolveLink(name, index)` | build | `[[filename]]` → canonical urn / html href; rename-safe via manifest | index |
+| `toDocumentRecord(doc, index)` | build | doc + resolved edges → RDF triples (octo: + dcterms:) | index |
+| `assertGraph(records, client)` | build | write triples to local triplestore, origin-verify off | `@octothorpes/core` write API |
+| `query` (bulk) | build | direct SPARQL for consumers: terms→records, gallery→members, record→backlinks/related | `@octothorpes/core` query API |
+| CLI | — | `gallery` (generate) and `build` subcommands; `build` orchestrates scan → assert → invoke 11ty → serve | the above |
 
+The generation stage is folded in from the pre-existing generic tool (which
+already has a rudimentary CLI), becoming the front of the unified `memex` CLI.
 The CLI and a future Obsidian plugin are two *frontends* over this one package.
 Build the package + CLI first; the Obsidian plugin (live in-editor "what links
 here") is a clean later add that calls the same query API. The build pipeline is
-**never** coupled to Obsidian being open.
+**never** coupled to Obsidian being open, and `gallery` carries no triplestore
+dependency.
 
-### 3. 11ty adapter (the SSG shell)
+### 11ty adapter (the SSG shell)
 
 - A `_data` global loads graph lists **in bulk** (a few graph-wide queries, not
   per-page) so a few-thousand-doc build stays fast. (Direct Core query ≈ 50ms;
@@ -170,7 +193,7 @@ here") is a clean later add that calls the same query API. The build pipeline is
 - Passthrough copy for asset images. 11ty's native tags/collections go **unused**.
 - 11ty is strictly **read-only** against the graph.
 
-### 4. In-browser widgets (optional, additive)
+### In-browser widgets (optional, additive)
 
 The html page carries `dcterms:isFormatOf → urn` in two places: a stored triple
 (server-side SPARQL can traverse html → urn → terms → related) and a DOM
@@ -205,7 +228,8 @@ client-side work — not a fork of Core or the `/get` API.
 None to storage or protocol. The one Core dependency is the **direct
 programmatic query/write API** already recorded as a required Core deliverable
 (execute directly, no HTTP round-trips). New deliverables are all in the
-**client**: resolution-index/graph-builder, CLI, 11ty adapter, urn-aware widgets.
+**client**: the folded-in generation stage (`gallery`), resolution-index/graph-builder,
+unified CLI, 11ty adapter, urn-aware widgets.
 
 ## Open Items for the Implementation Plan
 
@@ -215,7 +239,10 @@ programmatic query/write API** already recorded as a required Core deliverable
   is what produces the backlink; the qualifier is only for distinguishing a
   gallery-parent from a generic `[[wikilink]]` at query time).
 - Slug-collision handling rules in the resolution index.
-- Reconciling `manifest.json` (id↔filename, authoritative for asset files) with
-  md frontmatter `id` (authoritative for md docs) when they disagree.
+- The shared `frontmatterSchema` field set (what `gallery` writes / `build`
+  reads) — now a single definition, so no cross-tool reconciliation is needed,
+  but the schema itself must be pinned down.
+- How much of the pre-existing generation tool's CLI/UX carries over vs is
+  rewritten to fit the unified `memex` command surface.
 - SSG choice confirmed: **Eleventy (11ty)** as the thin shell; package name for
   the OP client brain (`@octothorpes/memex`?).
