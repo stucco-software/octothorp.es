@@ -94,15 +94,6 @@ export const createClient = (config) => {
   const registry = createHarmonizerRegistry(config.instance)
   const policy = normalizeIndexPolicy(config.indexPolicy)
 
-  // Default harmonizeSource convenience function
-  // TKTK client profile should set the defaults
-  const harmonize = async (html, harmonizerName, options = {}) => {
-    return harmonizeSource(html, harmonizerName, {
-      ...options,
-      getHarmonizer: options.getHarmonizer ?? registry.getHarmonizer,
-    })
-  }
-
   // Builtins (html/json/xml/blobject, frozen) + null + default come from the
   // shared builder, so there is one place to register a new core format.
   // Consumer-supplied handlers layer on top as non-builtins.
@@ -112,6 +103,19 @@ export const createClient = (config) => {
     for (const [mode, handler] of Object.entries(config.handlers)) {
       handlerRegistry.register(mode, handler)
     }
+  }
+
+  // Convenience harmonizer bound to THIS client's registry, so the configured
+  // default handler and any custom config.handlers are honored on the
+  // content-path (client.harmonize and indexSource({ content })) — the same
+  // registry the indexer uses on the fetch-path. Callers may still override
+  // via options.handlerRegistry / options.getHarmonizer.
+  const harmonize = async (html, harmonizerName, options = {}) => {
+    return harmonizeSource(html, harmonizerName, {
+      ...options,
+      handlerRegistry: options.handlerRegistry ?? handlerRegistry,
+      getHarmonizer: options.getHarmonizer ?? registry.getHarmonizer,
+    })
   }
 
   const indexer = createIndexer({

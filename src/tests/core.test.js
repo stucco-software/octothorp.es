@@ -93,6 +93,65 @@ describe('harmonizer registry', () => {
   })
 })
 
+describe('client.harmonize uses the client handler registry', () => {
+  const sparql = { endpoint: 'http://0.0.0.0:7878' }
+
+  it('reaches a custom handler registered via config.handlers', async () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql,
+      handlers: {
+        foo: {
+          mode: 'foo',
+          contentTypes: [],
+          meta: { name: 'Foo Handler' },
+          harmonize: () => ({ '@id': 'source', octothorpes: [], marker: 'foo-ran' }),
+        },
+      },
+    })
+    const blob = await op.harmonize('anything', { subject: { s: 'x' } }, { mode: 'foo' })
+    expect(blob.marker).toBe('foo-ran')
+  })
+
+  it('honors a client-configured default handler', async () => {
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql,
+      defaultHandler: 'json',
+    })
+    // No mode/contentType passed, so dispatch falls to the configured default.
+    // The HTML default would not extract these dot-notation paths from a JSON string.
+    const blob = await op.harmonize(
+      JSON.stringify({ url: 'https://example.com/p', title: 'Hello' }),
+      { subject: { s: 'url', title: 'title' } }
+    )
+    expect(blob['@id']).toBe('https://example.com/p')
+    expect(blob.title).toBe('Hello')
+  })
+
+  it('makes custom handlers available on the indexSource content-path', async () => {
+    const seen = []
+    const op = createClient({
+      instance: 'http://localhost:5173/',
+      sparql,
+      indexPolicy: 'active',
+      handlers: {
+        bar: {
+          mode: 'bar',
+          contentTypes: [],
+          meta: { name: 'Bar Handler' },
+          harmonize: (content) => {
+            seen.push(content)
+            return { '@id': 'source', octothorpes: [] }
+          },
+        },
+      },
+    })
+    await op.harmonize('payload', { subject: { s: 'x' } }, { mode: 'bar' })
+    expect(seen).toContain('payload')
+  })
+})
+
 describe('schema-org harmonizer', () => {
   it('should be registered with mode json', async () => {
     const op = createClient({
