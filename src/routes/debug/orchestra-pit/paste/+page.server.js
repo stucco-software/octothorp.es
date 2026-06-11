@@ -8,6 +8,8 @@ import { harmonize } from '$lib/indexing.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 import { remoteHarmonizer, createHarmonizerRegistry, createDefaultHandlerRegistry } from 'octothorpes'
 import { instance } from '$lib/config.js'
+import calendarHandler from '../../../../../packages/core/handlers/calendar/handler.js'
+import { runCalendarUrl } from './calendarPipeline.js'
 
 // Resolve a harmonizer id (or http(s) URL) to a schema object up front. The
 // HTML handler self-resolves string ids, but the JSON/XML handlers expect a
@@ -26,7 +28,7 @@ export function load() {
 }
 
 export const actions = {
-  default: async ({ request }) => {
+  paste: async ({ request }) => {
     const data = await request.formData()
     const text = (data.get('text') ?? '').toString()
     const harmonizerId = (data.get('harmonizer') ?? 'default').toString()
@@ -57,6 +59,22 @@ export const actions = {
         explicitMode,
         text,
       })
+    }
+  },
+
+  calendar: async ({ request }) => {
+    const data = await request.formData()
+    const calendarUrl = (data.get('calendarUrl') ?? '').toString().trim()
+    if (!calendarUrl) {
+      return fail(400, { calendarError: 'Paste a Google Calendar URL or a .ics feed URL.', calendarUrl })
+    }
+    try {
+      const schema = await resolveHarmonizer('vevent')
+      const runHarmonize = (block, options) => calendarHandler.harmonize(block, schema, options)
+      const { feedUrl, calendarName, events } = await runCalendarUrl(calendarUrl, runHarmonize)
+      return { calendarUrl, feedUrl, calendarName, events, eventCount: events.length }
+    } catch (e) {
+      return fail(500, { calendarError: e?.message ?? String(e), calendarUrl })
     }
   },
 }
