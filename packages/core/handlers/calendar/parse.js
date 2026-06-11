@@ -75,6 +75,30 @@ export const parseVevent = (block) => {
   return ev
 }
 
+/** Normalize an iCalendar date/date-time value to an ISO 8601 string.
+ *  Handles the three common shapes; leaves anything else untouched.
+ *  No timezone conversion in v1 — TZID local times become floating ISO. */
+export const normalizeICalDate = (value) => {
+  if (typeof value !== 'string') return value
+  const utc = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/)
+  if (utc) { const [, y, mo, d, h, mi, s] = utc; return `${y}-${mo}-${d}T${h}:${mi}:${s}Z` }
+  const local = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/)
+  if (local) { const [, y, mo, d, h, mi, s] = local; return `${y}-${mo}-${d}T${h}:${mi}:${s}` }
+  const date = value.match(/^(\d{4})(\d{2})(\d{2})$/)
+  if (date) { const [, y, mo, d] = date; return `${y}-${mo}-${d}` }
+  return value
+}
+
+/** Read X-WR-CALNAME from a full VCALENDAR document. */
+export const parseCalendarName = (icsText) => {
+  for (const line of icsText.split(/\r\n|\r|\n/)) {
+    if (line.toUpperCase().startsWith('X-WR-CALNAME')) {
+      return line.slice(line.indexOf(':') + 1).trim()
+    }
+  }
+  return undefined
+}
+
 /** Cheap UID read for building a subject URL without a full parse. */
 export const getUid = (block) => {
   const lines = unfold(block)

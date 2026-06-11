@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { splitVevents, parseVevent, getUid } from '../../packages/core/handlers/calendar/parse.js'
+import { normalizeICalDate, parseCalendarName } from '../../packages/core/handlers/calendar/parse.js'
 
 // Real-world feed excerpt: UTC event, plus an Apple-imported event with a folded
 // LOCATION line, escaped commas, and a `message:` URL.
@@ -94,5 +95,31 @@ describe('getUid', () => {
       'END:VEVENT',
     ].join('\n')
     expect(getUid(block)).toBe('vevent-uid')
+  })
+})
+
+describe('normalizeICalDate', () => {
+  it('converts UTC datetimes to ISO 8601 with Z', () => {
+    expect(normalizeICalDate('20220721T210000Z')).toBe('2022-07-21T21:00:00Z')
+  })
+  it('converts all-day VALUE=DATE to a plain ISO date', () => {
+    expect(normalizeICalDate('20240405')).toBe('2024-04-05')
+  })
+  it('converts floating/local datetimes to ISO without offset', () => {
+    // No timezone database in v1: TZID-bearing local times are emitted as-is in ISO shape.
+    expect(normalizeICalDate('20240405T080000')).toBe('2024-04-05T08:00:00')
+  })
+  it('returns the input unchanged when it is not a recognized iCal date', () => {
+    expect(normalizeICalDate('not-a-date')).toBe('not-a-date')
+  })
+})
+
+describe('parseCalendarName', () => {
+  it('reads X-WR-CALNAME from the calendar', () => {
+    const ics = 'BEGIN:VCALENDAR\nX-WR-CALNAME:SUMMON THE DARKNESS\nEND:VCALENDAR'
+    expect(parseCalendarName(ics)).toBe('SUMMON THE DARKNESS')
+  })
+  it('returns undefined when absent', () => {
+    expect(parseCalendarName('BEGIN:VCALENDAR\nEND:VCALENDAR')).toBeUndefined()
   })
 })
