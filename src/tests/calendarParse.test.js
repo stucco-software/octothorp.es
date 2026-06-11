@@ -67,10 +67,32 @@ describe('parseVevent', () => {
     const ev = parseVevent('BEGIN:VEVENT\nUID:x\nCATEGORIES:music,live show\nEND:VEVENT')
     expect(ev.CATEGORIES).toEqual(['music', 'live show'])
   })
+
+  it('accumulates duplicate properties into an array', () => {
+    const ev = parseVevent('BEGIN:VEVENT\nUID:x\nATTACH:https://a.example/1\nATTACH:https://b.example/2\nEND:VEVENT')
+    expect(ev.ATTACH).toEqual(['https://a.example/1', 'https://b.example/2'])
+  })
 })
 
 describe('getUid', () => {
   it('reads UID from a raw block without full parse', () => {
     expect(getUid(splitVevents(sampleIcs)[0])).toBe('2nsahmu5trde0cejl4et0cs2ln@google.com')
+  })
+
+  it('is not fooled by a UIDFOO: line and returns the real UID', () => {
+    const block = 'BEGIN:VEVENT\nUIDFOO:not-the-uid\nUID:real-uid\nEND:VEVENT'
+    expect(getUid(block)).toBe('real-uid')
+  })
+
+  it('ignores a UID inside a nested VALARM sub-component', () => {
+    const block = [
+      'BEGIN:VEVENT',
+      'UID:vevent-uid',
+      'BEGIN:VALARM',
+      'UID:valarm-uid',
+      'END:VALARM',
+      'END:VEVENT',
+    ].join('\n')
+    expect(getUid(block)).toBe('vevent-uid')
   })
 })

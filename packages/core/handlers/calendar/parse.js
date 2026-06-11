@@ -77,7 +77,17 @@ export const parseVevent = (block) => {
 
 /** Cheap UID read for building a subject URL without a full parse. */
 export const getUid = (block) => {
-  const m = unfold(block).find((l) => l.toUpperCase().startsWith('UID'))
-  if (!m) return undefined
-  return m.slice(m.indexOf(':') + 1).trim()
+  const lines = unfold(block)
+  let uid = undefined
+  for (let i = 0; i < lines.length; i++) {
+    const upper = lines[i].trim().toUpperCase()
+    // Stop at any nested sub-component (VALARM, etc.) after the opening line
+    if (i > 0 && upper.startsWith('BEGIN:')) break
+    if (upper.startsWith('UID:') || upper.startsWith('UID;')) {
+      const raw = lines[i]
+      uid = raw.slice(raw.indexOf(':') + 1).trim()
+      break
+    }
+  }
+  return uid
 }
