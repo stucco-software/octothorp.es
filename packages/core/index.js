@@ -8,6 +8,7 @@ import htmlHandler from './handlers/html/handler.js'
 import jsonHandler from './handlers/json/handler.js'
 import blobjectHandler from './handlers/blobject/handler.js'
 import xmlHandler from './handlers/xml/handler.js'
+import calendarHandler from './handlers/calendar/handler.js'
 import { publish } from './publish.js'
 
 // Re-export individual modules for direct use
@@ -35,6 +36,7 @@ export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) =
   registry.register('html', htmlHandler)
   registry.register('json', jsonHandler)
   registry.register('xml', xmlHandler)
+  registry.register('calendar', calendarHandler)
   registry.register('blobject', blobjectHandler)
   registry.markBuiltins()
   registry.register('null', nullHandler)
