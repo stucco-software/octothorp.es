@@ -312,6 +312,24 @@ export const createHarmonizerRegistry = (instance) => {
       "link": { "o": "rss.channel.item.link" },
       "hashtag": { "o": "rss.channel.item.category" }
     }
+  },
+  "vevent": {
+    "@context": context,
+    "@id": `${baseId}vevent`,
+    "@type": "harmonizer",
+    "title": "iCalendar VEVENT Harmonizer",
+    "mode": "calendar",
+    "schema": {
+      "subject": {
+        "s": "UID",
+        "title": "SUMMARY",
+        "description": "DESCRIPTION",
+        "startDate": "DTSTART",
+        "endDate": "DTEND",
+        "location": "LOCATION"
+      },
+      "hashtag": { "o": "CATEGORIES" }
+    }
   }
   };
 
