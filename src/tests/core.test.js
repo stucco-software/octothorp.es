@@ -129,6 +129,20 @@ describe('client.harmonize uses the client handler registry', () => {
     expect(blob.title).toBe('Hello')
   })
 
+  it('resolves a named string harmonizer for non-html handlers (rss -> xml)', async () => {
+    const op = createClient({ instance: 'http://localhost:5173/', sparql })
+    const feed = `<?xml version="1.0"?>
+<rss version="2.0"><channel>
+  <title>T</title><link>https://ex.com/feed</link><description>d</description>
+  <item><title>i1</title><link>https://ex.com/i1</link></item>
+</channel></rss>`
+    // String id, NO explicit mode: harmonizeSource must resolve 'rss' to its
+    // schema and derive mode 'xml' — the same thing the fetch-path's dispatch does.
+    const blob = await op.harmonize(feed, 'rss')
+    expect(blob['@id']).toBe('https://ex.com/feed')
+    expect(blob.octothorpes.some((o) => o.type === 'link' && o.uri === 'https://ex.com/i1')).toBe(true)
+  })
+
   it('makes custom handlers available on the indexSource content-path', async () => {
     const seen = []
     const op = createClient({

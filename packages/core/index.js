@@ -49,14 +49,31 @@ export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) =
 // may supply their own `options.handlerRegistry`; otherwise a shared default
 // registry (html/json/blobject/null, default 'html') is created lazily.
 let defaultHandlerRegistry
-export const harmonizeSource = (content, harmonizer, options = {}) => {
+export const harmonizeSource = async (content, harmonizer, options = {}) => {
   const registry = options.handlerRegistry ?? (defaultHandlerRegistry ??= createDefaultHandlerRegistry())
+
+  // Resolve a named/URL harmonizer to a schema object up front, so every handler
+  // receives a resolved schema — the same thing the indexer's dispatch does on
+  // the fetch-path. Without this, only the HTML handler self-resolves string ids;
+  // json/xml would get the raw string. Falls back to a registry built from
+  // options.instance when no getHarmonizer is injected.
+  const getHarmonizer =
+    options.getHarmonizer ?? createHarmonizerRegistry(options.instance ?? '').getHarmonizer
+  const resolvedHarmonizer =
+    typeof harmonizer === 'string'
+      ? (await getHarmonizer(harmonizer).catch(() => null)) ?? harmonizer
+      : harmonizer
+
+  // Mode precedence mirrors dispatch: explicit option > the resolved
+  // harmonizer's declared mode (e.g. the rss harmonizer declares mode 'xml').
+  const mode = options.mode ?? resolvedHarmonizer?.mode
+
   const handler =
-    (options.mode ? registry.getHandler(options.mode) : null) ??
+    (mode ? registry.getHandler(mode) : null) ??
     (options.contentType ? registry.getHandlerForContentType(options.contentType) : null) ??
     registry.getDefault() ??
     registry.getHandler('null')
-  return handler.harmonize(content, harmonizer, options)
+  return handler.harmonize(content, resolvedHarmonizer, { ...options, getHarmonizer })
 }
 
 const normalizeSparqlConfig = (sparql) => {
