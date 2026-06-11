@@ -450,3 +450,26 @@ fetch-path now behave identically for named harmonizers, and the HTML handler's
 internal resolution becomes a redundant fallback rather than a special case.
 
 **Files affected:** `packages/core/index.js`, `src/tests/core.test.js`
+
+## iCalendar handler + calendar demo pipeline
+
+Adds a production-ready `calendar` handler (`@octothorpes/core`) that harmonizes a
+single iCalendar VEVENT into a blobject: subject `@id` is a dereferenceable
+`feedUrl#UID` fragment URL, `SUMMARY/DESCRIPTION/DTSTART/DTEND/LOCATION` map to
+blobject fields (dates normalized to ISO 8601), `CATEGORIES` become hashtag
+octothorpes, and a single `{ type: 'link', uri: feedUrl }` octothorpe wires each
+event to its calendar (surfaced via OP's bidirectional `backlinked` side — no
+separate container record). The handler parses the iCalendar grammar and
+delegates field extraction to the JSON engine, mirroring the XML handler, and
+marks events `indexPolicy: 'index'` (feed items are implicitly opted in). Ships a
+default `vevent` harmonizer.
+
+A demo extension to `debug/orchestra-pit/paste` resolves a public Google Calendar
+`?cid=` URL (or a direct `.ics` URL) to its feed, splits VEVENTs, harmonizes each,
+and accumulates results client-side into one flat, provenance-tagged JSON feed
+across multiple calendars. Preview only — nothing is written to the triplestore.
+
+**Files affected:** `packages/core/handlers/calendar/{parse,handler}.js`,
+`packages/core/harmonizers.js`, `packages/core/index.js`,
+`src/routes/debug/orchestra-pit/paste/{+page.server.js,+page.svelte,calendarPipeline.js}`,
+tests under `src/tests/calendar*.test.js`.
