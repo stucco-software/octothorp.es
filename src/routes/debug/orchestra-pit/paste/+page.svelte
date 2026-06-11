@@ -9,6 +9,24 @@
   $: selectedMode = form?.explicitMode ?? ''
   let running = false
 
+  // Client-side accumulation: each calendar submission appends its events to a
+  // running, provenance-tagged feed. Nothing is persisted server-side.
+  let feed = []
+  let calendars = []      // [{ feedUrl, calendarName, count }]
+  let calRunning = false
+
+  const addToFeed = (payload) => {
+    if (!payload?.events) return
+    feed = [...feed, ...payload.events]
+    calendars = [...calendars, {
+      feedUrl: payload.feedUrl,
+      calendarName: payload.calendarName ?? '(unnamed)',
+      count: payload.eventCount ?? payload.events.length,
+    }]
+  }
+
+  const clearFeed = () => { feed = []; calendars = [] }
+
   const sampleRss = `<?xml version="1.0"?>
 <rss version="2.0">
   <channel>
@@ -37,7 +55,7 @@
     envelope, not a bare <code>&lt;item&gt;</code>.
   </p>
 
-  <form method="POST" use:enhance={() => {
+  <form method="POST" action="?/paste" use:enhance={() => {
     running = true
     return async ({ update }) => { await update({ reset: false }); running = false }
   }}>
@@ -68,6 +86,50 @@
       <button type="button" on:click={() => (text = sampleRss)}>Load RSS sample</button>
     </div>
   </form>
+
+  <hr />
+
+  <h2>Unified calendar feed</h2>
+  <p>
+    Paste a public Google Calendar URL (the <code>?cid=…</code> link from
+    "Settings → Integrate calendar → Public address") or a direct <code>.ics</code>
+    URL. Each submission resolves the feed, harmonizes every event, and
+    <strong>appends</strong> to the combined feed below — blend several public
+    calendars into one JSON document. Nothing is written to the triplestore.
+  </p>
+
+  <form method="POST" action="?/calendar" use:enhance={() => {
+    calRunning = true
+    return async ({ result, update }) => {
+      if (result.type === 'success') addToFeed(result.data)
+      await update({ reset: false })
+      calRunning = false
+    }
+  }}>
+    <label for="calendarUrl">Calendar URL</label>
+    <input id="calendarUrl" name="calendarUrl" type="text"
+           placeholder="https://calendar.google.com/calendar/u/0?cid=…" />
+    <div class="row">
+      <button type="submit" disabled={calRunning}>{calRunning ? 'Fetching…' : 'Add calendar'}</button>
+      <button type="button" on:click={clearFeed} disabled={!feed.length}>Clear feed</button>
+    </div>
+  </form>
+
+  {#if form?.calendarError}
+    <section class="error"><h3>Error</h3><pre>{form.calendarError}</pre></section>
+  {/if}
+
+  {#if calendars.length}
+    <section>
+      <h3>{feed.length} events from {calendars.length} calendar{calendars.length === 1 ? '' : 's'}</h3>
+      <ul>
+        {#each calendars as c}
+          <li><strong>{c.calendarName}</strong> — {c.count} events <code>{c.feedUrl}</code></li>
+        {/each}
+      </ul>
+      <pre>{JSON.stringify(feed, null, 2)}</pre>
+    </section>
+  {/if}
 
   {#if form?.error}
     <section class="error">
@@ -102,4 +164,6 @@
   pre { background: #f4f4f4; padding: 0.75rem; overflow: auto; font-size: 0.8rem; }
   .meta code { background: #eee; padding: 0 0.25rem; }
   .error pre { background: #fdecea; }
+  input[type="text"] { width: 100%; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 0.3rem; box-sizing: border-box; }
+  hr { margin: 2rem 0; }
 </style>
