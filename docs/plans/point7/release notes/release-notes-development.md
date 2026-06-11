@@ -437,3 +437,16 @@ Closed a gap where custom and default handlers were only honored on the fetch-pa
 **Follow-up (not in this change):** the transitional live `/index` route (`src/routes/index/+server.js`) still calls the standalone `harmonizeSource` singleton at its content-path. It can adopt `harmonize` from `$lib/indexing.js` to fully unify the relay's content extraction with the shared registry. Left untouched to avoid disturbing the in-progress handler-pipeline work on that route.
 
 **Files affected:** `packages/core/index.js`, `src/lib/indexing.js`, `src/lib/config.js`, `src/tests/core.test.js`
+
+## Named harmonizers work with all handlers on the content-path
+
+`harmonizeSource` now resolves a named/URL harmonizer id to its schema object up
+front and derives the handler mode from the resolved harmonizer's `mode` —
+mirroring what the indexer's `dispatch` already does on the fetch-path.
+Previously only the HTML handler self-resolved a string id; passing a string like
+`rss` to `harmonizeSource` (or `client.harmonize` / `indexSource({ content })`)
+would reach the JSON/XML handlers unresolved and fail. The content-path and
+fetch-path now behave identically for named harmonizers, and the HTML handler's
+internal resolution becomes a redundant fallback rather than a special case.
+
+**Files affected:** `packages/core/index.js`, `src/tests/core.test.js`
