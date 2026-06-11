@@ -60,4 +60,15 @@ describe('calendar handler', () => {
     expect(reg.getHandler('calendar')).toBeTruthy()
     expect(reg.getHandlerForContentType('text/calendar')).toBe(reg.getHandler('calendar'))
   })
+
+  it('sets indexPolicy to "index" on harmonized events', async () => {
+    const blob = await calendarHandler.harmonize(block, veventSchema)
+    expect(blob.indexPolicy).toBe('index')
+  })
+
+  it('falls back to @id "source" when there is no UID and no subjectUrl', async () => {
+    const noUid = `BEGIN:VEVENT\nSUMMARY:Mystery\nEND:VEVENT`
+    const blob = await calendarHandler.harmonize(noUid, veventSchema)
+    expect(blob['@id']).toBe('source')
+  })
 })

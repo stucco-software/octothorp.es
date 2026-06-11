@@ -14,8 +14,7 @@ import { parseVevent, normalizeICalDate } from './parse.js'
  *     bidirectional API surfaces it as the calendar's backlink)
  */
 const harmonize = async (content, harmonizerSchema, options = {}) => {
-  const schema = harmonizerSchema?.schema || harmonizerSchema
-  if (!schema) throw new Error('Calendar handler requires a schema')
+  if (!harmonizerSchema) throw new Error('Calendar handler requires a schema')
 
   const data = parseVevent(typeof content === 'string' ? content : String(content))
 
@@ -29,6 +28,11 @@ const harmonize = async (content, harmonizerSchema, options = {}) => {
   if (options.feedUrl) {
     output.octothorpes = [...(output.octothorpes || []), { type: 'link', uri: options.feedUrl }]
   }
+
+  // Feed sources are implicitly opted in. Caller-context can still override
+  // (e.g. a feed-approval flag), but a successfully-parsed feed from a
+  // verified origin should not require per-item markers. (Mirrors the XML handler.)
+  output.indexPolicy = 'index'
 
   return output
 }
