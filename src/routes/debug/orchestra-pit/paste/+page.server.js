@@ -6,9 +6,8 @@
 import { fail } from '@sveltejs/kit'
 import { harmonize } from '$lib/indexing.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
-import { remoteHarmonizer, createHarmonizerRegistry, createDefaultHandlerRegistry } from 'octothorpes'
+import { remoteHarmonizer, createHarmonizerRegistry, createDefaultHandlerRegistry, calendarHandler } from 'octothorpes'
 import { instance } from '$lib/config.js'
-import calendarHandler from '../../../../../packages/core/handlers/calendar/handler.js'
 import { runCalendarUrl } from './calendarPipeline.js'
 
 // Resolve a harmonizer id (or http(s) URL) to a schema object up front. The

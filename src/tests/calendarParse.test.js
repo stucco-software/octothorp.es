@@ -122,4 +122,12 @@ describe('parseCalendarName', () => {
   it('returns undefined when absent', () => {
     expect(parseCalendarName('BEGIN:VCALENDAR\nEND:VCALENDAR')).toBeUndefined()
   })
+  it('reassembles a folded X-WR-CALNAME continuation line', () => {
+    // RFC 5545 folding: a continuation line begins with a single space (the fold
+    // marker); unfold strips that leading space and appends the rest. So the space
+    // that separates words must live at the end of the first logical line OR at
+    // position 2+ of the continuation line (after the fold-marker space).
+    const ics = 'BEGIN:VCALENDAR\nX-WR-CALNAME:Long Calendar\n  Name Continued\nEND:VCALENDAR'
+    expect(parseCalendarName(ics)).toBe('Long Calendar Name Continued')
+  })
 })

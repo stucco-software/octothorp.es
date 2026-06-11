@@ -91,7 +91,7 @@ export const normalizeICalDate = (value) => {
 
 /** Read X-WR-CALNAME from a full VCALENDAR document. */
 export const parseCalendarName = (icsText) => {
-  for (const line of icsText.split(/\r\n|\r|\n/)) {
+  for (const line of unfold(icsText)) {
     if (line.toUpperCase().startsWith('X-WR-CALNAME')) {
       return line.slice(line.indexOf(':') + 1).trim()
     }
