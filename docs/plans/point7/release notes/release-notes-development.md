@@ -486,3 +486,17 @@ Added a built-in **`ics`** publisher and loosened the calendar paste demo so it 
 **Follow-ups filed:** #226 (site-defined event-only ICS publisher filtering `octo:type=event`, using `postDate`) and #227 (site-defined `readable` publisher via Readability.js).
 
 **Files affected:** `packages/core/publishers.js`, `src/tests/publish-core.test.js` (15 new ICS tests), `src/routes/debug/orchestra-pit/paste/calendarPipeline.js`, `src/tests/calendarPipeline.test.js`, `.claude/skills/octothorpes/publishers.md`. Suites green: `publish-core.test.js` 63, `calendarPipeline.test.js` 7.
+
+## `readable` publisher (Readability.js) — first async, network-backed publisher (#227)
+
+A site-defined publisher exposed as `?as=readable` that runs Mozilla Readability over each result URI and returns reader-mode content as JSON. This is the first publisher that does per-item network I/O, so it also established the **async-render convention** for the system.
+
+**What changed:**
+- **`src/lib/publishers/readable/{resolver.json,renderer.js}`** (new): resolver maps `@id`→`url` (required) plus `title`/`description`; `render` is `async (items, meta, { fetch }) => …`, fetches each URL with the injected fetch, parses with `linkedom`, and runs `Readability` to emit `{ url, title, byline, excerpt, content, textContent, length, siteName }` per item. Concurrency capped at 5, item count at 20; each item is wrapped in try/catch and degrades a failed fetch/parse to a `{ url, error }` stub rather than failing the whole feed.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: the generic publisher dispatch now `await`s render and passes SvelteKit's request-scoped `fetch` as a third arg — `await publisher.render(items, channel, { fetch })`. Backward-compatible: the existing synchronous publishers (rss2/ics/bluesky/standardSiteDocument) are unaffected (awaiting a non-promise is a no-op; the extra arg is ignored).
+- **Dependencies**: added `@mozilla/readability` and `linkedom`. linkedom (not jsdom) because jsdom 24's nwsapi rejects Readability 0.6.0's comma-joined selectors (`h1,h2`).
+- **`.claude/skills/octothorpes/publishers.md`**: documented the async-render + injected-`fetch` convention and the flat-vs-registered resolver-schema footgun, both surfaced by authoring this publisher from the skill alone.
+
+Built by a fresh agent working only from the publishers sub-skill, as a live test of that skill; the friction it hit drove the two skill clarifications above.
+
+**Files affected:** `src/lib/publishers/readable/resolver.json` (new), `src/lib/publishers/readable/renderer.js` (new), `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/tests/readable-publisher.test.js` (new, 13 tests), `package.json`, `package-lock.json`, `.claude/skills/octothorpes/publishers.md`. Live: `curl "http://localhost:5173/get/everything/thorped/readable?o=demo"`.

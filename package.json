@@ -28,9 +28,11 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@mozilla/readability": "^0.6.0",
 		"fast-xml-parser": "^5.8.0",
 		"jsdom": "^24.0.0",
 		"jsonld": "^8.3.2",
+		"linkedom": "^0.18.12",
 		"mdsvex": "^0.11.0",
 		"nodemailer": "^6.9.13",
 		"normalize-url": "^8.0.1"

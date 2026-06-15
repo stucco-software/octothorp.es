@@ -1,0 +1,15 @@
+{
+  "@context": "https://octothorp.es/",
+  "@id": "https://octothorp.es/publishers/readable",
+  "@type": "resolver",
+  "contentType": "application/json",
+  "meta": {
+    "name": "Readable",
+    "description": "Fetches each result URI and extracts reader-mode content via Readability.js"
+  },
+  "schema": {
+    "url": { "from": "@id", "required": true },
+    "title": { "from": ["title", "@id"] },
+    "description": { "from": "description" }
+  }
+}

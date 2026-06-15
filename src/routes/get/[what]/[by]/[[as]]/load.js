@@ -14,7 +14,7 @@ for (const [name, pub] of Object.entries(sitePublishers)) {
 }
 
 
-export async function load({ params, url }) {
+export async function load({ params, url, fetch }) {
   const multiPass = getMultiPassFromParams(params, url);
   let query = "";
   let actualResults = "";
@@ -112,7 +112,9 @@ export async function load({ params, url }) {
           link: url.href,
           pubDate: new Date().toUTCString(),
         } : publisher.meta
-        const rendered = publisher.render(items, channel)
+        // render may be async (e.g. publishers that do per-item network I/O).
+        // Pass SvelteKit's fetch as an option so publishers can use it.
+        const rendered = await publisher.render(items, channel, { fetch })
         return {
           rendered,
           contentType: publisher.contentType,
