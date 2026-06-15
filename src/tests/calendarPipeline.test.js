@@ -41,6 +41,23 @@ describe('runCalendarUrl', () => {
     expect(events[0].octothorpes).toContainEqual({ type: 'link', uri: url })
     expect(events[1]['@id']).toBe('https://example.com/feed.ics#b@google.com')
   })
+
+  it('harmonizes a feed served from a URL without an .ics extension', async () => {
+    const fetchImpl = async () => ({ ok: true, status: 200, text: async () => feedText })
+    const harmonize = (block, options) => calendarHandler.harmonize(block, veventSchema, options)
+
+    const url = 'https://example.com/calendar'
+    const { events } = await runCalendarUrl(url, harmonize, { fetchImpl })
+    expect(events.length).toBe(2)
+  })
+
+  it('throws when the fetched content is not an iCalendar document', async () => {
+    const fetchImpl = async () => ({ ok: true, status: 200, text: async () => '<!doctype html><html>not a calendar</html>' })
+    const harmonize = (block, options) => calendarHandler.harmonize(block, veventSchema, options)
+
+    await expect(runCalendarUrl('https://example.com/page', harmonize, { fetchImpl }))
+      .rejects.toThrow(/not a.*iCalendar|VCALENDAR/i)
+  })
 })
 
 describe('resolveCalendarUrl', () => {
@@ -58,7 +75,12 @@ describe('resolveCalendarUrl', () => {
     expect(resolveCalendarUrl(ics)).toBe(ics)
   })
 
-  it('throws on input that is neither a cid URL nor a .ics URL', () => {
-    expect(() => resolveCalendarUrl('https://example.com/not-a-calendar')).toThrow()
+  it('passes any non-cid URL through unchanged (no extension gate)', () => {
+    const url = 'https://example.com/not-a-calendar'
+    expect(resolveCalendarUrl(url)).toBe(url)
+  })
+
+  it('throws on input that is not a valid URL', () => {
+    expect(() => resolveCalendarUrl('not a url at all')).toThrow(/valid URL/)
   })
 })

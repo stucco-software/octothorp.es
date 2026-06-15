@@ -473,3 +473,16 @@ across multiple calendars. Preview only — nothing is written to the triplestor
 `packages/core/harmonizers.js`, `packages/core/index.js`,
 `src/routes/debug/orchestra-pit/paste/{+page.server.js,+page.svelte,calendarPipeline.js}`,
 tests under `src/tests/calendar*.test.js`.
+
+## ICS publisher + relaxed calendar-URL validation
+
+Added a built-in **`ics`** publisher and loosened the calendar paste demo so it accepts any URL that actually serves iCalendar.
+
+**What changed:**
+- **`packages/core/publishers.js`**: New `ics` built-in in `createPublisherRegistry()` — the inverse of the calendar handler. Resolver maps blobjects → VEVENT items (`uid`←`@id`, `summary`←`title`, `start`←`startDate`‖`date`, optional `end`/`description`/`location`/`url`, `categories`←`octothorpes` via `extractTags`); `render` emits a spec-correct `VCALENDAR` with ISO→iCalendar date formatting (datetime `…Z` and date-only `VALUE=DATE` shapes), TEXT escaping (inverse of the parser's unescape), 75-octet line folding with leading-space continuation, and CRLF endings. Items with no date fail `required` and drop out. `contentType: text/calendar`; flows through the existing generic `[[as]]` path with no route changes. Live: `GET /get/everything/thorped/ics?o=demo`.
+- **`src/routes/debug/orchestra-pit/paste/calendarPipeline.js`**: `resolveCalendarUrl` no longer gates on a `.ics` path extension — any valid URL passes through unchanged (the Google `?cid=` rewrite still applies); it only throws on an unparseable URL. `runCalendarUrl` now validates the fetched *body* (`BEGIN:VCALENDAR`) and throws `Fetched content is not an iCalendar feed (no BEGIN:VCALENDAR): <url>` otherwise, so non-calendar URLs fail on content rather than on their name.
+- **`.claude/skills/octothorpes/publishers.md`**: Rewrote the stale publishers sub-skill (it still described the removed `/src/lib/publish/` layout) into an accurate publisher-authoring guide — the core engine/registry split, the `{schema, contentType, meta, render}` contract, the resolver-maps-fields / render-owns-syntax boundary, built-in vs site-defined paths, route flow, and a testing recipe, using the new `ics` publisher as the worked example.
+
+**Follow-ups filed:** #226 (site-defined event-only ICS publisher filtering `octo:type=event`, using `postDate`) and #227 (site-defined `readable` publisher via Readability.js).
+
+**Files affected:** `packages/core/publishers.js`, `src/tests/publish-core.test.js` (15 new ICS tests), `src/routes/debug/orchestra-pit/paste/calendarPipeline.js`, `src/tests/calendarPipeline.test.js`, `.claude/skills/octothorpes/publishers.md`. Suites green: `publish-core.test.js` 63, `calendarPipeline.test.js` 7.

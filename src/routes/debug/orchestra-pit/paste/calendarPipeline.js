@@ -11,10 +11,10 @@ const b64decode = (s) => {
 }
 
 /**
- * Turn a human-facing calendar URL into a fetchable .ics feed URL.
+ * Turn a human-facing calendar URL into a fetchable feed URL.
  * - Google `?cid=<base64>` -> https://calendar.google.com/calendar/ical/<addr>/public/basic.ics
- * - a direct `.ics` URL -> returned unchanged
- * - anything else -> throws
+ * - any other valid URL -> returned unchanged (the extension is not inspected;
+ *   `runCalendarUrl` validates that the fetched body is actually iCalendar)
  */
 export const resolveCalendarUrl = (input) => {
   let u
@@ -26,9 +26,7 @@ export const resolveCalendarUrl = (input) => {
     return `https://calendar.google.com/calendar/ical/${encodeURIComponent(address)}/public/basic.ics`
   }
 
-  if (u.pathname.toLowerCase().endsWith('.ics')) return input
-
-  throw new Error(`Unrecognized calendar URL (need a Google ?cid= link or a .ics URL): ${input}`)
+  return input
 }
 
 /**
@@ -43,6 +41,10 @@ export const runCalendarUrl = async (input, harmonize, { fetchImpl = fetch } = {
   const res = await fetchImpl(feedUrl)
   if (!res.ok) throw new Error(`Failed to fetch feed (${res.status}): ${feedUrl}`)
   const ics = await res.text()
+
+  if (!/BEGIN:VCALENDAR/i.test(ics)) {
+    throw new Error(`Fetched content is not an iCalendar feed (no BEGIN:VCALENDAR): ${feedUrl}`)
+  }
 
   const calendarName = parseCalendarName(ics)
   const blocks = splitVevents(ics)

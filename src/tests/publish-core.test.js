@@ -550,3 +550,141 @@ describe('prepare (via createClient)', () => {
     expect(record.tags).toEqual(['demo', 'test'])
   })
 })
+
+describe('ics publisher', () => {
+  const registry = createPublisherRegistry()
+  const pub = registry.getPublisher('ics')
+
+  // A calendar-ingested event blobject (from the calendar handler)
+  const event = {
+    '@id': 'https://example.com/feed.ics#evt-1',
+    title: 'Release Party',
+    description: 'Come celebrate; bring snacks',
+    startDate: '2026-06-15T18:00:00Z',
+    endDate: '2026-06-15T21:00:00Z',
+    location: 'The Pit, 123 Main St',
+    octothorpes: ['party', 'release', { type: 'link', uri: 'https://example.com/feed.ics' }],
+  }
+
+  it('should appear in listPublishers', () => {
+    expect(registry.listPublishers()).toContain('ics')
+  })
+
+  it('should have correct publisher shape', () => {
+    expect(pub).not.toBeNull()
+    expect(pub.schema).toBeDefined()
+    expect(pub.contentType).toBe('text/calendar')
+    expect(typeof pub.render).toBe('function')
+  })
+
+  describe('resolver', () => {
+    it('should map event fields', () => {
+      const item = publish(event, pub.schema)
+      expect(item.uid).toBe('https://example.com/feed.ics#evt-1')
+      expect(item.summary).toBe('Release Party')
+      expect(item.start).toBe('2026-06-15T18:00:00Z')
+      expect(item.end).toBe('2026-06-15T21:00:00Z')
+      expect(item.description).toBe('Come celebrate; bring snacks')
+      expect(item.location).toBe('The Pit, 123 Main St')
+      expect(item.categories).toEqual(['party', 'release'])
+    })
+
+    it('should fall back to date when startDate is absent', () => {
+      const blob = { '@id': 'https://example.com/post', title: 'A Post', date: 1719057600000 }
+      const item = publish(blob, pub.schema)
+      expect(item.start).toBeDefined()
+    })
+
+    it('should drop items with no date at all', () => {
+      const blob = { '@id': 'https://example.com/post', title: 'No date' }
+      const items = publish([blob], pub.schema)
+      expect(items).toHaveLength(0)
+    })
+
+    it('should treat location as optional', () => {
+      const blob = { '@id': 'https://example.com/x', title: 'No location', date: 1719057600000 }
+      const item = publish(blob, pub.schema)
+      expect(item.location).toBeUndefined()
+    })
+  })
+
+  describe('render', () => {
+    it('should wrap events in a VCALENDAR', () => {
+      const items = publish([event], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('BEGIN:VCALENDAR')
+      expect(ics).toContain('VERSION:2.0')
+      expect(ics).toContain('END:VCALENDAR')
+      expect(ics).toContain('BEGIN:VEVENT')
+      expect(ics).toContain('END:VEVENT')
+    })
+
+    it('should use CRLF line endings', () => {
+      const items = publish([event], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('\r\n')
+      expect(ics).not.toMatch(/[^\r]\n/)
+    })
+
+    it('should format a UTC datetime in iCalendar basic form', () => {
+      const items = publish([event], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('DTSTART:20260615T180000Z')
+      expect(ics).toContain('DTEND:20260615T210000Z')
+    })
+
+    it('should format a date-only value with VALUE=DATE', () => {
+      const allDay = { '@id': 'https://example.com/d', title: 'All day', startDate: '2026-06-15' }
+      const items = publish([allDay], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('DTSTART;VALUE=DATE:20260615')
+    })
+
+    it('should include UID, DTSTAMP, and SUMMARY per event', () => {
+      const items = publish([event], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('UID:https://example.com/feed.ics#evt-1')
+      expect(ics).toMatch(/DTSTAMP:\d{8}T\d{6}Z/)
+      expect(ics).toContain('SUMMARY:Release Party')
+    })
+
+    it('should emit CATEGORIES as a comma-joined list', () => {
+      const items = publish([event], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('CATEGORIES:party,release')
+    })
+
+    it('should escape special characters in TEXT values', () => {
+      const tricky = {
+        '@id': 'https://example.com/e',
+        title: 'A; B, C \\ D',
+        description: 'line one\nline two',
+        date: 1719057600000,
+      }
+      const items = publish([tricky], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('SUMMARY:A\\; B\\, C \\\\ D')
+      expect(ics).toContain('DESCRIPTION:line one\\nline two')
+    })
+
+    it('should fold lines longer than 75 octets', () => {
+      const longDesc = 'x'.repeat(200)
+      const blob = { '@id': 'https://example.com/long', title: 'Long', description: longDesc, date: 1719057600000 }
+      const items = publish([blob], pub.schema)
+      const ics = pub.render(items, pub.meta)
+      const lines = ics.split('\r\n')
+      // No content line should exceed 75 octets
+      for (const line of lines) {
+        expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75)
+      }
+      // Folded continuations begin with a single space
+      expect(ics).toMatch(/\r\n /)
+    })
+
+    it('should use the calendar name from meta', () => {
+      const items = publish([event], pub.schema)
+      const ics = pub.render(items, { calendar: { name: 'My OP Feed' } })
+      expect(ics).toContain('X-WR-CALNAME:My OP Feed')
+    })
+  })
+})
