@@ -6,7 +6,11 @@ import { error, redirect, json } from '@sveltejs/kit';
 
 const publisherRegistry = createPublisherRegistry()
 for (const [name, pub] of Object.entries(sitePublishers)) {
-  try { publisherRegistry.register(name, pub) } catch (_) { /* already registered */ }
+  try {
+    publisherRegistry.register(name, pub)
+  } catch (err) {
+    console.warn(`Skipping site publisher "${name}": ${err.message}`)
+  }
 }
 
 
