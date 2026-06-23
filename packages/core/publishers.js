@@ -8,7 +8,7 @@ export const createPublisherRegistry = () => {
   // --- RSS 2.0 ---
 
   const rss2Schema = {
-    '@context': 'http://purl.org/rss/1.0/',
+    '@context': 'https://www.rssboard.org/rss-specification',
     '@id': 'https://octothorp.es/publishers/rss2',
     '@type': 'resolver',
     schema: {
@@ -60,7 +60,7 @@ export const createPublisherRegistry = () => {
 `
 
   const rss2 = {
-    schema: rss2Schema,
+    resolver: rss2Schema,
     contentType: 'application/rss+xml',
     meta: {
       name: 'RSS 2.0 Feed',
@@ -98,7 +98,7 @@ export const createPublisherRegistry = () => {
 
 
   const standardSiteDocument = {
-    schema: standardSiteSchema,
+    resolver: standardSiteSchema,
     contentType: 'application/json',
     meta: {
       name: 'ATProto StandardSiteDocument',
@@ -247,7 +247,7 @@ export const createPublisherRegistry = () => {
   }
 
   const bluesky = {
-    schema: blueskySchema,
+    resolver: blueskySchema,
     contentType: 'application/json',
     meta: {
       name: 'Bluesky Post',
@@ -362,7 +362,7 @@ export const createPublisherRegistry = () => {
   }
 
   const ics = {
-    schema: icsSchema,
+    resolver: icsSchema,
     contentType: 'text/calendar',
     meta: {
       name: 'iCalendar Feed',
@@ -390,13 +390,13 @@ export const createPublisherRegistry = () => {
   const register = (name, publisher) => {
     if (builtins.has(name)) throw new Error(`Publisher "${name}" is already registered as a built-in`)
     // Flat shape: resolver fields at top level (@context, @id, schema, contentType, render)
-    // Explicit shape: { schema: resolverObj, contentType, meta, render }
+    // Explicit shape: { resolver: resolverObj, contentType, meta, render }
     const isFlat = publisher['@context'] || publisher['@id']
     const normalized = isFlat
-      ? { schema: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, render: publisher.render }
+      ? { resolver: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, render: publisher.render }
       : publisher
-    if (!normalized.schema || !normalized.contentType || typeof normalized.render !== 'function') {
-      throw new Error('Publisher must have schema, contentType, and render')
+    if (!normalized.resolver || !normalized.contentType || typeof normalized.render !== 'function') {
+      throw new Error('Publisher must have resolver, contentType, and render')
     }
     publishers[name] = normalized
   }

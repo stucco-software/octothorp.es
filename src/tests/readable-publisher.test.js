@@ -6,7 +6,7 @@ import { createPublisherRegistry } from '../../packages/core/publishers.js'
 import readablePublisher from '../lib/publishers/readable/renderer.js'
 
 // Create a registry with the readable publisher registered so we can use the
-// normalized pub.schema that publish() expects (the full resolver object).
+// normalized pub.resolver that publish() expects (the full resolver object).
 function makeRegistry() {
   const registry = createPublisherRegistry()
   registry.register('readable', readablePublisher)
@@ -58,19 +58,19 @@ describe('readable publisher — resolver', () => {
   const pub = makeRegistry().getPublisher('readable')
 
   it('should extract url from @id (required)', () => {
-    const item = publish(sampleBlobject, pub.schema)
+    const item = publish(sampleBlobject, pub.resolver)
     expect(item).not.toBeNull()
     expect(item.url).toBe('https://example.com/article')
   })
 
   it('should drop items without a URL (@id)', () => {
     const noId = { title: 'No URL', description: 'Missing @id' }
-    const result = publish([noId], pub.schema)
+    const result = publish([noId], pub.resolver)
     expect(result).toHaveLength(0)
   })
 
   it('should pass through title and description from blobject', () => {
-    const item = publish(sampleBlobject, pub.schema)
+    const item = publish(sampleBlobject, pub.resolver)
     expect(item.title).toBe('Example Article')
     expect(item.description).toBe('An example')
   })
@@ -90,7 +90,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
       text: async () => MINIMAL_HTML,
     })
 
-    const items = publish([sampleBlobject], pub.schema)
+    const items = publish([sampleBlobject], pub.resolver)
     const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
     expect(result).toBeInstanceOf(Array)
     expect(result).toHaveLength(1)
@@ -102,7 +102,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
       text: async () => MINIMAL_HTML,
     })
 
-    const items = publish([sampleBlobject], pub.schema)
+    const items = publish([sampleBlobject], pub.resolver)
     const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
     const entry = result[0]
 
@@ -121,7 +121,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
       text: async () => 'Not Found',
     })
 
-    const items = publish([sampleBlobject], pub.schema)
+    const items = publish([sampleBlobject], pub.resolver)
     const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
     expect(result).toHaveLength(1)
     expect(result[0].url).toBe('https://example.com/article')
@@ -133,7 +133,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
   it('should degrade gracefully on network error', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Network failure'))
 
-    const items = publish([sampleBlobject], pub.schema)
+    const items = publish([sampleBlobject], pub.resolver)
     const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
     expect(result).toHaveLength(1)
     expect(result[0].url).toBe('https://example.com/article')
@@ -151,7 +151,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
       { '@id': 'https://example.com/b', title: 'B' },
       { '@id': 'https://example.com/c', title: 'C' },
     ]
-    const items = publish(blobjects, pub.schema)
+    const items = publish(blobjects, pub.resolver)
     expect(items).toHaveLength(3)
 
     const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
@@ -178,7 +178,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
       title: `Page ${i}`,
     }))
 
-    const items = publish(blobjects, pub.schema)
+    const items = publish(blobjects, pub.resolver)
     await readablePublisher.render(items, {}, { fetch: mockFetch })
 
     // Concurrency should be capped (default cap is 5 or less)

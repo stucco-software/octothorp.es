@@ -330,7 +330,7 @@ describe('custom publishers via createClient', () => {
       sparql: { endpoint: 'http://0.0.0.0:7878' },
       publishers: {
         semble: {
-          schema: { ...semble },
+          resolver: { ...semble },
           contentType: semble.contentType,
           meta: semble.meta,
           render: semble.render,

@@ -104,7 +104,7 @@ export async function load({ params, url, fetch }) {
     default: {
       const publisher = params.as ? publisherRegistry.getPublisher(params.as) : null
       if (publisher) {
-        const items = publish(actualResults, publisher.schema)
+        const items = publish(actualResults, publisher.resolver)
         // For RSS-shaped publishers (those with channel meta), build per-request channel
         const channel = publisher.meta?.channel ? {
           title: multiPass.meta?.title,

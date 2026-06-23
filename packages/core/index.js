@@ -205,7 +205,7 @@ export const createClient = (config) => {
     }
 
     const raw = await api.get(what, by, rest)
-    const items = publish(raw.results || [], publisher.schema)
+    const items = publish(raw.results || [], publisher.resolver)
     const rendered = publisher.render(items, publisher.meta)
 
     if (debugFlag) {
@@ -232,7 +232,7 @@ export const createClient = (config) => {
         ? publisherRegistry.getPublisher(publisherOrName)
         : publisherOrName
       if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
-      const items = publish(data, pub.schema)
+      const items = publish(data, pub.resolver)
       return pub.render(items, meta || pub.meta)
     },
     prepare: (data, publisherName) => {
@@ -243,7 +243,7 @@ export const createClient = (config) => {
 
       const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
       const normalized = Array.isArray(data) ? data : (data.results || [])
-      const items = publish(normalized, pub.schema)
+      const items = publish(normalized, pub.resolver)
       const records = pub.render(items, pub.meta)
       return {
         records,

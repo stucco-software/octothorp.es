@@ -15,8 +15,8 @@ import { publish, createPublisherRegistry } from 'octothorpes'
 const _registry = createPublisherRegistry()
 const getPublisher = _registry.getPublisher
 const listPublishers = _registry.listPublishers
-const rssResolver = getPublisher('rss2')?.schema
-const standardSiteDocument = getPublisher('standardSiteDocument')?.schema
+const rssResolver = getPublisher('rss2')?.resolver
+const standardSiteDocument = getPublisher('standardSiteDocument')?.resolver
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {
@@ -395,7 +395,7 @@ describe('Publisher System', () => {
       const publisher = await getPublisher('rss2')
       
       expect(publisher).not.toBeNull()
-      expect(publisher.schema).toBeDefined()
+      expect(publisher.resolver).toBeDefined()
       expect(publisher.contentType).toBe('application/rss+xml')
       expect(publisher.meta).toBeDefined()
       expect(publisher.meta.channel).toBeDefined()

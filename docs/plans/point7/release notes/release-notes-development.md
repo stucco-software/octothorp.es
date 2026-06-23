@@ -500,3 +500,16 @@ A site-defined publisher exposed as `?as=readable` that runs Mozilla Readability
 Built by a fresh agent working only from the publishers sub-skill, as a live test of that skill; the friction it hit drove the two skill clarifications above.
 
 **Files affected:** `src/lib/publishers/readable/resolver.json` (new), `src/lib/publishers/readable/renderer.js` (new), `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/tests/readable-publisher.test.js` (new, 13 tests), `package.json`, `package-lock.json`, `.claude/skills/octothorpes/publishers.md`. Live: `curl "http://localhost:5173/get/everything/thorped/readable?o=demo"`.
+
+## Publisher key rename: `.schema` → `.resolver` (footgun removal)
+
+Renamed the publisher-object field that holds the resolver from `schema` to `resolver`, eliminating the name collision flagged in the publishers sub-skill. Previously a publisher's `.schema` *was* the resolver while a resolver's `.schema` was the field map, so reaching the field map meant `pub.schema.schema` and it was easy to pass the wrong level to `publish()`. Now `.schema` means exactly one thing — the field map inside a resolver — and the publisher stores the resolver under `.resolver`. The two-level structure is unchanged (resolvers and renderers each keep their own `meta`); only the key name changed. The transform engine (`publish.js` / `resolve`) is untouched — it still destructures `const { schema } = resolver`.
+
+**What changed:**
+- **`packages/core/publishers.js`**: the four built-in publisher objects (`rss2`, `standardSiteDocument`, `bluesky`, `ics`) now use `resolver:` instead of `schema:`; `register()` re-wraps the flat shape into `{ resolver, contentType, meta, render }`, validates `normalized.resolver`, and throws `Publisher must have resolver, contentType, and render`. (Also fixed `rss2`'s `@context`, which was the RSS 1.0 namespace `http://purl.org/rss/1.0/` on a publisher that renders `version="2.0"` — now `https://www.rssboard.org/rss-specification`.)
+- **`packages/core/index.js`**: `get`, the `publish` client helper, and `prepare` now read `pub.resolver`.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: dispatch reads `publisher.resolver`.
+- **`.claude/skills/octothorpes/publishers.md`**: contract block, footgun section, route-flow line, and testing recipe updated to `.resolver`; added a one-line note that `.schema` is now unambiguously the field map.
+- **Tests**: `publish-core.test.js`, `publish.test.js`, `readable-publisher.test.js`, and `core.test.js` updated to read `pub.resolver` and register with the `resolver:` key.
+
+**Files affected:** `packages/core/publishers.js`, `packages/core/index.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/publish.test.js`, `src/tests/readable-publisher.test.js`, `src/tests/core.test.js`. Full suite green: 852 passed, 11 skipped.
