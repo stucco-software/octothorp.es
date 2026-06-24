@@ -15,6 +15,24 @@ export const resolveEnvelope = (publisher, overrides = {}) => {
 }
 
 /**
+ * Validate that a client-supplied pubDefs bag satisfies a publisher's declared
+ * `requires` (an array of input-key names). No-op when nothing is declared.
+ * @param {Object} publisher - a registered publisher (with optional .requires)
+ * @param {Object} [pubDefs] - the per-invocation bag of provided values
+ * @throws {Error} when a required input is null/undefined
+ */
+export const assertRequires = (publisher, pubDefs = {}) => {
+  const required = publisher?.requires
+  if (!required || required.length === 0) return
+  const name = publisher?.meta?.name ?? 'publisher'
+  for (const key of required) {
+    if (pubDefs?.[key] == null) {
+      throw new Error(`Publisher "${name}" requires input "${key}"`)
+    }
+  }
+}
+
+/**
  * Creates a publisher registry with all built-in publishers as plain objects.
  * Mirrors createHarmonizerRegistry() pattern.
  * @returns {{ getPublisher: Function, listPublishers: Function }}

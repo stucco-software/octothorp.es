@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolve, publish, validateResolver, loadResolver } from '../../packages/core/publish.js'
-import { createPublisherRegistry, resolveEnvelope } from '../../packages/core/publishers.js'
+import { createPublisherRegistry, resolveEnvelope, assertRequires } from '../../packages/core/publishers.js'
 
 describe('resolveEnvelope', () => {
   it('returns undefined for a publisher with no envelope', () => {
@@ -20,6 +20,28 @@ describe('resolveEnvelope', () => {
   it('ignores nullish/empty overrides so defaults survive', () => {
     const pub = { envelope: { title: 'Default' } }
     expect(resolveEnvelope(pub, { title: undefined, link: '' })).toEqual({ title: 'Default' })
+  })
+})
+
+describe('assertRequires', () => {
+  it('is a no-op when the publisher declares no requires', () => {
+    expect(() => assertRequires({ meta: { name: 'X' } }, {})).not.toThrow()
+  })
+
+  it('passes when every required input is present', () => {
+    const pub = { meta: { name: 'X' }, requires: ['feedKey'] }
+    expect(() => assertRequires(pub, { feedKey: 'abc' })).not.toThrow()
+  })
+
+  it('throws naming the publisher and the missing key', () => {
+    const pub = { meta: { name: 'Semble' }, requires: ['feedKey'] }
+    expect(() => assertRequires(pub, {})).toThrow(/Semble/)
+    expect(() => assertRequires(pub, {})).toThrow(/feedKey/)
+  })
+
+  it('treats null/undefined values as missing', () => {
+    const pub = { meta: { name: 'X' }, requires: ['a', 'b'] }
+    expect(() => assertRequires(pub, { a: 1, b: null })).toThrow(/"b"/)
   })
 })
 

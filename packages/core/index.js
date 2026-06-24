@@ -28,7 +28,7 @@ export { badgeVariant, determineBadgeUri } from './badge.js'
 export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators } from './harmonizerUtils.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
-export { createPublisherRegistry, resolveEnvelope } from './publishers.js'
+export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 
