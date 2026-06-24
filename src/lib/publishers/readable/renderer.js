@@ -78,15 +78,16 @@ export default {
   ...resolver,
 
   /**
-   * render is async and accepts an optional options object as a third argument
-   * for dependency injection (primarily { fetch } for testing).
+   * render is async and accepts an optional pubDefs object as a third argument
+   * for dependency injection (primarily pubDefs.utils.fetch for testing).
    *
    * @param {Array}    items   - resolved items from publish()
-   * @param {object}   meta    - publisher meta (unused here but part of contract)
-   * @param {object}   [opts]  - { fetch?: Function } — defaults to global fetch
+   * @param {object}   envelope - envelope from render contract (unused here but part of contract)
+   * @param {object}   [pubDefs] - { utils?: { fetch?: Function } } — defaults to global fetch
    * @returns {Promise<Array>}
    */
-  render: async (items, meta, { fetch: fetchFn = globalThis.fetch } = {}) => {
+  render: async (items, envelope, pubDefs = {}) => {
+    const fetchFn = pubDefs.utils?.fetch ?? globalThis.fetch
     const capped = items.slice(0, MAX_ITEMS)
     return pLimit(capped, (item) => fetchReadable(item, fetchFn), CONCURRENCY_CAP)
   },

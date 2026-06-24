@@ -91,7 +91,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
     })
 
     const items = publish([sampleBlobject], pub.resolver)
-    const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
+    const result = await readablePublisher.render(items, {}, { utils: { fetch: mockFetch } })
     expect(result).toBeInstanceOf(Array)
     expect(result).toHaveLength(1)
   })
@@ -103,7 +103,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
     })
 
     const items = publish([sampleBlobject], pub.resolver)
-    const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
+    const result = await readablePublisher.render(items, {}, { utils: { fetch: mockFetch } })
     const entry = result[0]
 
     expect(entry.url).toBe('https://example.com/article')
@@ -122,7 +122,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
     })
 
     const items = publish([sampleBlobject], pub.resolver)
-    const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
+    const result = await readablePublisher.render(items, {}, { utils: { fetch: mockFetch } })
     expect(result).toHaveLength(1)
     expect(result[0].url).toBe('https://example.com/article')
     expect(result[0].error).toBeDefined()
@@ -134,7 +134,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Network failure'))
 
     const items = publish([sampleBlobject], pub.resolver)
-    const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
+    const result = await readablePublisher.render(items, {}, { utils: { fetch: mockFetch } })
     expect(result).toHaveLength(1)
     expect(result[0].url).toBe('https://example.com/article')
     expect(result[0].error).toMatch(/Network failure/)
@@ -154,7 +154,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
     const items = publish(blobjects, pub.resolver)
     expect(items).toHaveLength(3)
 
-    const result = await readablePublisher.render(items, {}, { fetch: mockFetch })
+    const result = await readablePublisher.render(items, {}, { utils: { fetch: mockFetch } })
     expect(result).toHaveLength(3)
     expect(mockFetch).toHaveBeenCalledTimes(3)
   })
@@ -179,7 +179,7 @@ describe('readable publisher — render (async, with injected fetch)', () => {
     }))
 
     const items = publish(blobjects, pub.resolver)
-    await readablePublisher.render(items, {}, { fetch: mockFetch })
+    await readablePublisher.render(items, {}, { utils: { fetch: mockFetch } })
 
     // Concurrency should be capped (default cap is 5 or less)
     expect(maxConcurrent).toBeLessThanOrEqual(5)
