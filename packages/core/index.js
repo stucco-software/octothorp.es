@@ -206,7 +206,7 @@ export const createClient = (config) => {
 
     const raw = await api.get(what, by, rest)
     const items = publish(raw.results || [], publisher.resolver)
-    const rendered = publisher.render(items, publisher.meta)
+    const rendered = publisher.render(items, resolveEnvelope(publisher))
 
     if (debugFlag) {
       return {
@@ -227,13 +227,13 @@ export const createClient = (config) => {
     get,
     getfast: api.fast,
     harmonize,
-    publish: (data, publisherOrName, meta) => {
+    publish: (data, publisherOrName, overrides) => {
       const pub = typeof publisherOrName === 'string'
         ? publisherRegistry.getPublisher(publisherOrName)
         : publisherOrName
       if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
       const items = publish(data, pub.resolver)
-      return pub.render(items, meta || pub.meta)
+      return pub.render(items, resolveEnvelope(pub, overrides))
     },
     prepare: (data, publisherName) => {
       const pub = typeof publisherName === 'string'

@@ -347,6 +347,20 @@ describe('custom publishers via createClient', () => {
       publishers: { rss2: semble }
     })).toThrow(/already registered/)
   })
+
+  it('op.publish merges envelope overrides for rss', () => {
+    const op = createClient({ instance: 'http://localhost:5173/', sparql: { endpoint: 'http://0.0.0.0:7878' } })
+    const blobjects = [{ '@id': 'https://example.com/p', title: 'P', date: 1719057600000 }]
+    const xml = op.publish(blobjects, 'rss', { title: '#demo', link: 'https://octothorp.es/~/demo' })
+    expect(xml).toContain('<title>#demo</title>')   // channel title from override
+    expect(xml).toContain('<title>P</title>')        // item title from blobject
+  })
+
+  it('op.publish renders rss channel defaults with no overrides', () => {
+    const op = createClient({ instance: 'http://localhost:5173/', sparql: { endpoint: 'http://0.0.0.0:7878' } })
+    const xml = op.publish([{ '@id': 'https://example.com/p', title: 'P', date: 1719057600000 }], 'rss')
+    expect(xml).toContain('<title>Octothorpes Feed</title>')
+  })
 })
 
 describe('op.indexSource()', () => {

@@ -398,7 +398,8 @@ describe('Publisher System', () => {
       expect(publisher.resolver).toBeDefined()
       expect(publisher.contentType).toBe('application/rss+xml')
       expect(publisher.meta).toBeDefined()
-      expect(publisher.meta.channel).toBeDefined()
+      expect(publisher.envelope).toBeDefined()
+      expect(publisher.envelope.title).toBe('Octothorpes Feed')
       expect(typeof publisher.render).toBe('function')
     })
 
