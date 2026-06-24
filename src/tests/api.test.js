@@ -43,6 +43,15 @@ describe('createApi', () => {
       expect(result).toHaveProperty('results')
     })
 
+    it('should surface multiPass on the normal return', async () => {
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+      const api = createApi(config)
+      const result = await api.get('pages', 'thorped', { o: 'indieweb' })
+      expect(result).toHaveProperty('results')
+      expect(result).toHaveProperty('multiPass')
+      expect(result.multiPass).toHaveProperty('meta')
+    })
+
     it('should return debug info when as=debug', async () => {
       mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
 
