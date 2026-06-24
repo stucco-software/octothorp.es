@@ -29,17 +29,17 @@ A publisher is a plain object:
   resolver,      // a resolver: { '@context', '@id', '@type':'resolver', schema: {...} }
   contentType,   // MIME string, e.g. 'text/calendar'
   meta,          // { name, description, ... } — static publisher identity
-  envelope,      // OPTIONAL: default feed-level wrapper values in canonical vocab
-                 //   { title, link, description, date }. Absent = per-record publisher.
-  render,        // (items, envelope, opts?) => string | object
+  envelope,      // OPTIONAL: default feed-level wrapper values { title, link, description, date }
+  requires,      // OPTIONAL: array of extra input keys the publisher needs from pubDefs
+  render,        // (items, envelope, pubDefs) => string | object
 }
 ```
 
 `.schema` names exactly one thing: the **field map** inside a resolver (`resolver.schema`). The publisher stores the whole resolver under `.resolver` — never `.schema` — so the two layers don't share a name.
 
-`publish(blobjects, resolver)` runs the resolver over each blobject → an array of intermediate `items`. Then `render(items, meta)` produces the output. The route returns `{ rendered, contentType }`; `+server.js` sends it (stringifying non-strings).
+`publish(blobjects, resolver)` runs the resolver over each blobject → an array of intermediate `items`. Then `render(items, envelope, pubDefs)` produces the output. The route returns `{ rendered, contentType }`; `+server.js` sends it (stringifying non-strings).
 
-**`render` may be async** and receives a third `opts` argument. The route does `await publisher.render(items, channel, { fetch })`, so sync renderers are unaffected (awaiting a non-promise is a no-op) and async renderers resolve correctly. `opts.fetch` is SvelteKit's request-scoped `fetch` — **use it for any per-item network I/O** (don't reach for global `fetch`). See the `readable` site-defined publisher (`src/lib/publishers/readable/`) for the full async pattern: `render: async (items, meta, { fetch } = {}) => …` with a concurrency cap, item cap, and per-item try/catch that degrades a failed fetch to a `{ url, error }` stub rather than failing the whole feed.
+**`render` may be async** and receives `pubDefs` as its third argument. The route does `await publisher.render(items, envelope, pubDefs)`, so sync renderers are unaffected (awaiting a non-promise is a no-op) and async renderers resolve correctly. `pubDefs.utils.fetch` is SvelteKit's request-scoped `fetch` — **use it for any per-item network I/O** (don't reach for global `fetch`). See the `readable` site-defined publisher (`src/lib/publishers/readable/`) for the full async pattern: it reads `pubDefs.utils.fetch`, with a concurrency cap, item cap, and per-item try/catch that degrades a failed fetch to a `{ url, error }` stub rather than failing the whole feed.
 
 ## Output envelope (feed-level wrapper)
 
@@ -50,6 +50,17 @@ Every feed-producing render path resolves the envelope through one shared helper
 Defaults live on the publisher (`pub.envelope`), not in `meta`. Keep `meta` for publisher identity (name/description/lexicon).
 
 `client.prepare()` is **not** an envelope path. It serves per-record publishers (which have no envelope) and stays a pure per-record composer — see its own role notes. Envelopes are for feed-producing formats only.
+
+## pubDefs: per-invocation inputs (capabilities + request data)
+
+Feed-producing client methods (`client.get`, `client.publish`) accept a **`pubDefs`** bag of per-invocation values the caller supplies to publishers — distinct from RDF `@context` (hence not "context"). Two classes of thing live in it:
+
+- **`pubDefs.utils`** — functions/capabilities. Today just `utils.fetch` (the host's request-scoped fetch, used by async publishers like `readable`). Core never inspects these; it forwards the whole `pubDefs` to `render`.
+- **`pubDefs.<data>`** — request-derived data. Core reads the canonical envelope keys (`title`/`link`/`description`/`date`) from here to overlay envelope overrides (e.g. the SvelteKit route passes `link: url.href`). Anything else is for the publisher's own use.
+
+A publisher may declare **`requires`** — an array of input keys it needs. Before rendering, core runs `assertRequires(publisher, pubDefs)`, which throws `Publisher "<name>" requires input "<key>"` if any is missing. Undeclared `requires` ⇒ no validation (every built-in today). Custom envelope fields beyond the canonical vocab are handled here: declare them in `requires`, pass them in `pubDefs`, and map them in `render` — they reach `render` via `pubDefs`, never the envelope (which stays canonical).
+
+The single render contract, shared by `get` and `publish`: `assertRequires` → `resolveEnvelope(pub, { …canonical })` → `await render(items, envelope, pubDefs)`. `prepare()` is excluded (per-record, no envelope, no pubDefs).
 
 ## The one decision that matters: resolver vs render
 
@@ -79,7 +90,7 @@ Edit `createPublisherRegistry()` in `packages/core/publishers.js`: define `schem
 
 Drop a folder in `src/lib/publishers/<name>/`:
 - `resolver.json` — the resolver (`@context`, `@id`, `@type`, `contentType`, `meta`, `schema`).
-- `renderer.js` — `import resolver from './resolver.json'; export default { ...resolver, render: (items, meta) => ... }`.
+- `renderer.js` — `import resolver from './resolver.json'; export default { ...resolver, render: (items, envelope, pubDefs) => ... }`.
 
 The glob loader auto-discovers it (names starting `_` are skipped); `load.js` registers all site publishers into the core registry at startup. Use this path for site-specific output (event-filtered feeds, content extraction, etc.); use built-ins for general-purpose formats. The engine is **never** duplicated — both paths register into the same core registry.
 
@@ -87,7 +98,7 @@ The glob loader auto-discovers it (names starting `_` are skipped); `load.js` re
 
 ## Route flow (`?as=<name>`)
 
-`load.js` runs the query → `actualResults` (blobjects). The generic `default` case does `publisherRegistry.getPublisher(params.as)` → `publish(results, pub.resolver)` → `await pub.render(items, envelope, { fetch })`. It builds canonical envelope overrides from the query (`title`/`description`/`link`/`date`) and calls `resolveEnvelope(publisher, overrides)` — which merges them over the publisher's declared `envelope` defaults, or returns `undefined` for per-record publishers that declare none. Unknown `as` → falls through to plain JSON `{ results }`.
+The route calls `op.get({ what, by, as, ...options, pubDefs })` and renders the returned payload to HTTP, setting `Content-Type` from `op.publisher.getPublisher(as)?.contentType`. Unknown `as` → falls through to plain JSON `{ results }`.
 
 ## Testing
 
@@ -98,7 +109,7 @@ const registry = createPublisherRegistry()
 // Site-defined publisher? register it first: registry.register('name', myPublisher)
 const pub = registry.getPublisher('ics')          // ALWAYS go through the registry
 const item = publish(blobject, pub.resolver)      // resolver mapping (pub.resolver, not the raw export)
-const out  = await pub.render([item], pub.meta)   // serialization (await — render may be async)
+const out  = await pub.render([item], envelope, pubDefs)   // serialization (await — render may be async)
 ```
 
 Cover: shape (`contentType`, `render` is a fn, appears in `listPublishers()`), resolver mapping incl. the `from`-array fallback, `required`-drop, and each render concern (escaping, dates, wrapper). Run `npx vitest run src/tests/publish-core.test.js`. Verify live: `curl /get/everything/thorped/<name>?o=demo` and check the `Content-Type` header.
@@ -110,6 +121,6 @@ Cover: shape (`contentType`, `render` is a fn, appears in `listPublishers()`), r
 | Putting escaping/folding/date-syntax in `postProcess` | Keep format syntax in `render`; resolver stays a field map. |
 | Editing `src/lib/publish/` | Gone. Use core + `src/lib/publishers/`. |
 | Forgetting `required` on the field that defines validity | Without it, malformed blobjects produce junk entries instead of being dropped. |
-| Network/stateful work in a publisher | Publishers are formatters, but per-item fetching is supported via an **async `render(items, meta, { fetch })`**. Use the injected `fetch`, cap concurrency + item count, and try/catch each item to a `{ url, error }` stub. Pattern: `src/lib/publishers/readable/`. |
-| Reaching for global `fetch` in a render | Use the `{ fetch }` passed as `render`'s third arg — it's SvelteKit's request-scoped fetch. |
+| Network/stateful work in a publisher | Publishers are formatters, but per-item fetching is supported via an **async `render(items, envelope, pubDefs)`**. Use `pubDefs.utils.fetch`, cap concurrency + item count, and try/catch each item to a `{ url, error }` stub. Pattern: `src/lib/publishers/readable/`. |
+| Reaching for global `fetch` in a render | Use `pubDefs.utils.fetch` passed as `render`'s third arg — it's SvelteKit's request-scoped fetch. |
 | Adding a field to handle one blobject shape | Prefer a `from`-array fallback over branching. |

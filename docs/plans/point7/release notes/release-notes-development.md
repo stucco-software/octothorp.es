@@ -533,3 +533,21 @@ Generalized the ad-hoc per-publisher feed-metadata handling (RSS `meta.channel`,
 - **`.claude/skills/octothorpes/publishers.md`**: documented the envelope concept.
 
 **Files affected:** `packages/core/publishers.js`, `packages/core/index.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/publish.test.js`, `src/tests/core.test.js`.
+
+## /get endpoint modernized over core; pubDefs/requires render contract
+
+The SvelteKit `/get/[what]/[by]/[[as]]` route is now a thin adapter over core's `client.get`. The duplicated inline `$lib/sparql.js` query path and the legacy `?as=rss` rssify branch are deleted; `?as=rss` now flows to the `rss2` publisher (valid RSS, envelope-driven). Core owns all querying + publishing; the route owns only HTTP transport (Response, `Content-Type` from the publisher registry, CORS).
+
+`client.get` and `client.publish` are unified on a single render contract: `assertRequires(pub, pubDefs)` → `resolveEnvelope` → `await render(items, envelope, pubDefs)`. The per-invocation **`pubDefs`** bag carries capabilities under `pubDefs.utils` (e.g. the request-scoped `fetch`) and request data at top level (e.g. `link`); publishers may declare **`requires`** (extra input keys), validated by the new `assertRequires`. The canonical envelope vocab `{ title, link, description, date }` is unchanged; `requires` is the extension point for anything beyond it. `client.publish`'s third arg is renamed `overrides` → `pubDefs` and it is now async — closing a latent gap where `publish` could not feed `fetch` to async publishers like `readable`. `prepare()` is unchanged (per-record, no envelope).
+
+**What changed:**
+- **`packages/core/publishers.js`**: new `assertRequires` export.
+- **`packages/core/api.js`**: `api.get` surfaces `multiPass` on its normal return.
+- **`packages/core/index.js`**: re-exports `assertRequires`; `client.get`/`client.publish` rewritten to the single render contract (pubDefs, requires, canonical-key envelope overlay, awaited 3-arg render); `client.get` returns payload only; `prepare` untouched.
+- **`src/lib/converters.js`**: new `getQueryOptions(url)`.
+- **`src/lib/op.js`**: new shared `createClient` instance (env + site publishers) for the read path.
+- **`src/routes/get/[what]/[by]/[[as]]/{load.js,+server.js}`**: collapsed to a thin adapter + pure transport; inline query path and legacy rss branch removed.
+- **`src/lib/publishers/readable/renderer.js`**: reads `pubDefs.utils.fetch`.
+- **`.claude/skills/octothorpes/publishers.md`**: documented the pubDefs/requires/utils contract.
+
+**Files affected:** `packages/core/publishers.js`, `packages/core/api.js`, `packages/core/index.js`, `src/lib/converters.js`, `src/lib/op.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/routes/get/[what]/[by]/[[as]]/+server.js`, `src/lib/publishers/readable/renderer.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/api.test.js`, `src/tests/core.test.js`, `src/tests/readable-publisher.test.js`.
