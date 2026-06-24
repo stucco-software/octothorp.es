@@ -59,16 +59,18 @@ export const createPublisherRegistry = () => {
   ${item.image ? `<enclosure url="${xmlEncode(item.image)}" type="image/jpeg" />` : ''}
 </item>`
 
-  const rss2Render = (items, channel) => `
+  // The envelope is always pre-resolved (defaults + per-request overrides merged by
+  // resolveEnvelope) before it reaches render, so we just read canonical fields.
+  const rss2Render = (items, envelope = {}) => `
   <rss
     xmlns:atom="http://www.w3.org/2005/Atom"
     version="2.0">
     <channel>
-      ${xmlTag('title', channel.title)}
-      ${xmlTag('link', channel.link)}
-      ${channel.link ? `<atom:link href="${xmlEncode(channel.link)}" rel="self" type="application/rss+xml" />` : ''}
-      ${xmlTag('description', channel.description)}
-      ${xmlTag('pubDate', channel.pubDate)}
+      ${xmlTag('title', envelope.title)}
+      ${xmlTag('link', envelope.link)}
+      ${envelope.link ? `<atom:link href="${xmlEncode(envelope.link)}" rel="self" type="application/rss+xml" />` : ''}
+      ${xmlTag('description', envelope.description)}
+      ${xmlTag('pubDate', envelope.date)}
       <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
       ${items.map(rss2RenderItem).join('')}
     </channel>
@@ -80,11 +82,11 @@ export const createPublisherRegistry = () => {
     contentType: 'application/rss+xml',
     meta: {
       name: 'RSS 2.0 Feed',
-      channel: {
-        title: 'Octothorpes Feed',
-        description: 'Links from the Octothorpes network',
-        link: 'https://octothorp.es/',
-      }
+    },
+    envelope: {
+      title: 'Octothorpes Feed',
+      description: 'Links from the Octothorpes network',
+      link: 'https://octothorp.es/',
     },
     render: rss2Render,
   }

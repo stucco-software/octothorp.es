@@ -162,6 +162,31 @@ describe('core publisher registry', () => {
       expect(xml).toContain('<title>Test</title>')
       expect(xml).toContain('<guid isPermaLink="true">https://example.com</guid>')
     })
+
+    it('renders the declared channel defaults when no overrides are given', () => {
+      const pub = registry.getPublisher('rss2')
+      const items = [
+        { title: 'Test', link: 'https://example.com', guid: 'https://example.com', pubDate: 'Fri, 21 Jun 2024 12:00:00 GMT' }
+      ]
+      const xml = pub.render(items, resolveEnvelope(pub))
+      expect(xml).toContain('<title>Octothorpes Feed</title>')
+      expect(xml).toContain('<link>https://octothorp.es/</link>')
+    })
+
+    it('renders per-request overrides over the defaults', () => {
+      const pub = registry.getPublisher('rss2')
+      const xml = pub.render([], resolveEnvelope(pub, { title: '#demo', link: 'https://octothorp.es/~/demo' }))
+      expect(xml).toContain('<title>#demo</title>')
+      expect(xml).toContain('<link>https://octothorp.es/~/demo</link>')
+      // an unspecified field falls back to the declared default
+      expect(xml).toContain('<description>Links from the Octothorpes network</description>')
+    })
+
+    it('exposes channel defaults via envelope, not meta', () => {
+      const pub = registry.getPublisher('rss2')
+      expect(pub.meta.channel).toBeUndefined()
+      expect(pub.envelope.title).toBe('Octothorpes Feed')
+    })
   })
 
   describe('standardSiteDocument render', () => {
