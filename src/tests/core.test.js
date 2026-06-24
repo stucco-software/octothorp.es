@@ -306,7 +306,7 @@ describe('custom publishers via createClient', () => {
     expect(op.publisher.getPublisher('semble').contentType).toBe('application/json')
   })
 
-  it('should make custom publishers available to op.publish()', () => {
+  it('should make custom publishers available to op.publish()', async () => {
     const op = createClient({
       instance: 'http://localhost:5173/',
       sparql: { endpoint: 'http://0.0.0.0:7878' },
@@ -316,7 +316,7 @@ describe('custom publishers via createClient', () => {
     const blobjects = [
       { '@id': 'https://example.com/page', title: 'Test', date: 1719057600000 },
     ]
-    const result = op.publish(blobjects, 'semble')
+    const result = await op.publish(blobjects, 'semble')
     expect(result).toHaveLength(1)
     expect(result[0].$type).toBe('network.cosmik.card')
     expect(result[0].content.url).toBe('https://example.com/page')
@@ -348,18 +348,33 @@ describe('custom publishers via createClient', () => {
     })).toThrow(/already registered/)
   })
 
-  it('op.publish merges envelope overrides for rss', () => {
+  it('op.publish merges envelope overrides (canonical pubDefs keys) for rss', async () => {
     const op = createClient({ instance: 'http://localhost:5173/', sparql: { endpoint: 'http://0.0.0.0:7878' } })
     const blobjects = [{ '@id': 'https://example.com/p', title: 'P', date: 1719057600000 }]
-    const xml = op.publish(blobjects, 'rss', { title: '#demo', link: 'https://octothorp.es/~/demo' })
-    expect(xml).toContain('<title>#demo</title>')   // channel title from override
+    const xml = await op.publish(blobjects, 'rss', { title: '#demo', link: 'https://octothorp.es/~/demo' })
+    expect(xml).toContain('<title>#demo</title>')   // channel title from pubDefs override
     expect(xml).toContain('<title>P</title>')        // item title from blobject
   })
 
-  it('op.publish renders rss channel defaults with no overrides', () => {
+  it('op.publish renders rss channel defaults with no pubDefs', async () => {
     const op = createClient({ instance: 'http://localhost:5173/', sparql: { endpoint: 'http://0.0.0.0:7878' } })
-    const xml = op.publish([{ '@id': 'https://example.com/p', title: 'P', date: 1719057600000 }], 'rss')
+    const xml = await op.publish([{ '@id': 'https://example.com/p', title: 'P', date: 1719057600000 }], 'rss')
     expect(xml).toContain('<title>Octothorpes Feed</title>')
+  })
+
+  it('op.publish threads pubDefs to render and validates requires', async () => {
+    let seen
+    const asyncPub = {
+      '@context': 'http://example.com', '@id': 'http://example.com/ap2', '@type': 'resolver',
+      contentType: 'text/plain', meta: { name: 'AsyncPub2' }, requires: ['feedKey'],
+      schema: { title: { from: 'title', required: true } },
+      render: async (items, env, pubDefs) => { seen = pubDefs; return 'ok' },
+    }
+    const op = createClient({ instance: 'http://localhost:5173/', sparql: { endpoint: 'http://0.0.0.0:7878' }, publishers: { ap2: asyncPub } })
+    await expect(op.publish([{ '@id': 'https://x', title: 'T' }], 'ap2')).rejects.toThrow(/requires input "feedKey"/)
+    const out = await op.publish([{ '@id': 'https://x', title: 'T' }], 'ap2', { feedKey: 'k', utils: { fetch: () => {} } })
+    expect(out).toBe('ok')
+    expect(seen.feedKey).toBe('k')
   })
 
   it('op.get renders a publisher and folds pubDefs.link into the envelope', async () => {

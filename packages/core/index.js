@@ -242,13 +242,15 @@ export const createClient = (config) => {
     get,
     getfast: api.fast,
     harmonize,
-    publish: (data, publisherOrName, overrides) => {
+    publish: async (data, publisherOrName, pubDefs = {}) => {
       const pub = typeof publisherOrName === 'string'
         ? publisherRegistry.getPublisher(publisherOrName)
         : publisherOrName
       if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
+      assertRequires(pub, pubDefs)
       const items = publish(data, pub.resolver)
-      return pub.render(items, resolveEnvelope(pub, overrides))
+      const envelope = resolveEnvelope(pub, pickEnvelope(pubDefs))
+      return await pub.render(items, envelope, pubDefs)
     },
     prepare: (data, publisherName) => {
       const pub = typeof publisherName === 'string'
