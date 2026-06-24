@@ -727,10 +727,15 @@ describe('ics publisher', () => {
       expect(ics).toMatch(/\r\n /)
     })
 
-    it('should use the calendar name from meta', () => {
+    it('uses the envelope title as X-WR-CALNAME', () => {
       const items = publish([event], pub.resolver)
-      const ics = pub.render(items, { calendar: { name: 'My OP Feed' } })
+      const ics = pub.render(items, resolveEnvelope(pub, { title: 'My OP Feed' }))
       expect(ics).toContain('X-WR-CALNAME:My OP Feed')
+    })
+
+    it('falls back to the default calendar name', () => {
+      const ics = pub.render([], resolveEnvelope(pub))
+      expect(ics).toContain('X-WR-CALNAME:Octothorpes Calendar')
     })
   })
 })

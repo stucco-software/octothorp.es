@@ -365,14 +365,14 @@ export const createPublisherRegistry = () => {
     return lines
   }
 
-  const icsRender = (items, feedMeta) => {
+  const icsRender = (items, envelope) => {
     const lines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//Octothorpes//OP ICS Publisher//EN',
       'CALSCALE:GREGORIAN',
     ]
-    const calName = feedMeta?.calendar?.name
+    const calName = envelope?.title
     if (calName) lines.push(icsLine('X-WR-CALNAME', calName))
     for (const item of items) lines.push(...icsRenderEvent(item))
     lines.push('END:VCALENDAR')
@@ -385,6 +385,9 @@ export const createPublisherRegistry = () => {
     meta: {
       name: 'iCalendar Feed',
       description: 'Publishes dated blobjects as an iCalendar (.ics) VCALENDAR feed',
+    },
+    envelope: {
+      title: 'Octothorpes Calendar',
     },
     render: icsRender,
   }
