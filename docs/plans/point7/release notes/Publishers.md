@@ -7,17 +7,18 @@ The old `src/lib/publish/` is gone. Source of truth is the core package:
 - **`packages/core/publishers.js`** — `createPublisherRegistry()` with the built-ins (rss2, bluesky, standardSiteDocument, ics) and `register()`.
 - **`packages/core/index.js`** — `createClient()`, which owns the registry and exposes `get` / `publish` / `prepare`.
 - **`src/lib/publishers/<name>/`** — site-defined publishers (`resolver.json` + `renderer.js`); `src/lib/publishers/index.js` glob-loads them.
-- **`src/routes/get/[what]/[by]/[[as]]/load.js`** — the HTTP `?as=` dispatch.
+- **`src/lib/op.js`** — the shared `createClient` instance (env + site publishers) the read path uses.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js` + `+server.js`** — the thin HTTP `?as=` adapter over `op.get`.
 
 ## What a publisher *is*
 
 A plain object — the inverse of a handler:
 
 ```js
-{ schema, contentType, meta, render }
+{ resolver, contentType, meta, envelope, requires, render }
 ```
 
-`schema` is a **resolver** (`{ '@context', '@id', '@type':'resolver', schema:{…} }`). The split that matters: **the resolver maps fields; `render` owns format syntax** (escaping, line-folding, date shapes). `ics` in `publishers.js` is the canonical worked example — resolver does the `from`-array fallback, render does iCalendar escaping + 75-octet folding + CRLF.
+`resolver` is the field map (`{ '@context', '@id', '@type':'resolver', schema:{…} }`) — stored under `.resolver`, never `.schema`. The split that matters: **the resolver maps fields; `render` owns format syntax** (escaping, line-folding, date shapes). `meta` is static publisher identity (name/description/lexicon). `envelope` *(optional)* declares default feed-level wrapper values in the canonical vocab `{ title, link, description, feedDate }` (feed-level `feedDate`, kept distinct from the per-record `date` blobjects carry). `requires` *(optional)* lists extra input keys the publisher needs from the caller's `pubDefs` bag. `render` is `(items, envelope, pubDefs) => string | object`. `ics` in `publishers.js` is the canonical worked example — resolver does the `from`-array fallback, render does iCalendar escaping + 75-octet folding + CRLF.
 
 ## 1. Registering a publisher
 
@@ -43,13 +44,13 @@ Output is an array of intermediate `items` — *not* the final bytes yet.
 
 ## 3. Output: `render` vs `get` vs `prepare`
 
-These are the three exit doors on the `createClient` return (`index.js:225-258`):
+These are the three exit doors on the `createClient` return:
 
-**`get({ what, by, as })`** (`index.js:196`) — the full query path. Runs `api.get`, and if `as` matches a publisher, does `publish(raw.results, pub.schema)` → `pub.render(items, pub.meta)` and returns the rendered output (or a debug envelope). This is what the HTTP route mirrors.
+**`get({ what, by, as, pubDefs })`** — the full query path. Runs `api.get`; if `as` matches a publisher, does `publish(raw.results, pub.resolver)` → `assertRequires(pub, pubDefs)` → `resolveEnvelope(pub, …)` → `await pub.render(items, envelope, pubDefs)`, returning the rendered payload (or, with `debug:true`, a debug bundle). The HTTP route mirrors this. Returns **payload only** — no `Content-Type`/`Response`.
 
-**`publish(data, publisherOrName, meta)`** (`index.js:230`) — lowest-level helper: resolve + render, returns raw render output, lets you override `meta`.
+**`publish(data, publisherOrName, pubDefs)`** — lower-level helper, **async**: resolve + render through the same single contract (`assertRequires` → `resolveEnvelope` → `await render(items, envelope, pubDefs)`), returning the raw render output. Canonical keys in `pubDefs` (`title`/`link`/`description`/`feedDate`) act as envelope overrides; `feedDate` defaults to now.
 
-**`prepare(data, publisherName)`** (`index.js:238`) — the **Bridge-facing** wrapper. Same resolve+render, but it:
+**`prepare(data, publisherName)`** — the **Bridge-facing** wrapper. Same resolve+render, but it:
 - accepts either an array *or* a `{ results }` envelope (`normalized = Array.isArray(data) ? data : data.results`),
 - and returns a **structured envelope** instead of bare bytes:
 
@@ -61,9 +62,9 @@ That envelope is the point: a Bridge (ATProto/ActivityPub) needs the `records` *
 
 ## End-to-end (the HTTP `?as=ics` path)
 
-`load.js` (`:105-122`): query → `actualResults` (blobjects) → `getPublisher(params.as)` → `publish(actualResults, publisher.schema)` → builds a per-request `channel` if `meta.channel` exists (RSS-shaped), else passes static `pub.meta` → `await publisher.render(items, channel, { fetch })` → returns `{ rendered, contentType }`, and `+server.js` sends it (stringifying non-strings). Unknown `as` falls through to plain JSON.
+`load.js` is now a **thin adapter** over the shared `op` client (`src/lib/op.js`): it builds `pubDefs = { utils: { fetch }, link: url.href }`, calls `op.get({ what, by, as, ...getQueryOptions(url), pubDefs })` (core owns the query → `publish` → `resolveEnvelope` → `render`), and returns `{ output, contentType }` — `contentType` resolved from `op.publisher.getPublisher(as)?.contentType`. `+server.js` is pure transport: it stringifies non-strings and sends `new Response(body, { headers: { 'Content-Type': contentType ?? 'application/json', 'Access-Control-Allow-Origin': '*' } })`. `?as=debug`/`?as=multipass` return op.get's data shapes as JSON; unknown `as` falls through to plain JSON `{ results }`. (The legacy inline `$lib/sparql.js` query path and the old `?as=rss` rssify branch are gone — `?as=rss` now flows to the `rss2` publisher.)
 
-Note `render` may be **async** and gets `{ fetch }` (request-scoped) as a third arg for per-item I/O — see `src/lib/publishers/readable/`. The `prepare`/`publish` client helpers call render **synchronously** (`index.js:236,247`), so they're fine for sync renderers but would need awaiting if a Bridge used an async-render publisher.
+Note `render` may be **async** and reads capabilities from `pubDefs.utils` (e.g. `pubDefs.utils.fetch`, request-scoped) for per-item I/O — see `src/lib/publishers/readable/`. `get` and `publish` both **await** render; `prepare` stays synchronous (per-record path, no envelope/pubDefs).
 
 ---
 
