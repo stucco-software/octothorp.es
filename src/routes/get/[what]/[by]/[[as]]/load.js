@@ -1,6 +1,6 @@
 import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
 import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
-import { parseBindings, rss, createPublisherRegistry, publish } from 'octothorpes'
+import { parseBindings, rss, createPublisherRegistry, publish, resolveEnvelope } from 'octothorpes'
 import { publishers as sitePublishers } from '$lib/publishers/index.js'
 import { error, redirect, json } from '@sveltejs/kit';
 
@@ -105,16 +105,18 @@ export async function load({ params, url, fetch }) {
       const publisher = params.as ? publisherRegistry.getPublisher(params.as) : null
       if (publisher) {
         const items = publish(actualResults, publisher.resolver)
-        // For RSS-shaped publishers (those with channel meta), build per-request channel
-        const channel = publisher.meta?.channel ? {
+        // Per-request envelope overrides in the canonical vocabulary; resolveEnvelope
+        // merges them over the publisher's declared defaults and returns undefined for
+        // per-record publishers that declare no envelope.
+        const envelope = resolveEnvelope(publisher, {
           title: multiPass.meta?.title,
           description: multiPass.meta?.description,
           link: url.href,
-          pubDate: new Date().toUTCString(),
-        } : publisher.meta
+          date: new Date().toUTCString(),
+        })
         // render may be async (e.g. publishers that do per-item network I/O).
         // Pass SvelteKit's fetch as an option so publishers can use it.
-        const rendered = await publisher.render(items, channel, { fetch })
+        const rendered = await publisher.render(items, envelope, { fetch })
         return {
           rendered,
           contentType: publisher.contentType,
