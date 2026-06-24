@@ -1,6 +1,27 @@
 import { describe, it, expect } from 'vitest'
 import { resolve, publish, validateResolver, loadResolver } from '../../packages/core/publish.js'
-import { createPublisherRegistry } from '../../packages/core/publishers.js'
+import { createPublisherRegistry, resolveEnvelope } from '../../packages/core/publishers.js'
+
+describe('resolveEnvelope', () => {
+  it('returns undefined for a publisher with no envelope', () => {
+    expect(resolveEnvelope({ render: () => {} })).toBeUndefined()
+  })
+
+  it('returns the declared defaults when no overrides are given', () => {
+    const pub = { envelope: { title: 'Default', link: 'https://x' } }
+    expect(resolveEnvelope(pub)).toEqual({ title: 'Default', link: 'https://x' })
+  })
+
+  it('lets overrides win over defaults', () => {
+    const pub = { envelope: { title: 'Default', link: 'https://x' } }
+    expect(resolveEnvelope(pub, { title: 'Override' })).toEqual({ title: 'Override', link: 'https://x' })
+  })
+
+  it('ignores nullish/empty overrides so defaults survive', () => {
+    const pub = { envelope: { title: 'Default' } }
+    expect(resolveEnvelope(pub, { title: undefined, link: '' })).toEqual({ title: 'Default' })
+  })
+})
 
 describe('core publish', () => {
   const rssResolver = {

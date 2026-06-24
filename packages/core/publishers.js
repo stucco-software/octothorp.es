@@ -1,4 +1,20 @@
 /**
+ * Resolve a publisher's output envelope: its declared default feed-level values
+ * merged with per-request overrides (canonical vocab: title, link, description, date).
+ * Returns undefined for per-record publishers that declare no envelope.
+ * @param {Object} publisher - a registered publisher (with optional .envelope)
+ * @param {Object} [overrides] - per-request values; nullish/empty entries are ignored
+ * @returns {Object|undefined}
+ */
+export const resolveEnvelope = (publisher, overrides = {}) => {
+  if (!publisher?.envelope) return undefined
+  const clean = Object.fromEntries(
+    Object.entries(overrides ?? {}).filter(([, v]) => v != null && v !== '')
+  )
+  return { ...publisher.envelope, ...clean }
+}
+
+/**
  * Creates a publisher registry with all built-in publishers as plain objects.
  * Mirrors createHarmonizerRegistry() pattern.
  * @returns {{ getPublisher: Function, listPublishers: Function }}
