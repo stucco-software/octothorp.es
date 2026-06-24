@@ -2,7 +2,7 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
-import { createPublisherRegistry, resolveEnvelope } from './publishers.js'
+import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
 import jsonHandler from './handlers/json/handler.js'
@@ -31,6 +31,13 @@ export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolveP
 export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
+
+// Canonical envelope vocabulary (matches the publisher envelope work). The route
+// and other callers may overlay these via pubDefs; everything else in pubDefs is
+// a publisher `requires` input or a capability under pubDefs.utils.
+const CANONICAL_ENVELOPE_KEYS = ['title', 'link', 'description', 'date']
+const pickEnvelope = (bag = {}) =>
+  Object.fromEntries(CANONICAL_ENVELOPE_KEYS.filter((k) => k in bag).map((k) => [k, bag[k]]))
 
 export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) => {
   const registry = createHandlerRegistry()
@@ -193,20 +200,28 @@ export const createClient = (config) => {
     }
   }
 
-  const get = async ({ what, by, as: asFormat, debug: debugFlag, ...rest } = {}) => {
+  const get = async ({ what, by, as: asFormat, debug: debugFlag, pubDefs = {}, ...rest } = {}) => {
     if (asFormat === 'debug' || asFormat === 'multipass') {
       return api.get(what, by, { ...rest, as: asFormat })
     }
 
     const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
 
+    const raw = await api.get(what, by, rest)
+
     if (!publisher) {
-      return api.get(what, by, rest)
+      return { results: raw.results }
     }
 
-    const raw = await api.get(what, by, rest)
+    assertRequires(publisher, pubDefs)
     const items = publish(raw.results || [], publisher.resolver)
-    const rendered = publisher.render(items, resolveEnvelope(publisher))
+    const envelope = resolveEnvelope(publisher, {
+      title: raw.multiPass?.meta?.title,
+      description: raw.multiPass?.meta?.description,
+      date: new Date().toUTCString(),
+      ...pickEnvelope(pubDefs),
+    })
+    const rendered = await publisher.render(items, envelope, pubDefs)
 
     if (debugFlag) {
       return {
