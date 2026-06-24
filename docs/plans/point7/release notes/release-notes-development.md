@@ -513,3 +513,23 @@ Renamed the publisher-object field that holds the resolver from `schema` to `res
 - **Tests**: `publish-core.test.js`, `publish.test.js`, `readable-publisher.test.js`, and `core.test.js` updated to read `pub.resolver` and register with the `resolver:` key.
 
 **Files affected:** `packages/core/publishers.js`, `packages/core/index.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/publish.test.js`, `src/tests/readable-publisher.test.js`, `src/tests/core.test.js`. Full suite green: 852 passed, 11 skipped.
+
+## Fix: rss2 channel defaults were unreachable on the get/publish/prepare paths
+
+`rss2.meta` stores its channel defaults nested (`{ name, channel: { title, description, link } }`), but `rss2Render` read them flat (`channel.title`). Only the HTTP route worked, because it builds a flat per-request channel object; the core client methods (`get`, `publish`, `prepare`) pass the nested `pub.meta` straight through, so `channel.title` resolved to `undefined` and the feed rendered with a blank `<channel>` (no title/link/description). In particular `op.publish(data, 'rss')` with no meta override produced an unusable feed.
+
+**Fix (RSS-specific, defaults stay on the publisher):** `rss2Render` now normalizes its second arg to accept either shape — `const channel = feedMeta?.channel ?? feedMeta ?? {}`. The static defaults remain stored on `rss2.meta.channel` and are now reachable on every path; the route is unaffected (it passes a flat object with no `.channel` key, which falls through to the flat branch), and the route's `publisher.meta?.channel` discriminator still works since the nested meta shape is unchanged.
+
+**Files affected:** `packages/core/publishers.js` (`rss2Render`), `src/tests/publish-core.test.js` (+1 test: nested-`pub.meta` fallback renders the static channel defaults). Full suite green: 853 passed, 11 skipped.
+
+## Publisher output envelope — first-class feed-level wrapper with declared defaults
+
+Generalized the ad-hoc per-publisher feed-metadata handling (RSS `meta.channel`, ICS `feedMeta.calendar.name`) into a single **envelope** concept. A publisher may declare an optional `envelope` of default wrapper values in the canonical vocabulary `{ title, link, description, date }`; a shared `resolveEnvelope(publisher, overrides)` merges per-request overrides over those defaults (and returns `undefined` for per-record publishers). The HTTP route and the feed-producing client methods `client.get`/`publish` call this one helper, so `render` always receives a resolved envelope and no longer normalizes shapes. `client.prepare` is deliberately excluded — it serves per-record publishers (no envelope) and stays a pure per-record composer. This un-overloads `meta` (now publisher identity only) and removes the earlier `rss2Render` shape band-aid. Publishers are not public yet, so this is a deliberate breaking change to the publisher object shape.
+
+**What changed:**
+- **`packages/core/publishers.js`**: new top-level `resolveEnvelope` export; `rss2` moves its channel defaults from `meta.channel` to `envelope` and `rss2Render` reads the resolved envelope; `ics` gains a default `envelope.title` (`Octothorpes Calendar`) rendered as `X-WR-CALNAME`; `register()` carries `envelope` through flat-shape normalization.
+- **`packages/core/index.js`**: re-exports `resolveEnvelope`; `get`/`publish` resolve envelopes. `publish`'s third arg is now per-request overrides. `prepare` is unchanged.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: the default publisher case builds canonical overrides and calls `resolveEnvelope` (replacing the `publisher.meta?.channel` discriminator). ICS feeds now carry a calendar name via the route, which they never did before.
+- **`.claude/skills/octothorpes/publishers.md`**: documented the envelope concept.
+
+**Files affected:** `packages/core/publishers.js`, `packages/core/index.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/publish.test.js`, `src/tests/core.test.js`.

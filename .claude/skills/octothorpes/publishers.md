@@ -28,8 +28,10 @@ A publisher is a plain object:
 {
   resolver,      // a resolver: { '@context', '@id', '@type':'resolver', schema: {...} }
   contentType,   // MIME string, e.g. 'text/calendar'
-  meta,          // { name, description, ... } — static feed/channel metadata
-  render,        // (items, meta, opts?) => string | object  — produces the final bytes
+  meta,          // { name, description, ... } — static publisher identity
+  envelope,      // OPTIONAL: default feed-level wrapper values in canonical vocab
+                 //   { title, link, description, date }. Absent = per-record publisher.
+  render,        // (items, envelope, opts?) => string | object
 }
 ```
 
@@ -38,6 +40,16 @@ A publisher is a plain object:
 `publish(blobjects, resolver)` runs the resolver over each blobject → an array of intermediate `items`. Then `render(items, meta)` produces the output. The route returns `{ rendered, contentType }`; `+server.js` sends it (stringifying non-strings).
 
 **`render` may be async** and receives a third `opts` argument. The route does `await publisher.render(items, channel, { fetch })`, so sync renderers are unaffected (awaiting a non-promise is a no-op) and async renderers resolve correctly. `opts.fetch` is SvelteKit's request-scoped `fetch` — **use it for any per-item network I/O** (don't reach for global `fetch`). See the `readable` site-defined publisher (`src/lib/publishers/readable/`) for the full async pattern: `render: async (items, meta, { fetch } = {}) => …` with a concurrency cap, item cap, and per-item try/catch that degrades a failed fetch to a `{ url, error }` stub rather than failing the whole feed.
+
+## Output envelope (feed-level wrapper)
+
+Formats that wrap their items in a container (RSS `<channel>`, ICS `VCALENDAR`/`X-WR-CALNAME`, Atom/JSON-Feed feed metadata) declare an **`envelope`**: the default wrapper values in the canonical vocabulary `{ title, link, description, date }`. Per-record formats (Bluesky posts, ATProto records) omit `envelope`.
+
+Every feed-producing render path resolves the envelope through one shared helper, `resolveEnvelope(publisher, overrides)` — it merges per-request overrides over the declared defaults (ignoring nullish/empty overrides) and returns `undefined` when the publisher has no envelope. The HTTP route builds overrides from the query (`title`/`description`/`link`/`date`); `client.publish(data, name, overrides)` takes them directly. `render` therefore always receives a fully-resolved flat envelope (or `undefined`) and never normalizes shapes itself. Each `render` maps the canonical fields to its syntax — RSS `title` → `<title>`, ICS `title` → `X-WR-CALNAME`.
+
+Defaults live on the publisher (`pub.envelope`), not in `meta`. Keep `meta` for publisher identity (name/description/lexicon).
+
+`client.prepare()` is **not** an envelope path. It serves per-record publishers (which have no envelope) and stays a pure per-record composer — see its own role notes. Envelopes are for feed-producing formats only.
 
 ## The one decision that matters: resolver vs render
 
@@ -75,7 +87,7 @@ The glob loader auto-discovers it (names starting `_` are skipped); `load.js` re
 
 ## Route flow (`?as=<name>`)
 
-`load.js` runs the query → `actualResults` (blobjects). The generic `default` case does `publisherRegistry.getPublisher(params.as)` → `publish(results, pub.resolver)` → `await pub.render(items, channel, { fetch })`. For RSS-shaped publishers (those whose `meta.channel` exists) it injects a per-request channel (title/link from the query); otherwise `render` gets the static `pub.meta`. Unknown `as` → falls through to plain JSON `{ results }`.
+`load.js` runs the query → `actualResults` (blobjects). The generic `default` case does `publisherRegistry.getPublisher(params.as)` → `publish(results, pub.resolver)` → `await pub.render(items, envelope, { fetch })`. It builds canonical envelope overrides from the query (`title`/`description`/`link`/`date`) and calls `resolveEnvelope(publisher, overrides)` — which merges them over the publisher's declared `envelope` defaults, or returns `undefined` for per-record publishers that declare none. Unknown `as` → falls through to plain JSON `{ results }`.
 
 ## Testing
 
