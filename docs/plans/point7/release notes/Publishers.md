@@ -29,7 +29,6 @@ There are three registration paths, all into the *same* core registry:
 
 **Programmatic** — pass `config.publishers` to `createClient()`; `index.js:190-194` loops and registers them.
 
-The **footgun** lives in `register()` (`publishers.js:390-402`): a `renderer.js` default export is the *flat* shape (`{ ...resolver, render }`), so its `.schema` is the field map directly. `register()` detects the flat shape via `@context`/`@id` and **re-wraps** it into `{ schema: <whole flat object>, contentType, meta, render }`. So after registration, `getPublisher(name).schema` is the *whole resolver* (with `.schema` nested) — which is exactly what `publish()`/`resolve()` expect (`resolve` does `const { schema } = resolver`). Always pass the **registered** `pub.schema` to `publish()`, never the raw export's `.schema`.
 
 ## 2. The transform: `publish()` → resolver
 
@@ -68,4 +67,3 @@ Note `render` may be **async** and gets `{ fetch }` (request-scoped) as a third 
 
 ---
 
-One thing worth flagging from this review: **`prepare()` and the route don't share a code path.** The route reimplements publish→render→envelope inline (and does it *better* — async render, per-request channel, injected `fetch`), while `prepare()` is the sync, Bridge-facing version. If a Bridge ever consumes an async-render publisher, `prepare`'s synchronous `pub.render(...)` would return a Promise inside `records` rather than resolved output. Want me to look at whether `prepare` should `await` render to match the route?
