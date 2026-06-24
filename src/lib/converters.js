@@ -3,6 +3,27 @@ import { buildMultiPass, getBlobjectFromResponse } from 'octothorpes'
 
 export { getBlobjectFromResponse }
 
+export const getQueryOptions = (url) => {
+  const p = url.searchParams
+  return {
+    s: p.get('s') || undefined,
+    o: p.get('o') || undefined,
+    notS: p.get('not-s') || undefined,
+    notO: p.get('not-o') || undefined,
+    match: p.get('match') || undefined,
+    limit: p.get('limit') || undefined,
+    offset: p.get('offset') || undefined,
+    when: p.get('when') || undefined,
+    created: p.get('created') || undefined,
+    indexed: p.get('indexed') || undefined,
+    rt: p.get('rt') || undefined,
+    feedtitle: p.get('feedtitle') || undefined,
+    feeddescription: p.get('feeddescription') || undefined,
+    feedauthor: p.get('feedauthor') || undefined,
+    feedimage: p.get('feedimage') || undefined,
+  }
+}
+
 export const getMultiPassFromParams = (params, url) => {
   const searchParams = url.searchParams
   return buildMultiPass(params.what, params.by, {
