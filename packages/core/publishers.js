@@ -88,7 +88,7 @@ export const createPublisherRegistry = () => {
       ${xmlTag('link', envelope.link)}
       ${envelope.link ? `<atom:link href="${xmlEncode(envelope.link)}" rel="self" type="application/rss+xml" />` : ''}
       ${xmlTag('description', envelope.description)}
-      ${xmlTag('pubDate', envelope.date)}
+      ${xmlTag('pubDate', envelope.feedDate)}
       <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
       ${items.map(rss2RenderItem).join('')}
     </channel>

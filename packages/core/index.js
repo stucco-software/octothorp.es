@@ -35,7 +35,9 @@ export { default as calendarHandler } from './handlers/calendar/handler.js'
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
 // a publisher `requires` input or a capability under pubDefs.utils.
-const CANONICAL_ENVELOPE_KEYS = ['title', 'link', 'description', 'date']
+// `feedDate` (not `date`) is the feed-level wrapper date, kept distinct from the
+// per-record `date` that blobjects/items carry (which the resolver maps to item pubDate).
+const CANONICAL_ENVELOPE_KEYS = ['title', 'link', 'description', 'feedDate']
 const pickEnvelope = (bag = {}) =>
   Object.fromEntries(CANONICAL_ENVELOPE_KEYS.filter((k) => k in bag).map((k) => [k, bag[k]]))
 
@@ -215,14 +217,18 @@ export const createClient = (config) => {
 
     assertRequires(publisher, pubDefs)
     const items = publish(raw.results || [], publisher.resolver)
+    // Canonical keys supplied by the caller in pubDefs (e.g. the route's link)
+    // win over the query-derived defaults below — pickEnvelope is spread last.
     const envelope = resolveEnvelope(publisher, {
       title: raw.multiPass?.meta?.title,
       description: raw.multiPass?.meta?.description,
-      date: new Date().toUTCString(),
+      feedDate: new Date().toUTCString(),
       ...pickEnvelope(pubDefs),
     })
     const rendered = await publisher.render(items, envelope, pubDefs)
 
+    // Programmatic-only debug bundle (op.get({ debug: true })); the HTTP route
+    // never sets this — it reaches debug output via `?as=debug` → api.get.
     if (debugFlag) {
       return {
         output: rendered,
@@ -249,7 +255,13 @@ export const createClient = (config) => {
       if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
       assertRequires(pub, pubDefs)
       const items = publish(data, pub.resolver)
-      const envelope = resolveEnvelope(pub, pickEnvelope(pubDefs))
+      // Default feedDate to now (same as client.get); an explicit pubDefs.feedDate
+      // still wins since pickEnvelope is spread last. There is no MultiPass here —
+      // a programmatic caller supplies title/description/link via pubDefs.
+      const envelope = resolveEnvelope(pub, {
+        feedDate: new Date().toUTCString(),
+        ...pickEnvelope(pubDefs),
+      })
       return await pub.render(items, envelope, pubDefs)
     },
     prepare: (data, publisherName) => {

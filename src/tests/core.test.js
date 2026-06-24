@@ -362,6 +362,14 @@ describe('custom publishers via createClient', () => {
     expect(xml).toContain('<title>Octothorpes Feed</title>')
   })
 
+  it('op.publish defaults the feed pubDate to now (parity with op.get)', async () => {
+    const op = createClient({ instance: 'http://localhost:5173/', sparql: { endpoint: 'http://0.0.0.0:7878' } })
+    const xml = await op.publish([{ '@id': 'https://example.com/p', title: 'P', date: 1719057600000 }], 'rss')
+    // channel-level <pubDate> comes from the envelope feedDate (now), not the item date
+    const channelHead = xml.split('<item>')[0]
+    expect(channelHead).toMatch(/<pubDate>[^<]*GMT<\/pubDate>/)
+  })
+
   it('op.publish threads pubDefs to render and validates requires', async () => {
     let seen
     const asyncPub = {

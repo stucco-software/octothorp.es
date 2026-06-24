@@ -29,7 +29,7 @@ A publisher is a plain object:
   resolver,      // a resolver: { '@context', '@id', '@type':'resolver', schema: {...} }
   contentType,   // MIME string, e.g. 'text/calendar'
   meta,          // { name, description, ... } — static publisher identity
-  envelope,      // OPTIONAL: default feed-level wrapper values { title, link, description, date }
+  envelope,      // OPTIONAL: default feed-level wrapper values { title, link, description, feedDate }
   requires,      // OPTIONAL: array of extra input keys the publisher needs from pubDefs
   render,        // (items, envelope, pubDefs) => string | object
 }
@@ -43,7 +43,7 @@ A publisher is a plain object:
 
 ## Output envelope (feed-level wrapper)
 
-Formats that wrap their items in a container (RSS `<channel>`, ICS `VCALENDAR`/`X-WR-CALNAME`, Atom/JSON-Feed feed metadata) declare an **`envelope`**: the default wrapper values in the canonical vocabulary `{ title, link, description, date }`. Per-record formats (Bluesky posts, ATProto records) omit `envelope`.
+Formats that wrap their items in a container (RSS `<channel>`, ICS `VCALENDAR`/`X-WR-CALNAME`, Atom/JSON-Feed feed metadata) declare an **`envelope`**: the default wrapper values in the canonical vocabulary `{ title, link, description, feedDate }`. (`feedDate` is the feed-level date — kept distinct from the per-record `date` that blobjects/items carry, which the resolver maps to each item's `pubDate`.) Per-record formats (Bluesky posts, ATProto records) omit `envelope`.
 
 Every feed-producing render path resolves the envelope through one shared helper, `resolveEnvelope(publisher, overrides)` — it merges per-request overrides over the declared defaults (ignoring nullish/empty overrides) and returns `undefined` when the publisher has no envelope. Core builds those overrides from the canonical envelope keys present in `pubDefs` (e.g. the HTTP route passes `link: url.href`) layered over query-derived `title`/`description` and `date`; `client.publish(data, name, pubDefs)` takes the same bag. `render` therefore always receives a fully-resolved flat envelope (or `undefined`) and never normalizes shapes itself. Each `render` maps the canonical fields to its syntax — RSS `title` → `<title>`, ICS `title` → `X-WR-CALNAME`. (See the **pubDefs** section below for the full contract.)
 
@@ -56,7 +56,7 @@ Defaults live on the publisher (`pub.envelope`), not in `meta`. Keep `meta` for 
 Feed-producing client methods (`client.get`, `client.publish`) accept a **`pubDefs`** bag of per-invocation values the caller supplies to publishers — distinct from RDF `@context` (hence not "context"). Two classes of thing live in it:
 
 - **`pubDefs.utils`** — functions/capabilities. Today just `utils.fetch` (the host's request-scoped fetch, used by async publishers like `readable`). Core never inspects these; it forwards the whole `pubDefs` to `render`.
-- **`pubDefs.<data>`** — request-derived data. Core reads the canonical envelope keys (`title`/`link`/`description`/`date`) from here to overlay envelope overrides (e.g. the SvelteKit route passes `link: url.href`). Anything else is for the publisher's own use.
+- **`pubDefs.<data>`** — request-derived data. Core reads the canonical envelope keys (`title`/`link`/`description`/`feedDate`) from here to overlay envelope overrides (e.g. the SvelteKit route passes `link: url.href`; `feedDate` defaults to now in both `get` and `publish` when unset). Anything else is for the publisher's own use.
 
 A publisher may declare **`requires`** — an array of input keys it needs. Before rendering, core runs `assertRequires(publisher, pubDefs)`, which throws `Publisher "<name>" requires input "<key>"` if any is missing. Undeclared `requires` ⇒ no validation (every built-in today). Custom envelope fields beyond the canonical vocab are handled here: declare them in `requires`, pass them in `pubDefs`, and map them in `render` — they reach `render` via `pubDefs`, never the envelope (which stays canonical).
 
