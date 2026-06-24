@@ -414,7 +414,7 @@ export const createPublisherRegistry = () => {
     // Explicit shape: { resolver: resolverObj, contentType, meta, render }
     const isFlat = publisher['@context'] || publisher['@id']
     const normalized = isFlat
-      ? { resolver: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, render: publisher.render }
+      ? { resolver: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, envelope: publisher.envelope, render: publisher.render }
       : publisher
     if (!normalized.resolver || !normalized.contentType || typeof normalized.render !== 'function') {
       throw new Error('Publisher must have resolver, contentType, and render')

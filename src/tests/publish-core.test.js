@@ -237,6 +237,24 @@ describe('core publisher registry', () => {
       expect(pub.resolver.schema.name).toBeDefined()
     })
 
+    it('preserves a flat publisher\'s envelope after registration', () => {
+      const reg = createPublisherRegistry()
+      const flat = {
+        '@context': 'http://example.com',
+        '@id': 'http://example.com/f',
+        '@type': 'resolver',
+        contentType: 'text/plain',
+        meta: { name: 'F' },
+        envelope: { title: 'Default Feed' },
+        schema: { name: { from: 'title', required: true } },
+        render: (items, env) => env?.title ?? '',
+      }
+      reg.register('f', flat)
+      const pub = reg.getPublisher('f')
+      expect(resolveEnvelope(pub, { title: 'Live' })).toEqual({ title: 'Live' })
+      expect(resolveEnvelope(pub)).toEqual({ title: 'Default Feed' })
+    })
+
     it('should not allow overwriting a built-in publisher', () => {
       const reg = createPublisherRegistry()
       const fake = { resolver: {}, contentType: '', meta: {}, render: () => {} }
