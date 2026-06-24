@@ -1,130 +1,19 @@
-import { queryBoolean, queryArray, buildEverythingQuery, buildSimpleQuery, buildThorpeQuery, buildDomainQuery, enrichBlobjectTargets } from '$lib/sparql.js'
-import { getBlobjectFromResponse, getMultiPassFromParams } from '$lib/converters.js'
-import { parseBindings, rss, createPublisherRegistry, publish, resolveEnvelope } from 'octothorpes'
-import { publishers as sitePublishers } from '$lib/publishers/index.js'
-import { error, redirect, json } from '@sveltejs/kit';
+import { op } from '$lib/op.js'
+import { getQueryOptions } from '$lib/converters.js'
 
-const publisherRegistry = createPublisherRegistry()
-for (const [name, pub] of Object.entries(sitePublishers)) {
-  try {
-    publisherRegistry.register(name, pub)
-  } catch (err) {
-    console.warn(`Skipping site publisher "${name}": ${err.message}`)
-  }
-}
-
-
+// Thin adapter: map the request to op.get (core owns querying + publishing),
+// then hand the payload + the publisher's contentType to +server.js for
+// transport. `?as=debug` and `?as=multipass` return op.get's data shapes as JSON.
 export async function load({ params, url, fetch }) {
-  const multiPass = getMultiPassFromParams(params, url);
-  let query = "";
-  let actualResults = "";
+  const { what, by, as } = params
+  const options = getQueryOptions(url)
+  const pubDefs = { utils: { fetch }, link: url.href }
 
-  // Early return for multipass endpoint - don't execute queries
-  if (params.as === "multipass") {
-    // Build query string without executing it
-    switch (params.what) {
-      case "pages":
-      case "links":
-      case "backlinks":
-        query = buildSimpleQuery(multiPass);
-        break;
-      case "everything":
-        query = await buildEverythingQuery(multiPass);
-        break;
-      case "thorpes":
-        query = buildThorpeQuery(multiPass);
-        break;
-      case "domains":
-        query = buildDomainQuery(multiPass);
-        break;
-      default:
-        throw new Error(`Invalid route.`)
-    }
-    return {
-      multiPass: multiPass,
-      query: query
-    }
-  }
+  const output = await op.get({ what, by, as, ...options, pubDefs })
 
-  switch (params.what) {
-    case "pages":
-    case "links":
-    case "backlinks":
-      query = buildSimpleQuery(multiPass);
-      const sr = await queryArray(query);
-      actualResults = parseBindings(sr.results.bindings);
-      break;
+  const publisher = (as && as !== 'debug' && as !== 'multipass')
+    ? op.publisher.getPublisher(as)
+    : null
 
-    case "everything":
-      query = await buildEverythingQuery(multiPass);
-      const bj = await queryArray(query);
-      // Pass filters when returning blobjects, because blobjects are composite objects
-      // and we want to filter the set of blobjects, not response entries
-      actualResults = await getBlobjectFromResponse(bj, multiPass.filters);
-      actualResults = await enrichBlobjectTargets(actualResults);
-      // TKTK check to run filters on result instead of query
-      break;
-    case "thorpes":
-      query = buildThorpeQuery(multiPass);
-      const tr = await queryArray(query);
-      actualResults = parseBindings(tr.results.bindings, "terms")
-      break;
-    case "domains":
-      query = buildDomainQuery(multiPass);
-      const dr = await queryArray(query);
-      actualResults = parseBindings(dr.results.bindings)
-      break;
-    default:
-    throw new Error(`Invalid route.`)
-      break
-  }
-
-  switch (params.as) {
-    case "debug":
-    return {
-      multiPass: multiPass,
-      query: query,
-      actualResults: actualResults,
-    }
-    case "rss":
-      // Create RSS feed structure
-      const rssTree = {
-        channel: {
-          title: multiPass.meta.title,
-          description: multiPass.meta.description,
-          link: url.href,
-          pubDate: new Date().toUTCString(),
-          items: actualResults
-        }
-      };
-
-      return {
-        rss: rss(rssTree, params.what)
-      };
-    default: {
-      const publisher = params.as ? publisherRegistry.getPublisher(params.as) : null
-      if (publisher) {
-        const items = publish(actualResults, publisher.resolver)
-        // Per-request envelope overrides in the canonical vocabulary; resolveEnvelope
-        // merges them over the publisher's declared defaults and returns undefined for
-        // per-record publishers that declare no envelope.
-        const envelope = resolveEnvelope(publisher, {
-          title: multiPass.meta?.title,
-          description: multiPass.meta?.description,
-          link: url.href,
-          date: new Date().toUTCString(),
-        })
-        // render may be async (e.g. publishers that do per-item network I/O).
-        // Pass SvelteKit's fetch as an option so publishers can use it.
-        const rendered = await publisher.render(items, envelope, { fetch })
-        return {
-          rendered,
-          contentType: publisher.contentType,
-          publisher: params.as,
-        }
-      }
-      return { results: actualResults }
-    }
-  }
-
+  return { output, contentType: publisher?.contentType }
 }
