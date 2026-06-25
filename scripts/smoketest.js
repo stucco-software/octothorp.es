@@ -5,6 +5,7 @@ import { join } from 'path'
 import { createSparqlClient, deleteOrigin } from 'octothorpes'
 import { loadManifest } from '../src/tests/integration/manifest.js'
 import { buildQueries } from '../src/tests/integration/queries.js'
+import { normalize } from '../src/tests/integration/normalize.js'
 
 const instance = (process.env.instance || '').replace(/\/$/, '')
 const sparql_endpoint = (process.env.sparql_endpoint || '').replace(/\/$/, '')
@@ -92,7 +93,8 @@ async function capture(targetDir) {
     const res = await fetch(`${instance}${q.path}`)
     let payload
     try { payload = (await res.json()).actualResults ?? null } catch { payload = { error: res.status } }
-    writeFileSync(join(out, `${q.name}.json`), JSON.stringify(payload, null, 2) + '\n')
+    const norm = normalize(payload, { instanceOrigin: instance })
+    writeFileSync(join(out, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
   }
   console.log(`[capture] wrote ${queries.length} files to ${targetDir}`)
 }
