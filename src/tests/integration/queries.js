@@ -33,21 +33,6 @@ const buildMatrix = () => {
   return out
 }
 
-const buildCurated = ({ origin }) => {
-  const w = 'https://nimdaghlian.github.io/devdemo/demo-webring'
-  const enc = encodeURIComponent
-  return [
-    { name: 'curated-webring-members',  path: `/get/pages/in-webring/debug?s=${enc(w)}` },
-    { name: 'curated-backlinks',        path: `/get/pages/backlinked/debug?s=${SUBJECT_HOST}&o=demo` },
-    { name: 'curated-linktypes',        path: `/get/pages/linked/debug?s=${SUBJECT_HOST}&o=demo` },
-    { name: 'curated-citations',        path: `/get/pages/cited/debug?s=${SUBJECT_HOST}&o=demo` },
-    { name: 'curated-bookmarks',        path: `/get/pages/bookmarked/debug?s=${SUBJECT_HOST}&o=demo` },
-    { name: 'curated-hashtags',         path: `/get/pages/thorped/debug?s=${SUBJECT_HOST}&o=demo` },
-    { name: 'curated-matchall',         path: `/get/pages/thorped/debug?s=${SUBJECT_HOST}&o=demo&match=all` },
-    { name: 'curated-postdate-recent',  path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&when=recent` },
-  ]
-}
-
 const buildCompleteness = ({ origin }) => ([
   // Every indexed page under the devdemo origin.
   { name: 'completeness-all-pages', path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&limit=1000` },
@@ -55,6 +40,5 @@ const buildCompleteness = ({ origin }) => ([
 
 export const buildQueries = (manifest) => [
   ...buildMatrix(),
-  ...buildCurated(manifest),
   ...buildCompleteness(manifest),
 ]

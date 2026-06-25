@@ -33,4 +33,9 @@ describe('buildQueries', () => {
     const m = qs.find((q) => q.name.startsWith('matrix'))
     expect(decodeURIComponent(m.path)).toContain('nimdaghlian.github.io')
   })
+
+  it('contains no curated-* descriptors (matrix.js is the single source of truth)', () => {
+    const curated = qs.filter((q) => q.name.startsWith('curated-'))
+    expect(curated).toHaveLength(0)
+  })
 })
