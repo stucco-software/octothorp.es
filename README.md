@@ -41,7 +41,7 @@ An end-to-end smoke test that wipes the demo records off a target relay, re-inde
 - A running dev server (`npm run dev`) and a reachable SPARQL store.
 - `.env` pointed at an approved target. The destructive wipe refuses to run unless **both** are whitelisted:
   - `instance` is `http://localhost:5173` or `https://next.octothorp.es`
-  - `sparql_endpoint` is `http://0.0.0.0:7878` or `https://octothorpes-next.fly.dev/`
+  - `sparql_endpoint` is `http://0.0.0.0:7878` or `https://octothorpes-next.fly.dev`
 
   This guard is what keeps the wipe from ever touching production. Staging credentials live in `.env`.
 

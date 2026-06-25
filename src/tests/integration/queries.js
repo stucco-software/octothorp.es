@@ -33,12 +33,12 @@ const buildMatrix = () => {
   return out
 }
 
-const buildCompleteness = ({ origin }) => ([
+const buildCompleteness = () => ([
   // Every indexed page under the devdemo origin.
   { name: 'completeness-all-pages', path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&limit=1000` },
 ])
 
 export const buildQueries = (manifest) => [
   ...buildMatrix(),
-  ...buildCompleteness(manifest),
+  ...buildCompleteness(),
 ]

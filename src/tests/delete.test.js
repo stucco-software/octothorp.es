@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { createSparqlClient } from 'octothorpes'
 import { assertDeletableTarget, deletePage, deleteOrigin } from 'octothorpes'
 
@@ -13,17 +13,17 @@ const ORIGIN = 'https://delete-test.example'
 const PAGE_A = 'https://delete-test.example/a'
 const PAGE_B = 'https://delete-test.example/b'
 
-let reachable = false
-beforeAll(async () => {
+const reachable = await (async () => {
   try {
     const res = await fetch(`${endpoint}/query`, {
       method: 'POST',
       body: new URLSearchParams({ query: 'ASK {}' }),
     })
-    reachable = res.ok
-  } catch {}
-  if (!reachable) console.warn('[delete] Skipping: SPARQL endpoint unreachable')
-})
+    return res.ok
+  } catch { return false }
+})()
+
+if (!reachable) console.warn('[delete] Skipping live tests: SPARQL endpoint unreachable')
 
 const countRefs = async (uri) => {
   const r = await sparql.queryArray(
@@ -50,9 +50,8 @@ describe('assertDeletableTarget', () => {
   })
 })
 
-describe('deletePage', () => {
+describe.skipIf(!reachable)('deletePage', () => {
   it('removes all triples referencing the page, including blank-node backlinks', async () => {
-    if (!reachable) return
     await sparql.insert(`
       <${PAGE_A}> rdf:type <octo:Page> .
       <${PAGE_A}> octo:octothorpes <https://octothorp.es/~/demo> .
@@ -70,9 +69,8 @@ describe('deletePage', () => {
   })
 })
 
-describe('deleteOrigin', () => {
+describe.skipIf(!reachable)('deleteOrigin', () => {
   it('removes every page under the origin and the origin triples', async () => {
-    if (!reachable) return
     await sparql.insert(`
       <${ORIGIN}> rdf:type <octo:Origin> .
       <${ORIGIN}> octo:verified "true" .
