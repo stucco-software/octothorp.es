@@ -4,14 +4,14 @@ import { normalize } from './normalize.js'
 describe('normalize', () => {
   const opts = { instanceOrigin: 'http://localhost:5173' }
 
-  it('blanks volatile date fields but keeps the key', () => {
-    expect(normalize({ uri: 'x', date: 1782416538774 }, opts)).toEqual({ uri: 'x', date: '<DATE>' })
+  it('drops volatile created-derived date fields entirely', () => {
+    expect(normalize({ uri: 'x', date: 1782416538774, created: 1, indexed: 2 }, opts)).toEqual({ uri: 'x' })
   })
-  it('keeps postDate untouched', () => {
-    expect(normalize({ postDate: 12345 }, opts)).toEqual({ postDate: 12345 })
+  it('keeps postDate untouched (the source-controlled date we rely on)', () => {
+    expect(normalize({ uri: 'x', date: 999, postDate: 12345 }, opts)).toEqual({ uri: 'x', postDate: 12345 })
   })
-  it('leaves a null date as null', () => {
-    expect(normalize({ date: null }, opts)).toEqual({ date: null })
+  it('keeps a null postDate as null', () => {
+    expect(normalize({ postDate: null }, opts)).toEqual({ postDate: null })
   })
   it('replaces the instance origin in string values', () => {
     expect(normalize({ uri: 'http://localhost:5173/~/demo' }, opts)).toEqual({ uri: '{INSTANCE}/~/demo' })
@@ -29,8 +29,8 @@ describe('normalize', () => {
     expect(out[0].octothorpes).toEqual(['a', 'z'])
   })
   it('is a deep copy (does not mutate input)', () => {
-    const input = { date: 1 }
+    const input = { postDate: 1 }
     normalize(input, opts)
-    expect(input.date).toBe(1)
+    expect(input.postDate).toBe(1)
   })
 })

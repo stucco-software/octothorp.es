@@ -1,6 +1,10 @@
 // Canonicalize a /get debug payload so golden comparisons are deterministic and
 // target-independent:
-//  - volatile index-time date fields -> "<DATE>" (key kept; null left as null)
+//  - volatile index-time date fields (created-derived) are DROPPED entirely;
+//    determinism relies on source-controlled postDate instead (present -> stable
+//    value that matches; absent -> null that matches). The created-based `date`
+//    field is regenerated on every wipe+reindex, so it can never be part of a
+//    stable golden.
 //  - the active instance origin in any string -> "{INSTANCE}"
 //  - arrays sorted by a stable key (removes run-to-run ordering drift)
 
@@ -28,11 +32,8 @@ export const normalize = (value, opts = {}) => {
     if (node && typeof node === 'object') {
       const out = {}
       for (const [k, v] of Object.entries(node)) {
-        if (VOLATILE_DATE_KEYS.has(k) && v !== null && v !== undefined) {
-          out[k] = '<DATE>'
-        } else {
-          out[k] = walk(v)
-        }
+        if (VOLATILE_DATE_KEYS.has(k)) continue // drop created-derived dates entirely
+        out[k] = walk(v)
       }
       return out
     }
