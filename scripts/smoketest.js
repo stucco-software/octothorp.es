@@ -22,8 +22,33 @@ const dir = (p) => { const d = join(ROOT, p); mkdirSync(d, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const manifest = loadManifest()
+const host = new URL(manifest.origin).host
 
 // --- phases ---
+
+// Indexing is async: /index returns 200 before cross-page backlinks and
+// harmonization finish propagating. Wait until a representative query's
+// normalized result stops changing before capturing, so golden/captured are
+// taken at a quiescent state rather than a transient mid-propagation one.
+async function settle({ stable = 3, intervalMs = 2000, maxTries = 40 } = {}) {
+  const probePath = `/get/pages/posted/debug?s=${host}&limit=1000`
+  const probe = async () => {
+    try {
+      const res = await fetch(`${instance}${probePath}`)
+      const payload = (await res.json()).actualResults ?? null
+      return JSON.stringify(normalize(payload, { instanceOrigin: instance }))
+    } catch { return null }
+  }
+  let prev = null, count = 0
+  for (let i = 0; i < maxTries; i++) {
+    const snap = await probe()
+    if (snap !== null && snap === prev) {
+      if (++count >= stable) { console.log(`[settle] quiescent after ${i + 1} probes`); return }
+    } else { count = 0; prev = snap }
+    await sleep(intervalMs)
+  }
+  console.warn('[settle] timed out waiting for quiescence; proceeding anyway')
+}
 
 async function dump() {
   const res = await fetch(`${sparql_endpoint}/query`, {
@@ -87,6 +112,7 @@ async function reindex() {
 }
 
 async function capture(targetDir) {
+  await settle()
   const out = dir(targetDir)
   const queries = buildQueries(manifest)
   for (const q of queries) {
