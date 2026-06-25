@@ -871,12 +871,11 @@ The first full local run (Tasks 1–6 built; golden NOT committed) exposed three
 
 ### Revised tasks
 
-**Task R1: Extract shared matrix expansion + drop curated list**
-- Create `src/routes/debug/api-check/queries.js` (or `matrix-queries.js` beside `matrix.js`) exporting `buildMatrixQueries({ s, o, rt })` → `[{ name, path }]`, replicating the exact param logic in `+server.js` `runOne`/`buildSections` (s always; `o` when `by !== 'posted'`; `rt` from extras when `isLinkType`; debug format; the same `extras` filtering). `name` filesystem-safe + unique.
-- Modify `src/routes/debug/api-check/+server.js` to import and use the shared helper for URL building (single source of truth; behavior unchanged for the page).
-- Rewrite `src/tests/integration/queries.js` to: `import { buildMatrixQueries }` and return `buildMatrixQueries({ s: 'nimdaghlian.github.io', o: 'demo', rt: '' })` plus the single `completeness` descriptor. DELETE `buildCurated`.
-- Update `src/tests/integration/queries.test.js` accordingly (assert names unique + filesystem-safe; assert a completeness descriptor exists; drop curated-specific assertions).
-- TDD: write/adjust failing tests first.
+**Task R1: Drop the curated list (matrix from matrix.js is the source of truth)**
+- Rationale: the maintainer objected to the curated list duplicating "what api-check includes." `matrix.js` already IS the shared query DATA both api-check and the smoketest derive from. The fix is to remove the hand-written curated list, NOT to extract api-check's inlined browser JS (left untouched — lower risk; the `buildMatrix` expansion faithfully mirrors api-check's `runOne` param logic: `s` always; `o` when `by !== 'posted'`; `rt` from extras when `isLinkType`).
+- Modify `src/tests/integration/queries.js`: DELETE `buildCurated` and its inclusion in `buildQueries`. `buildQueries(manifest)` returns `buildMatrix()` + the single `completeness` descriptor only. (Future refactor, out of scope: if api-check's `+server.js` is ever modularized out of its inlined template, extract a shared `buildMatrixQueries({s,o,rt})` both call.)
+- Update `src/tests/integration/queries.test.js`: drop curated-specific assertions; keep names-unique + filesystem-safe + `/debug` + completeness-present assertions.
+- TDD: adjust the failing test first.
 
 **Task R2: Normalization pass in the diff layer**
 - Add a `normalize(payload, { instanceOrigin })` helper used by BOTH capture-vs-golden comparison. It must, recursively over the response: (a) replace any volatile `date` field value with a constant placeholder (e.g. `"<DATE>"`) — do NOT drop the key (presence still asserted); (b) replace occurrences of the active instance origin (derived from `.env` `instance`) in string values with `"{INSTANCE}"`; (c) sort any array of records by a stable key (`@id`/`uri`) and sort `octothorpes` arrays, to remove ordering drift.
