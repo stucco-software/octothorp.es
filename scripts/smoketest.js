@@ -36,6 +36,10 @@ async function dump() {
     },
     body: new URLSearchParams({ query: 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }' }),
   })
+  if (!res.ok) {
+    const errBody = await res.text()
+    throw new Error(`[dump] SPARQL endpoint returned ${res.status}: ${errBody}`)
+  }
   const body = await res.text()
   const file = join(dir('tmp'), `dump-${new Date().toISOString().replace(/[:.]/g, '-')}.nq`)
   writeFileSync(file, body)
