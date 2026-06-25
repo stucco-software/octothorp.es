@@ -473,3 +473,31 @@ across multiple calendars. Preview only — nothing is written to the triplestor
 `packages/core/harmonizers.js`, `packages/core/index.js`,
 `src/routes/debug/orchestra-pit/paste/{+page.server.js,+page.svelte,calendarPipeline.js}`,
 tests under `src/tests/calendar*.test.js`.
+
+## devdemo golden-state smoke test
+
+Adds an end-to-end smoke test that validates a feature branch before merge: it
+dumps the triplestore, wipes the demo records (origin `nimdaghlian.github.io`)
+off a target relay, re-indexes the canonical [devdemo](https://nimdaghlian.github.io/devdemo/)
+pages, runs a fixed query set, and diffs the responses against committed golden
+files. Runs against local or staging (same harness, target read from `.env`),
+gated by a fail-closed whitelist so the destructive wipe can never touch
+production. Lays groundwork for the future delete feature (#26): `deletePage`
+(unguarded reconciliation primitive) and `deleteOrigin` (guarded bulk wipe) are
+new framework-agnostic core functions.
+
+Determinism was the hard part. Golden files are made reproducible and
+target-independent by a normalization pass: the instance origin is canonicalized
+to `{INSTANCE}`, volatile index-time dates (`octo:created`) are dropped (stability
+rests on source-declared `octo:postDate`), and arrays are sorted. Critically,
+`/index` returns before async backlink/harmonization propagation finishes, so the
+orchestrator waits for query quiescence (`settle()`) before capturing — otherwise
+captures race ahead of propagation and golden flakes. Proven by a full
+wipe+reindex reproducing the golden byte-for-byte. Run with `npm run smoketest`
+then `npx vitest run src/tests/integration/smoketest.test.js`; re-bless with
+`npm run smoketest:update`. README documents the workflow.
+
+**Files affected:** `packages/core/delete.js`, `packages/core/index.js`,
+`scripts/smoketest.js`, `src/tests/integration/{manifest,queries,normalize,smoketest.test}.js`
+(+ unit tests), `src/tests/delete.test.js`, `src/routes/debug/index-check/test-urls.yaml`,
+`src/tests/integration/golden/*`, `package.json`, `.gitignore`, `README.md`.

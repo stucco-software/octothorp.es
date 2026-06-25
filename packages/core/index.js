@@ -31,6 +31,7 @@ export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolveP
 export { createPublisherRegistry } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
+export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 
 export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) => {
   const registry = createHandlerRegistry()
