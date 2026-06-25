@@ -15,7 +15,7 @@
   - `sparql_endpoint` ∈ { `http://0.0.0.0:7878`, `https://octothorpes-next.fly.dev/` }
 - **Config source.** All target config is read from `.env` (`instance`, `sparql_endpoint`, `sparql_user`, `sparql_password`). Never hardcode a target URL.
 - **No conflict with `finish-publishers`.** New behavior goes in NEW files. Only one existing file is edited: `src/routes/debug/index-check/test-urls.yaml` (data only) and `package.json` (scripts) and `.gitignore`. Do not edit `src/routes/index/+server.js` or any route the publishers branch touches.
-- **Indexing rate limit.** The `/index` endpoint allows MAX 10 requests per origin per 60s window. The re-index loop MUST pace itself to stay under this and retry on HTTP 429.
+- **Indexing rate limit.** The `/index` endpoint allows MAX 10 requests per origin per 60s window. The re-index loop MUST pace itself to stay under this and retry on HTTP 429. Do NOT add a server-side bypass/override — a trusted-client rate-limit override is explicitly deferred to the upcoming Client Profile epoch; client-side pacing is the chosen approach here.
 - **Triplestore shape.** Data is stored in the DEFAULT graph (no named graphs). Backlink relationships use blank nodes carrying `octo:url <page>`. Deletes must clean those blank nodes too.
 - **Run tests with `npx vitest run`** (not `npm test`, which hangs in watch mode).
 - `octothorpes` is the import specifier for `@octothorpes/core`; core source is `packages/core/`.
