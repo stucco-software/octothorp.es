@@ -852,3 +852,38 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - **`finish-publishers` conflict surface:** only `test-urls.yaml` (data), `package.json` (scripts), `.gitignore`, and new files. No route handlers touched.
 - **Domain-change workflow:** edit `test-urls.yaml`, re-run `npm run smoketest:update`, review `git diff` on golden, commit. Documented for the maintainer.
 ```
+
+---
+
+## Revision R1 (2026-06-25) — post first-run findings
+
+The first full local run (Tasks 1–6 built; golden NOT committed) exposed three issues that reshape Tasks 3, 5, 6. Findings, verified against code + live data:
+
+1. **Non-determinism across wipe+reindex.** The emitted record `date` binds to `octo:created` (`packages/core/queryBuilders.js:349,431`), which is regenerated on every delete+fresh-index — i.e. on every smoketest run. A plain reindex preserves `created`; a delete+index (what the smoketest does) regenerates it. So a naive golden diff fails on the `date` of every record. `postDate` is a SEPARATE field used only for `ORDER BY DESC(COALESCE(postDate,date))` and date-range filtering — it does NOT replace the emitted `date`. Record ARRAY ORDER also depends on `created` when `postDate` is absent.
+2. **Golden not fully target-independent.** ~10/131 responses embed the instance origin in the result (hashtag/`thorped` queries return the term URI `{instance}/~/demo`; `domains/posted` returns the instance domain). Local golden embeds `localhost:5173`; staging would embed `next.octothorp.es`.
+3. **Curated list duplicated api-check.** `queries.js` re-implemented api-check's matrix→URL expansion AND added a hand-written curated list with a wrong object param (`o=demo` on link-type queries, which return `[]` — same as api-check shows). Violates matrix.js's "do not duplicate this data elsewhere."
+
+### Decisions
+
+- **Option B — single portable golden + normalization.** No per-target golden dirs. A normalization pass canonicalizes BOTH the volatile `date` field and the instance origin before diffing.
+- **Unify on api-check.** Extract api-check's expansion into a shared exported helper; api-check `+server.js` and the smoketest both call it. Drop the curated list. Keep only `completeness` as a smoketest-specific assertion.
+- **Source-side stabilization is the maintainer's manual task** (NOT code in this plan): give every devdemo page a `postDate` (stabilizes ordering + date-filter results); add typed bookmark/cite markup where demoed; index webring members if those queries should be non-empty.
+
+### Revised tasks
+
+**Task R1: Extract shared matrix expansion + drop curated list**
+- Create `src/routes/debug/api-check/queries.js` (or `matrix-queries.js` beside `matrix.js`) exporting `buildMatrixQueries({ s, o, rt })` → `[{ name, path }]`, replicating the exact param logic in `+server.js` `runOne`/`buildSections` (s always; `o` when `by !== 'posted'`; `rt` from extras when `isLinkType`; debug format; the same `extras` filtering). `name` filesystem-safe + unique.
+- Modify `src/routes/debug/api-check/+server.js` to import and use the shared helper for URL building (single source of truth; behavior unchanged for the page).
+- Rewrite `src/tests/integration/queries.js` to: `import { buildMatrixQueries }` and return `buildMatrixQueries({ s: 'nimdaghlian.github.io', o: 'demo', rt: '' })` plus the single `completeness` descriptor. DELETE `buildCurated`.
+- Update `src/tests/integration/queries.test.js` accordingly (assert names unique + filesystem-safe; assert a completeness descriptor exists; drop curated-specific assertions).
+- TDD: write/adjust failing tests first.
+
+**Task R2: Normalization pass in the diff layer**
+- Add a `normalize(payload, { instanceOrigin })` helper used by BOTH capture-vs-golden comparison. It must, recursively over the response: (a) replace any volatile `date` field value with a constant placeholder (e.g. `"<DATE>"`) — do NOT drop the key (presence still asserted); (b) replace occurrences of the active instance origin (derived from `.env` `instance`) in string values with `"{INSTANCE}"`; (c) sort any array of records by a stable key (`@id`/`uri`) and sort `octothorpes` arrays, to remove ordering drift.
+- Apply `normalize` in `scripts/smoketest.js` at capture time (write normalized JSON to disk) so golden and captured are both already normalized and the vitest layer stays a plain deep-equal. (Decide placement: normalize-at-capture keeps the diff layer trivial; document it.)
+- Where: extend `scripts/smoketest.js` capture phase + a new small `src/tests/integration/normalize.js` with unit tests `normalize.test.js` (TDD: a record with a numeric `date` and an instance-origin term URI normalizes to the placeholders; arrays sort stably).
+
+**Task R3: Re-run + bless single golden**
+- Golden dir reverts to single `src/tests/integration/golden/` (no per-target subdirs).
+- Run full cycle, `--update`, re-capture, confirm vitest green, eyeball, commit.
+- NOTE: many empties will persist until the maintainer's source-side work (postDate, typed markup, webring members) lands; bless current normalized state as the baseline and re-bless after source work.
