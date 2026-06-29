@@ -474,6 +474,45 @@ across multiple calendars. Preview only — nothing is written to the triplestor
 `src/routes/debug/orchestra-pit/paste/{+page.server.js,+page.svelte,calendarPipeline.js}`,
 tests under `src/tests/calendar*.test.js`.
 
+## `/index` route cut over to core handler pipeline
+
+Replaced the inline `src/routes/index/+server.js` implementation with a thin
+SvelteKit adapter that delegates to the framework-agnostic `handler()` from
+`$lib/indexing.js` (which in turn wraps `packages/core/indexer.js`).
+
+**Root cause of link-type bug on staging:** The legacy route stored blank nodes
+in the *target → blank → source* direction (`createBacklink` used `<${o}>` as the
+blank node subject). `enrichBlobjectTargets` in `packages/core/blobject.js` reads
+them in the *source → blank → target* direction. On production this mismatch was
+masked — registered external sites (aftermath.site, nora.zone) self-index there,
+and their own `createBacklink` calls accidentally produced forward-direction blank
+nodes as a side effect. On staging those sites don't self-index, so only reversed
+blank nodes existed and all link types fell back to `"link"`. The core indexer has
+always used the correct (forward) direction; routing through it fixes the bug
+permanently rather than patching the legacy code.
+
+**Key pattern — routing a core handler to a SvelteKit Request:** The core
+`handler()` is pure business logic: it throws `Error` on failure (with
+`e.isWarning = true` for non-fatal conditions like cooldowns) and returns
+`undefined` on success. A SvelteKit route must own the `Response`; the adapter
+pattern is:
+
+```js
+try {
+  await handler(uri, harmonizer, requestOrigin, config())
+  return json({ status: 'success', ... }, { status: 200 })
+} catch (e) {
+  if (e.isWarning) return json({ status: 'warning', message: e.message }, { status: 200 })
+  return error(mapErrorToStatus(e.message), e.message)
+}
+```
+
+`return await handler(...)` is wrong — it hands SvelteKit `undefined` and raises
+"handler should return a Response object". Always `await` the core call, then
+construct the Response independently.
+
+**Files affected:** `src/routes/index/+server.js`.
+
 ## devdemo golden-state smoke test
 
 Adds an end-to-end smoke test that validates a feature branch before merge: it
