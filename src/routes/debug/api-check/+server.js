@@ -229,7 +229,8 @@ function buildSections() {
   let rowIdx = 0
 
   for (const what of whats) {
-    for (const { by, needsObject, isLinkType } of bys) {
+    for (const { by, needsObject, isLinkType, excludeWhats = [] } of bys) {
+      if (excludeWhats.includes(what)) continue
       if (what === 'domains' && by !== 'posted') continue
 
       const sectionId = 'section-' + what + '-' + by

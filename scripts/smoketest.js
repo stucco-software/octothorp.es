@@ -55,7 +55,7 @@ async function dump() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/n-quads',
+      Accept: 'application/n-triples',
       ...(process.env.sparql_user
         ? { Authorization: 'Basic ' + Buffer.from(`${process.env.sparql_user}:${process.env.sparql_password}`).toString('base64') }
         : {}),
@@ -67,7 +67,7 @@ async function dump() {
     throw new Error(`[dump] SPARQL endpoint returned ${res.status}: ${errBody}`)
   }
   const body = await res.text()
-  const file = join(dir('tmp'), `dump-${new Date().toISOString().replace(/[:.]/g, '-')}.nq`)
+  const file = join(dir('tmp'), `dump-${new Date().toISOString().replace(/[:.]/g, '-')}.nt`)
   writeFileSync(file, body)
   console.log(`[dump] wrote ${file} (${body.length} bytes)`)
 }
@@ -111,26 +111,43 @@ async function reindex() {
   console.log(`[reindex] indexed ${done}/${manifest.urls.length}`)
 }
 
-async function capture(targetDir) {
-  await settle()
-  const out = dir(targetDir)
-  const queries = buildQueries(manifest)
+async function fetchAndWrite(outDir, queries) {
   for (const q of queries) {
     const res = await fetch(`${instance}${q.path}`)
     let payload
     try { payload = (await res.json()).actualResults ?? null } catch { payload = { error: res.status } }
     const norm = normalize(payload, { instanceOrigin: instance })
-    writeFileSync(join(out, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
+    writeFileSync(join(outDir, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
   }
-  console.log(`[capture] wrote ${queries.length} files to ${targetDir}`)
+}
+
+async function capture(baseDir) {
+  await settle()
+  const smokeQueries = buildQueries(manifest, { tier: 'smoke' })
+  const smokeOut = dir(`${baseDir}/smoke`)
+  await fetchAndWrite(smokeOut, smokeQueries)
+  console.log(`[capture] wrote ${smokeQueries.length} files to ${baseDir}/smoke`)
+
+  if (tier === 'full') {
+    const smokeNames = new Set(smokeQueries.map((q) => q.name))
+    const fullOnlyQueries = buildQueries(manifest, { tier: 'full' }).filter((q) => !smokeNames.has(q.name))
+    const fullOut = dir(`${baseDir}/full`)
+    await fetchAndWrite(fullOut, fullOnlyQueries)
+    console.log(`[capture] wrote ${fullOnlyQueries.length} files to ${baseDir}/full`)
+  }
 }
 
 // --- cli ---
 
 const flags = new Set(process.argv.slice(2))
+const tier = flags.has('--full') ? 'full' : 'smoke'
+
 const run = async () => {
   if (flags.has('--update')) { await capture('src/tests/integration/golden'); return }
-  if (flags.size === 0) { await dump(); await wipe(); await reindex(); await capture('src/tests/integration/captured'); return }
+  if (flags.size === 0 || (flags.size === 1 && flags.has('--full'))) {
+    await dump(); await wipe(); await reindex(); await capture('src/tests/integration/captured')
+    return
+  }
   if (flags.has('--dump')) await dump()
   if (flags.has('--wipe')) await wipe()
   if (flags.has('--reindex')) await reindex()

@@ -6,11 +6,11 @@ import { loadManifest } from './manifest.js'
 import { buildQueries } from './queries.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const goldenDir = join(__dirname, 'golden')
-const capturedDir = join(__dirname, 'captured')
+const goldenDir = join(__dirname, 'golden/smoke')
+const capturedDir = join(__dirname, 'captured/smoke')
 
 const manifest = loadManifest()
-const queries = buildQueries(manifest)
+const queries = buildQueries(manifest, { tier: 'smoke' })
 
 const read = (d, name) => {
   const f = join(d, `${name}.json`)

@@ -13,7 +13,9 @@
 		"test": "vitest",
 		"demo": "sirv demo --cors --port 8888",
 		"smoketest": "node scripts/smoketest.js",
-		"smoketest:update": "node scripts/smoketest.js --update"
+		"smoketest:full": "node scripts/smoketest.js --full",
+		"smoketest:update": "node scripts/smoketest.js --update",
+		"smoketest:update:full": "node scripts/smoketest.js --update --full"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",

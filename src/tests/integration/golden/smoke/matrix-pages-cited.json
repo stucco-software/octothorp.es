@@ -1,0 +1,16 @@
+[
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/link-types",
+    "title": "Link Types - OP DEV DEMO",
+    "description": "OP supports typed page-to-page relationships: bookmarks, citations, buttons, and custom types.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "object",
+    "uri": "https://nora.zone/manifesto.html",
+    "title": null,
+    "description": null,
+    "image": null
+  }
+]
