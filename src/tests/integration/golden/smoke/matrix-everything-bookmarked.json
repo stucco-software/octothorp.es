@@ -1,0 +1,32 @@
+[
+  {
+    "@id": "https://nimdaghlian.github.io/devdemo/link-types",
+    "title": "Link Types - OP DEV DEMO",
+    "description": "OP supports typed page-to-page relationships: bookmarks, citations, buttons, and custom types.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": null,
+    "octothorpes": [
+      {
+        "uri": "https://aftermath.site/website-musk-twitter-facebook-internet",
+        "type": "Bookmark"
+      }
+    ]
+  },
+  {
+    "@id": "https://nimdaghlian.github.io/devdemo/relationship-terms",
+    "title": "Hashtags on Links - OP DEV DEMO",
+    "description": "Bookmarks, citations, and other typed relationships can carry their own hashtag terms, independent of the page's tags.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": null,
+    "octothorpes": [
+      {
+        "uri": "https://stefanbohacek.com/blog/resources-for-keeping-the-web-free-open-and-poetic",
+        "type": "Bookmark",
+        "terms": [
+          "tools",
+          "websites"
+        ]
+      }
+    ]
+  }
+]

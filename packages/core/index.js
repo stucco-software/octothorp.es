@@ -31,6 +31,7 @@ export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolveP
 export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
+export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is

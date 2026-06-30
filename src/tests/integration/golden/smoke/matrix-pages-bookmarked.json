@@ -1,0 +1,30 @@
+[
+  {
+    "role": "object",
+    "uri": "https://aftermath.site/website-musk-twitter-facebook-internet",
+    "title": null,
+    "description": null,
+    "image": null
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/link-types",
+    "title": "Link Types - OP DEV DEMO",
+    "description": "OP supports typed page-to-page relationships: bookmarks, citations, buttons, and custom types.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/relationship-terms",
+    "title": "Hashtags on Links - OP DEV DEMO",
+    "description": "Bookmarks, citations, and other typed relationships can carry their own hashtag terms, independent of the page's tags.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "object",
+    "uri": "https://stefanbohacek.com/blog/resources-for-keeping-the-web-free-open-and-poetic",
+    "title": null,
+    "description": null,
+    "image": null
+  }
+]

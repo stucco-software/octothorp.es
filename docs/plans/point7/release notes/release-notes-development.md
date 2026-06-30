@@ -551,3 +551,69 @@ The SvelteKit `/get/[what]/[by]/[[as]]` route is now a thin adapter over core's 
 - **`.claude/skills/octothorpes/publishers.md`**: documented the pubDefs/requires/utils contract.
 
 **Files affected:** `packages/core/publishers.js`, `packages/core/api.js`, `packages/core/index.js`, `src/lib/converters.js`, `src/lib/op.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/routes/get/[what]/[by]/[[as]]/+server.js`, `src/lib/publishers/readable/renderer.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/api.test.js`, `src/tests/core.test.js`, `src/tests/readable-publisher.test.js`.
+## `/index` route cut over to core handler pipeline
+
+Replaced the inline `src/routes/index/+server.js` implementation with a thin
+SvelteKit adapter that delegates to the framework-agnostic `handler()` from
+`$lib/indexing.js` (which in turn wraps `packages/core/indexer.js`).
+
+**Root cause of link-type bug on staging:** The legacy route stored blank nodes
+in the *target → blank → source* direction (`createBacklink` used `<${o}>` as the
+blank node subject). `enrichBlobjectTargets` in `packages/core/blobject.js` reads
+them in the *source → blank → target* direction. On production this mismatch was
+masked — registered external sites (aftermath.site, nora.zone) self-index there,
+and their own `createBacklink` calls accidentally produced forward-direction blank
+nodes as a side effect. On staging those sites don't self-index, so only reversed
+blank nodes existed and all link types fell back to `"link"`. The core indexer has
+always used the correct (forward) direction; routing through it fixes the bug
+permanently rather than patching the legacy code.
+
+**Key pattern — routing a core handler to a SvelteKit Request:** The core
+`handler()` is pure business logic: it throws `Error` on failure (with
+`e.isWarning = true` for non-fatal conditions like cooldowns) and returns
+`undefined` on success. A SvelteKit route must own the `Response`; the adapter
+pattern is:
+
+```js
+try {
+  await handler(uri, harmonizer, requestOrigin, config())
+  return json({ status: 'success', ... }, { status: 200 })
+} catch (e) {
+  if (e.isWarning) return json({ status: 'warning', message: e.message }, { status: 200 })
+  return error(mapErrorToStatus(e.message), e.message)
+}
+```
+
+`return await handler(...)` is wrong — it hands SvelteKit `undefined` and raises
+"handler should return a Response object". Always `await` the core call, then
+construct the Response independently.
+
+**Files affected:** `src/routes/index/+server.js`.
+
+## devdemo golden-state smoke test
+
+Adds an end-to-end smoke test that validates a feature branch before merge: it
+dumps the triplestore, wipes the demo records (origin `nimdaghlian.github.io`)
+off a target relay, re-indexes the canonical [devdemo](https://nimdaghlian.github.io/devdemo/)
+pages, runs a fixed query set, and diffs the responses against committed golden
+files. Runs against local or staging (same harness, target read from `.env`),
+gated by a fail-closed whitelist so the destructive wipe can never touch
+production. Lays groundwork for the future delete feature (#26): `deletePage`
+(unguarded reconciliation primitive) and `deleteOrigin` (guarded bulk wipe) are
+new framework-agnostic core functions.
+
+Determinism was the hard part. Golden files are made reproducible and
+target-independent by a normalization pass: the instance origin is canonicalized
+to `{INSTANCE}`, volatile index-time dates (`octo:created`) are dropped (stability
+rests on source-declared `octo:postDate`), and arrays are sorted. Critically,
+`/index` returns before async backlink/harmonization propagation finishes, so the
+orchestrator waits for query quiescence (`settle()`) before capturing — otherwise
+captures race ahead of propagation and golden flakes. Proven by a full
+wipe+reindex reproducing the golden byte-for-byte. Run with `npm run smoketest`
+then `npx vitest run src/tests/integration/smoketest.test.js`; re-bless with
+`npm run smoketest:update`. README documents the workflow.
+
+**Files affected:** `packages/core/delete.js`, `packages/core/index.js`,
+`scripts/smoketest.js`, `src/tests/integration/{manifest,queries,normalize,smoketest.test}.js`
+(+ unit tests), `src/tests/delete.test.js`, `src/routes/debug/index-check/test-urls.yaml`,
+`src/tests/integration/golden/*`, `package.json`, `.gitignore`, `README.md`.

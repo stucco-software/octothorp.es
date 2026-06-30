@@ -1,0 +1,121 @@
+[
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
+    "title": "Backlinks - OP DEV DEMO",
+    "description": "The idea of a backlink is as old as the concept of a hyperlink, but they're not as widely implemented as one-way links.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/badge-indexing",
+    "title": "Button-Based Indexing - OP DEV DEMO",
+    "description": "OP can index a page triggered by loading a special version of our site button.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/custom-harmonizer",
+    "title": "Custom Harmonizer - OP DEV DEMO",
+    "description": "Use a named harmonizer to turn standard HTML meta keywords into octothorpes — no OP-specific markup required.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/demo-webring",
+    "title": "The Demo Webring - OP DEV DEMO",
+    "description": "OP makes it easy to run your own webring from your own website. This is the homepage of the OP Demo Webring.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/image-indexing",
+    "title": "Image Indexing - OP DEV DEMO",
+    "description": "OP now extracts and stores image metadata from indexed pages, making images available in API responses and on server listings.",
+    "image": "https://docs.octothorp.es/assets/libre-poundo.gif"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/indexing-policy",
+    "title": "Indexing Policy - OP DEV DEMO",
+    "description": "You can flag your page as OK index by outside services if you can't or don't want to send the request from the page itself. Without the flag, it won't be scanned.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/link-types",
+    "title": "Link Types - OP DEV DEMO",
+    "description": "OP supports typed page-to-page relationships: bookmarks, citations, buttons, and custom types.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/match-all",
+    "title": "Match-All Tag Filtering - OP DEV DEMO",
+    "description": "Use match=all to find pages that carry every one of a set of tags, not just any of them.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/multi-platform",
+    "title": "Octothorpe Anywhere - OP DEV DEMO",
+    "description": "Implementing Octothorpes is really easy. Here are some sites on other platforms that already have it.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/multipasses",
+    "title": "Multipasses - OP DEV DEMO",
+    "description": "Multipasses are reusable, shareable query objects that drive OP web components and feeds.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/post-date",
+    "title": "Post Date - OP DEV DEMO",
+    "description": "Pages can declare their own publication date, which OP indexes and uses for date-based API filtering.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/pure-http",
+    "title": "Octothorpe Without Javascript - OP DEV DEMO",
+    "description": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/relationship-terms",
+    "title": "Hashtags on Links - OP DEV DEMO",
+    "description": "Bookmarks, citations, and other typed relationships can carry their own hashtag terms, independent of the page's tags.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/rss-feeds",
+    "title": "Fun with RSS - OP DEV DEMO",
+    "description": "The OP API outputs RSS for almost any query. Here are some combinations worth bookmarking.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/tags-and-octothorpes",
+    "title": "Tags and Octothorpes - OP DEV DEMO",
+    "description": "Octothorpes are like super-tags for websites. So they are designed to work seamlessly with any platform's normal method of tagging content.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/web-components",
+    "title": "Web Components - OP DEV DEMO",
+    "description": "OP ships a set of web components for displaying indexed content on any site.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "object",
+    "uri": "https://octothorp.es/~/demo",
+    "title": null,
+    "description": null,
+    "image": null
+  }
+]

@@ -5,11 +5,12 @@ export const whats = ['everything', 'pages', 'thorpes', 'domains']
 
 export const bys = [
   { by: 'thorped',    needsObject: true,  isLinkType: false },
-  { by: 'linked',     needsObject: true,  isLinkType: true  },
-  { by: 'backlinked', needsObject: true,  isLinkType: true  },
-  { by: 'cited',      needsObject: true,  isLinkType: true  },
-  { by: 'bookmarked', needsObject: true,  isLinkType: true  },
+  { by: 'linked',     needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
+  { by: 'backlinked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
+  { by: 'cited',      needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
+  { by: 'bookmarked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'posted',     needsObject: false, isLinkType: false },
+  { by: 'in-webring', needsObject: false, isLinkType: false, excludeWhats: ['thorpes', 'domains'] },
 ]
 
 export const formats = ['', 'debug', 'rss']
