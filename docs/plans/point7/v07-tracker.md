@@ -38,11 +38,13 @@
 > **What's outstanding:**
 
 - [x] Make `prepare()` protocol-agnostic — execute plan `docs/plans/point7/2026-05-19-generic-prepare.md` (also fixes 9 pre-existing failing tests in `publish-core.test.js` that reference an obsolete `'atproto'` publisher name)
-- [ ] Wire `/get/[what]/[by]/[[as]]/+server.js` through the publisher registry generically — currently only special-cases `response.rss`; should dispatch via `prepare()` for any registered publisher
-- [ ] update references to `atproto` in `src/tests/publish.test.js`
-- [ ] Integration tests against live endpoints for each built-in publisher + at least one site-defined publisher
-- [ ] Decide and document path for site-defined vs core publishers (glob adapter vs `register()` call) — current dual-location is undocumented
-- [ ] Public docs page (`docs.octothorp.es`) for the Publisher system — concept, schema shape, how to add one
+- [x] Wire `/get/[what]/[by]/[[as]]/+server.js` through the publisher registry generically — `load.js` `default` case dispatches via `publisherRegistry.getPublisher(params.as)` → `publish()` → `render()`; `+server.js` returns the generic `{contentType, rendered}` response (commit `f6611fb`). Legacy `case "rss"` remains, tracked below.
+- [x] update references to `atproto` in `src/tests/publish.test.js` — done (commit `23458a4`); remaining `atproto` strings are tag test data, not publisher names. Suites green: 111 tests (`publish.test.js` 63 + `publish-core.test.js` 48).
+- [x] **Decide path for site-defined vs core publishers** (2026-06-11) — NOT a real dual-location problem. `src/lib/publishers/` holds client-defined publisher *definitions* only (a `resolver.json` + a `render` fn); all functionality (registry, resolve/postProcess engine, dispatch) lives in core `octothorpes` and is not duplicated by SvelteKit. Glob loader = the site way to drop in a definition; `register()` / `createClient({ publishers })` = the programmatic path for non-SvelteKit consumers. Both are surfaces over the same core registry. Action remaining = document this as canonical (folded into the docs-page item below).
+- [ ] **Replace legacy `rss()` shim with a proper publisher** (decided 2026-06-11) — `?as=rss` on `parseBindings`-shaped routes (pages/links/backlinks/thorpes/domains) still goes through `packages/core/rssify.js` because `rss2`'s schema expects blobject shape. Replace with a registry publisher; requires adding a mechanism for a publisher/resolver to define **field defaults for missing fields** so it can consume `parseBindings` rows, not just blobjects (gap is the row-vs-blobject *shape*, not per-field defaults — `resolve()` already has `default` postProcess + static `value`). Net-new design/impl. Coordinate with **#225** below.
+- [ ] **#225** Route `/get/[what]/[by]/[[as]]` through `createClient` instead of hand-wiring `createPublisherRegistry()` + `publish()` + legacy `rss()` in `load.js` (wave/0 route migration, "only use core" tech-debt). Land alongside the rss-publisher replacement so the shim isn't re-entrenched. Done 2026-06-11: silent `register()` catch in `load.js` now `console.warn`s on skip.
+- [ ] Integration tests against live endpoints for each built-in publisher + at least one site-defined publisher — handoff `wave-0b-docs-handoff.md` has a ready curl walkthrough to codify
+- [ ] Public docs page (`docs.octothorp.es`) for the Publisher system — concept, schema shape, how to add one + the site-defined-vs-programmatic path (decided above)
 - [ ] Append Publishers MVP release notes
 
 ---

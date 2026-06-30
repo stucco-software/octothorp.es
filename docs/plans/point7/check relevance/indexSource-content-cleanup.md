@@ -26,3 +26,13 @@ if (content !== undefined) {
   return { uri, indexed_at: Date.now() }
 }
 ```
+
+
+Bug discovered on `main` branch using legacy index path, confirm if it needs to be fixed here:
+
+
+Root cause:** `handler()` in `src/lib/indexing.js:648` hardcoded `'default'` for the on-page policy check. A site using the `keywords` harmonizer has `<meta name="keywords">` but none of the markup the default harmonizer recognizes, so `policyHarmed.octothorpes` stayed empty and `checkIndexingPolicy` rejected with "Page has not opted in to indexing." `orchestra-pit` worked because it skips the policy check entirely.
+
+**Fix:** Use the requested harmonizer for the policy check when it's a local ID; fall back to `'default'` for remote URLs (preserves defense-in-depth against attacker-supplied schemas swaying opt-in). Added test `"should use requested harmonizer for policy check (implicit opt-in via keywords)"`.
+
+Also see

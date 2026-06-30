@@ -474,6 +474,83 @@ across multiple calendars. Preview only — nothing is written to the triplestor
 `src/routes/debug/orchestra-pit/paste/{+page.server.js,+page.svelte,calendarPipeline.js}`,
 tests under `src/tests/calendar*.test.js`.
 
+## ICS publisher + relaxed calendar-URL validation
+
+Added a built-in **`ics`** publisher and loosened the calendar paste demo so it accepts any URL that actually serves iCalendar.
+
+**What changed:**
+- **`packages/core/publishers.js`**: New `ics` built-in in `createPublisherRegistry()` — the inverse of the calendar handler. Resolver maps blobjects → VEVENT items (`uid`←`@id`, `summary`←`title`, `start`←`startDate`‖`date`, optional `end`/`description`/`location`/`url`, `categories`←`octothorpes` via `extractTags`); `render` emits a spec-correct `VCALENDAR` with ISO→iCalendar date formatting (datetime `…Z` and date-only `VALUE=DATE` shapes), TEXT escaping (inverse of the parser's unescape), 75-octet line folding with leading-space continuation, and CRLF endings. Items with no date fail `required` and drop out. `contentType: text/calendar`; flows through the existing generic `[[as]]` path with no route changes. Live: `GET /get/everything/thorped/ics?o=demo`.
+- **`src/routes/debug/orchestra-pit/paste/calendarPipeline.js`**: `resolveCalendarUrl` no longer gates on a `.ics` path extension — any valid URL passes through unchanged (the Google `?cid=` rewrite still applies); it only throws on an unparseable URL. `runCalendarUrl` now validates the fetched *body* (`BEGIN:VCALENDAR`) and throws `Fetched content is not an iCalendar feed (no BEGIN:VCALENDAR): <url>` otherwise, so non-calendar URLs fail on content rather than on their name.
+- **`.claude/skills/octothorpes/publishers.md`**: Rewrote the stale publishers sub-skill (it still described the removed `/src/lib/publish/` layout) into an accurate publisher-authoring guide — the core engine/registry split, the `{schema, contentType, meta, render}` contract, the resolver-maps-fields / render-owns-syntax boundary, built-in vs site-defined paths, route flow, and a testing recipe, using the new `ics` publisher as the worked example.
+
+**Follow-ups filed:** #226 (site-defined event-only ICS publisher filtering `octo:type=event`, using `postDate`) and #227 (site-defined `readable` publisher via Readability.js).
+
+**Files affected:** `packages/core/publishers.js`, `src/tests/publish-core.test.js` (15 new ICS tests), `src/routes/debug/orchestra-pit/paste/calendarPipeline.js`, `src/tests/calendarPipeline.test.js`, `.claude/skills/octothorpes/publishers.md`. Suites green: `publish-core.test.js` 63, `calendarPipeline.test.js` 7.
+
+## `readable` publisher (Readability.js) — first async, network-backed publisher (#227)
+
+A site-defined publisher exposed as `?as=readable` that runs Mozilla Readability over each result URI and returns reader-mode content as JSON. This is the first publisher that does per-item network I/O, so it also established the **async-render convention** for the system.
+
+**What changed:**
+- **`src/lib/publishers/readable/{resolver.json,renderer.js}`** (new): resolver maps `@id`→`url` (required) plus `title`/`description`; `render` is `async (items, meta, { fetch }) => …`, fetches each URL with the injected fetch, parses with `linkedom`, and runs `Readability` to emit `{ url, title, byline, excerpt, content, textContent, length, siteName }` per item. Concurrency capped at 5, item count at 20; each item is wrapped in try/catch and degrades a failed fetch/parse to a `{ url, error }` stub rather than failing the whole feed.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: the generic publisher dispatch now `await`s render and passes SvelteKit's request-scoped `fetch` as a third arg — `await publisher.render(items, channel, { fetch })`. Backward-compatible: the existing synchronous publishers (rss2/ics/bluesky/standardSiteDocument) are unaffected (awaiting a non-promise is a no-op; the extra arg is ignored).
+- **Dependencies**: added `@mozilla/readability` and `linkedom`. linkedom (not jsdom) because jsdom 24's nwsapi rejects Readability 0.6.0's comma-joined selectors (`h1,h2`).
+- **`.claude/skills/octothorpes/publishers.md`**: documented the async-render + injected-`fetch` convention and the flat-vs-registered resolver-schema footgun, both surfaced by authoring this publisher from the skill alone.
+
+Built by a fresh agent working only from the publishers sub-skill, as a live test of that skill; the friction it hit drove the two skill clarifications above.
+
+**Files affected:** `src/lib/publishers/readable/resolver.json` (new), `src/lib/publishers/readable/renderer.js` (new), `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/tests/readable-publisher.test.js` (new, 13 tests), `package.json`, `package-lock.json`, `.claude/skills/octothorpes/publishers.md`. Live: `curl "http://localhost:5173/get/everything/thorped/readable?o=demo"`.
+
+## Publisher key rename: `.schema` → `.resolver` (footgun removal)
+
+Renamed the publisher-object field that holds the resolver from `schema` to `resolver`, eliminating the name collision flagged in the publishers sub-skill. Previously a publisher's `.schema` *was* the resolver while a resolver's `.schema` was the field map, so reaching the field map meant `pub.schema.schema` and it was easy to pass the wrong level to `publish()`. Now `.schema` means exactly one thing — the field map inside a resolver — and the publisher stores the resolver under `.resolver`. The two-level structure is unchanged (resolvers and renderers each keep their own `meta`); only the key name changed. The transform engine (`publish.js` / `resolve`) is untouched — it still destructures `const { schema } = resolver`.
+
+**What changed:**
+- **`packages/core/publishers.js`**: the four built-in publisher objects (`rss2`, `standardSiteDocument`, `bluesky`, `ics`) now use `resolver:` instead of `schema:`; `register()` re-wraps the flat shape into `{ resolver, contentType, meta, render }`, validates `normalized.resolver`, and throws `Publisher must have resolver, contentType, and render`. (Also fixed `rss2`'s `@context`, which was the RSS 1.0 namespace `http://purl.org/rss/1.0/` on a publisher that renders `version="2.0"` — now `https://www.rssboard.org/rss-specification`.)
+- **`packages/core/index.js`**: `get`, the `publish` client helper, and `prepare` now read `pub.resolver`.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: dispatch reads `publisher.resolver`.
+- **`.claude/skills/octothorpes/publishers.md`**: contract block, footgun section, route-flow line, and testing recipe updated to `.resolver`; added a one-line note that `.schema` is now unambiguously the field map.
+- **Tests**: `publish-core.test.js`, `publish.test.js`, `readable-publisher.test.js`, and `core.test.js` updated to read `pub.resolver` and register with the `resolver:` key.
+
+**Files affected:** `packages/core/publishers.js`, `packages/core/index.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/publish.test.js`, `src/tests/readable-publisher.test.js`, `src/tests/core.test.js`. Full suite green: 852 passed, 11 skipped.
+
+## Fix: rss2 channel defaults were unreachable on the get/publish/prepare paths
+
+`rss2.meta` stores its channel defaults nested (`{ name, channel: { title, description, link } }`), but `rss2Render` read them flat (`channel.title`). Only the HTTP route worked, because it builds a flat per-request channel object; the core client methods (`get`, `publish`, `prepare`) pass the nested `pub.meta` straight through, so `channel.title` resolved to `undefined` and the feed rendered with a blank `<channel>` (no title/link/description). In particular `op.publish(data, 'rss')` with no meta override produced an unusable feed.
+
+**Fix (RSS-specific, defaults stay on the publisher):** `rss2Render` now normalizes its second arg to accept either shape — `const channel = feedMeta?.channel ?? feedMeta ?? {}`. The static defaults remain stored on `rss2.meta.channel` and are now reachable on every path; the route is unaffected (it passes a flat object with no `.channel` key, which falls through to the flat branch), and the route's `publisher.meta?.channel` discriminator still works since the nested meta shape is unchanged.
+
+**Files affected:** `packages/core/publishers.js` (`rss2Render`), `src/tests/publish-core.test.js` (+1 test: nested-`pub.meta` fallback renders the static channel defaults). Full suite green: 853 passed, 11 skipped.
+
+## Publisher output envelope — first-class feed-level wrapper with declared defaults
+
+Generalized the ad-hoc per-publisher feed-metadata handling (RSS `meta.channel`, ICS `feedMeta.calendar.name`) into a single **envelope** concept. A publisher may declare an optional `envelope` of default wrapper values in the canonical vocabulary `{ title, link, description, date }`; a shared `resolveEnvelope(publisher, overrides)` merges per-request overrides over those defaults (and returns `undefined` for per-record publishers). The HTTP route and the feed-producing client methods `client.get`/`publish` call this one helper, so `render` always receives a resolved envelope and no longer normalizes shapes. `client.prepare` is deliberately excluded — it serves per-record publishers (no envelope) and stays a pure per-record composer. This un-overloads `meta` (now publisher identity only) and removes the earlier `rss2Render` shape band-aid. Publishers are not public yet, so this is a deliberate breaking change to the publisher object shape.
+
+**What changed:**
+- **`packages/core/publishers.js`**: new top-level `resolveEnvelope` export; `rss2` moves its channel defaults from `meta.channel` to `envelope` and `rss2Render` reads the resolved envelope; `ics` gains a default `envelope.title` (`Octothorpes Calendar`) rendered as `X-WR-CALNAME`; `register()` carries `envelope` through flat-shape normalization.
+- **`packages/core/index.js`**: re-exports `resolveEnvelope`; `get`/`publish` resolve envelopes. `publish`'s third arg is now per-request overrides. `prepare` is unchanged.
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: the default publisher case builds canonical overrides and calls `resolveEnvelope` (replacing the `publisher.meta?.channel` discriminator). ICS feeds now carry a calendar name via the route, which they never did before.
+- **`.claude/skills/octothorpes/publishers.md`**: documented the envelope concept.
+
+**Files affected:** `packages/core/publishers.js`, `packages/core/index.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/publish.test.js`, `src/tests/core.test.js`.
+
+## /get endpoint modernized over core; pubDefs/requires render contract
+
+The SvelteKit `/get/[what]/[by]/[[as]]` route is now a thin adapter over core's `client.get`. The duplicated inline `$lib/sparql.js` query path and the legacy `?as=rss` rssify branch are deleted; `?as=rss` now flows to the `rss2` publisher (valid RSS, envelope-driven). Core owns all querying + publishing; the route owns only HTTP transport (Response, `Content-Type` from the publisher registry, CORS).
+
+`client.get` and `client.publish` are unified on a single render contract: `assertRequires(pub, pubDefs)` → `resolveEnvelope` → `await render(items, envelope, pubDefs)`. The per-invocation **`pubDefs`** bag carries capabilities under `pubDefs.utils` (e.g. the request-scoped `fetch`) and request data at top level (e.g. `link`); publishers may declare **`requires`** (extra input keys), validated by the new `assertRequires`. The canonical envelope vocab is `{ title, link, description, feedDate }` — the feed-level date key was renamed `date` → **`feedDate`** to disambiguate it from the per-record `date` that blobjects/items carry (the resolver maps the latter to each item's `pubDate`); `requires` is the extension point for anything beyond the canonical set. `feedDate` defaults to now in **both** `client.get` and `client.publish` when the caller doesn't supply it (an explicit `pubDefs.feedDate` still wins). `client.publish`'s third arg is renamed `overrides` → `pubDefs` and it is now async — closing a latent gap where `publish` could not feed `fetch` to async publishers like `readable`, and previously emitted a date-less feed. `prepare()` is unchanged (per-record, no envelope).
+
+**What changed:**
+- **`packages/core/publishers.js`**: new `assertRequires` export.
+- **`packages/core/api.js`**: `api.get` surfaces `multiPass` on its normal return.
+- **`packages/core/index.js`**: re-exports `assertRequires`; `client.get`/`client.publish` rewritten to the single render contract (pubDefs, requires, canonical-key envelope overlay, awaited 3-arg render); `client.get` returns payload only; `prepare` untouched.
+- **`src/lib/converters.js`**: new `getQueryOptions(url)`.
+- **`src/lib/op.js`**: new shared `createClient` instance (env + site publishers) for the read path.
+- **`src/routes/get/[what]/[by]/[[as]]/{load.js,+server.js}`**: collapsed to a thin adapter + pure transport; inline query path and legacy rss branch removed.
+- **`src/lib/publishers/readable/renderer.js`**: reads `pubDefs.utils.fetch`.
+- **`.claude/skills/octothorpes/publishers.md`**: documented the pubDefs/requires/utils contract.
+
+**Files affected:** `packages/core/publishers.js`, `packages/core/api.js`, `packages/core/index.js`, `src/lib/converters.js`, `src/lib/op.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/routes/get/[what]/[by]/[[as]]/+server.js`, `src/lib/publishers/readable/renderer.js`, `.claude/skills/octothorpes/publishers.md`, `src/tests/publish-core.test.js`, `src/tests/api.test.js`, `src/tests/core.test.js`, `src/tests/readable-publisher.test.js`.
 ## `/index` route cut over to core handler pipeline
 
 Replaced the inline `src/routes/index/+server.js` implementation with a thin

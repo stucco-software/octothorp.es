@@ -1,7 +1,7 @@
 // packages/core/indexer.js
 //
 // Framework-agnostic indexing pipeline.
-// All SPARQL functions are injected — no $lib imports. Content parsing is
+// All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash } from './utils.js'
@@ -13,7 +13,8 @@ import normalizeUrl from 'normalize-url'
 
 const harmonizerWhitelist = [
   'octothorp.es',
-  'localhost'
+  'localhost',
+  'next.octothorp.es'
 ]
 
 const indexingRateLimitMap = new Map()

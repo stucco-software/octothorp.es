@@ -1,10 +1,53 @@
 import { describe, it, expect } from 'vitest'
 import { resolve, publish, validateResolver, loadResolver } from '../../packages/core/publish.js'
-import { createPublisherRegistry } from '../../packages/core/publishers.js'
+import { createPublisherRegistry, resolveEnvelope, assertRequires } from '../../packages/core/publishers.js'
+
+describe('resolveEnvelope', () => {
+  it('returns undefined for a publisher with no envelope', () => {
+    expect(resolveEnvelope({ render: () => {} })).toBeUndefined()
+  })
+
+  it('returns the declared defaults when no overrides are given', () => {
+    const pub = { envelope: { title: 'Default', link: 'https://x' } }
+    expect(resolveEnvelope(pub)).toEqual({ title: 'Default', link: 'https://x' })
+  })
+
+  it('lets overrides win over defaults', () => {
+    const pub = { envelope: { title: 'Default', link: 'https://x' } }
+    expect(resolveEnvelope(pub, { title: 'Override' })).toEqual({ title: 'Override', link: 'https://x' })
+  })
+
+  it('ignores nullish/empty overrides so defaults survive', () => {
+    const pub = { envelope: { title: 'Default' } }
+    expect(resolveEnvelope(pub, { title: undefined, link: '' })).toEqual({ title: 'Default' })
+  })
+})
+
+describe('assertRequires', () => {
+  it('is a no-op when the publisher declares no requires', () => {
+    expect(() => assertRequires({ meta: { name: 'X' } }, {})).not.toThrow()
+  })
+
+  it('passes when every required input is present', () => {
+    const pub = { meta: { name: 'X' }, requires: ['feedKey'] }
+    expect(() => assertRequires(pub, { feedKey: 'abc' })).not.toThrow()
+  })
+
+  it('throws naming the publisher and the missing key', () => {
+    const pub = { meta: { name: 'Semble' }, requires: ['feedKey'] }
+    expect(() => assertRequires(pub, {})).toThrow(/Semble/)
+    expect(() => assertRequires(pub, {})).toThrow(/feedKey/)
+  })
+
+  it('treats null/undefined values as missing', () => {
+    const pub = { meta: { name: 'X' }, requires: ['a', 'b'] }
+    expect(() => assertRequires(pub, { a: 1, b: null })).toThrow(/"b"/)
+  })
+})
 
 describe('core publish', () => {
   const rssResolver = {
-    '@context': 'http://purl.org/rss/1.0/',
+    '@context': 'https://www.rssboard.org/rss-specification',
     '@id': 'https://octothorp.es/publishers/rss2',
     '@type': 'resolver',
     schema: {
@@ -109,7 +152,7 @@ describe('core publisher registry', () => {
     it('should return rss2 publisher with required shape', () => {
       const pub = registry.getPublisher('rss2')
       expect(pub).not.toBeNull()
-      expect(pub.schema).toBeDefined()
+      expect(pub.resolver).toBeDefined()
       expect(pub.contentType).toBe('application/rss+xml')
       expect(pub.meta).toBeDefined()
       expect(typeof pub.render).toBe('function')
@@ -141,6 +184,31 @@ describe('core publisher registry', () => {
       expect(xml).toContain('<title>Test</title>')
       expect(xml).toContain('<guid isPermaLink="true">https://example.com</guid>')
     })
+
+    it('renders the declared channel defaults when no overrides are given', () => {
+      const pub = registry.getPublisher('rss2')
+      const items = [
+        { title: 'Test', link: 'https://example.com', guid: 'https://example.com', pubDate: 'Fri, 21 Jun 2024 12:00:00 GMT' }
+      ]
+      const xml = pub.render(items, resolveEnvelope(pub))
+      expect(xml).toContain('<title>Octothorpes Feed</title>')
+      expect(xml).toContain('<link>https://octothorp.es/</link>')
+    })
+
+    it('renders per-request overrides over the defaults', () => {
+      const pub = registry.getPublisher('rss2')
+      const xml = pub.render([], resolveEnvelope(pub, { title: '#demo', link: 'https://octothorp.es/~/demo' }))
+      expect(xml).toContain('<title>#demo</title>')
+      expect(xml).toContain('<link>https://octothorp.es/~/demo</link>')
+      // an unspecified field falls back to the declared default
+      expect(xml).toContain('<description>Links from the Octothorpes network</description>')
+    })
+
+    it('exposes channel defaults via envelope, not meta', () => {
+      const pub = registry.getPublisher('rss2')
+      expect(pub.meta.channel).toBeUndefined()
+      expect(pub.envelope.title).toBe('Octothorpes Feed')
+    })
   })
 
   describe('standardSiteDocument render', () => {
@@ -156,7 +224,7 @@ describe('core publisher registry', () => {
     it('should register a publisher in explicit shape', () => {
       const reg = createPublisherRegistry()
       const custom = {
-        schema: {
+        resolver: {
           '@context': 'http://example.com',
           '@id': 'http://example.com/custom',
           '@type': 'resolver',
@@ -187,17 +255,35 @@ describe('core publisher registry', () => {
       const pub = reg.getPublisher('flat')
       expect(pub.contentType).toBe('text/plain')
       expect(typeof pub.render).toBe('function')
-      expect(pub.schema['@context']).toBe('http://example.com')
-      expect(pub.schema.schema.name).toBeDefined()
+      expect(pub.resolver['@context']).toBe('http://example.com')
+      expect(pub.resolver.schema.name).toBeDefined()
+    })
+
+    it('preserves a flat publisher\'s envelope after registration', () => {
+      const reg = createPublisherRegistry()
+      const flat = {
+        '@context': 'http://example.com',
+        '@id': 'http://example.com/f',
+        '@type': 'resolver',
+        contentType: 'text/plain',
+        meta: { name: 'F' },
+        envelope: { title: 'Default Feed' },
+        schema: { name: { from: 'title', required: true } },
+        render: (items, env) => env?.title ?? '',
+      }
+      reg.register('f', flat)
+      const pub = reg.getPublisher('f')
+      expect(resolveEnvelope(pub, { title: 'Live' })).toEqual({ title: 'Live' })
+      expect(resolveEnvelope(pub)).toEqual({ title: 'Default Feed' })
     })
 
     it('should not allow overwriting a built-in publisher', () => {
       const reg = createPublisherRegistry()
-      const fake = { schema: {}, contentType: '', meta: {}, render: () => {} }
+      const fake = { resolver: {}, contentType: '', meta: {}, render: () => {} }
       expect(() => reg.register('rss2', fake)).toThrow(/already registered/)
     })
 
-    it('should require schema, contentType, and render', () => {
+    it('should require resolver, contentType, and render', () => {
       const reg = createPublisherRegistry()
       expect(() => reg.register('bad', {})).toThrow(/must have/)
     })
@@ -222,7 +308,7 @@ describe('bluesky publisher', () => {
 
   it('should have correct publisher shape', () => {
     expect(pub).not.toBeNull()
-    expect(pub.schema).toBeDefined()
+    expect(pub.resolver).toBeDefined()
     expect(pub.contentType).toBe('application/json')
     expect(pub.meta.lexicon).toBe('app.bsky.feed.post')
     expect(typeof pub.render).toBe('function')
@@ -230,7 +316,7 @@ describe('bluesky publisher', () => {
 
   describe('resolver', () => {
     it('should extract url, title, description, tags from blobjects', () => {
-      const items = publish(sampleBlobject, pub.schema)
+      const items = publish(sampleBlobject, pub.resolver)
       expect(items.url).toBe('https://example.com/page')
       expect(items.title).toBe('My Great Post')
       expect(items.description).toBe('A wonderful description of the post')
@@ -238,7 +324,7 @@ describe('bluesky publisher', () => {
     })
 
     it('should set createdAt to current time', () => {
-      const items = publish(sampleBlobject, pub.schema)
+      const items = publish(sampleBlobject, pub.resolver)
       expect(items.createdAt).toBeDefined()
       expect(() => new Date(items.createdAt)).not.toThrow()
     })
@@ -246,20 +332,20 @@ describe('bluesky publisher', () => {
 
   describe('renderer', () => {
     it('should return array of records (one per input item)', () => {
-      const items = publish([sampleBlobject, sampleBlobject], pub.schema)
+      const items = publish([sampleBlobject, sampleBlobject], pub.resolver)
       const records = pub.render(items, pub.meta)
       expect(records).toBeInstanceOf(Array)
       expect(records).toHaveLength(2)
     })
 
     it('should set $type to app.bsky.feed.post on each record', () => {
-      const items = publish([sampleBlobject], pub.schema)
+      const items = publish([sampleBlobject], pub.resolver)
       const records = pub.render(items, pub.meta)
       expect(records[0]['$type']).toBe('app.bsky.feed.post')
     })
 
     it('should compose correct text layout', () => {
-      const items = publish([sampleBlobject], pub.schema)
+      const items = publish([sampleBlobject], pub.resolver)
       const records = pub.render(items, pub.meta)
       const text = records[0].text
       expect(text).toContain('My Great Post')
@@ -272,13 +358,13 @@ describe('bluesky publisher', () => {
     })
 
     it('should set createdAt as ISO 8601', () => {
-      const items = publish([sampleBlobject], pub.schema)
+      const items = publish([sampleBlobject], pub.resolver)
       const records = pub.render(items, pub.meta)
       expect(records[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     })
 
     it('should have correct facet $type values (#link and #tag)', () => {
-      const items = publish([sampleBlobject], pub.schema)
+      const items = publish([sampleBlobject], pub.resolver)
       const records = pub.render(items, pub.meta)
       const facets = records[0].facets
       const linkFacet = facets.find(f => f.features[0]['$type'] === 'app.bsky.richtext.facet#link')
@@ -291,7 +377,7 @@ describe('bluesky publisher', () => {
     })
 
     it('should calculate correct byte offsets for ASCII text', () => {
-      const items = publish([sampleBlobject], pub.schema)
+      const items = publish([sampleBlobject], pub.resolver)
       const records = pub.render(items, pub.meta)
       const text = records[0].text
       const enc = new TextEncoder()
@@ -314,7 +400,7 @@ describe('bluesky publisher', () => {
         octothorpes: ['demo'],
         date: 1719057600000,
       }
-      const items = publish([multibyte], pub.schema)
+      const items = publish([multibyte], pub.resolver)
       const records = pub.render(items, pub.meta)
       const text = records[0].text
       const enc = new TextEncoder()
@@ -333,7 +419,7 @@ describe('bluesky publisher', () => {
     it('should omit empty description from text', () => {
       const noDesc = { ...sampleBlobject, description: undefined }
       delete noDesc.description
-      const items = publish([noDesc], pub.schema)
+      const items = publish([noDesc], pub.resolver)
       const records = pub.render(items, pub.meta)
       // Should not have double blank lines from missing description
       expect(records[0].text).not.toMatch(/\n\n\n/)
@@ -341,7 +427,7 @@ describe('bluesky publisher', () => {
 
     it('should produce no hashtag line or tag facets when tags are empty', () => {
       const noTags = { ...sampleBlobject, octothorpes: [] }
-      const items = publish([noTags], pub.schema)
+      const items = publish([noTags], pub.resolver)
       const records = pub.render(items, pub.meta)
       expect(records[0].text).not.toContain('#')
       expect(records[0].tags).toBeUndefined()
@@ -356,7 +442,7 @@ describe('bluesky publisher', () => {
         octothorpes: ['demo'],
         date: 1719057600000,
       }
-      const items = publish([titleIsUrl], pub.schema)
+      const items = publish([titleIsUrl], pub.resolver)
       const records = pub.render(items, pub.meta)
       const text = records[0].text
       // URL should appear exactly once
@@ -369,7 +455,7 @@ describe('bluesky publisher', () => {
         ...sampleBlobject,
         octothorpes: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
       }
-      const items = publish([manyTags], pub.schema)
+      const items = publish([manyTags], pub.resolver)
       const records = pub.render(items, pub.meta)
       expect(records[0].tags).toHaveLength(8)
     })
@@ -380,7 +466,7 @@ describe('bluesky publisher', () => {
         ...sampleBlobject,
         octothorpes: [longTag, 'demo'],
       }
-      const items = publish([blob], pub.schema)
+      const items = publish([blob], pub.resolver)
       const records = pub.render(items, pub.meta)
       expect(records[0].tags).toEqual(['demo'])
     })
@@ -390,7 +476,7 @@ describe('bluesky publisher', () => {
         ...sampleBlobject,
         octothorpes: ['hello world', 'good-tag', 'demo', 'valid_tag'],
       }
-      const items = publish([blob], pub.schema)
+      const items = publish([blob], pub.resolver)
       const records = pub.render(items, pub.meta)
       // 'hello world' has a space, 'good-tag' has a hyphen -- both filtered
       expect(records[0].tags).toEqual(['demo', 'valid_tag'])
@@ -401,7 +487,7 @@ describe('bluesky publisher', () => {
         ...sampleBlobject,
         description: 'A'.repeat(400),
       }
-      const items = publish([longDesc], pub.schema)
+      const items = publish([longDesc], pub.resolver)
       const records = pub.render(items, pub.meta)
       const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' })
       const graphemeCount = [...segmenter.segment(records[0].text)].length
@@ -417,7 +503,7 @@ describe('bluesky publisher', () => {
         octothorpes: ['demo'],
         date: 1719057600000,
       }
-      const items = publish([longTitle], pub.schema)
+      const items = publish([longTitle], pub.resolver)
       const records = pub.render(items, pub.meta)
       const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' })
       const graphemeCount = [...segmenter.segment(records[0].text)].length
@@ -437,7 +523,7 @@ describe('bluesky publisher', () => {
       if (!pub) throw new Error(`Unknown publisher: ${publisherName}`)
       const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
       const normalized = Array.isArray(data) ? data : (data.results || [])
-      const items = publish(normalized, pub.schema)
+      const items = publish(normalized, pub.resolver)
       const records = pub.render(items, pub.meta)
       return { records, meta: pub.meta ?? {}, contentType: pub.contentType, publisher: name }
     }
@@ -471,7 +557,7 @@ describe('prepare (via createClient)', () => {
     const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
 
     const normalized = Array.isArray(data) ? data : (data.results || [])
-    const items = publish(normalized, pub.schema)
+    const items = publish(normalized, pub.resolver)
     const records = pub.render(items, pub.meta)
     return {
       records,
@@ -548,5 +634,148 @@ describe('prepare (via createClient)', () => {
     expect(record.description).toBe('First page')
     expect(record.publishedAt).toBeDefined()
     expect(record.tags).toEqual(['demo', 'test'])
+  })
+})
+
+describe('ics publisher', () => {
+  const registry = createPublisherRegistry()
+  const pub = registry.getPublisher('ics')
+
+  // A calendar-ingested event blobject (from the calendar handler)
+  const event = {
+    '@id': 'https://example.com/feed.ics#evt-1',
+    title: 'Release Party',
+    description: 'Come celebrate; bring snacks',
+    startDate: '2026-06-15T18:00:00Z',
+    endDate: '2026-06-15T21:00:00Z',
+    location: 'The Pit, 123 Main St',
+    octothorpes: ['party', 'release', { type: 'link', uri: 'https://example.com/feed.ics' }],
+  }
+
+  it('should appear in listPublishers', () => {
+    expect(registry.listPublishers()).toContain('ics')
+  })
+
+  it('should have correct publisher shape', () => {
+    expect(pub).not.toBeNull()
+    expect(pub.resolver).toBeDefined()
+    expect(pub.contentType).toBe('text/calendar')
+    expect(typeof pub.render).toBe('function')
+  })
+
+  describe('resolver', () => {
+    it('should map event fields', () => {
+      const item = publish(event, pub.resolver)
+      expect(item.uid).toBe('https://example.com/feed.ics#evt-1')
+      expect(item.summary).toBe('Release Party')
+      expect(item.start).toBe('2026-06-15T18:00:00Z')
+      expect(item.end).toBe('2026-06-15T21:00:00Z')
+      expect(item.description).toBe('Come celebrate; bring snacks')
+      expect(item.location).toBe('The Pit, 123 Main St')
+      expect(item.categories).toEqual(['party', 'release'])
+    })
+
+    it('should fall back to date when startDate is absent', () => {
+      const blob = { '@id': 'https://example.com/post', title: 'A Post', date: 1719057600000 }
+      const item = publish(blob, pub.resolver)
+      expect(item.start).toBeDefined()
+    })
+
+    it('should drop items with no date at all', () => {
+      const blob = { '@id': 'https://example.com/post', title: 'No date' }
+      const items = publish([blob], pub.resolver)
+      expect(items).toHaveLength(0)
+    })
+
+    it('should treat location as optional', () => {
+      const blob = { '@id': 'https://example.com/x', title: 'No location', date: 1719057600000 }
+      const item = publish(blob, pub.resolver)
+      expect(item.location).toBeUndefined()
+    })
+  })
+
+  describe('render', () => {
+    it('should wrap events in a VCALENDAR', () => {
+      const items = publish([event], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('BEGIN:VCALENDAR')
+      expect(ics).toContain('VERSION:2.0')
+      expect(ics).toContain('END:VCALENDAR')
+      expect(ics).toContain('BEGIN:VEVENT')
+      expect(ics).toContain('END:VEVENT')
+    })
+
+    it('should use CRLF line endings', () => {
+      const items = publish([event], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('\r\n')
+      expect(ics).not.toMatch(/[^\r]\n/)
+    })
+
+    it('should format a UTC datetime in iCalendar basic form', () => {
+      const items = publish([event], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('DTSTART:20260615T180000Z')
+      expect(ics).toContain('DTEND:20260615T210000Z')
+    })
+
+    it('should format a date-only value with VALUE=DATE', () => {
+      const allDay = { '@id': 'https://example.com/d', title: 'All day', startDate: '2026-06-15' }
+      const items = publish([allDay], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('DTSTART;VALUE=DATE:20260615')
+    })
+
+    it('should include UID, DTSTAMP, and SUMMARY per event', () => {
+      const items = publish([event], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('UID:https://example.com/feed.ics#evt-1')
+      expect(ics).toMatch(/DTSTAMP:\d{8}T\d{6}Z/)
+      expect(ics).toContain('SUMMARY:Release Party')
+    })
+
+    it('should emit CATEGORIES as a comma-joined list', () => {
+      const items = publish([event], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('CATEGORIES:party,release')
+    })
+
+    it('should escape special characters in TEXT values', () => {
+      const tricky = {
+        '@id': 'https://example.com/e',
+        title: 'A; B, C \\ D',
+        description: 'line one\nline two',
+        date: 1719057600000,
+      }
+      const items = publish([tricky], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      expect(ics).toContain('SUMMARY:A\\; B\\, C \\\\ D')
+      expect(ics).toContain('DESCRIPTION:line one\\nline two')
+    })
+
+    it('should fold lines longer than 75 octets', () => {
+      const longDesc = 'x'.repeat(200)
+      const blob = { '@id': 'https://example.com/long', title: 'Long', description: longDesc, date: 1719057600000 }
+      const items = publish([blob], pub.resolver)
+      const ics = pub.render(items, pub.meta)
+      const lines = ics.split('\r\n')
+      // No content line should exceed 75 octets
+      for (const line of lines) {
+        expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75)
+      }
+      // Folded continuations begin with a single space
+      expect(ics).toMatch(/\r\n /)
+    })
+
+    it('uses the envelope title as X-WR-CALNAME', () => {
+      const items = publish([event], pub.resolver)
+      const ics = pub.render(items, resolveEnvelope(pub, { title: 'My OP Feed' }))
+      expect(ics).toContain('X-WR-CALNAME:My OP Feed')
+    })
+
+    it('falls back to the default calendar name', () => {
+      const ics = pub.render([], resolveEnvelope(pub))
+      expect(ics).toContain('X-WR-CALNAME:Octothorpes Calendar')
+    })
   })
 })

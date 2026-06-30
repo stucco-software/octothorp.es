@@ -1,4 +1,38 @@
 /**
+ * Resolve a publisher's output envelope: its declared default feed-level values
+ * merged with per-request overrides (canonical vocab: title, link, description, date).
+ * Returns undefined for per-record publishers that declare no envelope.
+ * @param {Object} publisher - a registered publisher (with optional .envelope)
+ * @param {Object} [overrides] - per-request values; nullish/empty entries are ignored
+ * @returns {Object|undefined}
+ */
+export const resolveEnvelope = (publisher, overrides = {}) => {
+  if (!publisher?.envelope) return undefined
+  const clean = Object.fromEntries(
+    Object.entries(overrides ?? {}).filter(([, v]) => v != null && v !== '')
+  )
+  return { ...publisher.envelope, ...clean }
+}
+
+/**
+ * Validate that a client-supplied pubDefs bag satisfies a publisher's declared
+ * `requires` (an array of input-key names). No-op when nothing is declared.
+ * @param {Object} publisher - a registered publisher (with optional .requires)
+ * @param {Object} [pubDefs] - the per-invocation bag of provided values
+ * @throws {Error} when a required input is null/undefined
+ */
+export const assertRequires = (publisher, pubDefs = {}) => {
+  const required = publisher?.requires
+  if (!required || required.length === 0) return
+  const name = publisher?.meta?.name ?? 'publisher'
+  for (const key of required) {
+    if (pubDefs?.[key] == null) {
+      throw new Error(`Publisher "${name}" requires input "${key}"`)
+    }
+  }
+}
+
+/**
  * Creates a publisher registry with all built-in publishers as plain objects.
  * Mirrors createHarmonizerRegistry() pattern.
  * @returns {{ getPublisher: Function, listPublishers: Function }}
@@ -8,7 +42,7 @@ export const createPublisherRegistry = () => {
   // --- RSS 2.0 ---
 
   const rss2Schema = {
-    '@context': 'http://purl.org/rss/1.0/',
+    '@context': 'https://www.rssboard.org/rss-specification',
     '@id': 'https://octothorp.es/publishers/rss2',
     '@type': 'resolver',
     schema: {
@@ -43,16 +77,18 @@ export const createPublisherRegistry = () => {
   ${item.image ? `<enclosure url="${xmlEncode(item.image)}" type="image/jpeg" />` : ''}
 </item>`
 
-  const rss2Render = (items, channel) => `
+  // The envelope is always pre-resolved (defaults + per-request overrides merged by
+  // resolveEnvelope) before it reaches render, so we just read canonical fields.
+  const rss2Render = (items, envelope = {}) => `
   <rss
     xmlns:atom="http://www.w3.org/2005/Atom"
     version="2.0">
     <channel>
-      ${xmlTag('title', channel.title)}
-      ${xmlTag('link', channel.link)}
-      ${channel.link ? `<atom:link href="${xmlEncode(channel.link)}" rel="self" type="application/rss+xml" />` : ''}
-      ${xmlTag('description', channel.description)}
-      ${xmlTag('pubDate', channel.pubDate)}
+      ${xmlTag('title', envelope.title)}
+      ${xmlTag('link', envelope.link)}
+      ${envelope.link ? `<atom:link href="${xmlEncode(envelope.link)}" rel="self" type="application/rss+xml" />` : ''}
+      ${xmlTag('description', envelope.description)}
+      ${xmlTag('pubDate', envelope.feedDate)}
       <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
       ${items.map(rss2RenderItem).join('')}
     </channel>
@@ -60,15 +96,15 @@ export const createPublisherRegistry = () => {
 `
 
   const rss2 = {
-    schema: rss2Schema,
+    resolver: rss2Schema,
     contentType: 'application/rss+xml',
     meta: {
       name: 'RSS 2.0 Feed',
-      channel: {
-        title: 'Octothorpes Feed',
-        description: 'Links from the Octothorpes network',
-        link: 'https://octothorp.es/',
-      }
+    },
+    envelope: {
+      title: 'Octothorpes Feed',
+      description: 'Links from the Octothorpes network',
+      link: 'https://octothorp.es/',
     },
     render: rss2Render,
   }
@@ -98,7 +134,7 @@ export const createPublisherRegistry = () => {
 
 
   const standardSiteDocument = {
-    schema: standardSiteSchema,
+    resolver: standardSiteSchema,
     contentType: 'application/json',
     meta: {
       name: 'ATProto StandardSiteDocument',
@@ -247,13 +283,131 @@ export const createPublisherRegistry = () => {
   }
 
   const bluesky = {
-    schema: blueskySchema,
+    resolver: blueskySchema,
     contentType: 'application/json',
     meta: {
       name: 'Bluesky Post',
       lexicon: 'app.bsky.feed.post',
     },
     render: blueskyRender,
+  }
+
+  // --- iCalendar (ICS) ---
+  // Inverse of the calendar handler (handlers/calendar/parse.js): blobjects
+  // (calendar-ingested events, or any dated page) → a VCALENDAR document.
+
+  const icsSchema = {
+    '@context': 'https://www.rfc-editor.org/rfc/rfc5545',
+    '@id': 'https://octothorp.es/publishers/ics',
+    '@type': 'resolver',
+    schema: {
+      uid: { from: '@id', required: true },
+      summary: { from: ['title', '@id'], required: true },
+      // Calendar events carry startDate; generic dated pages fall back to date.
+      start: { from: ['startDate', 'date'], required: true },
+      end: { from: 'endDate' },
+      description: { from: 'description' },
+      location: { from: 'location' },
+      url: { from: '@id' },
+      categories: { from: 'octothorpes', postProcess: { method: 'extractTags' } },
+    }
+  }
+
+  // Escape an iCalendar TEXT value (inverse of parse.js unescapeText):
+  // backslash, semicolon, comma, and newlines.
+  const icsEscapeText = value => String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r\n|\r|\n/g, '\\n')
+
+  // ISO 8601 → iCalendar basic form. Returns the property name (so date-only
+  // values can carry the VALUE=DATE parameter) alongside the formatted value.
+  const icsFormatDate = (name, value) => {
+    if (value == null) return null
+    const date = new Date(value)
+    if (isNaN(date.getTime())) return null
+    const s = String(value)
+    // Date-only (no time component): emit a DATE value.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const d = `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`
+      return `${name};VALUE=DATE:${d}`
+    }
+    return `${name}:${icsFormatUtc(date)}`
+  }
+
+  const pad = n => String(n).padStart(2, '0')
+
+  const icsFormatUtc = date =>
+    `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}` +
+    `T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`
+
+  // Fold a content line to <=75 octets, continuations prefixed with one space.
+  const icsFold = line => {
+    const bytes = Buffer.from(line, 'utf8')
+    if (bytes.length <= 75) return line
+    const out = []
+    let start = 0
+    let first = true
+    while (start < bytes.length) {
+      const limit = first ? 75 : 74 // continuation lines reserve a leading space
+      let end = Math.min(start + limit, bytes.length)
+      // Don't split a multi-byte UTF-8 sequence: back off to a lead byte.
+      while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--
+      const chunk = bytes.slice(start, end).toString('utf8')
+      out.push(first ? chunk : ` ${chunk}`)
+      start = end
+      first = false
+    }
+    return out.join('\r\n')
+  }
+
+  const icsLine = (name, value) => icsFold(`${name}:${icsEscapeText(value)}`)
+
+  const icsRenderEvent = item => {
+    const lines = ['BEGIN:VEVENT']
+    lines.push(icsFold(`UID:${item.uid}`))
+    lines.push(`DTSTAMP:${icsFormatUtc(new Date())}`)
+    const start = icsFormatDate('DTSTART', item.start)
+    if (start) lines.push(start)
+    const end = icsFormatDate('DTEND', item.end)
+    if (end) lines.push(end)
+    if (item.summary) lines.push(icsLine('SUMMARY', item.summary))
+    if (item.description) lines.push(icsLine('DESCRIPTION', item.description))
+    if (item.location) lines.push(icsLine('LOCATION', item.location))
+    if (item.url) lines.push(icsFold(`URL:${item.url}`))
+    if (item.categories?.length) {
+      lines.push(icsFold(`CATEGORIES:${item.categories.map(icsEscapeText).join(',')}`))
+    }
+    lines.push('END:VEVENT')
+    return lines
+  }
+
+  const icsRender = (items, envelope) => {
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Octothorpes//OP ICS Publisher//EN',
+      'CALSCALE:GREGORIAN',
+    ]
+    const calName = envelope?.title
+    if (calName) lines.push(icsLine('X-WR-CALNAME', calName))
+    for (const item of items) lines.push(...icsRenderEvent(item))
+    lines.push('END:VCALENDAR')
+    return lines.join('\r\n') + '\r\n'
+  }
+
+  const ics = {
+    resolver: icsSchema,
+    contentType: 'text/calendar',
+    meta: {
+      name: 'iCalendar Feed',
+      description: 'Publishes dated blobjects as an iCalendar (.ics) VCALENDAR feed',
+    },
+    envelope: {
+      title: 'Octothorpes Calendar',
+    },
+    render: icsRender,
   }
 
   // --- Registry ---
@@ -263,6 +417,7 @@ export const createPublisherRegistry = () => {
     rss: rss2,  // alias
     standardSiteDocument,
     bluesky,
+    ics,
   }
 
   const builtins = new Set(Object.keys(publishers))
@@ -274,13 +429,13 @@ export const createPublisherRegistry = () => {
   const register = (name, publisher) => {
     if (builtins.has(name)) throw new Error(`Publisher "${name}" is already registered as a built-in`)
     // Flat shape: resolver fields at top level (@context, @id, schema, contentType, render)
-    // Explicit shape: { schema: resolverObj, contentType, meta, render }
+    // Explicit shape: { resolver: resolverObj, contentType, meta, render }
     const isFlat = publisher['@context'] || publisher['@id']
     const normalized = isFlat
-      ? { schema: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, render: publisher.render }
+      ? { resolver: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, envelope: publisher.envelope, requires: publisher.requires, render: publisher.render }
       : publisher
-    if (!normalized.schema || !normalized.contentType || typeof normalized.render !== 'function') {
-      throw new Error('Publisher must have schema, contentType, and render')
+    if (!normalized.resolver || !normalized.contentType || typeof normalized.render !== 'function') {
+      throw new Error('Publisher must have resolver, contentType, and render')
     }
     publishers[name] = normalized
   }

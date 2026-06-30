@@ -103,7 +103,7 @@ export const createApi = (config) => {
       return { multiPass, query, actualResults }
     }
 
-    return { results: actualResults }
+    return { results: actualResults, multiPass }
   }
 
   /**

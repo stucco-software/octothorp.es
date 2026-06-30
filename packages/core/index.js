@@ -2,7 +2,7 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
-import { createPublisherRegistry } from './publishers.js'
+import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
 import jsonHandler from './handlers/json/handler.js'
@@ -28,10 +28,19 @@ export { badgeVariant, determineBadgeUri } from './badge.js'
 export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators } from './harmonizerUtils.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
-export { createPublisherRegistry } from './publishers.js'
+export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
+
+// Canonical envelope vocabulary (matches the publisher envelope work). The route
+// and other callers may overlay these via pubDefs; everything else in pubDefs is
+// a publisher `requires` input or a capability under pubDefs.utils.
+// `feedDate` (not `date`) is the feed-level wrapper date, kept distinct from the
+// per-record `date` that blobjects/items carry (which the resolver maps to item pubDate).
+const CANONICAL_ENVELOPE_KEYS = ['title', 'link', 'description', 'feedDate']
+const pickEnvelope = (bag = {}) =>
+  Object.fromEntries(CANONICAL_ENVELOPE_KEYS.filter((k) => k in bag).map((k) => [k, bag[k]]))
 
 export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) => {
   const registry = createHandlerRegistry()
@@ -194,21 +203,33 @@ export const createClient = (config) => {
     }
   }
 
-  const get = async ({ what, by, as: asFormat, debug: debugFlag, ...rest } = {}) => {
+  const get = async ({ what, by, as: asFormat, debug: debugFlag, pubDefs = {}, ...rest } = {}) => {
     if (asFormat === 'debug' || asFormat === 'multipass') {
       return api.get(what, by, { ...rest, as: asFormat })
     }
 
     const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
 
+    const raw = await api.get(what, by, rest)
+
     if (!publisher) {
-      return api.get(what, by, rest)
+      return { results: raw.results }
     }
 
-    const raw = await api.get(what, by, rest)
-    const items = publish(raw.results || [], publisher.schema)
-    const rendered = publisher.render(items, publisher.meta)
+    assertRequires(publisher, pubDefs)
+    const items = publish(raw.results || [], publisher.resolver)
+    // Canonical keys supplied by the caller in pubDefs (e.g. the route's link)
+    // win over the query-derived defaults below — pickEnvelope is spread last.
+    const envelope = resolveEnvelope(publisher, {
+      title: raw.multiPass?.meta?.title,
+      description: raw.multiPass?.meta?.description,
+      feedDate: new Date().toUTCString(),
+      ...pickEnvelope(pubDefs),
+    })
+    const rendered = await publisher.render(items, envelope, pubDefs)
 
+    // Programmatic-only debug bundle (op.get({ debug: true })); the HTTP route
+    // never sets this — it reaches debug output via `?as=debug` → api.get.
     if (debugFlag) {
       return {
         output: rendered,
@@ -228,13 +249,21 @@ export const createClient = (config) => {
     get,
     getfast: api.fast,
     harmonize,
-    publish: (data, publisherOrName, meta) => {
+    publish: async (data, publisherOrName, pubDefs = {}) => {
       const pub = typeof publisherOrName === 'string'
         ? publisherRegistry.getPublisher(publisherOrName)
         : publisherOrName
       if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
-      const items = publish(data, pub.schema)
-      return pub.render(items, meta || pub.meta)
+      assertRequires(pub, pubDefs)
+      const items = publish(data, pub.resolver)
+      // Default feedDate to now (same as client.get); an explicit pubDefs.feedDate
+      // still wins since pickEnvelope is spread last. There is no MultiPass here —
+      // a programmatic caller supplies title/description/link via pubDefs.
+      const envelope = resolveEnvelope(pub, {
+        feedDate: new Date().toUTCString(),
+        ...pickEnvelope(pubDefs),
+      })
+      return await pub.render(items, envelope, pubDefs)
     },
     prepare: (data, publisherName) => {
       const pub = typeof publisherName === 'string'
@@ -244,7 +273,7 @@ export const createClient = (config) => {
 
       const name = typeof publisherName === 'string' ? publisherName : pub.meta?.name ?? 'custom'
       const normalized = Array.isArray(data) ? data : (data.results || [])
-      const items = publish(normalized, pub.schema)
+      const items = publish(normalized, pub.resolver)
       const records = pub.render(items, pub.meta)
       return {
         records,
