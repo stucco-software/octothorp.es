@@ -52,6 +52,14 @@ const buildMatrix = ({ full = false } = {}) => {
   return out
 }
 
+// RSS feed queries: core feed shapes for smoke tier.
+// Stored as raw XML (.xml) so feeds can be validated in a real RSS reader.
+const buildRss = () => ([
+  { name: 'rss-everything-posted',  path: `/get/everything/posted/rss?s=${SUBJECT_HOST}`,             format: 'xml' },
+  { name: 'rss-pages-posted',       path: `/get/pages/posted/rss?s=${SUBJECT_HOST}`,                  format: 'xml' },
+  { name: 'rss-everything-thorped', path: `/get/everything/thorped/rss?s=${SUBJECT_HOST}&o=${OBJECT_TERM}`, format: 'xml' },
+])
+
 // Relationship-term queries: smoke tier coverage for rt= filtering on link types.
 // Confirmed rt values from devdemo/relationship-terms (octo:bookmarks data-octothorpes="websites,tools").
 const buildLinkTerms = () => ([
@@ -65,6 +73,7 @@ const buildCompleteness = () => ([
 
 export const buildQueries = (manifest, { tier = 'smoke' } = {}) => [
   ...buildMatrix({ full: tier === 'full' }),
+  ...buildRss(),
   ...buildLinkTerms(),
   ...buildCompleteness(),
 ]

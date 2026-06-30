@@ -9,8 +9,8 @@
   {
     "role": "object",
     "uri": "https://docs.octothorp.es",
-    "title": "Octothorpe Protocol v0.5",
-    "description": "Announcing our first version release and a new docs site",
+    "title": null,
+    "description": null,
     "image": null
   },
   {
@@ -140,6 +140,13 @@
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
   },
   {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/web-components",
+    "title": "Web Components - OP DEV DEMO",
+    "description": "OP ships a set of web components for displaying indexed content on any site.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
     "role": "object",
     "uri": "https://nora.zone/manifesto.html",
     "title": null,
@@ -148,37 +155,30 @@
   },
   {
     "role": "object",
-    "uri": "https://octothorp.es/~/testing",
+    "uri": "https://octothorped-wordpress.pikapod.net",
     "title": null,
     "description": null,
     "image": null
   },
   {
     "role": "object",
-    "uri": "https://octothorped-wordpress.pikapod.net",
-    "title": "Octothorpes on WordPress",
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
     "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
-    "title": "How it Works – Octothorpes on WordPress",
+    "title": null,
     "description": null,
     "image": null
   },
   {
     "role": "object",
     "uri": "https://octothorpes.bearblog.dev",
-    "title": "Octothorpes on Bear",
+    "title": null,
     "description": null,
     "image": null
   },
   {
     "role": "object",
     "uri": "https://octothorpes.neocities.org",
-    "title": "The web site of octothorpes",
-    "description": "Imagine being able to use hashtags on your Neocities site! Well, now you can! It's *really* easy.",
+    "title": null,
+    "description": null,
     "image": null
   },
   {

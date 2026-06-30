@@ -10,6 +10,25 @@
 
 const VOLATILE_DATE_KEYS = new Set(['date', 'created', 'indexed'])
 
+/**
+ * Normalize an RSS XML string for stable golden comparison:
+ *  - volatile date elements (<pubDate>, <lastBuildDate>) replaced with {DATE}
+ *  - instance origin in any string -> "{INSTANCE}"
+ * The result is still valid XML and openable in a feed reader.
+ *
+ * @param {string} xml - raw RSS response body
+ * @param {{ instanceOrigin?: string }} opts
+ * @returns {string}
+ */
+export const normalizeRss = (xml, opts = {}) => {
+  const { instanceOrigin } = opts
+  let out = xml
+  out = out.replace(/<pubDate>[^<]*<\/pubDate>/g, '<pubDate>{DATE}</pubDate>')
+  out = out.replace(/<lastBuildDate>[^<]*<\/lastBuildDate>/g, '<lastBuildDate>{DATE}</lastBuildDate>')
+  if (instanceOrigin) out = out.split(instanceOrigin).join('{INSTANCE}')
+  return out
+}
+
 const sortKey = (el) => {
   if (el && typeof el === 'object') return String(el['@id'] ?? el.uri ?? JSON.stringify(el))
   return String(el)

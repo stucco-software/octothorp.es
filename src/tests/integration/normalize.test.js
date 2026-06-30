@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalize } from './normalize.js'
+import { normalize, normalizeRss } from './normalize.js'
 
 describe('normalize', () => {
   const opts = { instanceOrigin: 'http://localhost:5173' }
@@ -32,5 +32,26 @@ describe('normalize', () => {
     const input = { postDate: 1 }
     normalize(input, opts)
     expect(input.postDate).toBe(1)
+  })
+})
+
+describe('normalizeRss', () => {
+  const opts = { instanceOrigin: 'http://localhost:5173' }
+
+  it('replaces pubDate content with {DATE}', () => {
+    const xml = '<channel><pubDate>Mon, 30 Jun 2026 12:00:00 GMT</pubDate></channel>'
+    expect(normalizeRss(xml, opts)).toBe('<channel><pubDate>{DATE}</pubDate></channel>')
+  })
+  it('replaces lastBuildDate content with {DATE}', () => {
+    const xml = '<channel><lastBuildDate>Mon, 30 Jun 2026 12:00:00 GMT</lastBuildDate></channel>'
+    expect(normalizeRss(xml, opts)).toBe('<channel><lastBuildDate>{DATE}</lastBuildDate></channel>')
+  })
+  it('replaces instance origin in URLs', () => {
+    const xml = '<link>http://localhost:5173/get/everything/posted/rss</link>'
+    expect(normalizeRss(xml, opts)).toBe('<link>{INSTANCE}/get/everything/posted/rss</link>')
+  })
+  it('leaves non-volatile content unchanged', () => {
+    const xml = '<title>My Feed</title><item><title>Post</title></item>'
+    expect(normalizeRss(xml, opts)).toBe(xml)
   })
 })

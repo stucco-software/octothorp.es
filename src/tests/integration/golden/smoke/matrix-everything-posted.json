@@ -274,13 +274,6 @@
     "octothorpes": [
       "demo",
       {
-        "uri": "https://octothorp.es/~/testing",
-        "type": "Link",
-        "terms": [
-          "testing"
-        ]
-      },
-      {
         "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
         "type": "Link"
       },
@@ -359,6 +352,26 @@
         "uri": "https://octothorpes.neocities.org",
         "type": "Link"
       }
+    ]
+  },
+  {
+    "@id": "https://nimdaghlian.github.io/devdemo/web-components",
+    "title": "Web Components - OP DEV DEMO",
+    "description": "OP ships a set of web components for displaying indexed content on any site.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": null,
+    "octothorpes": [
+      "",
+      "demo",
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      },
+      "webcomponents"
     ]
   }
 ]

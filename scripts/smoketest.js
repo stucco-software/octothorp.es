@@ -5,7 +5,7 @@ import { join } from 'path'
 import { createSparqlClient, deleteOrigin } from 'octothorpes'
 import { loadManifest } from '../src/tests/integration/manifest.js'
 import { buildQueries } from '../src/tests/integration/queries.js'
-import { normalize } from '../src/tests/integration/normalize.js'
+import { normalize, normalizeRss } from '../src/tests/integration/normalize.js'
 
 const instance = (process.env.instance || '').replace(/\/$/, '')
 const sparql_endpoint = (process.env.sparql_endpoint || '').replace(/\/$/, '')
@@ -114,10 +114,16 @@ async function reindex() {
 async function fetchAndWrite(outDir, queries) {
   for (const q of queries) {
     const res = await fetch(`${instance}${q.path}`)
-    let payload
-    try { payload = (await res.json()).actualResults ?? null } catch { payload = { error: res.status } }
-    const norm = normalize(payload, { instanceOrigin: instance })
-    writeFileSync(join(outDir, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
+    if (q.format === 'xml') {
+      const xml = await res.text()
+      const norm = normalizeRss(xml, { instanceOrigin: instance })
+      writeFileSync(join(outDir, `${q.name}.xml`), norm)
+    } else {
+      let payload
+      try { payload = (await res.json()).actualResults ?? null } catch { payload = { error: res.status } }
+      const norm = normalize(payload, { instanceOrigin: instance })
+      writeFileSync(join(outDir, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
+    }
   }
 }
 

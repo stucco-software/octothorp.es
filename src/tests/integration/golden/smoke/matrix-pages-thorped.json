@@ -1,12 +1,5 @@
 [
   {
-    "role": "object",
-    "uri": "{INSTANCE}/~/demo",
-    "title": null,
-    "description": null,
-    "image": null
-  },
-  {
     "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
     "title": "Backlinks - OP DEV DEMO",
@@ -110,5 +103,19 @@
     "title": "Tags and Octothorpes - OP DEV DEMO",
     "description": "Octothorpes are like super-tags for websites. So they are designed to work seamlessly with any platform's normal method of tagging content.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/web-components",
+    "title": "Web Components - OP DEV DEMO",
+    "description": "OP ships a set of web components for displaying indexed content on any site.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "object",
+    "uri": "https://octothorp.es/~/demo",
+    "title": null,
+    "description": null,
+    "image": null
   }
 ]

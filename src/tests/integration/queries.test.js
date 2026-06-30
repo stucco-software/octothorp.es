@@ -27,7 +27,17 @@ describe('buildQueries smoke tier (default)', () => {
       expect(typeof q.name).toBe('string')
       expect(q.name).not.toMatch(/[/\s]/) // filesystem-safe
       expect(q.path.startsWith('/get/')).toBe(true)
-      expect(q.path).toContain('/debug')
+    }
+  })
+
+  it('matrix queries use /debug format; rss queries use /rss format', () => {
+    for (const q of qs) {
+      if (q.name.startsWith('matrix-') || q.name.startsWith('linkterms-') || q.name.startsWith('completeness-')) {
+        expect(q.path).toContain('/debug')
+      } else if (q.name.startsWith('rss-')) {
+        expect(q.path).toContain('/rss')
+        expect(q.format).toBe('xml')
+      }
     }
   })
 
