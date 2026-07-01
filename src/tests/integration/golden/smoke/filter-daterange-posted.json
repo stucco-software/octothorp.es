@@ -1,0 +1,9 @@
+[
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/post-date",
+    "title": "Post Date - OP DEV DEMO",
+    "description": "Pages can declare their own publication date, which OP indexes and uses for date-based API filtering.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  }
+]
