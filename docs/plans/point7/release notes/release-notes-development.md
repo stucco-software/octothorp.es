@@ -617,3 +617,56 @@ then `npx vitest run src/tests/integration/smoketest.test.js`; re-bless with
 `scripts/smoketest.js`, `src/tests/integration/{manifest,queries,normalize,smoketest.test}.js`
 (+ unit tests), `src/tests/delete.test.js`, `src/routes/debug/index-check/test-urls.yaml`,
 `src/tests/integration/golden/*`, `package.json`, `.gitignore`, `README.md`.
+
+## #211 — `not-s` exclusion params restored
+
+Exclusion params were broken two ways: `not-s` was silently ignored on `pages/thorped` queries, and `pages/posted?not-s=...` returned a 500. Root cause was upstream of `buildSubjectStatement` (the function the original plan suspected):
+
+**What changed:**
+- **`packages/core/multipass.js`**: In the default (`match=unset`) branch, the fuzzy check read the still-empty `notS` accumulator instead of the parsed `notSubjects`, and the `exact` else-branch never assigned `notS` at all — so an exclude-only request (or any exact-mode request with `not-s`) dropped the exclusion before it reached the query builder. Now the fuzzy check looks at `notSubjects`, and the exact branch assigns `notS = cleanInputs(notSubjects, "exact")`.
+- **`packages/core/queryBuilders.js`**: `getStatements` only permitted a query when `subjects.include`/`objects.include` were non-empty, so an exclude-only query (`pages/posted?not-s=...`, where `?s` is bound via `?s octo:created ?date`) threw "Must provide at least subjects, objects, or relationship terms" → 500. The guard now also accepts non-empty `subjects.exclude`/`objects.exclude`. Removed two leftover debug `console.log`s in `buildSubjectStatement` and the guard.
+
+Verified against local SPARQL: `pages/thorped?o=relationships&not-s=demo.ideastore.dev` drops from 7→6 subjects (demo removed), the `everything` two-phase path excludes identically (Phase 1 `buildSimpleQuery` carries the filter), and `pages/posted?not-s=...` no longer throws. Unit coverage added in `src/tests/sparql.test.js` ("exclusion params (not-s) — issue #211").
+
+**Files affected:** `packages/core/multipass.js`, `packages/core/queryBuilders.js`, `src/tests/sparql.test.js`.
+
+## #233 / #212 — `pages/*/rss` empty feed (and the "broken date filter")
+
+`/get/pages/posted/rss` (and `pages/thorped/rss`, `links/*/rss`, etc.) returned an empty `<channel>` after the finish-publishers merge, while the `everything/*/rss` feeds worked. This also masqueraded as #212 ("recent/date filters broken"): the demo's `pages/thorped/rss?...&when=recent` feed came back empty, but the date filter itself was fine.
+
+**Root cause:** the built-in `rss2` resolver read `link`/`guid`/`title` from the blobject `@id` field only. Blobject-shaped results (from `everything`/`blobjects`) have `@id`; `parseBindings`-shaped rows (from `pages`/`links`/`backlinks`/`thorpes`/`domains`) are keyed by `uri`. With `link` marked `required`, every page row failed `resolve()` and was dropped (`publish()` filters falsy results) → empty feed. Object/term rows drop naturally because they have no `date` for the required `pubDate`.
+
+**What changed:**
+- **`packages/core/publishers.js`**: `rss2` resolver `from` clauses now use ordered fallbacks so one resolver consumes both shapes — `title: ['title','@id','uri']`, `link: ['@id','uri']`, `guid: ['@id','uri']`. Blobjects still resolve via `@id` (first); page rows resolve via `uri`.
+
+**#212 is not a date bug.** Date filtering works on the JSON/debug paths (`everything/thorped?...&when=recent` filters 7→2; SPARQL emits `FILTER (COALESCE(?postDate, ?date) >= …)`). The empty *feed* was the RSS-shape bug above; fixing it restored `pages/thorped/rss?...&when=recent` (now returns the recent subset). Regression coverage added to `src/tests/sparql.test.js`.
+
+Verified live: `pages/posted/rss` 0→18 items; `everything/*/rss` unchanged. Smoketest reblessed (`npm run smoketest:update`) — the golden churn is benign: instance origin normalized to `{INSTANCE}` (target-independent), the new publisher's tighter item whitespace, and devdemo content growth + relationship-terms enrichment that predated the old goldens. Suite green (23/23).
+
+**Out-of-band dependency fix:** `@mozilla/readability` and `linkedom` were declared in `package.json` but absent from `node_modules`. `src/lib/publishers/index.js` eagerly globs every renderer, so the `readable` publisher's import of the missing package crashed the import graph and 500'd the entire `/get/` read path (and `readable-publisher.test.js`). `npm install` resolved it; this was the actual cause of the earlier wholesale integration-test failures, not a code regression.
+
+**Files affected:** `packages/core/publishers.js`, `src/tests/publish-core.test.js`, `src/tests/sparql.test.js`, `src/tests/integration/golden/smoke/*` (reblessed), `package-lock.json`.
+
+## #150 — octothorpes returned as pages in `pages` queries
+
+`get/pages/thorped?o=<term>` returned the matched term itself as a result row, so consumers (e.g. `/explore`) listed octothorpes as if they were pages.
+
+**Root cause:** for a thorped/tagged query the object `?o` is bound to the term (`rdf:type octo:Term`). `parseBindings` (pages mode) emits both the subject page and the object as flat rows tagged with `role`, so the term surfaced as a `role:object` row.
+
+**What changed:**
+- **`packages/core/api.js`**: after `parseBindings`, the `pages`/`links`/`backlinks` branch now drops `role:object` rows when `multiPass.objects.type === 'termsOnly'`. Other object types (`notTerms`/`pagesOnly`, used by linked/cited/bookmarked) have page objects and are left intact, so `pages/linked?s=X` still returns the linked pages.
+
+Verified live (`pages/thorped?o=demo` now returns only subject pages) and unit-covered in `src/tests/api.test.js` (plus a guard test that `pages/linked` keeps page objects). Smoketest golden `matrix-pages-thorped` reblessed to drop the term row.
+
+## #115 — fuzzy tags with separators didn't match
+
+Humans expect `blue-slurpee` to match `blue slurpee`, `blueSlurpee`, and `Blue Slurpee` on a fuzzy search; it didn't.
+
+**Root cause:** `getFuzzyTags` (`packages/core/utils.js`) had its separator-normalization step commented out with a "TKTK fix this -- errors when run" note, so `blue-slurpee` was treated as a single opaque word and never expanded into space/camel/snake variants. The original crash it was hiding was `words[0]`/`singleWord[0]` indexing into an empty array when a tag reduced to zero words (separator-only input like `---`).
+
+**What changed:**
+- **`packages/core/utils.js`**: restored the normalization (`[-_]` → space, camelCase split via `([a-z])([A-Z])`) and added an `if (words.length === 0) continue` guard so separator-only/empty tags are skipped instead of crashing the variation builders.
+
+Verified live via very-fuzzy object matching: `web-components`, `webComponents`, and `webcomponents` all match the stored `webcomponents` term. Unit coverage in `src/tests/fuzzytags.test.js` (variant expansion + no-throw on separator-only/empty input).
+
+**Files affected:** `packages/core/api.js`, `packages/core/utils.js`, `src/tests/api.test.js`, `src/tests/fuzzytags.test.js`, `src/tests/integration/golden/smoke/matrix-pages-thorped.json` (reblessed).

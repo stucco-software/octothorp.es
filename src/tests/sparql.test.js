@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { testQueryFromMultiPass, buildSimpleQuery } from '$lib/sparql.js'
-import { createQueryBuilders } from 'octothorpes'
+import { createQueryBuilders, buildMultiPass } from 'octothorpes'
 
 describe('buildObjectStatement via testQueryFromMultiPass', () => {
   describe('mode "all" with terms', () => {
@@ -388,5 +388,32 @@ describe('createQueryBuilders', () => {
     expect(typeof builders.buildDomainQuery).toBe('function')
     expect(typeof builders.getStatements).toBe('function')
     expect(typeof builders.prepEverything).toBe('function')
+  })
+})
+
+describe('exclusion params (not-s) — issue #211', () => {
+  const instance = 'http://localhost:5173/'
+  const builders = createQueryBuilders(instance)
+
+  it('pages/thorped with not-s emits an exclusion FILTER on ?s', () => {
+    const mp = buildMultiPass('pages', 'thorped', {
+      o: 'cats',
+      notS: 'demo.ideastore.dev,docs.octothorp.es'
+    }, instance)
+    // The exclusion must survive multipass into subjects.exclude
+    expect(mp.subjects.exclude).toContain('demo.ideastore.dev')
+    const query = builders.buildSimpleQuery(mp)
+    expect(query).toContain('demo.ideastore.dev')
+    expect(query).toMatch(/FILTER\s*\(\s*!CONTAINS|NOT IN/i)
+  })
+
+  it('pages/posted with only not-s does not throw and filters ?s', () => {
+    const mp = buildMultiPass('pages', 'posted', {
+      notS: 'demo.ideastore.dev'
+    }, instance)
+    expect(mp.subjects.exclude).toContain('demo.ideastore.dev')
+    expect(() => builders.buildSimpleQuery(mp)).not.toThrow()
+    const query = builders.buildSimpleQuery(mp)
+    expect(query).toContain('demo.ideastore.dev')
   })
 })

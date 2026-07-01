@@ -9,8 +9,8 @@
   {
     "role": "object",
     "uri": "https://docs.octothorp.es",
-    "title": null,
-    "description": null,
+    "title": "Octothorpe Protocol v0.5",
+    "description": "Announcing our first version release and a new docs site",
     "image": null
   },
   {
@@ -155,30 +155,37 @@
   },
   {
     "role": "object",
-    "uri": "https://octothorped-wordpress.pikapod.net",
+    "uri": "https://octothorp.es/~/testing",
     "title": null,
+    "description": null,
+    "image": null
+  },
+  {
+    "role": "object",
+    "uri": "https://octothorped-wordpress.pikapod.net",
+    "title": "Octothorpes on WordPress",
     "description": null,
     "image": null
   },
   {
     "role": "object",
     "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
-    "title": null,
+    "title": "How it Works – Octothorpes on WordPress",
     "description": null,
     "image": null
   },
   {
     "role": "object",
     "uri": "https://octothorpes.bearblog.dev",
-    "title": null,
+    "title": "Octothorpes on Bear",
     "description": null,
     "image": null
   },
   {
     "role": "object",
     "uri": "https://octothorpes.neocities.org",
-    "title": null,
-    "description": null,
+    "title": "The web site of octothorpes",
+    "description": "Imagine being able to use hashtags on your Neocities site! Well, now you can! It's *really* easy.",
     "image": null
   },
   {

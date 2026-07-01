@@ -331,13 +331,16 @@ export const getFuzzyTags = (tags) => {
 
     // Convert all separators to spaces first for consistent processing
     const withSpaces = trimmedTag
-    // TKTK fix this -- errors when run
-      // .replace(/[-_]/g, " ") // Convert hyphens and underscores to spaces
-      // .replace(/([a-z])([A-Z])/g, "$1 $2"); // Split camelCase
+      .replace(/[-_]/g, " ") // Convert hyphens and underscores to spaces
+      .replace(/([a-z])([A-Z])/g, "$1 $2"); // Split camelCase
 
     // Generate base forms
     const base = withSpaces.toLowerCase().trim();
     const words = base.split(/\s+/).filter(Boolean);
+    // Separator-only or empty tags leave no words; skip so the variation
+    // builders below never index into an empty array (the original crash that
+    // led to the normalization being disabled entirely — #115).
+    if (words.length === 0) continue;
     const singleWord = words.join("");
 
     // Generate variations for this tag (without #)

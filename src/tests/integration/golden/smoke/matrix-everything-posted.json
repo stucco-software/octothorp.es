@@ -274,6 +274,13 @@
     "octothorpes": [
       "demo",
       {
+        "uri": "https://octothorp.es/~/testing",
+        "type": "Link",
+        "terms": [
+          "testing"
+        ]
+      },
+      {
         "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
         "type": "Link"
       },

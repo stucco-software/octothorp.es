@@ -209,6 +209,23 @@ describe('core publisher registry', () => {
       expect(pub.meta.channel).toBeUndefined()
       expect(pub.envelope.title).toBe('Octothorpes Feed')
     })
+
+    // #233 / #212: pages/links/thorpes routes feed parseBindings rows (keyed by
+    // `uri`, not blobject `@id`) into the rss publisher. The resolver must accept
+    // both shapes or these feeds come back empty.
+    it('resolves parseBindings page rows (uri instead of @id) into items', () => {
+      const pub = registry.getPublisher('rss2')
+      const pageRows = [
+        { role: 'subject', uri: 'https://example.com/post', title: 'A Post', description: 'desc', date: 1700000000000, image: 'https://example.com/i.png' },
+        // object/term rows have no date; required pubDate must drop them
+        { role: 'object', uri: 'https://example.com/~/demo', title: null, description: null, image: null },
+      ]
+      const items = publish(pageRows, pub.resolver)
+      expect(items).toHaveLength(1)
+      expect(items[0].link).toBe('https://example.com/post')
+      expect(items[0].guid).toBe('https://example.com/post')
+      expect(items[0].title).toBe('A Post')
+    })
   })
 
   describe('standardSiteDocument render', () => {

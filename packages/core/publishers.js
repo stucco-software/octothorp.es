@@ -45,10 +45,15 @@ export const createPublisherRegistry = () => {
     '@context': 'https://www.rssboard.org/rss-specification',
     '@id': 'https://octothorp.es/publishers/rss2',
     '@type': 'resolver',
+    // `from` arrays are ordered fallbacks so one resolver consumes both shapes:
+    // blobjects (keyed by `@id`, from everything/blobjects routes) and
+    // parseBindings rows (keyed by `uri`, from pages/links/thorpes/domains routes).
+    // Without the `uri` fallback, page rows fail the required `link`/`title` and
+    // get dropped, producing an empty feed (#233, #212).
     schema: {
-      title: { from: ['title', '@id'], required: true },
-      link: { from: '@id', required: true },
-      guid: { from: '@id' },
+      title: { from: ['title', '@id', 'uri'], required: true },
+      link: { from: ['@id', 'uri'], required: true },
+      guid: { from: ['@id', 'uri'] },
       pubDate: { from: 'date', postProcess: { method: 'date', params: 'rfc822' }, required: true },
       description: { from: 'description' },
       image: { from: 'image' },

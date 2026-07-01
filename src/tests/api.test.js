@@ -71,6 +71,39 @@ describe('createApi', () => {
       expect(result).toHaveProperty('query')
       expect(result).not.toHaveProperty('actualResults')
     })
+
+    // #150: a pages/thorped query binds the matched term as ?o (rdf:type Term).
+    // parseBindings emits it as a role:object row, so consumers see octothorpes
+    // listed as pages. A `pages` result must not include term objects.
+    it('should not return term objects as pages in pages/thorped (#150)', async () => {
+      const bindings = [
+        { s: { type: 'uri', value: 'https://a.com/post' }, o: { type: 'uri', value: 'https://test.example.com/~/demo' }, date: { value: '1700000000000' } },
+        { s: { type: 'uri', value: 'https://b.com/post' }, o: { type: 'uri', value: 'https://test.example.com/~/demo' }, date: { value: '1700000000001' } },
+      ]
+      mockQueryArray.mockResolvedValue({ results: { bindings } })
+      const api = createApi(config)
+      const result = await api.get('pages', 'thorped', { o: 'demo' })
+
+      const uris = result.results.map(r => r.uri)
+      expect(uris).toContain('https://a.com/post')
+      expect(uris).toContain('https://b.com/post')
+      // the term must not appear as a result row
+      expect(result.results.every(r => r.role !== 'object')).toBe(true)
+      expect(uris).not.toContain('https://test.example.com/~/demo')
+    })
+
+    // links/cited/bookmarked objects are pages (notTerms), not terms — keep them.
+    it('should keep page objects in pages/linked results (#150 guard)', async () => {
+      const bindings = [
+        { s: { type: 'uri', value: 'https://a.com/post' }, o: { type: 'uri', value: 'https://target.com/page' }, date: { value: '1700000000000' } },
+      ]
+      mockQueryArray.mockResolvedValue({ results: { bindings } })
+      const api = createApi(config)
+      const result = await api.get('pages', 'linked', { s: 'a.com' })
+
+      const uris = result.results.map(r => r.uri)
+      expect(uris).toContain('https://target.com/page')
+    })
   })
 
   describe('fast.terms()', () => {
