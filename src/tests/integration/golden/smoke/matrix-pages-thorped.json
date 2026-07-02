@@ -110,12 +110,5 @@
     "title": "Web Components - OP DEV DEMO",
     "description": "OP ships a set of web components for displaying indexed content on any site.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
-  },
-  {
-    "role": "object",
-    "uri": "https://octothorp.es/~/demo",
-    "title": null,
-    "description": null,
-    "image": null
   }
 ]

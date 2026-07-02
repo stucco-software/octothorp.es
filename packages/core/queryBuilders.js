@@ -19,7 +19,6 @@ export const createQueryBuilders = (instance, queryArray) => {
     const includeList = blob.include
     const excludeList = blob.exclude
     const mode = blob.mode
-    console.log(includeList, excludeList)
     // TKTK review the empty subject problem here
     if (mode === "byParent" && !includeList?.length && !excludeList?.length) {
       console.error('Missing required subject for mode:', mode);
@@ -222,8 +221,9 @@ export const createQueryBuilders = (instance, queryArray) => {
   }
 
   function getStatements(subjects, objects, filters, resultMode) {
-    if (subjects.include.length === 0 && objects.include.length === 0 && !(filters.relationTerms?.length > 0)) {
-      console.log("not it")
+    const hasSubjects = subjects.include.length > 0 || subjects.exclude.length > 0
+    const hasObjects = objects.include.length > 0 || objects.exclude.length > 0
+    if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0)) {
       throw new Error('Must provide at least subjects, objects, or relationship terms');
     }
 

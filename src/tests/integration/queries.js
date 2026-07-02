@@ -71,9 +71,23 @@ const buildCompleteness = () => ([
   { name: 'completeness-all-pages', path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&limit=1000` },
 ])
 
+// Filter queries: smoke coverage for the Wave 1 exclusion (#211) and date-range
+// (#212) fixes, which the generic matrix never exercised.
+//  - not-s excludes the `post-date` page: deterministic 18 posted -> 17. Guards
+//    the multipass silent-drop regression (not-s must survive into subjects.exclude).
+//  - the date range isolates the single devdemo page with a source-declared
+//    postDate (post-date, 2024-06-15); every other page falls back to its
+//    index-time date (always > 2025), so the range deterministically returns
+//    exactly that one page and exercises COALESCE(postDate, date).
+const buildFilters = () => ([
+  { name: 'filter-nots-posted',      path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&not-s=post-date` },
+  { name: 'filter-daterange-posted', path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&when=between-2024-01-01-and-2025-01-01` },
+])
+
 export const buildQueries = (manifest, { tier = 'smoke' } = {}) => [
   ...buildMatrix({ full: tier === 'full' }),
   ...buildRss(),
   ...buildLinkTerms(),
   ...buildCompleteness(),
+  ...buildFilters(),
 ]

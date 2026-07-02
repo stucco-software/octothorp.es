@@ -105,13 +105,14 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   if (subjectMode != "byParent") {
     switch (matchFilterParam) {
       case "unset":
-        if (areUrlsFuzzy(subjects) === true || areUrlsFuzzy(notS)) {
+        if (areUrlsFuzzy(subjects) === true || areUrlsFuzzy(notSubjects)) {
           s = cleanInputs(subjects)
           notS = cleanInputs(notSubjects)
           subjectMode = "fuzzy"
         }
         else {
           s = cleanInputs(subjects, "exact")
+          notS = cleanInputs(notSubjects, "exact")
           subjectMode = "exact"
         }
         if (objectType === "termsOnly") {

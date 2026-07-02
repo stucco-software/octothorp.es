@@ -69,6 +69,13 @@ export const createApi = (config) => {
         query = builders.buildSimpleQuery(multiPass)
         const sr = await queryArray(query)
         actualResults = parseBindings(sr.results.bindings)
+        // #150: thorped/tagged queries bind the matched term as ?o (rdf:type
+        // Term). parseBindings surfaces it as a role:object row, so terms leak
+        // into a `pages` result as if they were pages. Drop term objects; other
+        // query types (notTerms/pagesOnly) have page objects worth keeping.
+        if (multiPass.objects.type === 'termsOnly') {
+          actualResults = actualResults.filter(r => r.role !== 'object')
+        }
         break
       }
       case 'everything':

@@ -1,19 +1,5 @@
 [
   {
-    "role": "object",
-    "uri": "https://aftermath.site/website-musk-twitter-facebook-internet",
-    "title": null,
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://docs.octothorp.es",
-    "title": "Octothorpe Protocol v0.5",
-    "description": "Announcing our first version release and a new docs site",
-    "image": null
-  },
-  {
     "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
     "title": "Backlinks - OP DEV DEMO",
@@ -99,13 +85,6 @@
   },
   {
     "role": "subject",
-    "uri": "https://nimdaghlian.github.io/devdemo/post-date",
-    "title": "Post Date - OP DEV DEMO",
-    "description": "Pages can declare their own publication date, which OP indexes and uses for date-based API filtering.",
-    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
-  },
-  {
-    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/pure-http",
     "title": "Octothorpe Without Javascript - OP DEV DEMO",
     "description": "If you don't want to use javascript or display #s on the front end, you can use the pure-HTTP method.",
@@ -134,65 +113,9 @@
   },
   {
     "role": "subject",
-    "uri": "https://nimdaghlian.github.io/devdemo/tags-only",
-    "title": "Tags Only - OP DEV DEMO",
-    "description": "This page is using tags in the traditional way, even though the pages linked here use those tags as octothorpes.",
-    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
-  },
-  {
-    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/web-components",
     "title": "Web Components - OP DEV DEMO",
     "description": "OP ships a set of web components for displaying indexed content on any site.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
-  },
-  {
-    "role": "object",
-    "uri": "https://nora.zone/manifesto.html",
-    "title": null,
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://octothorp.es/~/testing",
-    "title": null,
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://octothorped-wordpress.pikapod.net",
-    "title": "Octothorpes on WordPress",
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
-    "title": "How it Works – Octothorpes on WordPress",
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://octothorpes.bearblog.dev",
-    "title": "Octothorpes on Bear",
-    "description": null,
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://octothorpes.neocities.org",
-    "title": "The web site of octothorpes",
-    "description": "Imagine being able to use hashtags on your Neocities site! Well, now you can! It's *really* easy.",
-    "image": null
-  },
-  {
-    "role": "object",
-    "uri": "https://stefanbohacek.com/blog/resources-for-keeping-the-web-free-open-and-poetic",
-    "title": null,
-    "description": null,
-    "image": null
   }
 ]

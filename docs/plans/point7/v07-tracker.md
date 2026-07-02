@@ -52,12 +52,14 @@
 ## Wave 1 — Bug fixes
 > Independent of Wave 0. Can start immediately.
 
-- [ ] **#211** Exclusions (`not-s`) broke again — plan: `docs/plans/point7/2026-05-19-exclusions-fix-211.md`
-- [ ] **#212** Recent/date filters broken
-- [ ] **#150** Pages queries returning octothorpes as pages
-- [ ] **#115** Fuzzy tags broken with separator chars (hyphen, camelCase, spaces)
-- [ ] **#213** Wire endorsement gating in `handleMention` — `ingestBlobject` owns the logic cleanly now
-- [ ] #233 -- rss-pages-posted smoketet failure
+- [x] **#211** Exclusions (`not-s`) broke again — plan: `docs/plans/point7/2026-05-19-exclusions-fix-211.md` — fixed in `multipass.js` (unset-branch dropped `notS`) + `queryBuilders.js` `getStatements` guard (now allows exclude-only). Unit + live verified (`pages/thorped?o=relationships&not-s=demo.ideastore.dev` 7→6; `pages/posted?not-s=` no longer 500s).
+- [x] **#212** Recent/date filters broken — NOT a date-filter bug. Date filtering works correctly on JSON/debug paths (`everything/thorped&when=recent` filters 7→2; SPARQL is `FILTER (COALESCE(?postDate, ?date) >= …)`). The user-visible "broken feed" was the `pages/*/rss` empty-feed bug (= #233); fixing that restored `pages/thorped/rss?...&when=recent` (now 2 items). Regression coverage in `sparql.test.js`.
+- [x] **#150** Pages queries returning octothorpes as pages — `parseBindings` emits the matched term (`?o rdf:type Term`) as a `role:object` row, leaking octothorpes into `pages` results. `api.get` now drops `role:object` rows when `objects.type === 'termsOnly'` (thorped/tagged); `notTerms`/`pagesOnly` object rows (linked/cited/bookmarked) are kept. Unit (`api.test.js`) + live verified; smoketest golden reblessed.
+- [x] **#115** Fuzzy tags broken with separator chars (hyphen, camelCase, spaces) — `getFuzzyTags` had its separator-normalization (`[-_]`→space, camelCase split) commented out with a "errors when run" note; the real crash was `words[0]`/`singleWord[0]` on separator-only input. Restored the normalization + added an empty-`words` guard. Unit (`fuzzytags.test.js`) + live verified (`web-components`/`webComponents`/`webcomponents` all match stored `webcomponents` via very-fuzzy).
+- [ ] **#213** Wire endorsement gating in `handleMention` — DEFERRED (design-heavy, labeled wave/4; out of scope for this bug-fix pass)
+- [x] #233 -- rss-pages-posted smoketest failure — root cause: rss2 resolver read `link`/`guid`/`title` from blobject `@id` only, so `parseBindings` rows (pages/links/thorpes, keyed by `uri`) failed the required `link` and were filtered out → empty feed. Fixed by adding `uri` as an ordered `from` fallback in `publishers.js`. `pages/posted/rss` 0→18 items; smoketest goldens reblessed (origin→`{INSTANCE}`, RSS whitespace, devdemo growth + relationship-terms enrichment). Suite 23/23.
+
+> **Note (dep fix, out-of-band):** `@mozilla/readability` + `linkedom` were declared in `package.json` but missing from `node_modules`; the eager publishers glob (`src/lib/publishers/index.js`) crashed on the `readable` renderer import, 500ing the entire `/get/` read path. `npm install` resolved it. This was the real cause of the prior mass integration-test failures.
 
 
 ---
