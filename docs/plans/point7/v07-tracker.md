@@ -64,23 +64,31 @@
 
 ---
 
-## Wave 2 — OP Client Profile and Vocabulary 
+
+## Wave 2 — OP Client Profile and Vocabulary
 
 > Foundational. Establishes a single config source-of-truth for OP Clients. Closes #165 as a superset.
 > Epic: **#215**. Two revs; Rev 2 may slip to v0.8.
+> **Conceptual design (2026-07-02): `docs/plans/point7/2026-07-02-profile-vocabulary-decoupling.md`** — read before starting any Wave 2 work. Supersedes the client-vocab ambition in `vocabulary-design.md`.
 
+### Client Profile
 - [ ] **#216** Rev 1 (MVP) — schema, loader, `profile.public.json`, `/profile` HTML + `/profile.json` endpoints. No behavior changes.
-- [ ] **#217** Rev 2 (Integration) — `createClient`, publishers, harmonizers, and indexing pipeline all read from the profile. Deprecates ad-hoc config sites.
-- [ ] **#192** Add Content Labels to OP vocabulary
-- [ ]  **#166** Harmonize non-canonical Document Record content on request < DRs should be defined in the Client Profile
+- [ ] **#217** Rev 2 (Integration) — bucket-A (behavior-gating) fields become live: `createClient`, publishers, harmonizers, indexing pipeline read from the profile. Deprecates ad-hoc config sites.
+- [ ] **#236** Profile-declared relationship subtypes get first-class API paths (e.g. `/get/aliasesOf/posted`) — Rev 2 integration; split out from #200.
 
-**Design notes:**
-- `profile.public.json` (committed) + `.env` (secrets); loader merges to `profile.full`
-- `/profile` (HTML) and `/profile.json` (raw JSON) — public view only, secrets stripped defensively
-- Not stored in triplestore — purely operational
-- One profile per OP install
-- allowed protocols should be in there (ie https only, etc)
+### Vocabulary (OP's own house — client-extensible vocab is DEFERRED)
+- [ ] **documentRecord projection** — net-new: route declared non-canonical predicates into a `documentRecord` sub-object in `getBlobjectFromResponse`; drop undeclared ones. The single stable extension seam. (No projection exists today.)
+- [ ] **Canonical vocab cleanup** — reconcilable part of #195 ONLY: fix context.json / naming / the three-representations disagreement for `octo:` terms. Drop the client-extension ambition.
+- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery.
+- [ ] **#166** On-demand Document Records — harmonize-at-request → project into `documentRecord` → do NOT store. Now depends only on documentRecord + a stored `octo:harmonizeWith` ref, **not** on #194.
 
+**Design decisions (see the 2026-07-02 doc):**
+- **`.env` = secrets ONLY** (db, smtp, external-account creds). Everything else — identity, settings, indexing config, `vocabulary` section — is in committed `profile.public.json`. No `profile.full` merge; the one public/secret split (external accounts) is a provider→credential lookup done at point-of-use, not a merged blob.
+- **Field grouping:** A. behavior-gating (indexing mode, registration policy, allowed protocols incl. https-only, harmonizers, publishers, vocabulary) — inert in Rev 1, live in Rev 2; B. declarative identity (name, description, favicon, badge, avatar, terms, social) — only `/profile` renders; C. secrets — `.env`.
+- **Declaration model:** profile is the *authored* source of truth; `context.json` and the client vocab doc are *generated* projections (kills context.json staleness). Vocab→context is serialization (fine); vocab→harmonizer propagation is DEFERRED.
+- **Subtype/documentRecord split (traversal rule):** traversable edge → relationship subtype (open-enum `type` in `octothorpes` array; declaration is opt-in-to-first-class); leaf property → `documentRecord` (declaration required — namespace+range for typing + allowlist).
+- Not stored in triplestore (profile) — purely operational. One profile per OP install.
+- **DEFERRED to later milestone:** fully client-defined vocabulary as a code system (#194 core ambition), top-level blobject coupling, the vocab→harmonizer propagation tool. `?st=` generic param (#200) stays in Wave 4.
 
 
 ---
