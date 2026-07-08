@@ -14,7 +14,7 @@ import { publish } from './publish.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
-export { createQueryBuilders } from './queryBuilders.js'
+export { createQueryBuilders, documentRecordNamespaces, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { buildMultiPass } from './multipass.js'
 export { getBlobjectFromResponse } from './blobject.js'
@@ -33,6 +33,7 @@ export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publ
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
+export { createProfile, credentialEnvKey } from './profile.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is

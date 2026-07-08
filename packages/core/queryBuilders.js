@@ -1,6 +1,79 @@
 import { getFuzzyTags } from './utils.js'
 
 /**
+ * documentRecord namespace -> IRI base map (#237).
+ *
+ * The profile declares each documentRecord predicate as `{ predicate, namespace,
+ * range }` where `namespace` is a short prefix ("schema", "memex", ...). The read
+ * path resolves it to a full IRI here — this is the single core-owned resolver so
+ * the read query and any future write path agree on the predicate IRI. An entry
+ * may carry an explicit `iri` to bypass the map entirely.
+ *
+ * NOTE (RDF-star insulation): documentRecord predicates are queried DIRECTLY as
+ * plain leaf triples (`?s <iri> ?value`), never through the relationship /
+ * blank-node machinery. This keeps the feature orthogonal to the RDF-star
+ * migration.
+ */
+export const documentRecordNamespaces = {
+  schema: 'https://schema.org/',
+  memex: 'https://vocab.octothorp.es/memex#',
+  octo: 'https://vocab.octothorp.es#',
+  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  foaf: 'http://xmlns.com/foaf/0.1/',
+}
+
+/**
+ * Resolve a documentRecord declaration entry to a full predicate IRI.
+ * @param {{predicate:string, namespace?:string, iri?:string}} entry
+ * @returns {string|null} full IRI, or null when the namespace is unknown (entry
+ *   is then skipped from the query — a malformed IRI is never injected).
+ */
+export const resolveDocumentRecordIri = (entry) => {
+  if (!entry || !entry.predicate) return null
+  if (entry.iri) return entry.iri
+  const base = documentRecordNamespaces[entry.namespace]
+  if (!base) return null
+  return `${base}${entry.predicate}`
+}
+
+/**
+ * Deterministic, SPARQL-safe binding variable name for a documentRecord entry.
+ * Shared by the query builder (which SELECTs it) and the projector in
+ * blobject.js (which reads it), so the two never drift.
+ * @param {{predicate:string, namespace?:string}} entry
+ * @returns {string} e.g. "dr_schema_encodingFormat"
+ */
+export const documentRecordVar = (entry) =>
+  `dr_${entry.namespace ?? 'x'}_${entry.predicate}`.replace(/[^A-Za-z0-9_]/g, '_')
+
+/**
+ * Build the SELECT vars and OPTIONAL leaf patterns that surface declared
+ * documentRecord predicates for the result subjects. Declaration-driven: only
+ * declared predicates are queried (the admission allowlist), and each is a plain
+ * `?s <iri> ?var` leaf — no FILTER(isBlank(...)) path.
+ * @param {Array<{predicate:string, namespace?:string, iri?:string}>} [schema=[]]
+ * @returns {{selectVars:string, optionals:string}}
+ */
+export const buildDocumentRecordClauses = (schema = []) => {
+  if (!Array.isArray(schema) || schema.length === 0) {
+    return { selectVars: '', optionals: '' }
+  }
+  const selectVars = []
+  const optionals = []
+  for (const entry of schema) {
+    const iri = resolveDocumentRecordIri(entry)
+    if (!iri) continue
+    const v = documentRecordVar(entry)
+    selectVars.push(`?${v}`)
+    optionals.push(`OPTIONAL { ?s <${iri}> ?${v} . }`)
+  }
+  return {
+    selectVars: selectVars.length ? ' ' + selectVars.join(' ') : '',
+    optionals: optionals.join('\n'),
+  }
+}
+
+/**
  * Creates parameterized SPARQL query builders.
  * @param {string} instance - The OP instance URL (e.g. 'https://octothorp.es/')
  * @param {Function} [queryArray] - Optional queryArray function for prepEverything
@@ -327,7 +400,7 @@ export const createQueryBuilders = (instance, queryArray) => {
    * Builds a comprehensive SPARQL query for retrieving complete blobjects with metadata
    */
   const buildEverythingQuery = async ({
-    meta, subjects, objects, filters
+    meta, subjects, objects, filters, documentRecordSchema
     }) => {
     const subjectList = await prepEverything({
       meta, subjects, objects, filters
@@ -340,6 +413,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       }`;
     }
     const statements = getStatements(subjectList, objects, filters, meta.resultMode)
+    const dr = buildDocumentRecordClauses(documentRecordSchema)
     let noObjectHandler = ""
 
     if (objects.type === 'none') {
@@ -358,6 +432,7 @@ export const createQueryBuilders = (instance, queryArray) => {
           ?blankNode ?bnp ?blankNodeObj .
           FILTER(!isBlank(?blankNodeObj))
         }
+        ${dr.optionals}
         BIND("" AS ?o)
         BIND("" AS ?oType)
         BIND("" AS ?ot)
@@ -368,7 +443,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         }
       }`;
     }
-    const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj
+    const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj${dr.selectVars}
     WHERE {
       {
         ${statements.subjectStatement}
@@ -385,6 +460,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         OPTIONAL { ?o octo:title ?ot }
         OPTIONAL { ?o octo:description ?od }
         OPTIONAL { ?o octo:image ?oimg }
+        ${dr.optionals}
         OPTIONAL {
           ?s octo:octothorpes ?blankNode .
           FILTER(isBlank(?blankNode))
@@ -532,5 +608,6 @@ export const createQueryBuilders = (instance, queryArray) => {
     prepEverything,
     getStatements,
     testQueryFromMultiPass,
+    buildDocumentRecordClauses,
   }
 }
