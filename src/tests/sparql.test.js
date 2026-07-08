@@ -340,7 +340,7 @@ describe('merged subtypeFilter + relationTermsFilter', () => {
   })
 })
 
-describe('getStatements guard - relaxed for rt', () => {
+describe('getStatements guard - relaxed for rt and subtype', () => {
   const instance = 'http://localhost:5173/'
   const builders = createQueryBuilders(instance)
 
@@ -349,18 +349,32 @@ describe('getStatements guard - relaxed for rt', () => {
       builders.getStatements(
         { include: [], exclude: [], mode: 'exact' },
         { include: [], exclude: [], mode: 'exact', type: 'notTerms' },
-        { subtype: 'Bookmark', relationTerms: ['gadgets'], limitResults: '100', offsetResults: '0' },
+        { subtype: '', relationTerms: ['gadgets'], limitResults: '100', offsetResults: '0' },
         'links'
       )
     }).not.toThrow()
   })
 
-  it('should still throw when no s, o, or rt', () => {
+  // C9 (#236): a declared-subtype path (e.g. /get/items/posted) constrains the
+  // result set by the relationship subtype alone. The subtype FILTER EXISTS is
+  // a bounding constraint, so it is admitted like relationTerms.
+  it('should allow getStatements with only a subtype (no s, o, or rt)', () => {
+    expect(() => {
+      builders.getStatements(
+        { include: [], exclude: [], mode: 'exact' },
+        { include: [], exclude: [], mode: 'exact', type: 'all' },
+        { subtype: 'Item', limitResults: '100', offsetResults: '0' },
+        'blobjects'
+      )
+    }).not.toThrow()
+  })
+
+  it('should still throw when no s, o, rt, or subtype', () => {
     expect(() => {
       builders.getStatements(
         { include: [], exclude: [], mode: 'exact' },
         { include: [], exclude: [], mode: 'exact', type: 'notTerms' },
-        { subtype: 'Bookmark', limitResults: '100', offsetResults: '0' },
+        { subtype: '', limitResults: '100', offsetResults: '0' },
         'links'
       )
     }).toThrow()
