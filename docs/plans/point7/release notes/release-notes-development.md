@@ -748,3 +748,15 @@ Frontmatter `tags` previously fell through to the `documentRecord` passthrough, 
 Verified: `src/tests/markdownHandler.test.js` extended with 8 new cases (list, single string, comma-separated, whitespace/empty trimming, absent, empty list, no documentRecord leak, coexistence with body wikilinks). Full regression across the markdown suite (`markdownHandler.test.js`, `markdownWikilinks.test.js`, `markdownWikilinkResolution.test.js`, `c14MemexRoundtrip.test.js`) — 60/60 passing. The C14 Memex fixtures under `src/tests/fixtures/memex/` carry no `tags` frontmatter key, so the round-trip gate is an unaffected-regression check, not new coverage.
 
 **Files affected:** `packages/core/handlers/markdown/handler.js`, `src/tests/markdownHandler.test.js`.
+
+## #242 — profile documentRecord schema wired into the live /index write path
+
+The C14 gate (#240) added `recordDocumentRecord(s, documentRecord, schema)` to `packages/core/indexer.js`, but no live route injected a schema, so HTTP-indexed content never persisted `documentRecord` (the write path was a silent no-op). This lands the missing wiring, mirroring the C7 read-side pattern: the profile is injected at the adapter layer, core stays framework-agnostic.
+
+**What changed:**
+- **`src/lib/indexing.js`** (the SvelteKit indexing adapter): injects `getProfile().vocabulary.documentRecord` as `documentRecordSchema` into `createIndexer` — the same profile vocab the read side injects in `src/routes/get/[what]/[by]/[[as]]/load.js`. One-line wiring plus the `$lib/profile.js` import; no logic added to the adapter.
+- **No route file changes were needed.** Both the live `/index` route (`src/routes/index/+server.js`) and the modern `/indexwrapper` route (`src/routes/indexwrapper/+server.js`) already delegate to the shared `handler` exported from `$lib/indexing.js` — the transitional "inline handler" in `routes/index` turned out to be a thin HTTP wrapper (error mapping + warning handling) around the same adapter, not a separate ingest path. Wiring the adapter covers both routes. The two routes remain near-duplicates of each other (only `isWarning` handling and the `recently indexed` error mapping differ); consolidation is left for the handler-pipeline work.
+
+Verified end-to-end against the live dev server: a markdown probe served from `static/` (frontmatter carrying all six declared predicates plus an undeclared key) indexed through the real `GET /index?uri=…` route comes back on `/get/everything/posted/debug` with a typed `documentRecord` (`contentSize` as a number, `dateCreated` ISO-8601, `layout` dropped). Both new tests fail without the one-line wiring and pass with it.
+
+**Files affected:** `src/lib/indexing.js`, `src/tests/indexingAdapterDocumentRecord.test.js` (new — asserts the adapter passes the profile schema into `createIndexer`), `src/tests/indexRouteDocumentRecord.test.js` (new — live round-trip through the real `/index` HTTP route, self-cleaning).
