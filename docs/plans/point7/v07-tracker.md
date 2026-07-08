@@ -24,7 +24,7 @@
 - [x] Docs handoff written — `docs/plans/point7/wave-0a-docs-handoff.md`
 - [x] **Generic handler pipeline** — `handler()` is now fully generic over content type. Plan: `docs/plans/point7/2026-05-27-generic-handler-pipeline.md` (branch `handle-handlers`, 2026-05-28). Adds `resolveIndexPolicy` (caller-context precedence) + a `dispatch` helper; single fetch captures content-type; both the policy probe and final ingest route through the registry; `harmonizeSource` injection and `handleHTML` removed. `createClient({ indexPolicy: 'active' })` now bypasses the on-page gate end to end. Also fixed a latent crash: `harmonizeSource` now accepts a pre-resolved schema object (additive; string callers unchanged). Suite green (776 passed, 0 failures).
 - [x] **Follow-up (blocks live-endpoint verification):** `src/lib/indexing.js` now passes `handlerRegistry: createDefaultHandlerRegistry()` to `createIndexer`. `indexwrapper`, `badge`, `debug/rolodex` all work again. `createDefaultHandlerRegistry` exported from package. 2026-06-03.
-- [ ] Verify live endpoints (see Task 8 of handler plan)
+- [x] Verify live endpoints (see Task 8 of handler plan)
 
 ### 0b — Publishers MVP (#161, moved from Wave 6)
 > Core is implemented; integration, generic `prepare()`, and docs remain.
