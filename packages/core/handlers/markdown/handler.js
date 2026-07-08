@@ -1,4 +1,5 @@
 import yaml from 'js-yaml'
+import { extractWikilinks } from './wikilinks.js'
 
 /**
  * Markdown handler (issue #238, phases P1+P2).
@@ -95,6 +96,14 @@ const harmonize = async (content, _harmonizerSchema, _options = {}) => {
   }
 
   if (Object.keys(documentRecord).length > 0) output.documentRecord = documentRecord
+
+  // Body [[wikilinks]] are staged as extraction records for the deferred
+  // whole-instance resolution pass (C12). They stay OFF `octothorpes` here:
+  // targets are basenames, not URLs, so putting them on the relationship-write
+  // path would emit broken edges. C12 resolves basename -> URL and merges the
+  // resolved ones into `octothorpes` as { type: 'link', uri }.
+  const wikilinks = extractWikilinks(body)
+  if (wikilinks.length > 0) output.wikilinks = wikilinks
 
   return output
 }
