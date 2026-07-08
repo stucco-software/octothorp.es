@@ -6,6 +6,7 @@ import { extractWikilinks } from './wikilinks.js'
  *
  * Converts raw Markdown source into a blobject:
  *   - YAML frontmatter  -> canonical blobject fields + documentRecord passthrough (P1 / C10)
+ *   - frontmatter `tags` -> hashtag entries on `output.octothorpes` (#243 item 1)
  *   - body `[[wikilinks]]` -> staged link intents in `output.wikilinks` (P2 / C11)
  *
  * IMPORTANT (RDF-star guardrail): this handler NEVER writes triples and never
@@ -38,6 +39,29 @@ const CANONICAL_KEYS = new Set([
 const CANONICAL_ALIASES = {
   date: 'postDate',
   published: 'postDate',
+}
+
+const TAGS_KEY = 'tags'
+
+/**
+ * Normalize frontmatter `tags` into a flat list of trimmed, non-empty tag
+ * strings. Accepts a YAML list (`tags: [a, b]`), a single scalar
+ * (`tags: foo`), or a comma-separated string (`tags: foo, bar`) — matching
+ * the `split` postProcess convention other harmonizers use for hashtags
+ * (e.g. the `keywords` HTML harmonizer, `harmonizers.js`). Non-string items
+ * are coerced to strings before splitting.
+ */
+const normalizeTags = (raw) => {
+  const items = Array.isArray(raw) ? raw : [raw]
+  const tags = []
+  for (const item of items) {
+    if (item === null || item === undefined) continue
+    for (const part of String(item).split(',')) {
+      const trimmed = part.trim()
+      if (trimmed.length > 0) tags.push(trimmed)
+    }
+  }
+  return tags
 }
 
 /**
@@ -86,6 +110,17 @@ const harmonize = async (content, _harmonizerSchema, _options = {}) => {
   const documentRecord = {}
 
   for (const [key, value] of Object.entries(data)) {
+    if (key === TAGS_KEY) {
+      // Frontmatter tags become hashtag octothorpes, in the same bare-string
+      // shape the HTML/JSON handlers emit for `hashtag` schema entries (see
+      // handlers/html/handler.js and handlers/json/handler.js — hashtags are
+      // spread onto `octothorpes` as plain strings, not { type, uri }
+      // objects; `indexer.ingestBlobject` treats a string octothorpe as a
+      // hashtag via `handleThorpe`). They are intentionally NOT mirrored into
+      // documentRecord.
+      output.octothorpes.push(...normalizeTags(value))
+      continue
+    }
     const canonical = CANONICAL_KEYS.has(key) ? key : CANONICAL_ALIASES[key]
     if (canonical) {
       // First writer wins so an explicit canonical key beats an alias.

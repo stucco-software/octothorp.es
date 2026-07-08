@@ -736,3 +736,15 @@ The end-to-end gate for the Memex core epic (#240): a Memex-shaped Markdown Reco
 At least one assertion (criteria 1 and 3) goes through the real HTTP route; the pure resolution assertions run against `resolveWikilinks` directly. The test self-cleans all fixtures it inserts (verified: zero residue).
 
 **Files affected:** `packages/core/indexer.js` (added `recordDocumentRecord`, wired into `ingestBlobject`, exported; `documentRecordSchema` added to the factory config), `src/tests/c14MemexRoundtrip.test.js` (new, 7 tests), `src/tests/fixtures/memex/{notes,projects,archive}/*.md` (new, 5 fixtures).
+
+## #243 (item 1) — Markdown frontmatter `tags[]` → hashtag octothorpes
+
+Frontmatter `tags` previously fell through to the `documentRecord` passthrough, so they never became graph edges. The Memex spec (§4) expects them as hashtag octothorpes.
+
+**What changed:**
+- **`packages/core/handlers/markdown/handler.js`**: the frontmatter `tags` key is now intercepted before the canonical/passthrough loop and mapped onto `output.octothorpes` as bare tag strings — the same shape the HTML/JSON handlers emit for `hashtag` schema entries (`typedOutput.hashtag` spread as plain strings, consumed by `indexer.ingestBlobject`'s `typeof octothorpe === 'string'` branch → `handleThorpe`). Accepts a YAML list (`tags: [a, b]`), a single scalar (`tags: foo`), or a comma-separated string (`tags: foo, bar`), matching the `split` postProcess convention other harmonizers use for hashtags (e.g. the `keywords` HTML harmonizer). Each tag is trimmed; empty/whitespace-only entries are dropped; missing/empty `tags` is a no-op. `tags` is no longer mirrored into `documentRecord`.
+- No changes to `wikilinkResolution.js`, indexing/profile files, or the case-sensitivity/unresolved-link-persistence decisions in issue #243 items 2–3 (both explicitly out of scope, left as-is).
+
+Verified: `src/tests/markdownHandler.test.js` extended with 8 new cases (list, single string, comma-separated, whitespace/empty trimming, absent, empty list, no documentRecord leak, coexistence with body wikilinks). Full regression across the markdown suite (`markdownHandler.test.js`, `markdownWikilinks.test.js`, `markdownWikilinkResolution.test.js`, `c14MemexRoundtrip.test.js`) — 60/60 passing. The C14 Memex fixtures under `src/tests/fixtures/memex/` carry no `tags` frontmatter key, so the round-trip gate is an unaffected-regression check, not new coverage.
+
+**Files affected:** `packages/core/handlers/markdown/handler.js`, `src/tests/markdownHandler.test.js`.
