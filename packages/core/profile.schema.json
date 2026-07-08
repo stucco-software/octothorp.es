@@ -1,0 +1,175 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://octothorp.es/profile.schema.json",
+  "title": "OP Client Profile (Rev 1)",
+  "description": "Frozen Rev-1 contract for an OP Client's profile. One profile per install, committed at repo root as profile.json, served publicly at /profile and /profile.json. Contains NO secrets by construction: credentials/tokens/passwords live only in .env and are resolved at point-of-use by `provider`. See issues #215 (epic) and #216 (Rev 1), and docs/plans/point7/2026-07-02-profile-vocabulary-decoupling.md. Field buckets: A. behavior-gating (relay, indexing*, registrationPolicy, *Harmonizer(s), *Publisher(s), vocabularyDocument, contentLabels, externalAccounts, vocabulary) — inert in Rev 1, wired in Rev 2 (#217); B. declarative identity (name, description, favicon, badge, avatar, terms, contacts, commercialActivity) — only /profile renders them; C. secrets — .env only, never here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description", "vocabulary"],
+  "properties": {
+    "relay": {
+      "description": "This relay's canonical URI. LOADER-RESOLVED: the committed profile MUST set this to null; the C2 loader (packages/core/profile.js) fills it from .env `instance` at load time so the value is never duplicated across the file and .env. Stored as null here to keep the file the single non-secret source of truth without owning the relay URL.",
+      "type": "null"
+    },
+    "indexingMode": {
+      "description": "Whether the relay actively crawls/indexes or only indexes on explicit request.",
+      "type": "string",
+      "enum": ["active", "on-request"]
+    },
+    "indexingFrequency": {
+      "description": "Advisory cadence for active indexing. Free-form label (e.g. 'hourly', 'daily'); semantics finalized in Rev 2.",
+      "type": "string"
+    },
+    "registrationPolicy": {
+      "description": "Who may register with this relay.",
+      "type": "string",
+      "enum": ["open", "invite", "closed"]
+    },
+    "defaultHarmonizer": {
+      "description": "Name of the harmonizer/handler mode used when none is specified (mirrors .env default_handler in Rev 1; wired from profile in Rev 2).",
+      "type": "string"
+    },
+    "namedHarmonizers": {
+      "description": "Additional harmonizers this client exposes by name. Empty in Rev 1.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "defaultPublisher": {
+      "description": "Name of the publisher used when none is specified.",
+      "type": "string"
+    },
+    "namedPublishers": {
+      "description": "Additional publishers this client exposes by name. Empty in Rev 1.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "vocabularyDocument": {
+      "description": "URI of this client's vocabulary document (#194). The canonical core vocab lives in core; this points at the client's additions.",
+      "type": "string",
+      "format": "uri"
+    },
+    "contentLabels": {
+      "description": "Content labels this client declares (#192). Empty in Rev 1.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "externalAccounts": {
+      "description": "Accounts the relay itself posts to. PUBLIC side only: { provider, handle }. Credentials are NEVER here — the loader resolves them from .env keyed by `provider` at point-of-use (#216).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "handle"],
+        "properties": {
+          "provider": {
+            "description": "Stable provider key used to look up credentials in .env at point-of-use.",
+            "type": "string"
+          },
+          "handle": {
+            "description": "Public handle/identifier on that provider.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "name": {
+      "description": "Human-readable client name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "Short human-readable description of the client.",
+      "type": "string",
+      "minLength": 1
+    },
+    "favicon": {
+      "description": "Favicon URL or site-relative path.",
+      "type": ["string", "null"]
+    },
+    "badge": {
+      "description": "OP badge image URL or site-relative path (mirrors .env badge_image).",
+      "type": ["string", "null"]
+    },
+    "avatar": {
+      "description": "Avatar image URL or site-relative path.",
+      "type": ["string", "null"]
+    },
+    "terms": {
+      "description": "URI of the client's terms of service.",
+      "type": ["string", "null"],
+      "format": "uri"
+    },
+    "contacts": {
+      "description": "Contacts for admins/mods, distinct from externalAccounts.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" }
+        }
+      }
+    },
+    "commercialActivity": {
+      "description": "Whether the client engages in commercial activity.",
+      "type": "boolean"
+    },
+    "vocabulary": {
+      "description": "The client's vocabulary additions. Two independent arrays with opposite declaration semantics (see 'The subtype / documentRecord asymmetry' in the decoupling doc): relationshipSubtypes declare TO BE PROMOTED (optional, opt-in first-class path); documentRecord entries declare TO BE ADMITTED AT ALL (required to store + type + project).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relationshipSubtypes", "documentRecord"],
+      "properties": {
+        "relationshipSubtypes": {
+          "description": "Traversable custom edge types promoted to first-class API paths (#236). Undeclared subtypes still flow into the octothorpes array and are reachable ad-hoc via ?st= (#200); declaring one mints /get/<path>/<by> routes. May be empty.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "label", "path"],
+            "properties": {
+              "type": {
+                "description": "The subtype class name, stored as octo:<type> (e.g. 'AliasOf', 'Item').",
+                "type": "string"
+              },
+              "label": {
+                "description": "Human-readable label for generated context/vocab docs (e.g. 'is an alias of').",
+                "type": "string"
+              },
+              "path": {
+                "description": "URL path segment for the minted routes (e.g. 'aliasesOf' -> /get/aliasesOf/posted).",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "documentRecord": {
+          "description": "Non-canonical LEAF predicates admitted into blobject.documentRecord (#237). This list is the admission allowlist AND the typing contract: only declared predicates are stored/projected (undeclared harmonizer output is dropped, the #166 abuse guard), and `range` drives the value's JSON type in and out. documentRecord is never traversed by the relationship engine. May be empty (then no documentRecord key is projected).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["predicate", "namespace", "range"],
+            "properties": {
+              "predicate": {
+                "description": "Local predicate name (e.g. 'encodingFormat', 'sha256', 'addedBy').",
+                "type": "string"
+              },
+              "namespace": {
+                "description": "Namespace prefix the predicate belongs to (e.g. 'schema', 'memex'). Resolved to an IRI by the vocabulary/context layer.",
+                "type": "string"
+              },
+              "range": {
+                "description": "Value type for storage typing and read-side projection: literal->string, uri->string (semantically a node), timestamp->ISO-8601 string, number->JSON number, boolean->JSON boolean. Enum matches the projection plan (docs/plans/point7/2026-07-07-documentrecord-projection.md).",
+                "type": "string",
+                "enum": ["literal", "uri", "timestamp", "number", "boolean"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

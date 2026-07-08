@@ -9,14 +9,15 @@ import jsonHandler from './handlers/json/handler.js'
 import blobjectHandler from './handlers/blobject/handler.js'
 import xmlHandler from './handlers/xml/handler.js'
 import calendarHandler from './handlers/calendar/handler.js'
+import markdownHandler from './handlers/markdown/handler.js'
 import { publish } from './publish.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
-export { createQueryBuilders } from './queryBuilders.js'
+export { createQueryBuilders, documentRecordNamespaces, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { buildMultiPass } from './multipass.js'
-export { getBlobjectFromResponse } from './blobject.js'
+export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
 export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
 export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin.js'
@@ -30,8 +31,10 @@ export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
+export { buildResolutionIndex, resolveWikilinks, applyResolution } from './wikilinkResolution.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
+export { createProfile, credentialEnvKey } from './profile.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
@@ -48,6 +51,7 @@ export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) =
   registry.register('json', jsonHandler)
   registry.register('xml', xmlHandler)
   registry.register('calendar', calendarHandler)
+  registry.register('markdown', markdownHandler)
   registry.register('blobject', blobjectHandler)
   registry.markBuiltins()
   registry.register('null', nullHandler)

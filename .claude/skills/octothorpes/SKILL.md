@@ -125,7 +125,10 @@ At the start of any development session, perform these checks:
 | `/src/lib/indexing.js` | Indexing logic: handlers, storage, validation |
 | `/src/lib/converters.js` | URL ↔ MultiPass |
 | `/src/lib/sparql.js` | Query building |
-| `/packages/core/handlers/` | Content handlers (`html`, `json`, `blobject`, `null`); each does format → blobject. See `octothorpes:handlers` |
+| `/packages/core/handlers/` | Content handlers (`html`, `json`, `xml`, `calendar`, `markdown`, `blobject`, `null`); each does format → blobject. See `octothorpes:handlers` |
+| `/packages/core/profile.js` (`createProfile`) | OP Client Profile loader/validator (`getProfile()`, `getAccountCredentials()`); no secrets in profile.json, credentials resolved point-of-use from env |
+| `/profile.json` + `/packages/core/profile.schema.json` | Committed Rev-1 profile (repo root) + its JSON Schema; served at `/profile` (HTML) and `/profile.json` |
+| `/src/lib/profile.js` | Adapter: injects `profile.json`, the schema, `instance`, and `$env` into `createProfile` |
 | `/packages/core/handlerRegistry.js` | Handler registry: dispatch by `mode` or content-type |
 | `/packages/core/index.js` (`harmonizeSource`) | Standalone dispatch entry point — harmonize a source via the right handler (defaults to HTML) |
 | `/packages/core/harmonizerUtils.js` | Shared harmonizer utilities: remote schema fetching, value processing/filtering, validation (formerly `harmonizeSource.js`) |

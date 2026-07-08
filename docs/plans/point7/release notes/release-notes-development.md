@@ -670,3 +670,69 @@ Humans expect `blue-slurpee` to match `blue slurpee`, `blueSlurpee`, and `Blue S
 Verified live via very-fuzzy object matching: `web-components`, `webComponents`, and `webcomponents` all match the stored `webcomponents` term. Unit coverage in `src/tests/fuzzytags.test.js` (variant expansion + no-throw on separator-only/empty input).
 
 **Files affected:** `packages/core/api.js`, `packages/core/utils.js`, `src/tests/api.test.js`, `src/tests/fuzzytags.test.js`, `src/tests/integration/golden/smoke/matrix-pages-thorped.json` (reblessed).
+
+## #238 (C12) — deferred whole-instance wikilink resolution
+
+Markdown `[[wikilinks]]` are extracted per document (C11) but can only become real link edges once the whole document set is known — this pass turns staged basenames into resolved URL targets (Obsidian's model, reimplemented, never reading Obsidian's cache).
+
+**What changed:**
+- **`packages/core/wikilinkResolution.js`** (new): `buildResolutionIndex(documents)` builds `basename → entry[]` over the indexed set; `resolveWikilinks(documents)` resolves each doc's `wikilinks[]`, producing per source document `resolvedLinks` (every occurrence, un-deduped for ref-counting), `unresolvedLinks` (recorded with a `reason`, never dropped), and deduped `{ type: 'link', uri }` `octothorpes` edges (self-edges excluded). Collisions disambiguate via authored path qualifier (`[[subfolder/name]]`) then a deterministic nearest-in-folder heuristic; mutual links `A↔B` both resolve; a renamed target surfaces stale `[[old]]` links as `unresolvedLinks`. `applyResolution(blobject, result)` merges resolved edges onto a blobject and attaches the report — edges reach the graph only via the shared `ingestBlobject` path (RDF-star guardrail).
+- **`packages/core/index.js`**: re-exports `buildResolutionIndex`, `resolveWikilinks`, `applyResolution`.
+
+Pure module, no SPARQL. Unit-covered in `src/tests/markdownWikilinkResolution.test.js` (14 tests: index build, basic/mutual/unresolved resolution, occurrence dedupe, self-links, path-qualifier + nearest-folder collisions, rename scenario, `applyResolution` merge).
+
+**Files affected:** `packages/core/wikilinkResolution.js` (new), `packages/core/index.js`, `src/tests/markdownWikilinkResolution.test.js` (new).
+
+## #216 (C3) — /profile + /profile.json endpoints
+
+The OP Client Profile is now discoverable over HTTP.
+
+**What changed:**
+- **`src/routes/profile.json/+server.js`** (new): serves `getProfile()` as `application/json`. Thin pass-through — no secret-stripping (the profile carries no secrets by construction).
+- **`src/routes/profile/+page.server.js`** + **`+page.svelte`** (new): renders the profile as an HTML page (relay, harmonizers/publishers, vocabulary subtypes + documentRecord, external accounts, contacts) using the site's `.container` convention.
+
+Handlers import `getProfile` from `$lib/profile.js` (the relay-resolved, validated, secret-free accessor). Covered by `src/tests/profileEndpoints.test.js` (JSON shape + no secret-shaped keys; page load returns the profile).
+
+**Files affected:** `src/routes/profile.json/+server.js` (new), `src/routes/profile/+page.server.js` (new), `src/routes/profile/+page.svelte` (new), `src/tests/profileEndpoints.test.js` (new).
+
+## #236 (C9) — profile-declared relationship subtypes get first-class /get paths
+
+A `what` matching a declared `vocabulary.relationshipSubtypes[].path` (e.g. `items` → `Item`, `aliasesOf` → `AliasOf`) now resolves at `/get/<path>/<by>` to a subtype-filtered blobject query. The profile drives the API surface.
+
+**What changed:**
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: reads `getProfile()`, and when `what` matches a declared subtype path, rewrites `what → everything` and injects the declared `subtype`. Undeclared `what` values pass through unchanged (unknown ones still error in core exactly as before; ad-hoc `?st=` remains #200).
+- **`packages/core/multipass.js`**: `buildMultiPass` honors an injected `subtype` option — it overrides the by-derived subtype (Backlink/Cite/…) and promotes `objectType` from `none → all` (for `posted`/`all`) so the everything query filters by the subtype relationship instead of unioning in relationship-less pages.
+- **`packages/core/queryBuilders.js`**: `getStatements` now admits a subtype-only query as bounded (like relationTerms), so a subject/object-less declared path is not rejected.
+
+Verified end-to-end against the live store: a seeded Memex-shaped `Item` relationship resolves at `/get/items/posted`; `/get/aliasesOf/thorped` is recognized; an undeclared path falls through to the pre-C9 error. Covered by `src/tests/subtypePaths.test.js`; `src/tests/sparql.test.js` guard test updated for the new subtype-as-constraint behavior.
+
+**Files affected:** `src/routes/get/[what]/[by]/[[as]]/load.js`, `packages/core/multipass.js`, `packages/core/queryBuilders.js`, `src/tests/subtypePaths.test.js` (new), `src/tests/sparql.test.js`.
+
+## #237 (C7) — documentRecord projection wired to the profile
+
+The C5/C6 param-driven documentRecord projection is now fed by the profile through the live `/get` blobject pipeline.
+
+**What changed:**
+- **`packages/core/api.js`**: the `everything`/`blobjects` case threads `options.documentRecordSchema` into `buildEverythingQuery` and `getBlobjectFromResponse`, so declared predicates project into `blobject.documentRecord` (typed by range) and undeclared ones drop. Undefined schema → no-op (identical to prior behavior).
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: injects `profile.vocabulary.documentRecord` as the schema (landed with the C9 route edit). Core never reads the profile itself — it arrives as an injected value, keeping core framework-agnostic.
+
+Verified against the live store: a page with stored `schema.encodingFormat`/`schema.contentSize`/`memex.addedBy` returns a typed `documentRecord` (`contentSize` as a number) through the real pipeline; a page without declared predicates omits the key. Covered by `src/tests/documentRecordProjection.test.js`.
+
+**Files affected:** `packages/core/api.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/tests/documentRecordProjection.test.js` (new).
+
+## #238 (C13/C14) — Memex Markdown round-trip integration + end-to-end gate
+
+The end-to-end gate for the Memex core epic (#240): a Memex-shaped Markdown Record round-trips through every landed component — markdown handler → `resolveWikilinks`/`applyResolution` → `ingestBlobject` → the public `/get` HTTP surface.
+
+**Minimal fix landed (write side of #237):** `ingestBlobject` previously persisted title/description/image/postDate but silently dropped `blobject.documentRecord`, so the read projection (#237, C5–C7) had nothing to read back after ingest. Added `recordDocumentRecord(s, documentRecord, schema)` to `packages/core/indexer.js`, called from `ingestBlobject`. It is declaration-driven (writes only predicates present in the injected `documentRecordSchema`, dropping undeclared keys — the same admission allowlist as the read guard), resolves each predicate to the same IRI the read path queries (`resolveDocumentRecordIri`), stores `uri`-range values as IRIs and everything else as string literals (the read side coerces number/timestamp/boolean), and is idempotent per predicate (delete-then-insert). Leaf triples only — never the blank-node relationship machinery (RDF-star insulation). The schema is injected via `createIndexer({ documentRecordSchema })` or per-call `ingestBlobject(blob, { documentRecordSchema })`; undefined → no-op (zero behavior change for existing callers). No live route rewired — the SvelteKit `/index` path can adopt the schema injection alongside the C7/C8 profile wiring.
+
+**Fixtures:** the memex2 Wave-1 CLI does not yet emit `.md` fixtures (its `library/` holds image assets + `manifest.json` only), so representative Memex-shaped Records were authored here under `src/tests/fixtures/memex/` per the spec (`docs/specs/2026-07-07-memex2-client-design.md` §4/§5): five Records across `notes/`, `projects/`, `archive/` with frontmatter carrying all six declared `documentRecord` predicates (encodingFormat, contentUrl, contentSize, dateCreated, sha256, addedBy) plus undeclared keys (layout, permalink), and wikilinks covering a mutual pair (Alpha↔Beta), an alias+heading link (`[[Gamma#Introduction|see Gamma notes]]`), an unresolved target (`[[Ghost]]`), and a basename collision resolved by path qualifier (`[[archive/Delta]]` vs `projects/Delta.md`).
+
+**Gate verdict — PASS (all three C14 criteria):**
+1. `documentRecord` populated and typed on the `/get/everything/posted/debug?s=…&match=exact` read surface: `contentSize` is a JS number (482913), `dateCreated` is an ISO-8601 string, literal/uri predicates present, undeclared `layout`/`permalink` absent.
+2. Wikilinks resolved (whole-instance pass): mutual pair resolves both directions; `[[Ghost]]` recorded in `unresolvedLinks` (not dropped, not an edge); alias+heading variant resolves to Gamma with `heading`/`alias` preserved; collision disambiguated to `archive/Delta`. The Alpha→Beta resolved edge is verified persisted as an `octo:Link` blank node in the store.
+3. The `Item` subtype path (`/get/items/posted/debug`) returns the Record whose generated `Item` edge (to a `ni:///sha-256;…` hub) was written via the real `ingestBlobject`→`handleMention` path.
+
+At least one assertion (criteria 1 and 3) goes through the real HTTP route; the pure resolution assertions run against `resolveWikilinks` directly. The test self-cleans all fixtures it inserts (verified: zero residue).
+
+**Files affected:** `packages/core/indexer.js` (added `recordDocumentRecord`, wired into `ingestBlobject`, exported; `documentRecordSchema` added to the factory config), `src/tests/c14MemexRoundtrip.test.js` (new, 7 tests), `src/tests/fixtures/memex/{notes,projects,archive}/*.md` (new, 5 fixtures).

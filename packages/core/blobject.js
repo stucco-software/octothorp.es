@@ -1,3 +1,48 @@
+import { documentRecordVar } from './queryBuilders.js'
+
+/**
+ * Coerce a raw SPARQL binding value into the JS type declared by a
+ * documentRecord range (#237). Range enum (frozen):
+ *   literal   -> string
+ *   uri       -> string (semantically a node)
+ *   timestamp -> ISO-8601 string (unix ms, unix seconds, or ISO in; ISO out;
+ *                unparseable input is passed through as the raw string)
+ *   number    -> JS number (non-numeric -> undefined, i.e. key dropped)
+ *   boolean   -> JS boolean (only true/1/false/0; anything else -> undefined)
+ * Returning `undefined` signals "do not project this key" (never emit null/NaN).
+ * @param {string} raw - the binding's `.value`
+ * @param {string} range
+ * @returns {string|number|boolean|undefined}
+ */
+export const coerceDocumentRecordValue = (raw, range) => {
+  const s = String(raw)
+  switch (range) {
+    case 'number': {
+      const n = Number(s)
+      return Number.isFinite(n) ? n : undefined
+    }
+    case 'boolean': {
+      if (s === 'true' || s === '1') return true
+      if (s === 'false' || s === '0') return false
+      return undefined
+    }
+    case 'timestamp': {
+      if (/^\d+$/.test(s)) {
+        const num = Number(s)
+        const ms = s.length >= 13 ? num : num * 1000
+        const d = new Date(ms)
+        return Number.isNaN(d.getTime()) ? s : d.toISOString()
+      }
+      const d = new Date(s)
+      return Number.isNaN(d.getTime()) ? s : d.toISOString()
+    }
+    case 'uri':
+    case 'literal':
+    default:
+      return s
+  }
+}
+
 /**
  * Converts SPARQL query response into a structured blobject format
  * @async
@@ -8,9 +53,17 @@
  * @param {Object|null} [filters.dateRange=null] - Date range filter object
  * @param {number} [filters.dateRange.after] - Unix timestamp for earliest date
  * @param {number} [filters.dateRange.before] - Unix timestamp for latest date
+ * @param {Array<{predicate:string, namespace?:string, range:string, iri?:string}>} [documentRecordSchema=[]]
+ *   Declared documentRecord predicates (#237). Each present-in-storage entry is
+ *   projected into `blobject.documentRecord`, typed by `range`. Declared-but-absent
+ *   keys are omitted; undeclared predicates are never looped (the admission
+ *   allowlist / #166 abuse guard). Empty/absent -> no `documentRecord` key
+ *   (behaviour identical to before this feature). `documentRecord` is a LEAF and
+ *   is never fed to link/backlink traversal. C7 wires this param from the
+ *   profile's `vocabulary.documentRecord`.
  * @returns {Promise<Array>} Array of processed blobjects with metadata
  */
-export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null }) => {
+export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null }, documentRecordSchema = []) => {
   const limit = filters.limitResults
   const offset = filters.offsetResults
 
@@ -47,6 +100,22 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
     }
     if (binding.postDate?.value && !current.postDate) {
       current.postDate = parseInt(binding.postDate.value);
+    }
+    // Project declared documentRecord leaf predicates (#237). Only declared
+    // predicates are looped (admission allowlist); each present value is typed
+    // by its range. First non-empty value wins. This is a LEAF — it is never
+    // read by the octothorpe/backlink traversal below.
+    if (Array.isArray(documentRecordSchema) && documentRecordSchema.length) {
+      for (const entry of documentRecordSchema) {
+        const raw = binding[documentRecordVar(entry)]?.value;
+        if (raw === undefined || raw === '') continue;
+        const typed = coerceDocumentRecordValue(raw, entry.range);
+        if (typed === undefined) continue;
+        if (!current.documentRecord) current.documentRecord = {};
+        if (current.documentRecord[entry.predicate] === undefined) {
+          current.documentRecord[entry.predicate] = typed;
+        }
+      }
     }
     // Process octothorpe links
     if (binding.o?.value) {

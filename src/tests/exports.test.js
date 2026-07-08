@@ -26,6 +26,8 @@ describe('octothorpes package exports', () => {
     'publish', 'resolve', 'validateResolver', 'loadResolver',
     'createPublisherRegistry',
     'createHandlerRegistry', 'createDefaultHandlerRegistry', 'nullHandler',
+    // C2 profile loader (#216)
+    'createProfile', 'credentialEnvKey',
   ]
 
   it('should export all expected functions', () => {

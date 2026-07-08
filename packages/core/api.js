@@ -42,7 +42,7 @@ export const createApi = (config) => {
         case 'everything':
         case 'blobjects':
         case 'whatever':
-          query = await builders.buildEverythingQuery(multiPass)
+          query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema: options.documentRecordSchema })
           break
         case 'thorpes':
         case 'octothorpes':
@@ -81,9 +81,14 @@ export const createApi = (config) => {
       case 'everything':
       case 'blobjects':
       case 'whatever': {
-        query = await builders.buildEverythingQuery(multiPass)
+        // C7 (#237): the profile's documentRecord schema is injected by the
+        // route/adapter layer as options.documentRecordSchema (core never reads
+        // the profile itself). Undefined when no profile is wired -> projection
+        // is a no-op, identical to prior behavior.
+        const documentRecordSchema = options.documentRecordSchema
+        query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema })
         const bj = await queryArray(query)
-        actualResults = await getBlobjectFromResponse(bj, multiPass.filters)
+        actualResults = await getBlobjectFromResponse(bj, multiPass.filters, documentRecordSchema)
         actualResults = await enrichBlobjectTargets(actualResults)
         break
       }
