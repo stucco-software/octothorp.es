@@ -670,3 +670,15 @@ Humans expect `blue-slurpee` to match `blue slurpee`, `blueSlurpee`, and `Blue S
 Verified live via very-fuzzy object matching: `web-components`, `webComponents`, and `webcomponents` all match the stored `webcomponents` term. Unit coverage in `src/tests/fuzzytags.test.js` (variant expansion + no-throw on separator-only/empty input).
 
 **Files affected:** `packages/core/api.js`, `packages/core/utils.js`, `src/tests/api.test.js`, `src/tests/fuzzytags.test.js`, `src/tests/integration/golden/smoke/matrix-pages-thorped.json` (reblessed).
+
+## #238 (C12) — deferred whole-instance wikilink resolution
+
+Markdown `[[wikilinks]]` are extracted per document (C11) but can only become real link edges once the whole document set is known — this pass turns staged basenames into resolved URL targets (Obsidian's model, reimplemented, never reading Obsidian's cache).
+
+**What changed:**
+- **`packages/core/wikilinkResolution.js`** (new): `buildResolutionIndex(documents)` builds `basename → entry[]` over the indexed set; `resolveWikilinks(documents)` resolves each doc's `wikilinks[]`, producing per source document `resolvedLinks` (every occurrence, un-deduped for ref-counting), `unresolvedLinks` (recorded with a `reason`, never dropped), and deduped `{ type: 'link', uri }` `octothorpes` edges (self-edges excluded). Collisions disambiguate via authored path qualifier (`[[subfolder/name]]`) then a deterministic nearest-in-folder heuristic; mutual links `A↔B` both resolve; a renamed target surfaces stale `[[old]]` links as `unresolvedLinks`. `applyResolution(blobject, result)` merges resolved edges onto a blobject and attaches the report — edges reach the graph only via the shared `ingestBlobject` path (RDF-star guardrail).
+- **`packages/core/index.js`**: re-exports `buildResolutionIndex`, `resolveWikilinks`, `applyResolution`.
+
+Pure module, no SPARQL. Unit-covered in `src/tests/markdownWikilinkResolution.test.js` (14 tests: index build, basic/mutual/unresolved resolution, occurrence dedupe, self-links, path-qualifier + nearest-folder collisions, rename scenario, `applyResolution` merge).
+
+**Files affected:** `packages/core/wikilinkResolution.js` (new), `packages/core/index.js`, `src/tests/markdownWikilinkResolution.test.js` (new).
