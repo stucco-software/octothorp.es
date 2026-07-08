@@ -296,7 +296,11 @@ export const createQueryBuilders = (instance, queryArray) => {
   function getStatements(subjects, objects, filters, resultMode) {
     const hasSubjects = subjects.include.length > 0 || subjects.exclude.length > 0
     const hasObjects = objects.include.length > 0 || objects.exclude.length > 0
-    if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0)) {
+    // C9 (#236): a declared-subtype path (e.g. /get/items/posted) constrains the
+    // result set by the relationship subtype alone, with no subject/object. The
+    // subtype FILTER EXISTS is itself a bounding constraint, so admit it as one
+    // (mirrors the relationTerms allowance) rather than rejecting as unbounded.
+    if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0) && !filters.subtype) {
       throw new Error('Must provide at least subjects, objects, or relationship terms');
     }
 

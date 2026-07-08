@@ -96,6 +96,18 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
       throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
   }
 
+  // C9 (#236): a profile-declared relationship subtype reaches buildMultiPass as
+  // an explicit `subtype` option, injected by the route layer for the
+  // first-class path /get/<declared-path>/<by> (e.g. /get/items/posted maps to
+  // subtype "Item"). It overrides the by-derived subtype (Backlink/Cite/…) and,
+  // when the `by` axis emits no object constraint (posted/all -> objectType
+  // "none"), promotes objectType to "all" so the everything query filters BY the
+  // subtype relationship instead of unioning in relationship-less pages.
+  if (options.subtype) {
+    subtype = options.subtype
+    if (objectType === "none") objectType = "all"
+  }
+
   // Parse rt (relationship terms) -- only valid on link-type [by] values
   const linkTypes = ['linked', 'mentioned', 'backlinked', 'cited', 'bookmarked']
   if (options.rt && linkTypes.includes(matchByParams)) {
