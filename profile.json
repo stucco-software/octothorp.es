@@ -1,0 +1,40 @@
+{
+  "$schema": "./packages/core/profile.schema.json",
+  "relay": null,
+  "indexingMode": "active",
+  "indexingFrequency": "hourly",
+  "registrationPolicy": "invite",
+  "defaultHarmonizer": "html",
+  "namedHarmonizers": [],
+  "defaultPublisher": "rss2",
+  "namedPublishers": [],
+  "vocabularyDocument": "https://octothorp.es/vocabulary",
+  "contentLabels": [],
+  "externalAccounts": [
+    { "provider": "bluesky", "handle": "@octothorpes.bsky.social" }
+  ],
+  "name": "Octothorpes",
+  "description": "The Octothorpes Protocol relay and reference client.",
+  "favicon": "/favicon.ico",
+  "badge": "/badge.png",
+  "avatar": null,
+  "terms": "https://octothorp.es/terms",
+  "contacts": [
+    { "name": "Octothorpes Admin", "email": "admin@octothorp.es" }
+  ],
+  "commercialActivity": false,
+  "vocabulary": {
+    "relationshipSubtypes": [
+      { "type": "AliasOf", "label": "is an alias of", "path": "aliasesOf" },
+      { "type": "Item", "label": "is an item in", "path": "items" }
+    ],
+    "documentRecord": [
+      { "predicate": "encodingFormat", "namespace": "schema", "range": "literal" },
+      { "predicate": "contentUrl", "namespace": "schema", "range": "uri" },
+      { "predicate": "contentSize", "namespace": "schema", "range": "number" },
+      { "predicate": "dateCreated", "namespace": "schema", "range": "timestamp" },
+      { "predicate": "sha256", "namespace": "schema", "range": "literal" },
+      { "predicate": "addedBy", "namespace": "memex", "range": "literal" }
+    ]
+  }
+}
