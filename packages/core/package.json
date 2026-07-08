@@ -14,6 +14,7 @@
   ],
   "dependencies": {
     "jsdom": "^24.0.0",
+    "js-yaml": "^4.1.0",
     "jsonld": "^8.3.2",
     "normalize-url": "^8.0.1"
   },
