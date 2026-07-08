@@ -21,6 +21,15 @@ Multiple aliases map to the same result mode:
 | `pages`, `links`, `mentions`, `backlinks`, `citations`, `bookmarks` | `links` | Flat list of pages with role, uri, title, description, date, image |
 | `thorpes`, `octothorpes`, `tags`, `terms` | `octothorpes` | List of terms with date |
 | `domains` | `domains` | List of verified origins |
+| *(profile-declared subtype path, e.g. `items`)* | `blobjects` | Subtype-filtered blobject query — see "Subtype Paths" below |
+
+### Subtype Paths (#236)
+
+A relay's `profile.json` can declare `vocabulary.relationshipSubtypes[]` as `{ type, label, path }` (e.g. `{ type: "Item", label: "is an item in", path: "items" }`). Each declared `path` becomes a first-class `[what]` value: `/get/items/posted` is intercepted by the route (`src/routes/get/[what]/[by]/[[as]]/load.js`) before dispatch — it sets `options.subtype = "Item"` and rewrites `what` to `everything`, so it resolves as a normal blobject query constrained by `FILTER EXISTS { … rdf:type <octo:Item> }`. Undeclared `what` values pass through unchanged and error in core as before.
+
+`getStatements` (`packages/core/queryBuilders.js`) admits a query with **no** subject and **no** object as long as `filters.subtype` is set — the subtype filter alone is a bounding constraint.
+
+`GET /profile` and `GET /profile.json` render/serve the current declarations; each subtype also gets a rendered example link (`/get/<path>/thorped`) on the `/profile` HTML page.
 
 ## [by] -- Query Filter
 
@@ -97,6 +106,10 @@ Multiple aliases map to the same result mode:
 
 The `octothorpes` array is mixed: strings for terms (extracted from the URI, e.g. `https://octothorp.es/~/demo` becomes `"demo"`), and objects with `type` + `uri` for page relationships.
 
+### `documentRecord` field (#237)
+
+When the relay's `profile.json` declares `vocabulary.documentRecord[]` (each entry `{ predicate, namespace, range }`), blobjects gain a `documentRecord` object projecting those declared, non-canonical predicates — e.g. `{ "encodingFormat": "text/markdown", "contentSize": 512 }`. Only *declared* predicates are ever queried or returned (admission allowlist — undeclared predicates are dropped); a declared-but-absent predicate is simply omitted, never `null`. `range` coerces the raw value: `literal`/`uri` → string, `number` → JS number, `boolean` → JS boolean, `timestamp` → ISO-8601 string (see `coerceDocumentRecordValue` in `packages/core/blobject.js`). `documentRecord` is always a leaf — it is never traversed for link/backlink relationships. `getBlobjectFromResponse(response, filters, documentRecordSchema)` takes the schema as its third argument; the `/get` route injects it from `getProfile().vocabulary.documentRecord`.
+
 **Pages/Links** -- `parseBindings(bindings, "pages")`:
 ```json
 {
@@ -124,3 +137,12 @@ The `role` field is `"subject"` or `"object"`, indicating which side of the rela
 ```
 
 **Domains** -- uses the same `parseBindings` format as Pages (with `role`, `uri`, `title`, `description`, `date`, `image`).
+
+## Client Profile Endpoints (#216)
+
+| Endpoint | Route file | Returns |
+|----------|-----------|---------|
+| `GET /profile` | `src/routes/profile/+page.server.js` + `+page.svelte` | HTML rendering of the profile (name, description, relay/indexing/registration, harmonizers/publishers, declared subtypes + documentRecord predicates, content labels, external accounts, contacts) |
+| `GET /profile.json` | `src/routes/profile.json/+server.js` | The validated, relay-resolved profile as `application/json` — a thin pass-through of `getProfile()` |
+
+`getProfile()` (from `$lib/profile.js`, wrapping `createProfile` in `packages/core/profile.js`) returns the committed `profile.json` with `relay` filled in from `instance` and validated against `packages/core/profile.schema.json`. It never contains secrets — external account credentials are resolved separately via `getAccountCredentials(provider)`, which looks up `<PROVIDER>_APP_PASSWORD` in env (never in the profile file itself).

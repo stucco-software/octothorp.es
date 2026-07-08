@@ -19,13 +19,15 @@ All source files live directly in `packages/core/` (flat layout, no build step).
 | `package.json` | `octothorpes` v0.1.0-alpha.2 |
 | `api.js` | `createApi(config)` — `get()` and `fast.*` service layer |
 | `sparqlClient.js` | `createSparqlClient(config)` — SPARQL client factory |
-| `queryBuilders.js` | `createQueryBuilders(instance, queryArray)` — all query builders |
-| `multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass |
-| `blobject.js` | `getBlobjectFromResponse(response, filters)` — blobject formatter |
+| `queryBuilders.js` | `createQueryBuilders(instance, queryArray)` — all query builders; also exports `resolveDocumentRecordIri`, `documentRecordVar`, `buildDocumentRecordClauses`, `documentRecordNamespaces` (schema/memex/octo/rdf/foaf) for the documentRecord projection (#237) |
+| `multipass.js` | `buildMultiPass(what, by, options, instance)` — plain-JS MultiPass; accepts an explicit `subtype` option (#236) |
+| `blobject.js` | `getBlobjectFromResponse(response, filters, documentRecordSchema)` — blobject formatter; third arg types/projects declared documentRecord predicates (`coerceDocumentRecordValue`) |
 | `harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
 | `harmonizerUtils.js` | Shared harmonizer utilities: remote schema fetch, value processing/filtering, validation (formerly `harmonizeSource.js`) |
-| `handlers/`, `handlerRegistry.js` | Content handlers (html/json/blobject/null) + registry; `harmonizeSource()` dispatch entry lives in `index.js`. See `octothorpes:handlers` |
-| `indexer.js` | Framework-agnostic indexing pipeline |
+| `handlers/`, `handlerRegistry.js` | Content handlers (html/json/xml/calendar/markdown/blobject/null) + registry; `harmonizeSource()` dispatch entry lives in `index.js`. See `octothorpes:handlers` |
+| `wikilinkResolution.js` | `resolveWikilinks`/`applyResolution`/`buildResolutionIndex` — deferred whole-instance Markdown wikilink → URL resolution (#238). See `octothorpes:handlers` |
+| `profile.js` | `createProfile({ profile, schema, instance, env })` — OP Client Profile loader/validator; returns `{ getProfile, getAccountCredentials }`. Also exports `credentialEnvKey(provider)`. See `octothorpes:api-reference` |
+| `indexer.js` | Framework-agnostic indexing pipeline; `recordDocumentRecord` (write-side documentRecord projection, #237) is schema-injected and a no-op by default |
 | `origin.js` | Origin verification (accepts config, no $env) |
 | `uri.js` | URI validation (HTTP, AT Protocol) |
 | `utils.js` | Shared utilities (parsing, dates, tags) |
@@ -71,6 +73,7 @@ These SvelteKit files inject `$env` and delegate to the package modules. They ex
 | `src/lib/sparql.js` | `sparqlClient.js`, `queryBuilders.js` |
 | `src/lib/converters.js` | `multipass.js`, `blobject.js` |
 | `src/lib/getHarmonizer.js` | `harmonizers.js` |
+| `src/lib/profile.js` | `profile.js` (`createProfile`) — injects repo-root `profile.json`, `packages/core/profile.schema.json`, `instance`, and `$env/dynamic/private` |
 
 ## Rules for New Code
 
