@@ -682,3 +682,40 @@ Markdown `[[wikilinks]]` are extracted per document (C11) but can only become re
 Pure module, no SPARQL. Unit-covered in `src/tests/markdownWikilinkResolution.test.js` (14 tests: index build, basic/mutual/unresolved resolution, occurrence dedupe, self-links, path-qualifier + nearest-folder collisions, rename scenario, `applyResolution` merge).
 
 **Files affected:** `packages/core/wikilinkResolution.js` (new), `packages/core/index.js`, `src/tests/markdownWikilinkResolution.test.js` (new).
+
+## #216 (C3) — /profile + /profile.json endpoints
+
+The OP Client Profile is now discoverable over HTTP.
+
+**What changed:**
+- **`src/routes/profile.json/+server.js`** (new): serves `getProfile()` as `application/json`. Thin pass-through — no secret-stripping (the profile carries no secrets by construction).
+- **`src/routes/profile/+page.server.js`** + **`+page.svelte`** (new): renders the profile as an HTML page (relay, harmonizers/publishers, vocabulary subtypes + documentRecord, external accounts, contacts) using the site's `.container` convention.
+
+Handlers import `getProfile` from `$lib/profile.js` (the relay-resolved, validated, secret-free accessor). Covered by `src/tests/profileEndpoints.test.js` (JSON shape + no secret-shaped keys; page load returns the profile).
+
+**Files affected:** `src/routes/profile.json/+server.js` (new), `src/routes/profile/+page.server.js` (new), `src/routes/profile/+page.svelte` (new), `src/tests/profileEndpoints.test.js` (new).
+
+## #236 (C9) — profile-declared relationship subtypes get first-class /get paths
+
+A `what` matching a declared `vocabulary.relationshipSubtypes[].path` (e.g. `items` → `Item`, `aliasesOf` → `AliasOf`) now resolves at `/get/<path>/<by>` to a subtype-filtered blobject query. The profile drives the API surface.
+
+**What changed:**
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: reads `getProfile()`, and when `what` matches a declared subtype path, rewrites `what → everything` and injects the declared `subtype`. Undeclared `what` values pass through unchanged (unknown ones still error in core exactly as before; ad-hoc `?st=` remains #200).
+- **`packages/core/multipass.js`**: `buildMultiPass` honors an injected `subtype` option — it overrides the by-derived subtype (Backlink/Cite/…) and promotes `objectType` from `none → all` (for `posted`/`all`) so the everything query filters by the subtype relationship instead of unioning in relationship-less pages.
+- **`packages/core/queryBuilders.js`**: `getStatements` now admits a subtype-only query as bounded (like relationTerms), so a subject/object-less declared path is not rejected.
+
+Verified end-to-end against the live store: a seeded Memex-shaped `Item` relationship resolves at `/get/items/posted`; `/get/aliasesOf/thorped` is recognized; an undeclared path falls through to the pre-C9 error. Covered by `src/tests/subtypePaths.test.js`; `src/tests/sparql.test.js` guard test updated for the new subtype-as-constraint behavior.
+
+**Files affected:** `src/routes/get/[what]/[by]/[[as]]/load.js`, `packages/core/multipass.js`, `packages/core/queryBuilders.js`, `src/tests/subtypePaths.test.js` (new), `src/tests/sparql.test.js`.
+
+## #237 (C7) — documentRecord projection wired to the profile
+
+The C5/C6 param-driven documentRecord projection is now fed by the profile through the live `/get` blobject pipeline.
+
+**What changed:**
+- **`packages/core/api.js`**: the `everything`/`blobjects` case threads `options.documentRecordSchema` into `buildEverythingQuery` and `getBlobjectFromResponse`, so declared predicates project into `blobject.documentRecord` (typed by range) and undeclared ones drop. Undefined schema → no-op (identical to prior behavior).
+- **`src/routes/get/[what]/[by]/[[as]]/load.js`**: injects `profile.vocabulary.documentRecord` as the schema (landed with the C9 route edit). Core never reads the profile itself — it arrives as an injected value, keeping core framework-agnostic.
+
+Verified against the live store: a page with stored `schema.encodingFormat`/`schema.contentSize`/`memex.addedBy` returns a typed `documentRecord` (`contentSize` as a number) through the real pipeline; a page without declared predicates omits the key. Covered by `src/tests/documentRecordProjection.test.js`.
+
+**Files affected:** `packages/core/api.js`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `src/tests/documentRecordProjection.test.js` (new).
