@@ -5,6 +5,7 @@
 // delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash } from './utils.js'
+import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
 import { verifiedOrigin } from './origin.js'
 import normalizeUrl from 'normalize-url'
@@ -165,7 +166,7 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema } = deps
 
   const p = 'octo:octothorpes'
   const indexCooldown = 300000 // 5min
@@ -443,6 +444,35 @@ export const createIndexer = (deps) => {
     `)
   }
 
+  // Persist declared documentRecord leaf predicates (#237, write side).
+  // The read path (getBlobjectFromResponse) projects these back by querying the
+  // SAME predicate IRIs; here we write them from a harmonized blobject's
+  // `documentRecord` sub-object. Declaration-driven: only predicates present in
+  // `schema` are written (admission allowlist — undeclared keys are dropped,
+  // mirroring the read guard). `uri`-range values are stored as IRIs, everything
+  // else as a string literal (the read side coerces number/timestamp/boolean).
+  // Idempotent per predicate (delete-then-insert). Leaf triples only — never the
+  // blank-node relationship machinery (RDF-star insulation).
+  const recordDocumentRecord = async (s, documentRecord, schema = documentRecordSchema) => {
+    if (!documentRecord || typeof documentRecord !== 'object') return
+    if (!Array.isArray(schema) || schema.length === 0) return
+    for (const entry of schema) {
+      const value = documentRecord[entry.predicate]
+      if (value === undefined || value === null || value === '') continue
+      const iri = resolveDocumentRecordIri(entry)
+      if (!iri) continue
+      const object =
+        entry.range === 'uri'
+          ? `<${String(value).trim()}>`
+          : `"${escapeLiteral(String(value))}"`
+      await query(`
+        delete { <${s}> <${iri}> ?o . }
+        insert { <${s}> <${iri}> ${object} . }
+        where { optional { <${s}> <${iri}> ?o . } }
+      `)
+    }
+  }
+
   const recordUsage = async (s, o, { instance: inst } = {}) => {
     const base = inst || instance
     let now = Date.now()
@@ -661,7 +691,7 @@ export const createIndexer = (deps) => {
     await processDomains(newDomains, s)
   }
 
-  const ingestBlobject = async (harmed, { instance: inst } = {}) => {
+  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
@@ -677,6 +707,7 @@ export const createIndexer = (deps) => {
     await recordDescription(s, harmed.description)
     await recordImage(s, harmed.image)
     await recordPostDate(s, harmed.postDate)
+    await recordDocumentRecord(s, harmed.documentRecord, schemaOverride ?? documentRecordSchema)
 
     let friends = { endorsed: [], linked: [] }
     const seen = new Set()
@@ -874,6 +905,7 @@ export const createIndexer = (deps) => {
     recordDescription,
     recordImage,
     recordPostDate,
+    recordDocumentRecord,
     recordUsage,
     recordCreation,
     resolveSubtype,
