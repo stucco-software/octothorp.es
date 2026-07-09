@@ -1,4 +1,5 @@
 ---
+uri: ni:///sha-256;c14DeltaArchEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 title: Delta (archive)
 description: The archive-folder Delta — the target of Alpha's [[archive/Delta]] link.
 encodingFormat: image/jpeg

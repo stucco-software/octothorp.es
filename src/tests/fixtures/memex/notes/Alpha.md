@@ -1,4 +1,5 @@
 ---
+uri: ni:///sha-256;c14AlphaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 title: Alpha Record
 description: A curated record describing the Alpha asset.
 encodingFormat: image/jpeg

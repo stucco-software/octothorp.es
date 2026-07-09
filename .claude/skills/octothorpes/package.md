@@ -25,7 +25,6 @@ All source files live directly in `packages/core/` (flat layout, no build step).
 | `harmonizers.js` | `createHarmonizerRegistry(instance)` — all local harmonizer schemas |
 | `harmonizerUtils.js` | Shared harmonizer utilities: remote schema fetch, value processing/filtering, validation (formerly `harmonizeSource.js`) |
 | `handlers/`, `handlerRegistry.js` | Content handlers (html/json/xml/calendar/markdown/blobject/null) + registry; `harmonizeSource()` dispatch entry lives in `index.js`. See `octothorpes:handlers` |
-| `wikilinkResolution.js` | `resolveWikilinks`/`applyResolution`/`buildResolutionIndex` — deferred whole-instance Markdown wikilink → URL resolution (#238). See `octothorpes:handlers` |
 | `profile.js` | `createProfile({ profile, schema, instance, env })` — OP Client Profile loader/validator; returns `{ getProfile, getAccountCredentials }`. Also exports `credentialEnvKey(provider)`. See `octothorpes:api-reference` |
 | `indexer.js` | Framework-agnostic indexing pipeline; `recordDocumentRecord` (write-side documentRecord projection, #237) is schema-injected and a no-op by default |
 | `origin.js` | Origin verification (accepts config, no $env) |

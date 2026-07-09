@@ -1,4 +1,5 @@
 ---
+uri: ni:///sha-256;c14BetaBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 title: Beta Record
 description: The mutual partner of Alpha.
 encodingFormat: image/png

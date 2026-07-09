@@ -84,20 +84,13 @@ The minimal complete reference is the **blobject passthru** handler (`handlers/b
 `packages/core/handlers/markdown/handler.js` — `mode: 'markdown'`, `contentTypes: ['text/markdown']`. Converts raw Markdown into a blobject:
 
 - **Frontmatter → fields:** splits a leading `---`-fenced YAML block (`splitFrontmatter`) from the body. Keys matching canonical blobject fields (`title`, `description`, `image`, `contact`, `type`, `postDate`, `indexPolicy`, `indexHarmonizer`, plus aliases `date`/`published` → `postDate`) are promoted to the top level; every other key is passed through into `output.documentRecord` (see `octothorpes:api-reference` for how that's projected/typed on read). Malformed YAML never throws — the doc still indexes body-only.
-- **Body `[[wikilinks]]` → staged extraction:** `extractWikilinks` (`packages/core/handlers/markdown/wikilinks.js`) parses `[[target]]`, `[[target|alias]]`, `[[target#heading]]` (code-fence aware) into `output.wikilinks[]` as `{ target, basename, heading, alias, raw }`. These are **not** placed on `octothorpes` here — targets are basenames, not URLs, until resolved.
-- **RDF-star guardrail:** this handler never writes triples or constructs blank/quoted triples. It only returns a plain blobject.
+- **Declared URI → `@id`:** `options.uriField` (default `uri`) names the frontmatter field carrying the document's own URI. When present it becomes `output['@id']` (replacing the `'source'` placeholder) and is kept OUT of `documentRecord` (it is identity, not a leaf). For Memex-shaped docs this is the `ni:///sha-256;…` hash.
+- **Body `[[wikilinks]]` → resolution (#246):** `extractWikilinks` (`packages/core/handlers/markdown/wikilinks.js`) parses `[[target]]`, `[[target|alias]]`, `[[target#heading]]` (code-fence aware) into `{ target, basename, heading, alias, raw }`. Resolution is anchored on **declared URIs**, not paths. Pass `options.wikilinkTargets` (a `name → uri` Map/plain object, or a resolver function); each link resolves against it and emits a deduped `{ type: 'link', uri }` edge on `octothorpes` (no self-edges). No match / ambiguous basename → **no edge** plus a `{ target, reason: 'no-match'|'ambiguous' }` entry on `output.warnings`; a dead link never fails the document. With NO lookup the handler is extraction-only: links stay on `output.wikilinks`, no edges (usable standalone). Raw records are always kept on `output.wikilinks` for traceability.
+- **RDF-star guardrail:** this handler never writes triples or constructs blank/quoted triples. It only returns a plain blobject. Resolved edges become graph triples only through the shared relationship-write path (`indexer.ingestBlobject` → `handleMention`).
 
-**Whole-instance wikilink resolution** (`packages/core/wikilinkResolution.js`, deferred pass — runs once every document in the set is known, not per-document, so mutual `A <-> B` links both resolve):
+**Building the target map** — `buildTargetMap(entries, { uriField })` (exported from the markdown handler module, NOT core root). The caller runs one pass over the vault; each entry is `{ frontmatter | source, path | name }`. Keys are the basename plus every slash-containing path tail (`archive/Delta`, `notes/archive/Delta`) for disambiguation; a basename mapping to two DISTINCT declared URIs becomes the exported `AMBIGUOUS` sentinel, while the qualified keys stay resolvable. Entries with no declared URI are skipped. The old `packages/core/wikilinkResolution.js` (path→URL minting + nearest-in-folder heuristic) was removed in #246.
 
-| Export | Purpose |
-|--------|---------|
-| `buildResolutionIndex(documents)` | `basename -> entry[]` index from `{ uri, path, basename }` records |
-| `resolveWikilinks(documents)` | Resolves every document's staged `wikilinks[]` against the index; collisions disambiguate by path-qualifier then nearest-in-folder (no hash-suffix invention) |
-| `applyResolution(blobject, result)` | Merges resolved links onto `blobject.octothorpes` as `{ type: 'link', uri }`; unresolved links are recorded (never silently dropped), kept in-memory |
-
-Resolved edges only become graph triples through the normal shared relationship-write path (`indexer.ingestBlobject` → `handleMention`) — resolution itself never touches SPARQL.
-
-Gate test: `src/tests/c14MemexRoundtrip.test.js`, fixtures at `src/tests/fixtures/memex/`.
+Gate test: `src/tests/c14MemexRoundtrip.test.js`, fixtures at `src/tests/fixtures/memex/` (each declares a `uri:` frontmatter field).
 
 ## Common mistakes
 
