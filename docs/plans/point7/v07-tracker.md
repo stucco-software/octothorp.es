@@ -113,12 +113,13 @@
 
 ## Wave 5 — Deletion
 
-> Independent.
+> Independent. **Spec-revised 2026-07-09** — both plan docs carry dated revision sections that supersede conflicting task steps (post-#240 alignment, RDF-star sequencing, delete.js absorption). Sequence: #248 → #26 → #167.
 
-- [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md`
-- [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md`
-- [ ] make sure a generic deleterecord() function is exposed to the OP client
-- [ ] explore what attached records there are where the s? is the o?
+- [ ] **#248** Unified deletion module — absorb `packages/core/delete.js` into `createDeleter`, one semantics table, `client.deleter`/`deleteSource` surface. **Blocker for the rest.** Carries the two open maintainer decisions: inbound refs on hard delete; read-side meaning of soft-delete.
+- [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md` (rev. 2026-07-09: `<s> <o> <ts>` correctness fix, documentRecord reconciliation, vault partial-reindex `reconcile` option, subtype-change edge)
+- [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md` (rev. 2026-07-09: delete.js absorption, read-side decision gate, ni:/scheme filter, vocab registration)
+- ~~make sure a generic deleterecord() function is exposed to the OP client~~ → folded into #248
+- ~~explore what attached records there are where the s? is the o?~~ → resolved as #248 Decision 1 (not an exploration)
 
 ---
 
