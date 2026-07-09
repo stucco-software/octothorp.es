@@ -760,3 +760,15 @@ The C14 gate (#240) added `recordDocumentRecord(s, documentRecord, schema)` to `
 Verified end-to-end against the live dev server: a markdown probe served from `static/` (frontmatter carrying all six declared predicates plus an undeclared key) indexed through the real `GET /index?uri=…` route comes back on `/get/everything/posted/debug` with a typed `documentRecord` (`contentSize` as a number, `dateCreated` ISO-8601, `layout` dropped). Both new tests fail without the one-line wiring and pass with it.
 
 **Files affected:** `src/lib/indexing.js`, `src/tests/indexingAdapterDocumentRecord.test.js` (new — asserts the adapter passes the profile schema into `createIndexer`), `src/tests/indexRouteDocumentRecord.test.js` (new — live round-trip through the real `/index` HTTP route, self-cleaning).
+
+## #240 — `createClient` documentRecordSchema gap
+
+`createClient` (`packages/core/index.js`, the public entry point) built its internal `createIndexer({...})` without forwarding a documentRecord schema, so consumers of the public API had no way to persist `documentRecord` without per-call injection on every `ingestBlobject` — the epic's pattern everywhere else (route/`src/lib/indexing.js`, C7 reads, C9 subtype paths) is config-driven injection at construction time.
+
+**What changed:**
+- **`packages/core/index.js`**: `createClient` now accepts `config.documentRecordSchema` (the #216 array-of-`{predicate, namespace, range}` contract) and forwards it into the internal `createIndexer({...})` call. Undefined by default — identical behavior to before.
+- **Read path**: `client.get(...)` threads `config.documentRecordSchema` as the default for `api.get`'s `options.documentRecordSchema` (mirroring the C7 route pattern), with an explicit per-call `documentRecordSchema` in the `get()` call still taking priority. This was a small, obviously-consistent addition since `api.js` (C7) already reads `options.documentRecordSchema` off whatever `createClient` passes through — no change needed in `api.js` itself.
+
+Verified with mocked `createIndexer`/`createApi` (no live SPARQL endpoint needed): config schema reaches the indexer constructor call; omitting it leaves the indexer construction unchanged; `client.get()` reads default to the client-level schema; a per-call `documentRecordSchema` overrides the default; omitting the client-level config leaves reads with no default (unchanged prior behavior).
+
+**Files affected:** `packages/core/index.js`, `src/tests/client-documentRecordSchema.test.js` (new, 5 tests).
