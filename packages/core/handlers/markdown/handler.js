@@ -2,23 +2,34 @@ import yaml from 'js-yaml'
 import { extractWikilinks } from './wikilinks.js'
 
 /**
- * Markdown handler (issue #238, phases P1+P2).
+ * Markdown handler (issue #238, phases P1+P2; resolution reworked in #246).
  *
  * Converts raw Markdown source into a blobject:
  *   - YAML frontmatter  -> canonical blobject fields + documentRecord passthrough (P1 / C10)
  *   - frontmatter `tags` -> hashtag entries on `output.octothorpes` (#243 item 1)
- *   - body `[[wikilinks]]` -> staged link intents in `output.wikilinks` (P2 / C11)
+ *   - the frontmatter URI field (`options.uriField`, default `uri`) -> the
+ *     document's own `@id` when present (#246; replaces the `'source'` placeholder)
+ *   - body `[[wikilinks]]` -> either resolved link edges on `output.octothorpes`
+ *     (when a `options.wikilinkTargets` lookup is supplied) or extraction-only
+ *     records on `output.wikilinks` (when it is not).
+ *
+ * RESOLUTION MODEL (#246): resolution is anchored on URIs declared in
+ * frontmatter, NOT minted from file paths. The caller builds a `name -> uri`
+ * lookup with one pass over the vault (`buildTargetMap` below) and passes it as
+ * `options.wikilinkTargets`. Each extracted wikilink is resolved against it:
+ *   - a matching URI -> a `{ type: 'link', uri }` edge (deduped; no self-edges)
+ *   - no match       -> no edge, a `{ target, reason: 'no-match' }` warning
+ *   - ambiguous key  -> no edge, a `{ target, reason: 'ambiguous' }` warning
+ * A dead link never fails the document. When no lookup is provided the handler
+ * is extraction-only: wikilinks stay on `output.wikilinks`, no edges, so it
+ * remains usable standalone.
  *
  * IMPORTANT (RDF-star guardrail): this handler NEVER writes triples and never
  * hand-constructs blank nodes / quoted triples. It only produces a plain
  * blobject. Real relationship edges reach the graph through the shared
  * relationship-write path (`indexer.ingestBlobject` -> createMention /
- * createBacklink), which consumes the `octothorpes: [{ type, uri }]` array.
- * Because wikilink targets are basenames (not URLs) until whole-instance
- * resolution runs, they are staged in a SEPARATE `wikilinks` field and are NOT
- * placed on `octothorpes` here. The deferred resolution pass (C12) turns
- * resolved wikilinks into `{ type: 'link', uri }` octothorpes entries; that is
- * the only place a wikilink becomes a graph edge.
+ * createBacklink), which consumes the `octothorpes: [{ type, uri }]` array — the
+ * only place a wikilink becomes a graph edge.
  */
 
 // Canonical blobject subject fields (mirrors the default HTML harmonizer's
@@ -42,6 +53,15 @@ const CANONICAL_ALIASES = {
 }
 
 const TAGS_KEY = 'tags'
+
+// Default frontmatter field carrying a document's declared URI (#246). Override
+// per-handler via `options.uriField` (e.g. Memex points identity at its ni:hash).
+const URI_FIELD_DEFAULT = 'uri'
+
+// Sentinel stored in a target map when a basename maps to two DISTINCT declared
+// URIs. A wikilink that lands on it fails (ambiguous) unless a path-qualified
+// key disambiguates. Exported so callers building their own maps can reuse it.
+export const AMBIGUOUS = Symbol('octothorpes/wikilink-ambiguous')
 
 /**
  * Normalize frontmatter `tags` into a flat list of trimmed, non-empty tag
@@ -102,14 +122,94 @@ const parseFrontmatter = (frontmatter) => {
   }
 }
 
-const harmonize = async (content, _harmonizerSchema, _options = {}) => {
+/** Strip a trailing `.md` (case-insensitive). */
+const stripMd = (s) => String(s ?? '').replace(/\.md$/i, '')
+
+/** Path split into non-empty, `.md`-stripped segments. */
+const pathSegments = (path) => stripMd(path).split('/').filter(Boolean)
+
+/**
+ * Build a `name -> uri` lookup for wikilink resolution from a vault's
+ * frontmatter (#246). This is the ONE trivial pass the caller runs; there is no
+ * path→URL minting — every URI is the one the target document DECLARED.
+ *
+ * Each entry supplies the declared URI (via a pre-parsed `frontmatter` object or
+ * raw `source` to parse) and the vault-relative `path` (or `name`) used to
+ * derive keys. Keys registered per document:
+ *   - the basename (last path segment, `.md` stripped) — the common case
+ *   - every path-tail that contains a slash (`archive/Delta`, `notes/archive/Delta`)
+ *     so an authored qualifier can disambiguate a basename collision
+ * A key that would map to two DISTINCT URIs is marked `AMBIGUOUS`; the more
+ * specific qualified keys stay resolvable. Entries without a declared URI are
+ * skipped (they cannot be link targets).
+ *
+ * @param {Array<{frontmatter?:object, source?:string, path?:string, name?:string}>} entries
+ * @param {{uriField?:string}} [opts]
+ * @returns {Map<string, string|symbol>} name -> uri (or AMBIGUOUS)
+ */
+export const buildTargetMap = (entries = [], { uriField = URI_FIELD_DEFAULT } = {}) => {
+  const map = new Map()
+  const setKey = (key, uri) => {
+    if (!key) return
+    if (!map.has(key)) {
+      map.set(key, uri)
+      return
+    }
+    const existing = map.get(key)
+    if (existing === AMBIGUOUS || existing === uri) return
+    map.set(key, AMBIGUOUS) // distinct declared URIs collide on this key
+  }
+  for (const entry of entries || []) {
+    if (!entry) continue
+    const fm =
+      entry.frontmatter ??
+      parseFrontmatter(splitFrontmatter(entry.source ?? '').frontmatter)
+    const uri = fm?.[uriField]
+    if (!uri) continue
+    const segs = pathSegments(entry.path ?? entry.name ?? '')
+    if (segs.length === 0) continue
+    // Slash-containing path tails first (qualified keys), then the bare basename.
+    for (let i = 0; i < segs.length - 1; i++) setKey(segs.slice(i).join('/'), uri)
+    setKey(segs[segs.length - 1], uri)
+  }
+  return map
+}
+
+/**
+ * Resolve one extracted wikilink against a `options.wikilinkTargets` lookup,
+ * which may be a Map, a plain object (`name -> uri`), or a resolver function.
+ * Map/object lookups try the authored `target` (qualified) then the `basename`.
+ * A function receives `(target, link)` and owns its own fallback.
+ * Returns a URI string, the `AMBIGUOUS` sentinel, or `undefined` (no match).
+ */
+const resolveTarget = (lookup, link) => {
+  if (typeof lookup === 'function') return lookup(link.target, link)
+  if (lookup instanceof Map) {
+    const hit = lookup.get(link.target)
+    return hit === undefined ? lookup.get(link.basename) : hit
+  }
+  if (lookup && typeof lookup === 'object') {
+    if (link.target in lookup) return lookup[link.target]
+    if (link.basename in lookup) return lookup[link.basename]
+  }
+  return undefined
+}
+
+const harmonize = async (content, _harmonizerSchema, options = {}) => {
   const { frontmatter, body } = splitFrontmatter(content)
   const data = parseFrontmatter(frontmatter)
 
-  const output = { '@id': 'source', octothorpes: [] }
+  const uriField = options.uriField ?? URI_FIELD_DEFAULT
+  const declaredUri = data[uriField]
+
+  // Own `@id` comes from the declared frontmatter URI when present (#246),
+  // falling back to the 'source' placeholder for standalone / undeclared docs.
+  const output = { '@id': declaredUri || 'source', octothorpes: [] }
   const documentRecord = {}
 
   for (const [key, value] of Object.entries(data)) {
+    // The URI field is identity, not a documentRecord leaf — it becomes @id.
+    if (key === uriField) continue
     if (key === TAGS_KEY) {
       // Frontmatter tags become hashtag octothorpes, in the same bare-string
       // shape the HTML/JSON handlers emit for `hashtag` schema entries (see
@@ -132,13 +232,36 @@ const harmonize = async (content, _harmonizerSchema, _options = {}) => {
 
   if (Object.keys(documentRecord).length > 0) output.documentRecord = documentRecord
 
-  // Body [[wikilinks]] are staged as extraction records for the deferred
-  // whole-instance resolution pass (C12). They stay OFF `octothorpes` here:
-  // targets are basenames, not URLs, so putting them on the relationship-write
-  // path would emit broken edges. C12 resolves basename -> URL and merges the
-  // resolved ones into `octothorpes` as { type: 'link', uri }.
+  // Body [[wikilinks]]. Always keep the raw extraction records on
+  // `output.wikilinks` for traceability. When a target lookup is supplied,
+  // resolve each against DECLARED URIs and emit `{ type: 'link', uri }` edges
+  // directly on `octothorpes` (deduped, no self-edges); unresolved/ambiguous
+  // links surface as warnings and never become edges (#246). Without a lookup
+  // the handler is extraction-only — no edges — so it stays usable standalone.
   const wikilinks = extractWikilinks(body)
   if (wikilinks.length > 0) output.wikilinks = wikilinks
+
+  const lookup = options.wikilinkTargets
+  if (lookup != null && wikilinks.length > 0) {
+    const warnings = []
+    const seen = new Set()
+    for (const link of wikilinks) {
+      const resolved = resolveTarget(lookup, link)
+      if (resolved === AMBIGUOUS) {
+        warnings.push({ target: link.target, reason: 'ambiguous' })
+        continue
+      }
+      if (resolved == null || resolved === '') {
+        warnings.push({ target: link.target, reason: 'no-match' })
+        continue
+      }
+      if (resolved === output['@id']) continue // no self-edge
+      if (seen.has(resolved)) continue // dedupe repeated targets
+      seen.add(resolved)
+      output.octothorpes.push({ type: 'link', uri: resolved })
+    }
+    if (warnings.length > 0) output.warnings = warnings
+  }
 
   return output
 }

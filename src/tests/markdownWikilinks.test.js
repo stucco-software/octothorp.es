@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import markdownHandler from '../../packages/core/handlers/markdown/handler.js'
+import markdownHandler, {
+  buildTargetMap,
+  AMBIGUOUS,
+} from '../../packages/core/handlers/markdown/handler.js'
 import { extractWikilinks } from '../../packages/core/handlers/markdown/wikilinks.js'
 
 describe('extractWikilinks — grammar', () => {
@@ -132,5 +135,136 @@ body [[Real]]`
   it('omits the wikilinks field entirely when there are none', async () => {
     const blob = await markdownHandler.harmonize('# Heading\n\nno links')
     expect(blob.wikilinks).toBeUndefined()
+  })
+})
+
+// ---- #246: declared-URI resolution --------------------------------------
+
+describe('buildTargetMap', () => {
+  it('keys declared URIs by basename', () => {
+    const map = buildTargetMap([
+      { frontmatter: { uri: 'ni:a' }, path: 'notes/Alpha.md' },
+      { frontmatter: { uri: 'ni:b' }, path: 'notes/Beta.md' },
+    ])
+    expect(map.get('Alpha')).toBe('ni:a')
+    expect(map.get('Beta')).toBe('ni:b')
+  })
+
+  it('parses declared URIs from raw source when no frontmatter object is given', () => {
+    const map = buildTargetMap([
+      { source: '---\nuri: ni:a\n---\nbody', path: 'notes/Alpha.md' },
+    ])
+    expect(map.get('Alpha')).toBe('ni:a')
+  })
+
+  it('honours a custom uriField', () => {
+    const map = buildTargetMap(
+      [{ frontmatter: { id: 'ni:a' }, path: 'Alpha.md' }],
+      { uriField: 'id' }
+    )
+    expect(map.get('Alpha')).toBe('ni:a')
+  })
+
+  it('skips entries with no declared URI', () => {
+    const map = buildTargetMap([{ frontmatter: { title: 'x' }, path: 'Alpha.md' }])
+    expect(map.has('Alpha')).toBe(false)
+  })
+
+  it('registers qualified path keys and marks a colliding basename AMBIGUOUS', () => {
+    const map = buildTargetMap([
+      { frontmatter: { uri: 'ni:proj' }, path: 'projects/Delta.md' },
+      { frontmatter: { uri: 'ni:arch' }, path: 'archive/Delta.md' },
+    ])
+    expect(map.get('Delta')).toBe(AMBIGUOUS)
+    expect(map.get('projects/Delta')).toBe('ni:proj')
+    expect(map.get('archive/Delta')).toBe('ni:arch')
+  })
+
+  it('does not mark a basename ambiguous when both entries declare the same URI', () => {
+    const map = buildTargetMap([
+      { frontmatter: { uri: 'ni:same' }, path: 'a/Dup.md' },
+      { frontmatter: { uri: 'ni:same' }, path: 'b/Dup.md' },
+    ])
+    expect(map.get('Dup')).toBe('ni:same')
+  })
+})
+
+describe('markdown handler — declared-URI resolution (#246)', () => {
+  const vault = [
+    { source: '---\nuri: ni:alpha\n---\n', path: 'Alpha.md' },
+    { source: '---\nuri: ni:beta\n---\n', path: 'Beta.md' },
+    { frontmatter: { uri: 'ni:proj' }, path: 'projects/Delta.md' },
+    { frontmatter: { uri: 'ni:arch' }, path: 'archive/Delta.md' },
+  ]
+
+  it('sets @id from the frontmatter URI field and keeps it out of documentRecord', async () => {
+    const blob = await markdownHandler.harmonize(
+      '---\nuri: ni:alpha\ntitle: Alpha\ncustom: keep\n---\nbody',
+      null,
+      { wikilinkTargets: buildTargetMap(vault) }
+    )
+    expect(blob['@id']).toBe('ni:alpha')
+    expect(blob.documentRecord?.uri).toBeUndefined()
+    expect(blob.documentRecord?.custom).toBe('keep')
+  })
+
+  it('falls back to the "source" placeholder when no URI is declared', async () => {
+    const blob = await markdownHandler.harmonize('# no frontmatter')
+    expect(blob['@id']).toBe('source')
+  })
+
+  it('emits resolved wikilinks as { type: link, uri } edges, deduped and no self-edge', async () => {
+    const map = buildTargetMap(vault)
+    const blob = await markdownHandler.harmonize(
+      '---\nuri: ni:alpha\n---\nlinks [[Beta]], again [[Beta]], and self [[Alpha]]',
+      null,
+      { wikilinkTargets: map }
+    )
+    expect(blob.octothorpes).toEqual([{ type: 'link', uri: 'ni:beta' }])
+  })
+
+  it('warns (no edge) on a no-match target', async () => {
+    const blob = await markdownHandler.harmonize(
+      '---\nuri: ni:alpha\n---\nlinks [[Ghost]]',
+      null,
+      { wikilinkTargets: buildTargetMap(vault) }
+    )
+    expect(blob.octothorpes).toEqual([])
+    expect(blob.warnings).toContainEqual({ target: 'Ghost', reason: 'no-match' })
+  })
+
+  it('warns (no edge) on an ambiguous basename but resolves the path-qualified form', async () => {
+    const map = buildTargetMap(vault)
+    const bare = await markdownHandler.harmonize(
+      '---\nuri: ni:alpha\n---\n[[Delta]]',
+      null,
+      { wikilinkTargets: map }
+    )
+    expect(bare.octothorpes).toEqual([])
+    expect(bare.warnings).toContainEqual({ target: 'Delta', reason: 'ambiguous' })
+
+    const qualified = await markdownHandler.harmonize(
+      '---\nuri: ni:alpha\n---\n[[archive/Delta]]',
+      null,
+      { wikilinkTargets: map }
+    )
+    expect(qualified.octothorpes).toEqual([{ type: 'link', uri: 'ni:arch' }])
+    expect(qualified.warnings).toBeUndefined()
+  })
+
+  it('supports a resolver function as the lookup', async () => {
+    const blob = await markdownHandler.harmonize(
+      '---\nuri: ni:alpha\n---\n[[Beta]]',
+      null,
+      { wikilinkTargets: (target) => (target === 'Beta' ? 'ni:beta' : undefined) }
+    )
+    expect(blob.octothorpes).toEqual([{ type: 'link', uri: 'ni:beta' }])
+  })
+
+  it('stays extraction-only (no edges) when no lookup is provided', async () => {
+    const blob = await markdownHandler.harmonize('body [[Beta]]')
+    expect(blob.octothorpes).toEqual([])
+    expect(blob.wikilinks.map((l) => l.basename)).toEqual(['Beta'])
+    expect(blob.warnings).toBeUndefined()
   })
 })
