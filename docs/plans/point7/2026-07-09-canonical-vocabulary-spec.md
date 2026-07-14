@@ -56,7 +56,7 @@ New terms the registry must include beyond the draft's list: the open subtype ti
 
 1. **Vocab hosting.** Should `vocab.octothorp.es` (or `{instance}/vocabulary`) serve a dereferenceable RDF/JSON-LD document? Recommendation: yes, generated from the registry — cheap once the registry exists, pairs with the Wave 4.5 JSON-LD endpoint, and `profile.vocabularyDocument` already points at it.
 2. **§3 IRI-form normalization** — recommend bundling into Wave 4.5's migration (above).
-3. **Harmonizer JSON-LD conformance** — see §7; pending investigation.
+3. **Harmonizer JSON-LD conformance** — **DECIDED 2026-07-09 (maintainer): discard the `@context` stamp; harmonizers are not linked data.** See §8 for the investigation. Breaking-change analysis: NOT breaking — the extraction pipeline never reads the envelope (`mergeSchemas` discards all but `.schema` pre-extraction), and author-supplied `@context` in custom harmonizers stays silently ignored. Implementation shape: drop `@context` and the mismatched `@type` from built-in definitions; KEEP `@id` as a plain self-reference URL; release-note the `GET /harmonizer/[id]` response-shape change and update the docs.octothorp.es harmonizer examples if they show the envelope. Lands in the Wave 2 #195 slice. Cross-relay rescoping (the real problem §8 found) is a separate mechanism — explicit `authoringInstance` + engine re-interpolation — to be specced as its own issue sequenced with #166.
 
 ## 7. Harmonizers as vocabulary-adjacent documents (new, 2026-07-09)
 
