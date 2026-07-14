@@ -82,7 +82,7 @@
 ### Vocabulary (OP's own house — client-extensible vocab is DEFERRED)
 - [x] **documentRecord projection** — CLOSED as **#237**, shipped in #240/PR #245: declared predicates → typed `documentRecord` (range enum literal/uri/timestamp/number/boolean), undeclared dropped; write path `recordDocumentRecord` + live `/index` wiring (#242, PR #247).
 - [ ] **Canonical vocab cleanup** — reconcilable part of #195 ONLY. **Needs a fresh mini-spec (post-#240):** profile is now the authored source of truth; `documentRecordNamespaces` (schema/memex/octo/rdf/foaf) is the live namespace map; open question: `sha256` is declared under `schema` but schema.org has no such property. Supersedes the pre-profile framing in `vocabulary-design.md`.
-- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2).
+- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2). **Rides on the Wave 4.5 RDF-star migration** (lazy-policy scope decision 2026-07-08: labels are relationships-with-metadata; shipping them pre-migration would build a second, parallel metadata mechanism).
 - [ ] **#166** On-demand Document Records — **simplified post-#237 (see issue comment):** harmonize-at-request → feed the EXISTING projection/typing (`coerceDocumentRecordValue` + admission) → return, do NOT store. Remaining design surface = the stored `octo:harmonizeWith` ref.
 
 **Design decisions (see the 2026-07-02 doc):**
@@ -119,7 +119,7 @@
 
 ## Wave 5 — Deletion
 
-> Independent. **Spec-revised 2026-07-09** — both plan docs carry dated revision sections that supersede conflicting task steps (post-#240 alignment, RDF-star sequencing, delete.js absorption). Sequence: #248 → #26 → #167.
+> **Depends on Wave 4.5 (RDF-star migration)** — all deletion SPARQL is relationship-model-specific; write it once against the new model. #248's design/semantics table can start anytime. **Spec-revised 2026-07-09** — both plan docs carry dated revision sections that supersede conflicting task steps (post-#240 alignment, delete.js absorption). Sequence: Wave 4.5 → #248 → #26 → #167.
 
 - [ ] **#248** Unified deletion module — absorb `packages/core/delete.js` into `createDeleter`, one semantics table, `client.deleter`/`deleteSource` surface. **Blocker for the rest.** Carries the two open maintainer decisions: inbound refs on hard delete; read-side meaning of soft-delete.
 - [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md` (rev. 2026-07-09: `<s> <o> <ts>` correctness fix, documentRecord reconciliation, vault partial-reindex `reconcile` option, subtype-change edge)
@@ -163,10 +163,23 @@ Everything here could get pushed to the next version without dependencies
 
 ---
 
-## Post-v0.7 queue (structural, do not start during v0.7)
+## Wave 4.5 — RDF-star relationship migration (IN-MILESTONE; corrected 2026-07-09)
 
-- **RDF-star relationship migration** (#231 decision doc: `2026-07-02-231-relationship-model-rdfstar.md`) — rewrites `queryBuilders.js` + `getBlobjectFromResponse` blank-node patterns. Constraints locked during #240: must **assert base triples** (Memex backlinks/Collections depend on them); re-verify subtype paths (#236) after; all deletion SPARQL will live in `createDeleter` (#248) so the migration touches one file for deletes. Do alongside the remainder of #217.
-- **#217 Rev 2 remainder** may slip here per the original two-rev plan.
+> **Sequencing correction:** the 2026-07-09 tracker reconciliation wrongly queued this post-v0.7. The graph-model doc (`2026-07-06-jsonld-graph-model-and-terms.md` §8) places it "Next (bigger, in this wave/epic)" — in-milestone, after epic #240 (done). It must land **before Wave 5**: deletion SPARQL is relationship-model-specific and should be written once, against the new model. Design docs: `2026-07-02-231-relationship-model-rdfstar.md` (+ resolved scope decision 2026-07-08: lazy per-statement metadata) and the graph-model doc.
+
+**Precursors (cheap, additive — the doc's "now" items; can land independently):**
+- [ ] Derive backlinks, stop storing the switch (§2) — closes #231 semantically; can precede the migration proper
+- [ ] `@id` → `uri` rename / identifier-key consistency (§1)
+- [ ] `octo:Term rdfs:subClassOf skos:Concept` + `skos:prefLabel` (§4)
+
+**Migration proper:**
+- [ ] RDF-star statement-metadata migration — rewrites `queryBuilders.js` + `getBlobjectFromResponse` blank-node patterns; **must assert base triples** (Memex backlinks/Collections depend on them; locked during #240)
+- [ ] **#192 content labels ride on this** (lazy-policy scope decision: labels are structurally relationships-with-metadata) — moves here from Wave 2 in practice
+- [ ] Re-verify subtype paths (#236 behavior) + relationship-terms queries on the new model
+- [ ] Data migration for existing stores (blank nodes → quoted triples)
+- [ ] JSON-LD publisher endpoint (URL + MultiPass `@graph`) — same doc, "next" tier; bundle or follow
+
+> Do alongside the remainder of #217 where convenient (same hot files). #248's semantics table/API design can proceed anytime (model-agnostic contract); its SPARQL implementation lands on the new model.
 
 
 ---
@@ -189,6 +202,7 @@ Everything here could get pushed to the next version without dependencies
 | 2026-07-08 | `octothorpes@0.3.5` publish prepped on PR #247: `profile.schema.json` shipped in `files`, `./handlers/*` subpath export added. |
 | 2026-07-09 | **Wave 5 spec-revised:** #248 filed as keystone (absorb `delete.js` into `createDeleter`; one semantics table; two open maintainer decisions: inbound refs on hard delete, read-side meaning of soft-delete). #26/#167 plan docs carry dated revision headers; sequence #248 → #26 → #167. |
 | 2026-07-09 | **Tracker reconciled against shipped work:** Wave 2 mostly closed by #240 (#216/#236/#237 + the projection bullet); #217 respecced as field-by-field Rev 2 checklist; #200 shrank (machinery exists); #204 confirmed net-new; #213/#244 added to Wave 4; 12 stale open issues closed on GitHub. |
+| 2026-07-09 | **RDF-star sequencing corrected (maintainer catch):** the reconciliation wrongly queued the migration post-v0.7. Per the graph-model doc §8 it is IN-milestone ("next, in this wave/epic"), after epic #240. Now **Wave 4.5**, a hard prerequisite for Wave 5 (deletion SPARQL written once, on the new model); #192 rides on it (lazy-policy scope). Precursors (derive-backlinks, `@id`→`uri`, SKOS subClassOf/prefLabel) can land independently. |
 
 ---
 
