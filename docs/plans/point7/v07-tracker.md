@@ -44,7 +44,7 @@
 - [X] **Replace legacy `rss()` shim with a proper publisher** (decided 2026-06-11) — `?as=rss` on `parseBindings`-shaped routes (pages/links/backlinks/thorpes/domains) still goes through `packages/core/rssify.js` because `rss2`'s schema expects blobject shape. Replace with a registry publisher; requires adding a mechanism for a publisher/resolver to define **field defaults for missing fields** so it can consume `parseBindings` rows, not just blobjects (gap is the row-vs-blobject *shape*, not per-field defaults — `resolve()` already has `default` postProcess + static `value`). Net-new design/impl. Coordinate with **#225** below.
 - [X] **#225** Route `/get/[what]/[by]/[[as]]` through `createClient` instead of hand-wiring `createPublisherRegistry()` + `publish()` + legacy `rss()` in `load.js` (wave/0 route migration, "only use core" tech-debt). Land alongside the rss-publisher replacement so the shim isn't re-entrenched. Done 2026-06-11: silent `register()` catch in `load.js` now `console.warn`s on skip.
 - [X] Integration tests against live endpoints for each built-in publisher + at least one site-defined publisher — handoff `wave-0b-docs-handoff.md` has a ready curl walkthrough to codify
-- [ ] Public docs page (`docs.octothorp.es`) for the Publisher system — concept, schema shape, how to add one + the site-defined-vs-programmatic path (decided above)
+- [ ] Public docs page (`docs.octothorp.es`) for the Publisher system — concept, schema shape, how to add one + the site-defined-vs-programmatic path (decided above). **Fold into the docs-writing session** driven by `docs/plans/point7/release notes/documentation-recommendations.md`; source material = `wave-0b-docs-handoff.md` curl walkthrough.
 - [ ] Append Publishers MVP release notes
 
 ---
@@ -71,16 +71,19 @@
 > Epic: **#215**. Two revs; Rev 2 may slip to v0.8.
 > **Conceptual design (2026-07-02): `docs/plans/point7/2026-07-02-profile-vocabulary-decoupling.md`** — read before starting any Wave 2 work. Supersedes the client-vocab ambition in `vocabulary-design.md`.
 
+> **Epic #240 (Memex MVP, 2026-07-08) shipped most of this wave** via PRs #245 (merged) + #247 (open): #216, #236, #237 (documentRecord), #238 (Markdown handler), plus follow-ups #242/#243/#246. Filename correction to the decisions below: the shipped file is **`profile.json`** — single file, no public/full split (C1 decision on #216).
+
 ### Client Profile
-- [ ] **#216** Rev 1 (MVP) — schema, loader, `profile.public.json`, `/profile` HTML + `/profile.json` endpoints. No behavior changes.
-- [ ] **#217** Rev 2 (Integration) — bucket-A (behavior-gating) fields become live: `createClient`, publishers, harmonizers, indexing pipeline read from the profile. Deprecates ad-hoc config sites.
-- [ ] **#236** Profile-declared relationship subtypes get first-class API paths (e.g. `/get/aliasesOf/posted`) — Rev 2 integration; split out from #200.
+- [x] **#216** Rev 1 (MVP) — CLOSED. Shipped in #240/PR #245: `profile.schema.json` (closed contract), `profile.json` at repo root, `createProfile` loader, `/profile` + `/profile.json`, no-secrets guard.
+- [ ] **#217** Rev 2 (Integration) — **respecced 2026-07-09 (see issue comment):** the narrow vocabulary reads were pulled forward by #240 (documentRecord wiring, subtype paths, `createClient` passthrough). Remainder = field-by-field checklist of behavior-gating fields going live (`indexingMode`, `registrationPolicy`, harmonizers/publishers defaults, allowed protocols incl. #241's origin schemes, `contentLabels`→#192) + deprecating ad-hoc config sites. Schema is closed — every field is a deliberate extension.
+- [x] **#236** Profile-declared subtype paths — CLOSED. Shipped in #240/PR #245 (`/get/items/posted` etc.); ad-hoc `?st=` remains #200 (Wave 4, now small).
+- [ ] **#235** Rename `packages/core/index.js` → `client.js` — open wave/2 chore, previously untracked here. Touches every import; do NOT run concurrently with other core work.
 
 ### Vocabulary (OP's own house — client-extensible vocab is DEFERRED)
-- [ ] **documentRecord projection** — net-new: route declared non-canonical predicates into a `documentRecord` sub-object in `getBlobjectFromResponse`; drop undeclared ones. The single stable extension seam. (No projection exists today.)
-- [ ] **Canonical vocab cleanup** — reconcilable part of #195 ONLY: fix context.json / naming / the three-representations disagreement for `octo:` terms. Drop the client-extension ambition.
-- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery.
-- [ ] **#166** On-demand Document Records — harmonize-at-request → project into `documentRecord` → do NOT store. Now depends only on documentRecord + a stored `octo:harmonizeWith` ref, **not** on #194.
+- [x] **documentRecord projection** — CLOSED as **#237**, shipped in #240/PR #245: declared predicates → typed `documentRecord` (range enum literal/uri/timestamp/number/boolean), undeclared dropped; write path `recordDocumentRecord` + live `/index` wiring (#242, PR #247).
+- [ ] **Canonical vocab cleanup** — reconcilable part of #195 ONLY. **Needs a fresh mini-spec (post-#240):** profile is now the authored source of truth; `documentRecordNamespaces` (schema/memex/octo/rdf/foaf) is the live namespace map; open question: `sha256` is declared under `schema` but schema.org has no such property. Supersedes the pre-profile framing in `vocabulary-design.md`.
+- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2).
+- [ ] **#166** On-demand Document Records — **simplified post-#237 (see issue comment):** harmonize-at-request → feed the EXISTING projection/typing (`coerceDocumentRecordValue` + admission) → return, do NOT store. Remaining design surface = the stored `octo:harmonizeWith` ref.
 
 **Design decisions (see the 2026-07-02 doc):**
 - **`.env` = secrets ONLY** (db, smtp, external-account creds). Everything else — identity, settings, indexing config, `vocabulary` section — is in committed `profile.public.json`. No `profile.full` merge; the one public/secret split (external accounts) is a provider→credential lookup done at point-of-use, not a merged blob.
@@ -106,9 +109,11 @@
 ## Wave 4 — API additions
 > Independent.
 
-- [ ] **#200** Add `?st=` parameter for arbitrary relationship subtype queries (`multipass.js`)
-- [ ] **#204** Typed `IndexError` from core indexer — labeled `review`, may have existing code
-- [ ] make orchestra-pit and rolodex core utilities
+- [ ] **#200** Add `?st=` parameter for arbitrary relationship subtype queries — **shrank post-#240 (see issue comment):** #236 built the machinery (`buildMultiPass` honors injected `subtype`; guard admits subtype-bounded). Remainder ≈ parse the param + precedence vs declared paths + tests. Quick win.
+- [ ] **#204** Typed `IndexError` from core indexer — verified 2026-07-09: **no existing code, net-new** (small design task: error taxonomy + HTTP status mapping)
+- [ ] **#213** Wire endorsement gating in `handleMention` — deferred here from Wave 1 (design-heavy)
+- [ ] **#244** Replace `getStatements` guard with validity matrix + route-level pagination policy — deferred by maintainer 2026-07-08; spec is complete on the issue
+- [ ] make orchestra-pit and rolodex core utilities — unspecced; needs an issue or demotion to Wave 7
 ---
 
 ## Wave 5 — Deletion
@@ -142,7 +147,7 @@ Everything here could get pushed to the next version without dependencies
 
 - [ ] **#168** Use badge.png to trigger a registration request
 - [ ] **#160** More levers for query param handling (client config for accepted/rejected params)
-- [ ] **#145** Indexing via webmention — new handler mode or pre-harmonized blobject input
+- [ ] **#145** Indexing via webmention — now "add a handler mode"; the markdown handler (#240) is the worked template (see issue comment)
 ### Domain Pages Overhaul (bundled)
 > Epic: **#218**. Sequence: refactor → posted view → numerical alias. All three touch `/domains/[uri]`.
 
@@ -153,7 +158,14 @@ Everything here could get pushed to the next version without dependencies
 ### Vocabulary & protocol
 > Lower priority, design-heavy. Consider whether these belong in v0.7 or a future milestone.
 
-- [ ] **#196** Add basic graph relationship primitives (CLI: `op related`, `op neighbors`, `op path`)
+- [ ] **#196** Add basic graph relationship primitives (CLI: `op related`, `op neighbors`, `op path`) — **recommend moving to v0.8** (design-heavy, nothing depends on it)
+
+---
+
+## Post-v0.7 queue (structural, do not start during v0.7)
+
+- **RDF-star relationship migration** (#231 decision doc: `2026-07-02-231-relationship-model-rdfstar.md`) — rewrites `queryBuilders.js` + `getBlobjectFromResponse` blank-node patterns. Constraints locked during #240: must **assert base triples** (Memex backlinks/Collections depend on them); re-verify subtype paths (#236) after; all deletion SPARQL will live in `createDeleter` (#248) so the migration touches one file for deletes. Do alongside the remainder of #217.
+- **#217 Rev 2 remainder** may slip here per the original two-rev plan.
 
 
 ---
@@ -170,6 +182,12 @@ Everything here could get pushed to the next version without dependencies
 | 2026-05-19 | Wave 5 reorganized: #202, #185, #191 bundled as Domain Pages Overhaul epic (#218); #158 and #199 remain standalone; design considerations skipped (functional only) |
 | 2026-05-19 | Bridges dropped from #217 deliverables and from v0.7 scope; not to be considered until further notice |
 | 2026-05-28 | Generic handler pipeline landed on `handle-handlers` (plan `2026-05-27-generic-handler-pipeline.md`): `handler()` is content-type-agnostic via `dispatch` + `resolveIndexPolicy`; `harmonizeSource` injection and `handleHTML` removed; `harmonizeSource` now accepts a pre-resolved schema object. Per "only use core", `src/lib/indexing.js` was NOT given a registry — its 3 live routes need migration to `createClient` before live-endpoint verification (halfbaked plan exists). |
+| 2026-07-08 | **Epic #240 (Memex MVP) shipped** — profile Rev 1 + vocabulary contract, documentRecord read+write (typed, admission-guarded), subtype→first-class paths, Markdown handler + wikilinks, `ni:` URIs verified. Sequencing rule established: **this epic precedes the RDF-star migration** (shared hot files `queryBuilders.js`/`getBlobjectFromResponse`; RDF-star must assert base triples). PR #245 merged; follow-up PR #247 open. |
+| 2026-07-08 | `getStatements` guard relaxed to admit subtype-bounded queries (needed by #236). Full guard removal + route-level pagination policy specced as **#244**, deferred by maintainer. |
+| 2026-07-08 | **Wikilink resolution redesigned (#246):** whole-instance basename→URL model (path-minted URLs, nearest-in-folder heuristic) DELETED before npm publish; replaced by per-handler declared-frontmatter-URI resolution (`uriField`, `wikilinkTargets`, `buildTargetMap`). Unresolved links are never stored (also the #243 item-3 ruling; case-sensitive matching stays, #243 item 2). |
+| 2026-07-08 | `octothorpes@0.3.5` publish prepped on PR #247: `profile.schema.json` shipped in `files`, `./handlers/*` subpath export added. |
+| 2026-07-09 | **Wave 5 spec-revised:** #248 filed as keystone (absorb `delete.js` into `createDeleter`; one semantics table; two open maintainer decisions: inbound refs on hard delete, read-side meaning of soft-delete). #26/#167 plan docs carry dated revision headers; sequence #248 → #26 → #167. |
+| 2026-07-09 | **Tracker reconciled against shipped work:** Wave 2 mostly closed by #240 (#216/#236/#237 + the projection bullet); #217 respecced as field-by-field Rev 2 checklist; #200 shrank (machinery exists); #204 confirmed net-new; #213/#244 added to Wave 4; 12 stale open issues closed on GitHub. |
 
 ---
 
