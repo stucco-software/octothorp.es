@@ -98,10 +98,11 @@
 
 ## Wave 3 — Batch indexing
 > Depends on Wave 0a being complete (handler dispatch, `ingestBlobject` callable directly). Independent of 0b.
+> **Plan spec-revised 2026-07-09** (R1–R8 header on the plan doc): shared-module extraction already done; batch is the natural home for whole-set options (`wikilinkTargets`/`documentRecordSchema`; `reconcile` once #26 lands); rate-limit + async-propagation behavior must be explicit in the batch response contract.
 
-- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md`
-- [ ] **#43** Index statements via Octothorpes blobject file — calls `ingestBlobject` directly
-- [ ] **#177** Harmonize standard sitemap.xml files — depends on #180
+- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md` (rev. 2026-07-09)
+- [ ] **#43** Index statements via Octothorpes blobject file — **materially closer than "deferred":** the blobject handler + `indexSource({ content })` direct-write path already ship; only the HTTP-batch dispatch branch is missing. Recommend folding into the #180 MVP.
+- [ ] **#177** Harmonize standard sitemap.xml files — still greenfield, unaffected by #240; depends on #180
 
 
 ---
