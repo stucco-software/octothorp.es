@@ -56,7 +56,7 @@ New terms the registry must include beyond the draft's list: the open subtype ti
 
 1. **Vocab hosting.** Should `vocab.octothorp.es` (or `{instance}/vocabulary`) serve a dereferenceable RDF/JSON-LD document? Recommendation: yes, generated from the registry — cheap once the registry exists, pairs with the Wave 4.5 JSON-LD endpoint, and `profile.vocabularyDocument` already points at it.
 2. **§3 IRI-form normalization** — recommend bundling into Wave 4.5's migration (above).
-3. **Harmonizer JSON-LD conformance** — **DECIDED 2026-07-09 (maintainer): discard the `@context` stamp; harmonizers are not linked data.** See §8 for the investigation. Breaking-change analysis: NOT breaking — the extraction pipeline never reads the envelope (`mergeSchemas` discards all but `.schema` pre-extraction), and author-supplied `@context` in custom harmonizers stays silently ignored. Implementation shape: drop `@context` and the mismatched `@type` from built-in definitions; KEEP `@id` as a plain self-reference URL; release-note the `GET /harmonizer/[id]` response-shape change and update the docs.octothorp.es harmonizer examples if they show the envelope. Lands in the Wave 2 #195 slice. Cross-relay rescoping (the real problem §8 found) is a separate mechanism — explicit `authoringInstance` + engine re-interpolation — to be specced as its own issue sequenced with #166.
+3. **Harmonizer JSON-LD conformance** — **DECIDED 2026-07-09 (maintainer): discard `@context`; harmonizers are not linked data.** Refined in discussion (see §9): `id` and `type` STAY, without the `@` — they're load-bearing for addressing and validation. Work item: **#249**. Cross-relay rescoping (the real problem §8 found) is a separate mechanism — explicit `authoringInstance` + engine re-interpolation — specced with #166.
 
 ## 7. Harmonizers as vocabulary-adjacent documents (new, 2026-07-09)
 
@@ -132,3 +132,15 @@ Two independent failures:
 - **The one genuinely JSON-LD-shaped concern** — a *correct*, non-stale context for whatever envelope survives — is subsumed by Wave 4.5 context regeneration (§5). If any `@context` survives step 1, it is generated there, never hand-stamped.
 
 **Wave assignment:** stamp removal + `@type` fix → **Wave 2** (with §5 registry/context honesty work). Cross-relay re-interpolation → **own issue, sequenced with #166**. Any surviving generated context → **Wave 4.5**. No part of this belongs in a full-JSON-LD effort.
+
+## 9. Envelope + self-describing schema decisions (2026-07-09 discussion)
+
+Maintainer discussion following §8; four rulings. Work item for 1–3: **#249**. Item 4 is scoped onto **#166**.
+
+1. **`id`/`type` stay, `@` goes.** Both are load-bearing: `id` for addressing (remote fetch, caching), `type` as the validation gate before executing a *fetched* harmonizer document (pre-req for #166 `harmonizeWith` — never run a fetched doc that doesn't validate as `type: "harmonizer"`). Backwards compat via a **single-boundary envelope normalizer** (registry construction + `remoteHarmonizer`) mapping `@id`→`id`, `@type`→`type` — no per-read-site fallbacks, or the `@` lingers forever. Canonical type value stays lowercase `"harmonizer"` (nothing left for the case to be inconsistent with once the vocab claim is gone).
+
+2. **Publishers get the same treatment, split by role.** Rule: **definition metadata loses the `@`; output serialization keeps it wherever the output genuinely is JSON-LD** (the Wave 4.5 JSON-LD endpoint, blobject-with-`@context` two-surface model). Pre-work check in #249: classify each `@context` in `src/lib/publishers/*/resolver.json` as definition-envelope vs output-instruction before touching it.
+
+3. **Skill/docs updates are part of the change's definition of done**, not a follow-up: harmonizers/handlers/api-reference sub-skills, octodemo examples, docs.octothorp.es harmonizer page, fixtures asserting `@`-keys, release note for the `GET /harmonizer/[id]` shape change.
+
+4. **Self-describing harmonizers: a harmonizer may carry its own documentRecord schema.** Key named `documentRecord` (NOT `context` — after ruling these docs non-linked-data, a `context` key would re-import JSON-LD confusion), value exactly the profile's `{predicate, namespace, range}[]` shape so the same validation and `coerceDocumentRecordValue` path serve both sources. **Persistence boundary (the security rule):** harmonizer-declared schema may drive *ephemeral* projection (#166 on-demand records — nothing stored, safe to honor fully); *storage* always requires the relay profile's admission — intersection semantics when both present. Precedence for the `documentRecordSchema` param: explicit param > profile > harmonizer-declared∩profile. This partially un-defers "vocab→harmonizer propagation" from the decoupling doc, in the benign direction (harmonizer proposes; profile disposes), and stays param-driven.
