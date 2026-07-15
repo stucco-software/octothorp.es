@@ -7,6 +7,9 @@
 **Branch:** `development`
 **Wave labels:** `wave/0` through `wave/7`, plus `wave/1.5`, applied to all milestone issues.
 
+> **◆ = Memex-driven, not core-critical OP.** Useful for the Memex 2.0 client but deferrable if shipping only OP core — see the "Memex-adjacent at a glance" section before the Decisions log.
+> **Critical path:** Wave 4.5 (RDF-star) blocks Wave 5 (deletion). Waves 2, 3, 4, 6 are independent.
+
 ---
 
 ## Wave 0 — Complete handler architecture + Publishers MVP
@@ -81,9 +84,9 @@
 
 ### Vocabulary (OP's own house — client-extensible vocab is DEFERRED)
 - [x] **documentRecord projection** — CLOSED as **#237**, shipped in #240/PR #245: declared predicates → typed `documentRecord` (range enum literal/uri/timestamp/number/boolean), undeclared dropped; write path `recordDocumentRecord` + live `/index` wiring (#242, PR #247).
-- [ ] **Canonical vocab cleanup (#195)** — **SPEC: `docs/plans/point7/2026-07-09-canonical-vocabulary-spec.md`** (supersedes `vocabulary-design.md` where they disagree). Wave-2 slice: registry module (`packages/core/vocabulary.js`), naming fixes incl. the newly found `<octo:Item>` compact-IRI-form disagreement, `sha256` namespace resolution, absorb `documentRecordNamespaces`, generated `/vocabulary` doc. `context.json` regeneration deliberately WAITS for Wave 4.5 (RDF-star serialization is an open design point). Open decisions in spec §6 (vocab hosting, IRI-form normalization); harmonizer envelope DECIDED → **#249** (drop `@`-keys, keep `id`/`type`, publisher sweep, skills/docs in definition-of-done); self-describing harmonizer schema + cross-relay rescoping scoped onto #166 (spec §9).
+- [ ] **Canonical vocab cleanup (#195)** — **SPEC: `docs/plans/point7/2026-07-09-canonical-vocabulary-spec.md`** (supersedes `vocabulary-design.md` where they disagree). Wave-2 slice: registry module (`packages/core/vocabulary.js`), naming fixes incl. the newly found `<octo:Item>` compact-IRI-form disagreement, `sha256` namespace resolution ◆ (Memex-specific), absorb `documentRecordNamespaces`, generated `/vocabulary` doc. `context.json` regeneration deliberately WAITS for Wave 4.5 (RDF-star serialization is an open design point). Open decisions in spec §6 (vocab hosting, IRI-form normalization); harmonizer envelope DECIDED → **#249** (drop `@`-keys, keep `id`/`type`, publisher sweep, skills/docs in definition-of-done); self-describing harmonizer schema + cross-relay rescoping scoped onto #166 (spec §9).
 - [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2). **Rides on the Wave 4.5 RDF-star migration** (lazy-policy scope decision 2026-07-08: labels are relationships-with-metadata; shipping them pre-migration would build a second, parallel metadata mechanism).
-- [ ] **#166** On-demand Document Records — **simplified post-#237 (see issue comment):** harmonize-at-request → feed the EXISTING projection/typing (`coerceDocumentRecordValue` + admission) → return, do NOT store. Remaining design surface = the stored `octo:harmonizeWith` ref.
+- [ ] **#166** On-demand Document Records ◆ (Memex-driven; general feature) — **simplified post-#237 (see issue comment):** harmonize-at-request → feed the EXISTING projection/typing (`coerceDocumentRecordValue` + admission) → return, do NOT store. Remaining design surface = the stored `octo:harmonizeWith` ref. Carries the self-describing-harmonizer profile-reference pattern + cross-relay rescoping (spec §9.4).
 
 **Design decisions (see the 2026-07-02 doc):**
 - **`.env` = secrets ONLY** (db, smtp, external-account creds). Everything else — identity, settings, indexing config, `vocabulary` section — is in committed `profile.public.json`. No `profile.full` merge; the one public/secret split (external accounts) is a provider→credential lookup done at point-of-use, not a merged blob.
@@ -100,7 +103,7 @@
 > Depends on Wave 0a being complete (handler dispatch, `ingestBlobject` callable directly). Independent of 0b.
 > **Plan spec-revised 2026-07-09** (R1–R8 header on the plan doc): shared-module extraction already done; batch is the natural home for whole-set options (`wikilinkTargets`/`documentRecordSchema`; `reconcile` once #26 lands); rate-limit + async-propagation behavior must be explicit in the batch response contract.
 
-- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md` (rev. 2026-07-09)
+- [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md` (rev. 2026-07-09). Whole-set options belong here: `documentRecordSchema`, `reconcile` (#26), and `wikilinkTargets` ◆ (Memex vault sync)
 - [ ] **#43** Index statements via Octothorpes blobject file — **materially closer than "deferred":** the blobject handler + `indexSource({ content })` direct-write path already ship; only the HTTP-batch dispatch branch is missing. Recommend folding into the #180 MVP.
 - [ ] **#177** Harmonize standard sitemap.xml files — still greenfield, unaffected by #240; depends on #180
 
@@ -122,8 +125,8 @@
 > **Depends on Wave 4.5 (RDF-star migration)** — all deletion SPARQL is relationship-model-specific; write it once against the new model. #248's design/semantics table can start anytime. **Spec-revised 2026-07-09** — both plan docs carry dated revision sections that supersede conflicting task steps (post-#240 alignment, delete.js absorption). Sequence: Wave 4.5 → #248 → #26 → #167.
 
 - [ ] **#248** Unified deletion module — absorb `packages/core/delete.js` into `createDeleter`, one semantics table, `client.deleter`/`deleteSource` surface. **Blocker for the rest.** Carries the two open maintainer decisions: inbound refs on hard delete; read-side meaning of soft-delete.
-- [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md` (rev. 2026-07-09: `<s> <o> <ts>` correctness fix, documentRecord reconciliation, vault partial-reindex `reconcile` option, subtype-change edge)
-- [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md` (rev. 2026-07-09: delete.js absorption, read-side decision gate, ni:/scheme filter, vocab registration)
+- [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md` (rev. 2026-07-09: `<s> <o> <ts>` correctness fix, documentRecord reconciliation, vault partial-reindex `reconcile` option ◆, subtype-change edge)
+- [ ] **#167** Archive/soft-delete 404 URLs — design: `docs/plans/point7/2026-03-30-page-deletion.md` (rev. 2026-07-09: delete.js absorption, read-side decision gate, `ni:`/scheme filter ◆, vocab registration)
 - ~~make sure a generic deleterecord() function is exposed to the OP client~~ → folded into #248
 - ~~explore what attached records there are where the s? is the o?~~ → resolved as #248 Decision 1 (not an exploration)
 
@@ -156,6 +159,8 @@ Everything here could get pushed to the next version without dependencies
 - [ ] **#185** Add "posted" view alongside thorped, with pagination/limits
 - [ ] **#191** Numerical alias via `octo:siteNum` predicate (string literal); minted as `MAX(?siteNum)+1` at registration; retired numbers not reused
 
+- [ ] **#250** Publisher profile-compat check ◆ — optional typed cross-client compatibility handshake on publisher `requires` (profile URL as an additive check, never a gate). Deferred; after #195/#166. Spec §9.5.
+
 ### Vocabulary & protocol
 > Lower priority, design-heavy. Consider whether these belong in v0.7 or a future milestone.
 
@@ -181,6 +186,24 @@ Everything here could get pushed to the next version without dependencies
 
 > Do alongside the remainder of #217 where convenient (same hot files). #248's semantics table/API design can proceed anytime (model-agnostic contract); its SPARQL implementation lands on the new model.
 
+
+---
+
+## Memex-adjacent at a glance (◆)
+
+Work that serves the Memex 2.0 client but is **not core-critical OP** — a solo-OP-core v0.7 can ship without any of it, and the milestone still closes on the vocab registry, batch, API additions, deletion, and UI.
+
+| Item | Status | Note |
+|---|---|---|
+| Markdown handler + wikilinks (#238) | ✅ shipped | general feature; Memex is the driver |
+| Wikilink resolution redesign (#246) | ✅ shipped | declared-URI model |
+| `ni:` origin guard (#241) | deferred | only if `ni:`-identified docs get full page indexing |
+| `sha256` namespace resolution (in #195) | Wave 2 | Memex documentRecord predicate |
+| On-demand + self-describing harmonizers (#166) | Wave 2 | general feature, Memex-driven |
+| Batch `wikilinkTargets` / vault `reconcile` (#180, #26) | Wave 3/5 | vault sync + partial re-index |
+| Publisher cross-client compat (#250) | v0.8 | federation-era |
+
+The Memex client install itself lives in `~/dev/memex2` (plan: `memex2/docs/plans/2026-07-08-op-client-install.md`), not this milestone.
 
 ---
 
