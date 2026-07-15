@@ -37,7 +37,12 @@ Found during #240 (C9/C14): relationship **types are stored as literal IRIs `<oc
 - `documentRecordNamespaces` — folds in (it's a partial registry that shipped early; absorb, don't duplicate — same rule as delete.js/#248).
 - Naming-inconsistency table from vocabulary-design.md carries over intact (Term vs Octothorpe, date vs indexed, case conventions) **plus §3's IRI-form row**.
 
-New terms the registry must include beyond the draft's list: the open subtype tiers (§1), `octo:unavailable`/`unavailableSince`/`failCount` (Wave 5, #167 R4), `octo:harmonizeWith` (#166), `octo:siteNum` (#191), SKOS additions (`rdfs:subClassOf skos:Concept`, `skos:prefLabel` — Wave 4.5 precursor). Known vocab bug to resolve while here: octothorp.es's own profile declares `sha256` under the `schema` namespace, but schema.org has no such property — either mint it in a `octo:`/`memex:` namespace or find the correct schema.org term.
+New terms the registry must include beyond the draft's list: the open subtype tiers (§1), `octo:unavailable`/`unavailableSince`/`failCount` (Wave 5, #167 R4), `octo:harmonizeWith` (#166), `octo:siteNum` (#191), SKOS additions (`rdfs:subClassOf skos:Concept`, `skos:prefLabel` — Wave 4.5 precursor). 
+
+
+
+
+Known vocab bug to resolve while here: octothorp.es's own profile declares `sha256` under the `schema` namespace, but schema.org has no such property — either mint it in a `octo:`/`memex:` namespace or find the correct schema.org term. (this is specific to the Memex work, not OP core)
 
 ## 5. Sequencing (assigns to waves)
 
@@ -129,7 +134,6 @@ Two independent failures:
 - **Immediate (Wave 2, folds into §5 "context.json staleness" honesty work):** drop the `@context` stamp from `createHarmonizerRegistry` (or, if a stamp is wanted for future generation, it must be emitted by the §4 registry generator, not hand-stamped — same rule as everything else in this spec). Fix `@type` to the canonical `Harmonizer` term while here. Cheap, honest, no author churn.
 - **Cross-relay portability = its own issue, tied to #166 `octo:harmonizeWith`.** The mechanism is engine-level re-interpolation keyed off an explicit `authoringInstance`/`scope` field, not JSON-LD `@base`. Scope it with #166 because that's when authored/shared harmonizers become a real cross-relay path; until then the risk is latent. Not Wave 2, not Wave 4.5.
 - **Reject (a).** Full harmonizer-vocabulary conformance is high-churn and does not solve the scoping problem; revisit only if there's an independent need to publish harmonizers *as* queryable RDF.
-- **The one genuinely JSON-LD-shaped concern** — a *correct*, non-stale context for whatever envelope survives — is subsumed by Wave 4.5 context regeneration (§5). If any `@context` survives step 1, it is generated there, never hand-stamped.
 
 **Wave assignment:** stamp removal + `@type` fix → **Wave 2** (with §5 registry/context honesty work). Cross-relay re-interpolation → **own issue, sequenced with #166**. Any surviving generated context → **Wave 4.5**. No part of this belongs in a full-JSON-LD effort.
 
