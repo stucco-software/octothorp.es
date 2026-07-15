@@ -1,6 +1,6 @@
 # Canonical vocabulary — spec and decision reconciliation
 
-> **Status:** supersedes `vocabulary-design.md` wherever the two disagree. That document was a discussion draft; this one reconciles it against everything decided since (profile-vocab decoupling 2026-07-02, epic #240 shipped 2026-07-08, RDF-star scope resolution 2026-07-08, graph-model doc 2026-07-06, Wave 4.5 sequencing correction 2026-07-09) and assigns each surviving work item to a wave. Maps to issue **#195** (canonical cleanup) with touchpoints on #192, #166, #194.
+> **Status:** RETIRES and replaces `vocabulary-design.md` (deleted 2026-07-09; its still-live content — the baseline term inventory and naming table — is absorbed into §4). This doc reconciles that discussion draft against everything decided since (profile-vocab decoupling 2026-07-02, epic #240 shipped 2026-07-08, RDF-star scope resolution 2026-07-08, graph-model doc 2026-07-06, Wave 4.5 sequencing correction 2026-07-09) and assigns each surviving work item to a wave. Maps to issue **#195** (canonical cleanup) with touchpoints on #192, #166, #194.
 
 ## 1. What changed since vocabulary-design.md
 
@@ -35,14 +35,29 @@ Found during #240 (C9/C14): relationship **types are stored as literal IRIs `<oc
 - `context.json` — generated (see §5 for timing).
 - The `/vocabulary` document — generated, served at `profile.vocabularyDocument`.
 - `documentRecordNamespaces` — folds in (it's a partial registry that shipped early; absorb, don't duplicate — same rule as delete.js/#248).
-- Naming-inconsistency table from vocabulary-design.md carries over intact (Term vs Octothorpe, date vs indexed, case conventions) **plus §3's IRI-form row**.
 
-New terms the registry must include beyond the draft's list: the open subtype tiers (§1), `octo:unavailable`/`unavailableSince`/`failCount` (Wave 5, #167 R4), `octo:harmonizeWith` (#166), `octo:siteNum` (#191), SKOS additions (`rdfs:subClassOf skos:Concept`, `skos:prefLabel` — Wave 4.5 precursor). 
+**Baseline term inventory** (absorbed from the retired `vocabulary-design.md`; the registry starts here and extends):
 
+- Classes: `Page`, `Term`, `Origin`, `Webring`, `Relationship`, `Label`.
+- Relationship subtypes (subclasses of `Relationship`): `Backlink`, `Cite`, `Bookmark`, `Endorse`, `Button` — but see §1: this is now the *canonical* tier, not a closed set (declared + ad-hoc tiers extend it).
+- Page properties: `title`, `description`, `image`, `contact`, `pageType`, `indexed`, `postDate`.
+- Structural properties: `octothorpes`, `hasPart`, `hasMember`, `endorses`, `verified`.
+- Relationship blank-node properties: `url`, `created`.
+- **NOT vocabulary — extraction directives** (harmonizer pulls from HTML, indexing consumes, then discarded; they belong to the harmonizer/profile layer): `indexPolicy`, `indexServer`, `indexHarmonizer`.
 
+**New terms beyond the baseline:** the open subtype tiers (§1), `octo:unavailable`/`unavailableSince`/`failCount` (Wave 5, #167 R4), `octo:harmonizeWith` (#166), `octo:siteNum` (#191), SKOS additions (`rdfs:subClassOf skos:Concept`, `skos:prefLabel` — Wave 4.5 precursor).
 
+**Naming-inconsistency table** (absorbed from `vocabulary-design.md`; the registry is the fix):
 
-Known vocab bug to resolve while here: octothorp.es's own profile declares `sha256` under the `schema` namespace, but schema.org has no such property — either mint it in a `octo:`/`memex:` namespace or find the correct schema.org term. (this is specific to the Memex work, not OP core)
+| Current state | Resolution |
+|---|---|
+| `Octothorpe` in context.json vs `Term` in SPARQL | Standardize on `Term` for the class. `Octothorpe` describes the *relationship* (the act of tagging), not the tag. |
+| `date` in blobjects vs `indexed` in RDF | Vocab uses `indexed`; blobject projects it as `date`. Documented. |
+| `endorse`/`button` (lowercase) in harmonizer vs `Endorse`/`Button` (class) | Harmonizer schema keys stay lowercase (extraction config); vocab class + blobject type string capitalized. |
+| `challenge` in context.json | Keep — used for origin verification. |
+| **`<octo:Item>` compact IRI vs `https://vocab.octothorp.es#` expanded** (§3, found in #240) | Decision pending; recommend normalize during the Wave 4.5 data migration. |
+
+Known vocab bug to resolve while here: octothorp.es's own profile declares `sha256` under the `schema` namespace, but schema.org has no such property — either mint it in a `octo:`/`memex:` namespace or find the correct schema.org term. (Specific to the Memex work, not OP core.)
 
 ## 5. Sequencing (assigns to waves)
 
