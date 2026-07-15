@@ -1,4 +1,5 @@
 ---
+uri: ni:///sha-256;c14GammaCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 title: Gamma Record
 description: Target of the aliased, heading-qualified link from Alpha.
 encodingFormat: image/webp

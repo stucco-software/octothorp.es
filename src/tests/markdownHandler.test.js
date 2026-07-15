@@ -103,3 +103,90 @@ body`
     expect(blob['@id']).toBe('source')
   })
 })
+
+describe('markdown handler — frontmatter tags (#243)', () => {
+  it('maps a YAML tags list to string octothorpes', async () => {
+    const md = `---
+title: Tagged
+tags: [cats, dogs]
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual(['cats', 'dogs'])
+  })
+
+  it('maps a single string tag to a single octothorpe', async () => {
+    const md = `---
+title: Solo tag
+tags: cats
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual(['cats'])
+  })
+
+  it('splits a comma-separated string tag value', async () => {
+    const md = `---
+title: CSV tags
+tags: cats, dogs, birds
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual(['cats', 'dogs', 'birds'])
+  })
+
+  it('trims whitespace and drops empty entries', async () => {
+    const md = `---
+title: Messy tags
+tags: [" cats ", "", "  ", dogs]
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual(['cats', 'dogs'])
+  })
+
+  it('is a no-op when tags is absent', async () => {
+    const md = `---
+title: No tags
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual([])
+  })
+
+  it('is a no-op when tags is an empty list', async () => {
+    const md = `---
+title: Empty tags
+tags: []
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual([])
+  })
+
+  it('does not leak tags into documentRecord passthrough', async () => {
+    const md = `---
+title: No leak
+tags: [cats, dogs]
+author: Ada Lovelace
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual(['cats', 'dogs'])
+    expect(blob.documentRecord).toBeDefined()
+    expect(blob.documentRecord.tags).toBeUndefined()
+    expect(blob.documentRecord.author).toBe('Ada Lovelace')
+  })
+
+  it('combines with body wikilinks and other octothorpes-producing fields without clobbering', async () => {
+    const md = `---
+title: Combined
+tags: [alpha]
+---
+
+See [[Other Note]] for more.`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.octothorpes).toEqual(['alpha'])
+    expect(blob.wikilinks?.length).toBeGreaterThan(0)
+  })
+})

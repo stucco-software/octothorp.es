@@ -1,5 +1,21 @@
 # Stale Statement Removal on Re-index (issue #26)
 
+> ## ⚠️ SPEC REVISION 2026-07-09 — read before implementing
+>
+> This plan predates epic #240 and the Wave-5 consolidation decision (#248). Where this revision conflicts with the task steps below, **the revision wins**. The overall approach (diff stored vs. declared, delete the diff, wired into `ingestBlobject`) stands.
+>
+> **R1 — Deletion primitives live in `createDeleter`, not inline in the indexer.** Task 3's `deleteThorpe`/`deleteMention` are implemented in `packages/core/deleter.js` (see #248 — which also absorbs the existing `packages/core/delete.js`) and injected into `createIndexer` as a `deleter` dep. The indexer never hand-writes deletion SPARQL. This is the RDF-star insurance: the migration rewrites blank-node patterns, and all deletes must sit in one file.
+>
+> **R2 — CORRECTNESS FIX: also delete the `<s> <o> <ts>` predicate-position triple.** The write path (`mentionTriples`/thorpe writes) emits a triple with the object URI in *predicate* position (`<s> <objectUri> <timestamp>`), which `buildSimpleQuery`'s phase-1 term-usage join requires (confirmed by the C0 ni:-spike and the C14 gate). Task 3's deletes as written leave it behind, so "deleted" statements keep surfacing in term queries. `deleteThorpe(s, o)` must add `DELETE WHERE { <s> <{base}~/{o}> ?ts }`; `deleteMention(s, o)` must add `DELETE WHERE { <s> <o> ?ts }`. Add a test asserting a reconciled-away statement no longer appears via a term-usage query, not just via `extantThorpe`/`extantMention`.
+>
+> **R3 — documentRecord reconciliation (new since #237/#242).** `recordDocumentRecord` delete-then-inserts predicates *present* in the incoming blobject, but a declared predicate *removed* from the page persists forever — violating this plan's contract. Add to the reconciliation block: for each predicate in the injected `documentRecordSchema` that is absent from the incoming `blobject.documentRecord`, delete its stored leaf triple. Only declared predicates are reconciled (undeclared were never stored — the #237 admission guard). New task + tests.
+>
+> **R4 — Wikilink/vault partial re-index hazard (new since #246).** Markdown link edges depend on the `wikilinkTargets` map supplied at harmonize time. Re-indexing one vault document without the full map yields fewer resolved links, and reconciliation would then DELETE real edges. Mitigation: `ingestBlobject` gains a per-call `reconcile` option (default `true`); vault-driven clients (Memex) must either supply the complete target map on every re-index or pass `reconcile: false`. Document this in the option's JSDoc and in the memex2 client plan. New test: re-index with `reconcile: false` deletes nothing.
+>
+> **R5 — Same-URI, changed subtype/terms edge.** The URI-keyed diff treats a target whose relationship *type* or attached terms changed as "kept," so stale blank-node data may survive or duplicate. Add a characterization test (re-index changes `bookmarks`→`cites` for the same target); if the upsert path doesn't correct it, key the diff on `(uri, type)` for typed mentions. Small, but decide with evidence, not assumption.
+>
+> **R6 — Sequencing.** Implement after #248's module lands. Branch/commit conventions in Task 6 are superseded by current session practice (pathspec commits, release notes under `docs/plans/point7/release notes/`).
+
 **Goal:** When a page re-indexes, remove any thorpe/mention relationships that are no longer present on the page. Re-indexing becomes the deletion mechanism — site owners remove a statement by deleting it from their page and re-indexing.
 
 **Approach (from issue #26 comments):** On each index, compare what's currently in the triplestore for `s` against what the freshly-harmonized page declares. Delete the diff.

@@ -6,32 +6,34 @@ import {
   createDefaultHandlerRegistry,
   createHarmonizerRegistry,
   harmonizeSource,
-  resolveWikilinks,
-  applyResolution,
 } from 'octothorpes'
+import { buildTargetMap } from '../../packages/core/handlers/markdown/handler.js'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
 
-// C13/C14 (#238 P4 + epic gate): a Memex-shaped Markdown Record round-trips
-// end-to-end through the REAL landed components:
-//   markdown source
+// C13/C14 (#238 P4 + epic gate), reworked for #246: a Memex-shaped Markdown
+// Record round-trips end-to-end through the REAL landed components under the
+// declared-URI resolution model:
+//   markdown source (frontmatter declares its own `uri`)
 //     -> harmonizeSource (markdown handler): frontmatter -> canonical +
-//        documentRecord passthrough; body [[wikilinks]] -> output.wikilinks[]
-//     -> resolveWikilinks / applyResolution: basename -> URL, resolved edges
-//        appended to octothorpes as { type:'link', uri }; report kept in-memory
+//        documentRecord passthrough; own @id from the declared `uri`; body
+//        [[wikilinks]] resolved against a `wikilinkTargets` map (name -> declared
+//        URI) into { type:'link', uri } edges on octothorpes, with no-match /
+//        ambiguous links surfaced as warnings (never edges).
 //     -> indexer.ingestBlobject: writes pages, the Item/Link relationships (via
-//        the shared handleMention path), AND the declared documentRecord leaves
+//        the shared handleMention path), AND the declared documentRecord leaves.
 //   -> read back through the public /get HTTP surface.
 //
-// Fixtures: the memex2 Wave-1 CLI does not yet emit .md fixtures (its `library/`
-// holds image assets + manifest.json only), so representative Memex-shaped
-// Records were authored here under src/tests/fixtures/memex/ per the spec
-// (docs/specs/2026-07-07-memex2-client-design.md §4/§5).
+// Fixtures: representative Memex-shaped Records under src/tests/fixtures/memex/.
+// Per #246 each declares its own URI in frontmatter; for these Memex-shaped
+// docs the identity is an RFC 6920 `ni:` hash (the store + query path handle
+// these — see src/tests/integration/niUriSpike.test.js).
 
 const instance = (process.env.instance || 'http://localhost:5173/').replace(/\/?$/, '/')
 const base = instance.replace(/\/$/, '')
 
-// Vault-relative path is the collision key the client owns (NOT the URL).
+// Vault-relative paths are the collision keys the client owns (NOT the URL). The
+// declared URIs below live in each fixture's `uri:` frontmatter field.
 const vault = [
   'notes/Alpha.md',
   'notes/Beta.md',
@@ -39,21 +41,28 @@ const vault = [
   'projects/Delta.md',
   'archive/Delta.md',
 ]
-const NS = '__c14_memex__'
-const uriFor = (path) => `${base}/${NS}/${path.replace(/\.md$/, '')}`
+
+// Declared URIs — must match the `uri:` frontmatter in the fixtures.
+const alphaUri = 'ni:///sha-256;c14AlphaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+const betaUri = 'ni:///sha-256;c14BetaBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+const gammaUri = 'ni:///sha-256;c14GammaCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+const deltaProjectsUri = 'ni:///sha-256;c14DeltaProjDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+const deltaArchiveUri = 'ni:///sha-256;c14DeltaArchEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+const uriByPath = {
+  'notes/Alpha.md': alphaUri,
+  'notes/Beta.md': betaUri,
+  'notes/Gamma.md': gammaUri,
+  'projects/Delta.md': deltaProjectsUri,
+  'archive/Delta.md': deltaArchiveUri,
+}
+const recordUris = Object.values(uriByPath)
+
 const readFixture = (path) =>
   readFileSync(fileURLToPath(new URL(`./fixtures/memex/${path}`, import.meta.url)), 'utf8')
 
 // The generated structural Item edge (Record -> content-addressed hub) that the
 // Memex CLI stamps onto the Record before ingest (spec §3). ni: URI per RFC 6920.
 const niHash = 'ni:///sha-256;c14testAAAABBBBCCCCDDDDEEEEFFFF0000111122223333'
-
-const alphaUri = uriFor('notes/Alpha.md')
-const betaUri = uriFor('notes/Beta.md')
-const gammaUri = uriFor('notes/Gamma.md')
-const deltaProjectsUri = uriFor('projects/Delta.md')
-const deltaArchiveUri = uriFor('archive/Delta.md')
-const recordUris = vault.map(uriFor)
 
 const profile = getProfile()
 const documentRecordSchema = profile.vocabulary?.documentRecord || []
@@ -71,51 +80,63 @@ const indexer = createIndexer({
   documentRecordSchema,
 })
 
-// ---- pure resolution (no live store) — C14 criterion 2 ---------------------
+// The caller's one pass over the vault: build the name -> declared-URI lookup.
+const targetMap = () =>
+  buildTargetMap(
+    vault.map((path) => ({ source: readFixture(path), path })),
+    { uriField: 'uri' }
+  )
 
-// Harmonize each fixture once and build the { uri, path, wikilinks } documents.
+// Harmonize each fixture through the real handler with the target lookup. The
+// handler sets @id from the declared `uri` and resolves wikilinks to edges.
 const harmonizeAll = async () => {
+  const targets = targetMap()
   const blobs = {}
-  const documents = []
   for (const path of vault) {
-    const blob = await harmonizeSource(readFixture(path), null, { mode: 'markdown', instance })
-    blob['@id'] = uriFor(path)
-    blobs[path] = blob
-    documents.push({ uri: uriFor(path), path, wikilinks: blob.wikilinks || [] })
+    blobs[path] = await harmonizeSource(readFixture(path), null, {
+      mode: 'markdown',
+      instance,
+      uriField: 'uri',
+      wikilinkTargets: targets,
+    })
   }
-  return { blobs, documents }
+  return blobs
 }
 
-describe('C14 — wikilink resolution (pure, whole-instance)', () => {
+// ---- pure resolution (no live store) — C14 criterion 2 ---------------------
+
+describe('C14 — wikilink resolution (declared-URI, per-handler)', () => {
+  it('sets each document @id from its declared frontmatter URI', async () => {
+    const blobs = await harmonizeAll()
+    expect(blobs['notes/Alpha.md']['@id']).toBe(alphaUri)
+    expect(blobs['notes/Beta.md']['@id']).toBe(betaUri)
+  })
+
   it('resolves the mutual pair A <-> B in both directions', async () => {
-    const { documents } = await harmonizeAll()
-    const { byUri } = resolveWikilinks(documents)
-    expect(byUri.get(alphaUri).octothorpes).toContainEqual({ type: 'link', uri: betaUri })
-    expect(byUri.get(betaUri).octothorpes).toContainEqual({ type: 'link', uri: alphaUri })
+    const blobs = await harmonizeAll()
+    expect(blobs['notes/Alpha.md'].octothorpes).toContainEqual({ type: 'link', uri: betaUri })
+    expect(blobs['notes/Beta.md'].octothorpes).toContainEqual({ type: 'link', uri: alphaUri })
   })
 
-  it('records the unresolved [[Ghost]] target in the report (not dropped, not an edge)', async () => {
-    const { documents } = await harmonizeAll()
-    const alpha = resolveWikilinks(documents).byUri.get(alphaUri)
-    expect(alpha.unresolvedLinks.map((l) => l.basename)).toContain('Ghost')
-    expect(alpha.octothorpes.some((o) => /Ghost/.test(o.uri))).toBe(false)
+  it('warns on the unresolved [[Ghost]] target (not an edge, never thrown)', async () => {
+    const alpha = (await harmonizeAll())['notes/Alpha.md']
+    expect(alpha.warnings).toContainEqual({ target: 'Ghost', reason: 'no-match' })
+    expect(alpha.octothorpes.some((o) => /Ghost/i.test(o.uri))).toBe(false)
   })
 
-  it('resolves the alias + heading variant to the right target', async () => {
-    const { documents } = await harmonizeAll()
-    const alpha = resolveWikilinks(documents).byUri.get(alphaUri)
-    const gamma = alpha.resolvedLinks.find((l) => l.basename === 'Gamma')
-    expect(gamma.uri).toBe(gammaUri)
+  it('resolves the alias + heading variant to the Gamma target', async () => {
+    const alpha = (await harmonizeAll())['notes/Alpha.md']
+    expect(alpha.octothorpes).toContainEqual({ type: 'link', uri: gammaUri })
+    // The extraction record still carries the heading/alias for traceability.
+    const gamma = alpha.wikilinks.find((l) => l.basename === 'Gamma')
     expect(gamma.heading).toBe('Introduction')
     expect(gamma.alias).toBe('see Gamma notes')
   })
 
-  it('disambiguates the Delta basename collision via the authored path qualifier', async () => {
-    const { documents } = await harmonizeAll()
-    const alpha = resolveWikilinks(documents).byUri.get(alphaUri)
-    const delta = alpha.resolvedLinks.find((l) => l.basename === 'Delta')
-    expect(delta.uri).toBe(deltaArchiveUri)
-    expect(delta.uri).not.toBe(deltaProjectsUri)
+  it('disambiguates the Delta collision via the authored path qualifier', async () => {
+    const alpha = (await harmonizeAll())['notes/Alpha.md']
+    expect(alpha.octothorpes).toContainEqual({ type: 'link', uri: deltaArchiveUri })
+    expect(alpha.octothorpes.some((o) => o.uri === deltaProjectsUri)).toBe(false)
   })
 })
 
@@ -143,12 +164,9 @@ describe('C14 — end-to-end round-trip through the live store', () => {
     if (!live) return
     await cleanup()
 
-    const { blobs, documents } = await harmonizeAll()
-    const { byUri } = resolveWikilinks(documents)
-
+    const blobs = await harmonizeAll()
     for (const path of vault) {
       const blob = blobs[path]
-      applyResolution(blob, byUri.get(uriFor(path)))
       // The client stamps the generated Item edge onto the Record before ingest.
       if (path === 'notes/Alpha.md') {
         blob.octothorpes.push({ type: 'Item', uri: niHash })
@@ -185,6 +203,8 @@ describe('C14 — end-to-end round-trip through the live store', () => {
     expect(dr.contentUrl).toBe('https://cdn.example.org/assets/alpha.jpg')
     expect(dr.sha256).toMatch(/^3b1f9c0d/)
     expect(dr.addedBy).toBe('memex-alpha')
+    // the declared URI is identity (@id), not a documentRecord leaf
+    expect(dr.uri).toBeUndefined()
     // undeclared frontmatter (layout, permalink) never reaches the read surface
     expect(dr.layout).toBeUndefined()
     expect(dr.permalink).toBeUndefined()
@@ -212,5 +232,18 @@ describe('C14 — end-to-end round-trip through the live store', () => {
       }
     `)
     expect(has).toBe(true)
+  })
+
+  it('criterion 2 (negative) — the dead [[Ghost]] link produced no stored edge', { timeout: 30000 }, async () => {
+    if (!live) return
+    // No blank node hanging off Alpha may carry a Ghost-y octo:url target.
+    const has = await queryBoolean(`
+      ASK {
+        <${alphaUri}> octo:octothorpes ?bn .
+        ?bn octo:url ?t .
+        FILTER(CONTAINS(LCASE(STR(?t)), "ghost"))
+      }
+    `)
+    expect(has).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance, default_handler } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 
 // One registry, one harmonizer lookup, shared across the whole indexing path:
 // the indexer uses them on the fetch-path, and the exported `harmonize` binds
@@ -11,6 +12,12 @@ import { instance, default_handler } from '$lib/config.js'
 const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: default_handler })
 const { getHarmonizer } = createHarmonizerRegistry(instance)
 
+// C7 mirror (#242): the declared documentRecord schema is injected here so
+// the write path (recordDocumentRecord, invoked from ingestBlobject) can
+// persist documentRecord fields. No-op without it. Same profile vocab used
+// by the read side (see src/routes/get/[what]/[by]/[[as]]/load.js).
+const vocabulary = getProfile().vocabulary || {}
+
 const indexer = createIndexer({
   insert,
   query,
@@ -19,6 +26,7 @@ const indexer = createIndexer({
   instance,
   handlerRegistry,
   getHarmonizer,
+  documentRecordSchema: vocabulary.documentRecord,
 })
 
 // Content-path harmonization bound to the same registry/lookup the indexer

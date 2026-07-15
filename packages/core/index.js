@@ -31,7 +31,6 @@ export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
-export { buildResolutionIndex, resolveWikilinks, applyResolution } from './wikilinkResolution.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, credentialEnvKey } from './profile.js'
@@ -120,6 +119,10 @@ const normalizeIndexPolicy = (policy) => {
  * @param {Object} config.sparql - Explicit sparql config ({ endpoint, user, password })
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
  * @param {string|Object} [config.indexPolicy] - 'registered' (default), 'pull', 'active', or custom object
+ * @param {Array<{predicate: string, namespace: string, range: string}>} [config.documentRecordSchema] -
+ *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
+ *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
+ *   which is a no-op identical to prior behavior.
  * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api }}
  */
 export const createClient = (config) => {
@@ -160,6 +163,7 @@ export const createClient = (config) => {
     instance: config.instance,
     handlerRegistry,
     getHarmonizer: registry.getHarmonizer,
+    documentRecordSchema: config.documentRecordSchema,
   })
 
   const api = createApi({
@@ -208,13 +212,20 @@ export const createClient = (config) => {
   }
 
   const get = async ({ what, by, as: asFormat, debug: debugFlag, pubDefs = {}, ...rest } = {}) => {
+    // Client-level config.documentRecordSchema is the default for reads;
+    // an explicit per-call value (already in `rest`) wins.
+    const options = {
+      ...rest,
+      documentRecordSchema: rest.documentRecordSchema ?? config.documentRecordSchema,
+    }
+
     if (asFormat === 'debug' || asFormat === 'multipass') {
-      return api.get(what, by, { ...rest, as: asFormat })
+      return api.get(what, by, { ...options, as: asFormat })
     }
 
     const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
 
-    const raw = await api.get(what, by, rest)
+    const raw = await api.get(what, by, options)
 
     if (!publisher) {
       return { results: raw.results }

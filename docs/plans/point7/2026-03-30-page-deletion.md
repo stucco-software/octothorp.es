@@ -1,6 +1,22 @@
 # Page Deletion Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> ## ⚠️ SPEC REVISION 2026-07-09 — read before implementing
+>
+> This plan predates `packages/core/delete.js` (built later as a rough start for this wave), epic #240, and the Wave-5 consolidation decision (#248). Where this revision conflicts with the tasks below, **the revision wins**. The factory shape, soft-delete markers, indexer `deleter`/`deadCodes` deps, `createClient` wiring, and `scripts/review.js` all stand.
+>
+> **R1 — Absorb `delete.js`, don't duplicate it.** `createDeleter` (Tasks 1–4) is THE deletion module (#248). Migrate `delete.js`'s `deletePage`→`deleter.hardDeletePage`, `deleteOrigin`→`deleter.hardDeleteOrigin`, and `assertDeletableTarget` (whitelists become config-injected `deletableTargets`, current hardcoded values as defaults). Keep the existing consumers working (`scripts/smoketest.js`, `src/tests/delete.test.js`) via re-exports from `index.js` until migrated, then remove `delete.js`. Task 3's `hardDeletePage` implementation is superseded by `delete.js`'s semantics **pending #248 Decision 1** (inbound/object-position triples — recommendation: delete them; soft-delete is the preserve-the-graph mode).
+>
+> **R2 — Read-side semantics are an open decision (#248 Decision 2), not silently unspecified.** Nothing in this plan says whether soft-deleted (`octo:unavailable`) pages still appear in `/get` results, blobjects, RSS, or backlink counts. Do NOT ship soft-delete without that decision. If the answer is "excluded from default reads," the filter lands in `queryBuilders.js` — a hot shared file; sequence it as its own phase with one owner (same discipline as #240's C5–C7).
+>
+> **R3 — Non-fetchable identities (new since #240).** Memex indexes `ni:///sha-256;…`-identified documents; they are unfetchable by design. `getAllPageUrls` (or `review.js`) must filter to http(s) schemes before liveness-checking, or ni: pages will register as timeouts and get soft-deleted. Related: #241 (profile-declared origin/scheme handling) is the eventual home for "which schemes are liveness-checkable."
+>
+> **R4 — New vocab terms need registering.** `octo:unavailable`, `octo:unavailableSince`, `octo:failCount` are new vocabulary — add them to the Wave-2 vocabulary surface (`/vocabulary` doc) when implementing, not as an afterthought.
+>
+> **R5 — Review cadence.** CLI flags stand for v0.7; note that the profile's currently-inert `indexingFrequency` field (Rev 2, #217) is the natural future driver for `review.js` scheduling. Mention in the script's header comment.
+>
+> **R6 — Recovery re-index rate limits.** `review.js`'s recovery path calls `client.indexSource(url)`; batch recoveries can trip indexing rate limits. Either space recovery re-indexes or have the script tolerate `recently indexed` rejections as non-fatal (they already log as non-fatal errors — verify, don't assume).
+>
+> **R7 — Sequencing.** Implement after #248's module and #26 land. `Date.now()`-based threshold tests: inject a clock or pass `now` into `shouldHardDelete` to keep tests deterministic.
 
 **Goal:** Add soft-delete and hard-delete capabilities to `@octothorpes/core` for pages that return dead HTTP responses, plus a standalone review script for scheduled URL checking.
 

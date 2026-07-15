@@ -1,4 +1,5 @@
 ---
+uri: ni:///sha-256;c14DeltaProjDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 title: Delta (projects)
 description: The projects-folder Delta — NOT the target of Alpha's qualified link.
 encodingFormat: image/jpeg

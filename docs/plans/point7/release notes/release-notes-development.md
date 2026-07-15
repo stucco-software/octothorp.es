@@ -736,3 +736,53 @@ The end-to-end gate for the Memex core epic (#240): a Memex-shaped Markdown Reco
 At least one assertion (criteria 1 and 3) goes through the real HTTP route; the pure resolution assertions run against `resolveWikilinks` directly. The test self-cleans all fixtures it inserts (verified: zero residue).
 
 **Files affected:** `packages/core/indexer.js` (added `recordDocumentRecord`, wired into `ingestBlobject`, exported; `documentRecordSchema` added to the factory config), `src/tests/c14MemexRoundtrip.test.js` (new, 7 tests), `src/tests/fixtures/memex/{notes,projects,archive}/*.md` (new, 5 fixtures).
+
+## #243 (item 1) — Markdown frontmatter `tags[]` → hashtag octothorpes
+
+Frontmatter `tags` previously fell through to the `documentRecord` passthrough, so they never became graph edges. The Memex spec (§4) expects them as hashtag octothorpes.
+
+**What changed:**
+- **`packages/core/handlers/markdown/handler.js`**: the frontmatter `tags` key is now intercepted before the canonical/passthrough loop and mapped onto `output.octothorpes` as bare tag strings — the same shape the HTML/JSON handlers emit for `hashtag` schema entries (`typedOutput.hashtag` spread as plain strings, consumed by `indexer.ingestBlobject`'s `typeof octothorpe === 'string'` branch → `handleThorpe`). Accepts a YAML list (`tags: [a, b]`), a single scalar (`tags: foo`), or a comma-separated string (`tags: foo, bar`), matching the `split` postProcess convention other harmonizers use for hashtags (e.g. the `keywords` HTML harmonizer). Each tag is trimmed; empty/whitespace-only entries are dropped; missing/empty `tags` is a no-op. `tags` is no longer mirrored into `documentRecord`.
+- No changes to `wikilinkResolution.js`, indexing/profile files, or the case-sensitivity/unresolved-link-persistence decisions in issue #243 items 2–3 (both explicitly out of scope, left as-is).
+
+Verified: `src/tests/markdownHandler.test.js` extended with 8 new cases (list, single string, comma-separated, whitespace/empty trimming, absent, empty list, no documentRecord leak, coexistence with body wikilinks). Full regression across the markdown suite (`markdownHandler.test.js`, `markdownWikilinks.test.js`, `markdownWikilinkResolution.test.js`, `c14MemexRoundtrip.test.js`) — 60/60 passing. The C14 Memex fixtures under `src/tests/fixtures/memex/` carry no `tags` frontmatter key, so the round-trip gate is an unaffected-regression check, not new coverage.
+
+**Files affected:** `packages/core/handlers/markdown/handler.js`, `src/tests/markdownHandler.test.js`.
+
+## #242 — profile documentRecord schema wired into the live /index write path
+
+The C14 gate (#240) added `recordDocumentRecord(s, documentRecord, schema)` to `packages/core/indexer.js`, but no live route injected a schema, so HTTP-indexed content never persisted `documentRecord` (the write path was a silent no-op). This lands the missing wiring, mirroring the C7 read-side pattern: the profile is injected at the adapter layer, core stays framework-agnostic.
+
+**What changed:**
+- **`src/lib/indexing.js`** (the SvelteKit indexing adapter): injects `getProfile().vocabulary.documentRecord` as `documentRecordSchema` into `createIndexer` — the same profile vocab the read side injects in `src/routes/get/[what]/[by]/[[as]]/load.js`. One-line wiring plus the `$lib/profile.js` import; no logic added to the adapter.
+- **No route file changes were needed.** Both the live `/index` route (`src/routes/index/+server.js`) and the modern `/indexwrapper` route (`src/routes/indexwrapper/+server.js`) already delegate to the shared `handler` exported from `$lib/indexing.js` — the transitional "inline handler" in `routes/index` turned out to be a thin HTTP wrapper (error mapping + warning handling) around the same adapter, not a separate ingest path. Wiring the adapter covers both routes. The two routes remain near-duplicates of each other (only `isWarning` handling and the `recently indexed` error mapping differ); consolidation is left for the handler-pipeline work.
+
+Verified end-to-end against the live dev server: a markdown probe served from `static/` (frontmatter carrying all six declared predicates plus an undeclared key) indexed through the real `GET /index?uri=…` route comes back on `/get/everything/posted/debug` with a typed `documentRecord` (`contentSize` as a number, `dateCreated` ISO-8601, `layout` dropped). Both new tests fail without the one-line wiring and pass with it.
+
+**Files affected:** `src/lib/indexing.js`, `src/tests/indexingAdapterDocumentRecord.test.js` (new — asserts the adapter passes the profile schema into `createIndexer`), `src/tests/indexRouteDocumentRecord.test.js` (new — live round-trip through the real `/index` HTTP route, self-cleaning).
+
+## #240 — `createClient` documentRecordSchema gap
+
+`createClient` (`packages/core/index.js`, the public entry point) built its internal `createIndexer({...})` without forwarding a documentRecord schema, so consumers of the public API had no way to persist `documentRecord` without per-call injection on every `ingestBlobject` — the epic's pattern everywhere else (route/`src/lib/indexing.js`, C7 reads, C9 subtype paths) is config-driven injection at construction time.
+
+**What changed:**
+- **`packages/core/index.js`**: `createClient` now accepts `config.documentRecordSchema` (the #216 array-of-`{predicate, namespace, range}` contract) and forwards it into the internal `createIndexer({...})` call. Undefined by default — identical behavior to before.
+- **Read path**: `client.get(...)` threads `config.documentRecordSchema` as the default for `api.get`'s `options.documentRecordSchema` (mirroring the C7 route pattern), with an explicit per-call `documentRecordSchema` in the `get()` call still taking priority. This was a small, obviously-consistent addition since `api.js` (C7) already reads `options.documentRecordSchema` off whatever `createClient` passes through — no change needed in `api.js` itself.
+
+Verified with mocked `createIndexer`/`createApi` (no live SPARQL endpoint needed): config schema reaches the indexer constructor call; omitting it leaves the indexer construction unchanged; `client.get()` reads default to the client-level schema; a per-call `documentRecordSchema` overrides the default; omitting the client-level config leaves reads with no default (unchanged prior behavior).
+
+**Files affected:** `packages/core/index.js`, `src/tests/client-documentRecordSchema.test.js` (new, 5 tests).
+
+## #246 — declared-URI wikilink resolution replaces the whole-instance module
+
+Design revision from review of #238/#240, decided before `octothorpes@0.3.5` publishes so the old API never ships. The whole-instance resolution model minted target URLs from file paths and carried an invented nearest-in-folder collision heuristic — machinery that existed only because targets did not declare their own identity. Resolution is now anchored on **URIs declared in frontmatter** and lives **with the markdown handler** (ingest-side, format-specific), not in a separate core module.
+
+**What changed:**
+- **`packages/core/wikilinkResolution.js` REMOVED** (superseded, not deprecated — nothing external consumes it yet), along with its three `packages/core/index.js` exports (`buildResolutionIndex`/`resolveWikilinks`/`applyResolution`) and the `src/tests/markdownWikilinkResolution.test.js` unit suite. The path→URL minting and nearest-in-folder heuristic are deleted, not relocated.
+- **`packages/core/handlers/markdown/handler.js`**: new `options.uriField` (default `uri`) sets the document's own `@id` from frontmatter (replacing the `'source'` placeholder) and is kept out of `documentRecord`. New `options.wikilinkTargets` (a `name → uri` Map/plain object, or resolver function) resolves each extracted `[[wikilink]]` against declared URIs and emits deduped `{ type: 'link', uri }` edges on `octothorpes` (no self-edges). No-match and ambiguous-basename links produce **no edge** and surface as `{ target, reason: 'no-match'|'ambiguous' }` entries on `output.warnings`; a dead link never fails the document. With no lookup the handler is extraction-only (links stay on `output.wikilinks`) so it remains usable standalone. New exported helper `buildTargetMap(entries, { uriField })` builds the lookup from one pass over the vault's frontmatter — basename keys plus slash-qualified path tails for disambiguation; a basename mapping to two distinct URIs becomes the exported `AMBIGUOUS` sentinel. The RDF-star guardrail is unchanged: edges become triples only through the shared `ingestBlobject` → `handleMention` path.
+- **C14 round-trip rewritten** (`src/tests/c14MemexRoundtrip.test.js`) and fixtures updated (`src/tests/fixtures/memex/*.md` each gain a `uri:` frontmatter field carrying an RFC 6920 `ni:///sha-256;…` hash). All prior gate assertions are preserved under the new model — typed documentRecord over HTTP, mutual A↔B links, alias+heading resolution, qualified-key disambiguation, the Item subtype path — plus a new negative assertion that the dead `[[Ghost]]` link leaves provably no stored edge (SPARQL `ASK` false).
+- **Skill docs updated**: `.claude/skills/octothorpes/handlers.md` (new resolution model + `buildTargetMap`/`AMBIGUOUS`) and `package.md` (dropped the removed core-file row).
+
+Verified live: full markdown suite (52 tests) and the rewritten C14 (9 tests, incl. the live round-trip and negative-edge assertion) pass against the dev server + Oxigraph.
+
+**Files affected:** `packages/core/handlers/markdown/handler.js`, `packages/core/index.js`, `packages/core/wikilinkResolution.js` (deleted), `src/tests/markdownWikilinkResolution.test.js` (deleted), `src/tests/markdownWikilinks.test.js`, `src/tests/c14MemexRoundtrip.test.js`, `src/tests/fixtures/memex/{notes/Alpha,notes/Beta,notes/Gamma,projects/Delta,archive/Delta}.md`, `.claude/skills/octothorpes/handlers.md`, `.claude/skills/octothorpes/package.md`.
