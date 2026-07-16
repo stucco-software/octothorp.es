@@ -1,6 +1,6 @@
 # Client Profile & Vocabulary — conceptual design
 
-> Design/notes doc for Wave 2. Supersedes the ambition in `vocabulary-design.md` (#194/#195) where the two conflict — see "What changed" below. This is the concept doc; implementation plans come after.
+> Design/notes doc for Wave 2. Supersedes the ambition in the (now-retired) `vocabulary-design.md` (#194/#195) where the two conflict — see "What changed" below. Historical references to that file below are past-tense narrative; its live content was absorbed into `2026-07-09-canonical-vocabulary-spec.md`, the current canonical spec. This is the concept doc; implementation plans come after.
 >
 > Related issues: #215 (Profile epic), #216 (Profile Rev 1), #217 (Profile Rev 2), #192 (labels), #166 (on-demand DRs), #200 (arbitrary subtype queries).
 
