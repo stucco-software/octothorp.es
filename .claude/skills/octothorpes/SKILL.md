@@ -162,4 +162,5 @@ For domain-specific details, invoke with the Skill tool:
 | `octothorpes:publishers` | RSS, ATProto, adding new output formats |
 | `octothorpes:testing` | Vitest patterns, integration testing, Orchestra Pit debug endpoint |
 | `octothorpes:package` | `@octothorpes/core` package API, `createClient`, framework-agnostic rules, publishing |
+| `octothorpes:new-client` | Scaffolding a new OP Client — a full OP install in its own standalone repo with its own profile |
 | `octothorpes:bridges` | ActivityPub/ATProto bridge architecture |
