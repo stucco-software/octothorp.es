@@ -1,17 +1,17 @@
+import { normalizeEnvelope } from './envelope.js'
+
 /**
  * Creates a harmonizer registry parameterized with instance URL.
  * @param {string} instance - The OP instance URL
  * @returns {{ getHarmonizer: Function, localHarmonizers: Object }}
  */
 export const createHarmonizerRegistry = (instance) => {
-  const context = `${instance}context.json`
   const baseId = `${instance}harmonizer/`
 
   const localHarmonizers = {
     "default": {
-          "@context": context,
-          "@id": `${baseId}default`,
-          "@type": "harmonizer",
+          "id": `${baseId}default`,
+          "type": "harmonizer",
           "title": "Default Octothorpe Harmonizer",
           "mode": "html",
           "schema" : {
@@ -191,9 +191,8 @@ export const createHarmonizerRegistry = (instance) => {
             }
       },
       "openGraph": {
-        "@context": context,
-        "@id": `${baseId}openGraph`,
-        "@type": "harmonizer",
+        "id": `${baseId}openGraph`,
+        "type": "harmonizer",
         "title": "Opengraph Protocol Harmonizer",
         "mode": "html",
         "schema" : {
@@ -217,9 +216,8 @@ export const createHarmonizerRegistry = (instance) => {
       }
     },
     "keywords": {
-      "@context": context,
-      "@id": `${baseId}keywords`,
-      "@type": "harmonizer",
+      "id": `${baseId}keywords`,
+      "type": "harmonizer",
       "title": "Meta Kewords to Octothorpes Harmonizer",
       "mode": "html",
       "schema" : {
@@ -237,9 +235,8 @@ export const createHarmonizerRegistry = (instance) => {
     }
   },
   "ghost": {
-    "@context": context,
-    "@id": `${baseId}ghost`,
-    "@type": "harmonizer",
+    "id": `${baseId}ghost`,
+    "type": "harmonizer",
     "title": "Ghost Tags to Octothorpes Harmonizer",
     "mode": "html",
     "schema" : {
@@ -253,9 +250,8 @@ export const createHarmonizerRegistry = (instance) => {
   }
   },
   "schema-org": {
-    "@context": context,
-    "@id": `${baseId}schema-org`,
-    "@type": "harmonizer",
+    "id": `${baseId}schema-org`,
+    "type": "harmonizer",
     "title": "Schema.org JSON-LD Harmonizer",
     "mode": "json",
     "schema": {
@@ -276,9 +272,8 @@ export const createHarmonizerRegistry = (instance) => {
     }
   },
   "standardSite": {
-    "@context": context,
-    "@id": `${baseId}standardSite`,
-    "@type": "harmonizer",
+    "id": `${baseId}standardSite`,
+    "type": "harmonizer",
     "title": "Gets a documentRecord for extra content expected by the ATProto lexicon site.standard.document",
     "mode": "html",
     "schema" : {
@@ -298,9 +293,8 @@ export const createHarmonizerRegistry = (instance) => {
   }
   },
   "rss": {
-    "@context": context,
-    "@id": `${baseId}rss`,
-    "@type": "harmonizer",
+    "id": `${baseId}rss`,
+    "type": "harmonizer",
     "title": "RSS 2.0 Feed Harmonizer",
     "mode": "xml",
     "schema": {
@@ -314,9 +308,8 @@ export const createHarmonizerRegistry = (instance) => {
     }
   },
   "vevent": {
-    "@context": context,
-    "@id": `${baseId}vevent`,
-    "@type": "harmonizer",
+    "id": `${baseId}vevent`,
+    "type": "harmonizer",
     "title": "iCalendar VEVENT Harmonizer",
     "mode": "calendar",
     "schema": {
@@ -346,8 +339,9 @@ export const createHarmonizerRegistry = (instance) => {
 
   const register = (name, harmonizer) => {
     if (localHarmonizers[name]) throw new Error(`Harmonizer "${name}" already exists`)
-    if (!harmonizer.mode) throw new Error('Harmonizer must have a mode field')
-    localHarmonizers[name] = harmonizer
+    const normalized = normalizeEnvelope(harmonizer)
+    if (!normalized.mode) throw new Error('Harmonizer must have a mode field')
+    localHarmonizers[name] = normalized
   }
 
   const getHarmonizersForMode = (mode) => {
