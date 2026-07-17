@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { normalizeEnvelope } from '../../packages/core/envelope.js'
+import { createHarmonizerRegistry } from '../../packages/core/harmonizers.js'
 
 describe('normalizeEnvelope (#249)', () => {
   it('maps legacy @-keys to plain keys and strips the @-forms', () => {
@@ -27,5 +28,26 @@ describe('normalizeEnvelope (#249)', () => {
     expect(normalizeEnvelope('str')).toBe('str')
     const arr = [1]
     expect(normalizeEnvelope(arr)).toBe(arr)
+  })
+})
+
+describe('harmonizer registry envelopes (#249)', () => {
+  const registry = createHarmonizerRegistry('https://example.test/')
+  it('built-ins carry plain id/type and no @-keys or @context', async () => {
+    for (const [name, h] of Object.entries(registry.list())) {
+      expect(h.id, name).toBe(`https://example.test/harmonizer/${name}`)
+      expect(h.type, name).toBe('harmonizer')
+      expect(h['@id'], name).toBeUndefined()
+      expect(h['@type'], name).toBeUndefined()
+      expect(h['@context'], name).toBeUndefined()
+      expect(h.context, name).toBeUndefined()
+    }
+  })
+  it('register() normalizes a legacy @-form definition', () => {
+    registry.register('legacy', { '@id': 'https://x.test/h', '@type': 'harmonizer', '@context': 'c', mode: 'html', title: 'L', schema: {} })
+    const h = registry.list().legacy
+    expect(h.id).toBe('https://x.test/h')
+    expect(h.type).toBe('harmonizer')
+    expect(h['@id']).toBeUndefined()
   })
 })
