@@ -139,5 +139,5 @@ Tracked in `docs/plans/point7/v07-tracker.md`. Summary:
 4. **#195** vocabulary registry (`packages/core/vocabulary.js`) — may change how the `vocabulary` block is validated/consumed.
 5. **Wave 4.5 RDF-star migration** — scaffold survives, but `/get` output shapes and smoke-test expectations may shift.
 6. **#204** typed `IndexError` — would improve the `/index` wrapper's error mapping (enhancement).
-7. **#249** harmonizer envelope `@`-key drop — touches blobject key shapes the interface page renders.
+7. ~~**#249** harmonizer/publisher envelope `@`-key drop~~ — landed 2026-07-17 (definition envelopes only — harmonizer/resolver docs moved to plain `id`/`type`; blobject keys, including `@id`, are untouched, so the interface page's rendering is unaffected).
 8. `profile.schema.json` is not in the package `exports` map (fs-read workaround above) — if a future release adds `"./profile.schema.json"` to exports, simplify `client.js` to a direct import.
