@@ -1,7 +1,7 @@
 {
-  "@context": "https://example.com/",
-  "@id": "https://octothorp.es/publishers/example",
-  "@type": "resolver",
+  "context": "https://example.com/",
+  "id": "https://octothorp.es/publishers/example",
+  "type": "resolver",
   "contentType": "application/json",
   "meta": {
     "name": "Example Publisher",
