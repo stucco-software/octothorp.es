@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { normalizeEnvelope } from '../../packages/core/envelope.js'
 import { createHarmonizerRegistry } from '../../packages/core/harmonizers.js'
+import { remoteHarmonizer } from '../../packages/core/harmonizerUtils.js'
 
 describe('normalizeEnvelope (#249)', () => {
   it('maps legacy @-keys to plain keys and strips the @-forms', () => {
@@ -49,5 +50,33 @@ describe('harmonizer registry envelopes (#249)', () => {
     expect(h.id).toBe('https://x.test/h')
     expect(h.type).toBe('harmonizer')
     expect(h['@id']).toBeUndefined()
+  })
+})
+
+describe('remoteHarmonizer type gate (#249)', () => {
+  const okResponse = (body) => Promise.resolve({
+    ok: true,
+    headers: { get: (h) => (h === 'content-type' ? 'application/json' : null) },
+    json: () => Promise.resolve(body),
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('accepts and normalizes a legacy @-form harmonizer', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => okResponse({ '@id': 'x', '@type': 'harmonizer', title: 'T', schema: {}, mode: 'html' })))
+    const h = await remoteHarmonizer('https://remote.test/h1.json')
+    expect(h.type).toBe('harmonizer')
+    expect(h['@type']).toBeUndefined()
+  })
+  it('accepts a plain-form harmonizer', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => okResponse({ id: 'x', type: 'harmonizer', title: 'T', schema: {}, mode: 'html' })))
+    expect(await remoteHarmonizer('https://remote.test/h2.json')).toBeTruthy()
+  })
+  it('rejects a document with wrong type', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => okResponse({ id: 'x', type: 'resolver', title: 'T', schema: {} })))
+    expect(await remoteHarmonizer('https://remote.test/h3.json')).toBeNull()
+  })
+  it('rejects a document with no type', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => okResponse({ id: 'x', title: 'T', schema: {} })))
+    expect(await remoteHarmonizer('https://remote.test/h4.json')).toBeNull()
   })
 })
