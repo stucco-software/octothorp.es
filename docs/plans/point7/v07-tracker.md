@@ -142,6 +142,7 @@
 - [ ] **#158** Default to fuzzy results on hashtag list + add a fuzzy/exact toggle — tiny, standalone
 - [ ] **#199** Add "links with this hashtag" view to hashtag-based lists — pure UI plumbing over existing endpoints
 - [ ] add ui for /discover
+- [ ] route legacy RSS endpoints through modern system
 
 ---
 
@@ -246,3 +247,16 @@ After all implementation tasks in a wave are complete:
 - `instance=http://localhost:5173/` and `sparql_endpoint=http://0.0.0.0:7878` for local dev
 - `indexwrapper/+server.js` is the live indexing route; do not modify `index/+server.js` until validated
 - `src/lib/utils.js` is a re-export barrel from `octothorpes` — edit `packages/core/utils.js` only
+
+---
+
+### OP Client skill
+
+Changes that would break/alter the OP New Client skill
+
+2. **#235** rename `packages/core/index.js` → `client.js` — if it changes the package entry or import paths, the skill's wiring examples need updating.
+3. **#217 Rev 2** — behavior-gating profile fields (`indexingMode`, `registrationPolicy`, harmonizer/publisher defaults) go *live*; the skill's profile skeleton stops being inert config and starts changing runtime behavior. Schema is closed, so field set is stable — semantics aren't.
+4. **#195 vocabulary registry** (`packages/core/vocabulary.js`) — may change how the profile's `vocabulary` block is validated/consumed.
+5. **Wave 4.5 RDF-star migration** — changes relationship storage and blobject-adjacent query internals; skill's *scaffold* survives, but any `/get` output examples and the smoke test's expectations may shift; `context.json` regeneration waits on it.
+6. **#204 typed `IndexError`** — would improve the scaffolded `/index` wrapper's error mapping (enhancement, not breakage).
+7. **#249 harmonizer envelope** (`@`-key drop) — touches blobject key shapes the interface page might render.

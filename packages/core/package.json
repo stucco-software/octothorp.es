@@ -2,10 +2,11 @@
   "name": "octothorpes",
   "version": "0.3.5",
   "type": "module",
-  "description": "Framework-agnostic core library for the Octothorpes Protocol",
+  "description": "Core library for the Octothorpes Protocol",
   "main": "index.js",
   "exports": {
     ".": "./index.js",
+    "./profile.schema.json": "./profile.schema.json",
     "./handlers/*": "./handlers/*"
   },
   "files": [

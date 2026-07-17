@@ -7,7 +7,7 @@ description: Use when setting up a new OP Client — a full OP install in its ow
 
 ## Version assumptions
 
-Written against `octothorpes@0.3.5` (npm). Before scaffolding, run `npm view octothorpes version`; if it is newer than 0.3.5, check the change-watch list at the bottom of this doc and the package release notes for anything that invalidates the skeletons below.
+Written against `octothorpes@0.3.6` (npm) — the skeletons below need ≥0.3.6 for the `octothorpes/profile.schema.json` subpath export. Before scaffolding, run `npm view octothorpes version`; if it is newer than 0.3.6, check the change-watch list at the bottom of this doc and the package release notes for anything that invalidates the skeletons below.
 
 ## Terminology
 
@@ -39,7 +39,7 @@ Do NOT ask about external accounts (bluesky handles etc.) or credential values �
 
 ### package.json
 
-`"type": "module"`, `octothorpes` pinned `^0.3.5` (or current), plus framework dependencies.
+`"type": "module"`, `octothorpes` pinned `^0.3.6` (or current), plus framework dependencies.
 
 ### profile.json (repo root)
 
@@ -77,13 +77,11 @@ All env/profile injection happens here and nowhere else. Framework-idiomatic equ
 
 ```js
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { createClient, createProfile } from 'octothorpes'
 
-// profile.schema.json ships in the package but is NOT in its exports map —
-// import will throw. Read it as a file relative to the package entry point.
-const pkgEntry = fileURLToPath(import.meta.resolve('octothorpes'))
-const schema = JSON.parse(readFileSync(new URL('./profile.schema.json', import.meta.resolve('octothorpes')), 'utf8'))
+// profile.schema.json is a subpath export as of octothorpes@0.3.6
+// (fs-read rather than bare import: JSON imports need `with { type: 'json' }`)
+const schema = JSON.parse(readFileSync(new URL(import.meta.resolve('octothorpes/profile.schema.json')), 'utf8'))
 const profileJson = JSON.parse(readFileSync(new URL('../profile.json', import.meta.url), 'utf8'))
 
 const instance = process.env.instance // or framework env mechanism; trailing slash
@@ -139,5 +137,10 @@ Tracked in `docs/plans/point7/v07-tracker.md`. Summary:
 4. **#195** vocabulary registry (`packages/core/vocabulary.js`) — may change how the `vocabulary` block is validated/consumed.
 5. **Wave 4.5 RDF-star migration** — scaffold survives, but `/get` output shapes and smoke-test expectations may shift.
 6. **#204** typed `IndexError` — would improve the `/index` wrapper's error mapping (enhancement).
+<<<<<<< Updated upstream
 7. **#249** harmonizer envelope `@`-key drop — touches blobject key shapes the interface page renders.
 8. `profile.schema.json` is not in the package `exports` map (fs-read workaround above) — if a future release adds `"./profile.schema.json"` to exports, simplify `client.js` to a direct import.
+=======
+7. ~~**#249** harmonizer/publisher envelope `@`-key drop~~ — landed 2026-07-17 (definition envelopes only — harmonizer/resolver docs moved to plain `id`/`type`; blobject keys, including `@id`, are untouched, so the interface page's rendering is unaffected).
+8. ~~`profile.schema.json` exports-map gap~~ — resolved: `"./profile.schema.json"` subpath export added for 0.3.6; the `client.js` skeleton uses it directly.
+>>>>>>> Stashed changes

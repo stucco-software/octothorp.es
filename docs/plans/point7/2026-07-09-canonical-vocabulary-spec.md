@@ -74,7 +74,7 @@ Known vocab bug to resolve while here: octothorp.es's own profile declares `sha2
 
 ## 6. Remaining open decisions (maintainer)
 
-1. **Vocab hosting.** Should `vocab.octothorp.es` (or `{instance}/vocabulary`) serve a dereferenceable RDF/JSON-LD document? Recommendation: yes, generated from the registry — cheap once the registry exists, pairs with the Wave 4.5 JSON-LD endpoint, and `profile.vocabularyDocument` already points at it.
+1. **Vocab hosting.** Should `vocab.octothorp.es` (or `{instance}/vocabulary`) serve a dereferenceable RDF/JSON-LD document? Recommendation: yes, generated from the registry — cheap once the registry exists, pairs with the Wave 4.5 JSON-LD endpoint, and `profile.vocabularyDocument` already points at it. MAINTAINER ANSWER: yes. plan on `{instance}/vocabulary` now, vocab.octothorp.es as a default fallback later
 2. **§3 IRI-form normalization** — recommend bundling into Wave 4.5's migration (above).
 3. **Harmonizer JSON-LD conformance** — **DECIDED 2026-07-09 (maintainer): discard `@context`; harmonizers are not linked data.** Refined in discussion (see §9): `id` and `type` STAY, without the `@` — they're load-bearing for addressing and validation. Work item: **#249**. Cross-relay rescoping (the real problem §8 found) is a separate mechanism — explicit `authoringInstance` + engine re-interpolation — specced with #166.
 
