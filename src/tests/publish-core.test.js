@@ -47,9 +47,9 @@ describe('assertRequires', () => {
 
 describe('core publish', () => {
   const rssResolver = {
-    '@context': 'https://www.rssboard.org/rss-specification',
-    '@id': 'https://octothorp.es/publishers/rss2',
-    '@type': 'resolver',
+    'context': 'https://www.rssboard.org/rss-specification',
+    'id': 'https://octothorp.es/publishers/rss2',
+    'type': 'resolver',
     schema: {
       title: { from: ['title', '@id'], required: true },
       link: { from: '@id', required: true },
@@ -105,13 +105,13 @@ describe('core publish', () => {
       expect(validateResolver(rssResolver).valid).toBe(true)
     })
 
-    it('should reject resolver without @context', () => {
-      const bad = { '@id': 'x', schema: {} }
+    it('should reject resolver without schema', () => {
+      const bad = { id: 'x' }
       expect(validateResolver(bad).valid).toBe(false)
     })
 
-    it('should reject resolver without schema', () => {
-      const bad = { '@context': 'x', '@id': 'y' }
+    it('should reject resolver without id', () => {
+      const bad = { schema: {} }
       expect(validateResolver(bad).valid).toBe(false)
     })
   })
@@ -242,9 +242,9 @@ describe('core publisher registry', () => {
       const reg = createPublisherRegistry()
       const custom = {
         resolver: {
-          '@context': 'http://example.com',
-          '@id': 'http://example.com/custom',
-          '@type': 'resolver',
+          'context': 'http://example.com',
+          'id': 'http://example.com/custom',
+          'type': 'resolver',
           schema: { name: { from: 'title', required: true } }
         },
         contentType: 'text/plain',
@@ -253,15 +253,15 @@ describe('core publisher registry', () => {
       }
       reg.register('custom', custom)
       expect(reg.listPublishers()).toContain('custom')
-      expect(reg.getPublisher('custom')).toBe(custom)
+      expect(reg.getPublisher('custom')).toEqual(custom)
     })
 
     it('should register a publisher in flat shape (resolver + render)', () => {
       const reg = createPublisherRegistry()
       const flat = {
-        '@context': 'http://example.com',
-        '@id': 'http://example.com/flat',
-        '@type': 'resolver',
+        'context': 'http://example.com',
+        'id': 'http://example.com/flat',
+        'type': 'resolver',
         contentType: 'text/plain',
         meta: { name: 'Flat' },
         schema: { name: { from: 'title', required: true } },
@@ -272,16 +272,36 @@ describe('core publisher registry', () => {
       const pub = reg.getPublisher('flat')
       expect(pub.contentType).toBe('text/plain')
       expect(typeof pub.render).toBe('function')
-      expect(pub.resolver['@context']).toBe('http://example.com')
+      expect(pub.resolver.context).toBe('http://example.com')
       expect(pub.resolver.schema.name).toBeDefined()
+    })
+
+    it('registers a flat publisher passed with legacy @-keyed envelope fields', () => {
+      const reg = createPublisherRegistry()
+      const legacy = {
+        '@context': 'http://example.com',
+        '@id': 'http://example.com/legacy',
+        '@type': 'resolver',
+        contentType: 'text/plain',
+        meta: { name: 'Legacy' },
+        schema: { name: { from: 'title', required: true } },
+        render: (items) => items.map(i => i.name).join('\n'),
+      }
+      reg.register('legacy', legacy)
+      const pub = reg.getPublisher('legacy')
+      expect(pub.resolver.id).toBe('http://example.com/legacy')
+      expect(pub.resolver.context).toBe('http://example.com')
+      expect(pub.resolver['@context']).toBeUndefined()
+      expect(pub.resolver['@id']).toBeUndefined()
+      expect(pub.resolver['@type']).toBeUndefined()
     })
 
     it('preserves a flat publisher\'s envelope after registration', () => {
       const reg = createPublisherRegistry()
       const flat = {
-        '@context': 'http://example.com',
-        '@id': 'http://example.com/f',
-        '@type': 'resolver',
+        'context': 'http://example.com',
+        'id': 'http://example.com/f',
+        'type': 'resolver',
         contentType: 'text/plain',
         meta: { name: 'F' },
         envelope: { title: 'Default Feed' },

@@ -263,9 +263,9 @@ describe('custom publishers via createClient', () => {
   // Mirrors the flat shape a renderer.js would export:
   // resolver fields at top level + render function
   const semble = {
-    '@context': 'https://docs.cosmik.network/',
-    '@id': 'https://octothorp.es/publishers/semble',
-    '@type': 'resolver',
+    'context': 'https://docs.cosmik.network/',
+    'id': 'https://octothorp.es/publishers/semble',
+    'type': 'resolver',
     contentType: 'application/json',
     meta: {
       name: 'Semble Card',
@@ -373,7 +373,7 @@ describe('custom publishers via createClient', () => {
   it('op.publish threads pubDefs to render and validates requires', async () => {
     let seen
     const asyncPub = {
-      '@context': 'http://example.com', '@id': 'http://example.com/ap2', '@type': 'resolver',
+      'context': 'http://example.com', 'id': 'http://example.com/ap2', 'type': 'resolver',
       contentType: 'text/plain', meta: { name: 'AsyncPub2' }, requires: ['feedKey'],
       schema: { title: { from: 'title', required: true } },
       render: async (items, env, pubDefs) => { seen = pubDefs; return 'ok' },
@@ -400,7 +400,7 @@ describe('custom publishers via createClient', () => {
 
   it('op.get throws when a publisher requires an absent input', async () => {
     const needsKey = {
-      '@context': 'http://example.com', '@id': 'http://example.com/nk', '@type': 'resolver',
+      'context': 'http://example.com', 'id': 'http://example.com/nk', 'type': 'resolver',
       contentType: 'text/plain', meta: { name: 'NeedsKey' }, requires: ['feedKey'],
       schema: { title: { from: 'title', required: true } },
       render: (items, env, pubDefs) => pubDefs.feedKey,
@@ -420,7 +420,7 @@ describe('custom publishers via createClient', () => {
   it('op.get passes pubDefs to an async publisher render', async () => {
     let seen
     const asyncPub = {
-      '@context': 'http://example.com', '@id': 'http://example.com/ap', '@type': 'resolver',
+      'context': 'http://example.com', 'id': 'http://example.com/ap', 'type': 'resolver',
       contentType: 'text/plain', meta: { name: 'AsyncPub' },
       schema: { title: { from: 'title', required: true } },
       render: async (items, env, pubDefs) => { seen = pubDefs; return 'ok' },

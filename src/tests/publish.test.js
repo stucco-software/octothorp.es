@@ -8,16 +8,15 @@ import {
   applyPostProcess,
   formatDate,
   encodeValue,
-  extractTags,
-  normalizeEnvelope
+  extractTags
 } from 'octothorpes'
 import { publish, createPublisherRegistry } from 'octothorpes'
 
 const _registry = createPublisherRegistry()
 const getPublisher = _registry.getPublisher
 const listPublishers = _registry.listPublishers
-const rssResolver = normalizeEnvelope(getPublisher('rss2')?.resolver)
-const standardSiteDocument = normalizeEnvelope(getPublisher('standardSiteDocument')?.resolver)
+const rssResolver = getPublisher('rss2')?.resolver
+const standardSiteDocument = getPublisher('standardSiteDocument')?.resolver
 
 describe('Publisher System', () => {
   describe('resolvePath', () => {
