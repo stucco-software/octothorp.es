@@ -74,7 +74,7 @@
 > Epic: **#215**. Two revs; Rev 2 may slip to v0.8.
 > **Conceptual design (2026-07-02): `docs/plans/point7/2026-07-02-profile-vocabulary-decoupling.md`** — read before starting any Wave 2 work. The current canonical spec is `2026-07-09-canonical-vocabulary-spec.md` (which retired the old `vocabulary-design.md`).
 
-> **Epic #240 (Memex MVP, 2026-07-08) shipped most of this wave** via PRs #245 (merged) + #247 (open): #216, #236, #237 (documentRecord), #238 (Markdown handler), plus follow-ups #242/#243/#246. Filename correction to the decisions below: the shipped file is **`profile.json`** — single file, no public/full split (C1 decision on #216).
+> **Epic #240 (Memex MVP, 2026-07-08) shipped most of this wave** via PRs #245 + #247 — **both merged to `development`** (#247 merged 2026-07-16, `85354f5`); `octothorpes@0.3.5` published to npm: #216, #236, #237 (documentRecord), #238 (Markdown handler), plus follow-ups #242/#243/#246. Filename correction to the decisions below: the shipped file is **`profile.json`** — single file, no public/full split (C1 decision on #216).
 
 ### Client Profile
 - [x] **#216** Rev 1 (MVP) — CLOSED. Shipped in #240/PR #245: `profile.schema.json` (closed contract), `profile.json` at repo root, `createProfile` loader, `/profile` + `/profile.json`, no-secrets guard.
@@ -83,7 +83,7 @@
 - [ ] **#235** Rename `packages/core/index.js` → `client.js` — open wave/2 chore, previously untracked here. Touches every import; do NOT run concurrently with other core work.
 
 ### Vocabulary (OP's own house — client-extensible vocab is DEFERRED)
-- [x] **documentRecord projection** — CLOSED as **#237**, shipped in #240/PR #245: declared predicates → typed `documentRecord` (range enum literal/uri/timestamp/number/boolean), undeclared dropped; write path `recordDocumentRecord` + live `/index` wiring (#242, PR #247).
+- [x] **documentRecord projection** — CLOSED as **#237**, shipped in #240/PR #245: declared predicates → typed `documentRecord` (range enum literal/uri/timestamp/number/boolean), undeclared dropped; write path `recordDocumentRecord` + live `/index` wiring (#242, PR #247 — **merged 2026-07-16**). Read *and* write paths are now live.
 - [ ] **Canonical vocab cleanup (#195)** — **SPEC: `docs/plans/point7/2026-07-09-canonical-vocabulary-spec.md`** (the retired `vocabulary-design.md` is absorbed into it). Wave-2 slice: registry module (`packages/core/vocabulary.js`), naming fixes incl. the newly found `<octo:Item>` compact-IRI-form disagreement, `sha256` namespace resolution ◆ (Memex-specific), absorb `documentRecordNamespaces`, generated `/vocabulary` doc. `context.json` regeneration deliberately WAITS for Wave 4.5 (RDF-star serialization is an open design point). Open decisions in spec §6 (vocab hosting, IRI-form normalization); harmonizer envelope DECIDED → **#249** (drop `@`-keys, keep `id`/`type`, publisher sweep, skills/docs in definition-of-done); self-describing harmonizer schema + cross-relay rescoping scoped onto #166 (spec §9).
 - [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2). **Rides on the Wave 4.5 RDF-star migration** (lazy-policy scope decision 2026-07-08: labels are relationships-with-metadata; shipping them pre-migration would build a second, parallel metadata mechanism).
 - [ ] **#166** On-demand Document Records ◆ (Memex-driven; general feature) — **simplified post-#237 (see issue comment):** harmonize-at-request → feed the EXISTING projection/typing (`coerceDocumentRecordValue` + admission) → return, do NOT store. Remaining design surface = the stored `octo:harmonizeWith` ref. Carries the self-describing-harmonizer profile-reference pattern + cross-relay rescoping (spec §9.4).
@@ -195,15 +195,17 @@ Work that serves the Memex 2.0 client but is **not core-critical OP** — a solo
 
 | Item | Status | Note |
 |---|---|---|
+| documentRecord read+write (#237/#242) | ✅ shipped | PR #247 merged 2026-07-16 — was the last hard gate on the Memex install |
+| `octothorpes@0.3.5` on npm | ✅ published | `files` incl. `profile.schema.json`; `./handlers/*` subpath export live |
 | Markdown handler + wikilinks (#238) | ✅ shipped | general feature; Memex is the driver |
-| Wikilink resolution redesign (#246) | ✅ shipped | declared-URI model |
+| Wikilink resolution redesign (#246) | ✅ shipped | declared-URI model (`uriField`, `buildTargetMap`) |
 | `ni:` origin guard (#241) | deferred | only if `ni:`-identified docs get full page indexing |
 | `sha256` namespace resolution (in #195) | Wave 2 | Memex documentRecord predicate |
 | On-demand + self-describing harmonizers (#166) | Wave 2 | general feature, Memex-driven |
 | Batch `wikilinkTargets` / vault `reconcile` (#180, #26) | Wave 3/5 | vault sync + partial re-index |
 | Publisher cross-client compat (#250) | v0.8 | federation-era |
 
-The Memex client install itself lives in `~/dev/memex2` (plan: `memex2/docs/plans/2026-07-08-op-client-install.md`), not this milestone.
+The Memex client install itself lives in `~/dev/memex2` (plan: `memex2/docs/plans/2026-07-08-op-client-install.md`), not this milestone. **As of 2026-07-16 that install is unblocked on the OP side** — #247 merged and 0.3.5 is on npm, so the plan's Phase 0 is complete. Remaining Memex-side work is client-repo work (profile, client adapter, frontmatter-contract alignment), not core work. The only core items it still wants are enhancements, not gates: `sha256` namespace resolution (#195), batch `wikilinkTargets` (#180), and deletion/`reconcile` (#26/#167).
 
 ---
 
@@ -219,10 +221,12 @@ The Memex client install itself lives in `~/dev/memex2` (plan: `memex2/docs/plan
 | 2026-05-19 | Wave 5 reorganized: #202, #185, #191 bundled as Domain Pages Overhaul epic (#218); #158 and #199 remain standalone; design considerations skipped (functional only) |
 | 2026-05-19 | Bridges dropped from #217 deliverables and from v0.7 scope; not to be considered until further notice |
 | 2026-05-28 | Generic handler pipeline landed on `handle-handlers` (plan `2026-05-27-generic-handler-pipeline.md`): `handler()` is content-type-agnostic via `dispatch` + `resolveIndexPolicy`; `harmonizeSource` injection and `handleHTML` removed; `harmonizeSource` now accepts a pre-resolved schema object. Per "only use core", `src/lib/indexing.js` was NOT given a registry — its 3 live routes need migration to `createClient` before live-endpoint verification (halfbaked plan exists). |
-| 2026-07-08 | **Epic #240 (Memex MVP) shipped** — profile Rev 1 + vocabulary contract, documentRecord read+write (typed, admission-guarded), subtype→first-class paths, Markdown handler + wikilinks, `ni:` URIs verified. Sequencing rule established: **this epic precedes the RDF-star migration** (shared hot files `queryBuilders.js`/`getBlobjectFromResponse`; RDF-star must assert base triples). PR #245 merged; follow-up PR #247 open. |
+| 2026-07-08 | **Epic #240 (Memex MVP) shipped** — profile Rev 1 + vocabulary contract, documentRecord read+write (typed, admission-guarded), subtype→first-class paths, Markdown handler + wikilinks, `ni:` URIs verified. Sequencing rule established: **this epic precedes the RDF-star migration** (shared hot files `queryBuilders.js`/`getBlobjectFromResponse`; RDF-star must assert base triples). PR #245 merged; follow-up PR #247 merged 2026-07-16. |
 | 2026-07-08 | `getStatements` guard relaxed to admit subtype-bounded queries (needed by #236). Full guard removal + route-level pagination policy specced as **#244**, deferred by maintainer. |
 | 2026-07-08 | **Wikilink resolution redesigned (#246):** whole-instance basename→URL model (path-minted URLs, nearest-in-folder heuristic) DELETED before npm publish; replaced by per-handler declared-frontmatter-URI resolution (`uriField`, `wikilinkTargets`, `buildTargetMap`). Unresolved links are never stored (also the #243 item-3 ruling; case-sensitive matching stays, #243 item 2). |
 | 2026-07-08 | `octothorpes@0.3.5` publish prepped on PR #247: `profile.schema.json` shipped in `files`, `./handlers/*` subpath export added. |
+| 2026-07-16 | **PR #247 merged to `development`** (`85354f5`) and **`octothorpes@0.3.5` published to npm** (confirmed latest). This closes the last OP-core gate on the Memex 2.0 install: documentRecord write path is live, the `./handlers/*` subpath export ships (`buildTargetMap`/`AMBIGUOUS` importable), and `profile.schema.json` is in `files`. Memex integration is now client-repo work. **Caveat:** `profile.schema.json` is in `files` but NOT in the `exports` map — consumers must fs-read it via `import.meta.resolve('octothorpes')`, not `import` it. |
+| 2026-07-16 | **#249 envelope normalization is NOT yet merged** — it lives on branch `249-envelope-normalization` only; `development` does not contain it. The `octothorpes:new-client` skill's change-watch note ("landed 2026-07-17") is written ahead of the merge. Scope confirmed as *definition* envelopes only (harmonizer/resolver/publisher docs → plain `id`/`type`); **blobject keys including `@id` are untouched**, so Memex read/write assertions are unaffected either way. |
 | 2026-07-09 | **Wave 5 spec-revised:** #248 filed as keystone (absorb `delete.js` into `createDeleter`; one semantics table; two open maintainer decisions: inbound refs on hard delete, read-side meaning of soft-delete). #26/#167 plan docs carry dated revision headers; sequence #248 → #26 → #167. |
 | 2026-07-09 | **Tracker reconciled against shipped work:** Wave 2 mostly closed by #240 (#216/#236/#237 + the projection bullet); #217 respecced as field-by-field Rev 2 checklist; #200 shrank (machinery exists); #204 confirmed net-new; #213/#244 added to Wave 4; 12 stale open issues closed on GitHub. |
 | 2026-07-09 | **RDF-star sequencing corrected (maintainer catch):** the reconciliation wrongly queued the migration post-v0.7. Per the graph-model doc §8 it is IN-milestone ("next, in this wave/epic"), after epic #240. Now **Wave 4.5**, a hard prerequisite for Wave 5 (deletion SPARQL written once, on the new model); #192 rides on it (lazy-policy scope). Precursors (derive-backlinks, `@id`→`uri`, SKOS subClassOf/prefLabel) can land independently. |
