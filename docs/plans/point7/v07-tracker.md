@@ -260,5 +260,3 @@ Changes that would break/alter the OP New Client skill
 5. **Wave 4.5 RDF-star migration** — changes relationship storage and blobject-adjacent query internals; skill's *scaffold* survives, but any `/get` output examples and the smoke test's expectations may shift; `context.json` regeneration waits on it.
 6. **#204 typed `IndexError`** — would improve the scaffolded `/index` wrapper's error mapping (enhancement, not breakage).
 7. **#249 harmonizer envelope** (`@`-key drop) — touches blobject key shapes the interface page might render.
-
-redeploy plz
