@@ -99,3 +99,167 @@ describe('extantBacklink - source-anchored', () => {
     expect(query).toContain('_:backlink octo:url <https://target.com/page>')
   })
 })
+
+// #262: ingestBlobject used to await one handleMention per octothorpe, each
+// costing ~2 SPARQL round trips. On production (ASK ~1-2s) that hit the 15s
+// function ceiling after ~7 links and truncated the write with no error, so a
+// 156-link page recorded 7 and never converged on retry. Round trips must stay
+// bounded regardless of how many octothorpes a page carries.
+describe('#262 ingestBlobject - round trips do not scale with octothorpe count', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+  })
+
+  const roundTrips = () =>
+    mockInsert.mock.calls.length +
+    mockQuery.mock.calls.length +
+    mockQueryBoolean.mock.calls.length +
+    mockQueryArray.mock.calls.length
+
+  const linkBlob = (n) => ({
+    '@id': 'https://source.com/page',
+    octothorpes: Array.from({ length: n }, (_, i) => ({
+      type: 'link',
+      uri: `https://example.com/page-${i}`,
+    })),
+  })
+
+  it('keeps round trips flat as link count grows', async () => {
+    const indexer = makeIndexer()
+
+    await indexer.ingestBlobject(linkBlob(5), { instance })
+    const few = roundTrips()
+
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    await indexer.ingestBlobject(linkBlob(80), { instance })
+    const many = roundTrips()
+
+    // 16x the links must not mean materially more round trips.
+    expect(many).toBeLessThanOrEqual(few + 2)
+  })
+
+  it('writes every link even when there are many', async () => {
+    const indexer = makeIndexer()
+    await indexer.ingestBlobject(linkBlob(80), { instance })
+
+    const written = mockInsert.mock.calls.map((c) => c[0]).join('\n')
+    for (let i = 0; i < 80; i++) {
+      expect(written).toContain(`<https://example.com/page-${i}>`)
+    }
+  })
+
+  // Webring targets were left per-object on the first pass of #262 on the
+  // assumption they stay rare. That assumption is not enforced anywhere, and at
+  // 2 round trips each they would wedge at ~7 exactly like the original bug.
+  it('keeps round trips flat when every target is a webring', async () => {
+    const ringBlob = (n) => ({
+      '@id': 'https://source.com/page',
+      octothorpes: Array.from({ length: n }, (_, i) => ({
+        type: 'link',
+        uri: `https://ring-${i}.com`,
+      })),
+    })
+    const allRings = (n) => {
+      const uris = Array.from({ length: n }, (_, i) => `https://ring-${i}.com`)
+      mockQueryArray.mockImplementation(async (q) => {
+        if (q.includes('octo:Webring')) {
+          return { results: { bindings: uris.map((u) => ({ probe: { value: u } })) } }
+        }
+        if (q.includes('octo:hasPart')) {
+          return { results: { bindings: [{ domain: { value: 'https://source.com' } }] } }
+        }
+        // every ring links back, so membership writes are exercised too
+        return { results: { bindings: uris.map((u) => ({ probe: { value: u } })) } }
+      })
+    }
+
+    const indexer = makeIndexer()
+    allRings(5)
+    await indexer.ingestBlobject(ringBlob(5), { instance })
+    const few = roundTrips()
+
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    allRings(50)
+
+    await indexer.ingestBlobject(ringBlob(50), { instance })
+    expect(roundTrips()).toBeLessThanOrEqual(few + 2)
+  })
+
+  // handleWebring is the other direction of the handshake: the indexed page IS
+  // the ring, and friends.linked are the candidate members. Rings can hold
+  // hundreds, so membership writes must not be per-member either.
+  it('writes ring membership in one insert regardless of member count', async () => {
+    const indexer = makeIndexer()
+    const members = Array.from({ length: 200 }, (_, i) => `https://member-${i}.com`)
+
+    mockQueryArray.mockImplementation(async (q) => {
+      if (q.includes('octo:hasMember')) return { results: { bindings: [] } }
+      // getAllMentioningUrls: every member links back
+      return { results: { bindings: members.map((m) => ({ s: { value: m } })) } }
+    })
+
+    await indexer.handleWebring('https://ring.com', { linked: members, endorsed: [] }, true)
+
+    expect(mockInsert).toHaveBeenCalledTimes(1)
+    const written = mockInsert.mock.calls[0][0]
+    for (const m of members) {
+      expect(written).toContain(`<https://ring.com> octo:hasMember <${m}>`)
+    }
+  })
+
+  it('recognises existing members instead of reprocessing them every index', async () => {
+    const indexer = makeIndexer()
+    mockQueryArray.mockImplementation(async (q) => {
+      if (q.includes('octo:hasMember')) {
+        return { results: { bindings: [{ o: { value: 'https://old.com' } }] } }
+      }
+      return {
+        results: {
+          bindings: [{ s: { value: 'https://old.com' } }, { s: { value: 'https://new.com' } }],
+        },
+      }
+    })
+
+    await indexer.handleWebring(
+      'https://ring.com',
+      { linked: ['https://old.com', 'https://new.com'], endorsed: [] },
+      true
+    )
+
+    const written = mockInsert.mock.calls.map((c) => c[0]).join('\n')
+    expect(written).toContain('<https://new.com>')
+    expect(written).not.toContain('<https://old.com>')
+  })
+
+  it('keeps round trips flat as hashtag count grows', async () => {
+    const indexer = makeIndexer()
+    const tagBlob = (n) => ({
+      '@id': 'https://source.com/page',
+      octothorpes: Array.from({ length: n }, (_, i) => `tag${i}`),
+    })
+
+    await indexer.ingestBlobject(tagBlob(5), { instance })
+    const few = roundTrips()
+
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    await indexer.ingestBlobject(tagBlob(80), { instance })
+    expect(roundTrips()).toBeLessThanOrEqual(few + 2)
+  })
+})

@@ -257,20 +257,40 @@ export const createIndexer = (deps) => {
     `)
   }
 
+
+  // buildPattern receives the bound variable and returns the graph pattern that
+  // makes a URI "existing". Returns the Set of URIs that matched.
+  const existingAmong = async (uris, buildPattern) => {
+    const unique = [...new Set(uris)]
+    if (unique.length === 0) return new Set()
+    const values = unique.map((u) => `<${u}>`).join(' ')
+    const result = await queryArray(`
+      SELECT DISTINCT ?probe WHERE {
+        VALUES ?probe { ${values} }
+        ${buildPattern('?probe')}
+      }
+    `)
+    const bindings = result?.results?.bindings || []
+    return new Set(bindings.map((b) => b.probe.value))
+  }
+
   ////////// creation //////////
 
-  const createOctothorpe = async (s, o, { instance: inst } = {}) => {
-    const base = inst || instance
-    let now = Date.now()
-    let url = new URL(s)
-    return await insert(`
+  const octothorpeTriples = (s, o, base, now) => {
+    const url = new URL(s)
+    return `
       <${s}> ${p} <${base}~/${o}> .
       <${s}> <${base}~/${o}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
       <${url.origin}> octo:verified "true" .
       <${url.origin}> rdf:type <octo:Origin> .
       <${s}> rdf:type <octo:Page> .
-    `)
+    `
+  }
+
+  const createOctothorpe = async (s, o, { instance: inst } = {}) => {
+    const base = inst || instance
+    return await insert(octothorpeTriples(s, o, base, Date.now()))
   }
 
   const createTerm = async (o, { instance: inst } = {}) => {
@@ -340,17 +360,21 @@ export const createIndexer = (deps) => {
     return await insert(backlinkTriples(s, o, subtype, terms, base, Date.now()))
   }
 
-  const createWebring = async (s) => {
-    return await insert(`
+  const webringTriples = (s) => `
       <${s}> rdf:type <octo:Webring> .
-    `)
+    `
+
+  const createWebring = async (s) => {
+    return await insert(webringTriples(s))
   }
+
+  const webringMemberTriples = (s, o) => `
+      <${s}> octo:hasMember <${o}> .
+    `
 
   const createWebringMember = async (s, o) => {
     console.log(`member added for domain ${o}`)
-    return await insert(`
-      <${s}> octo:hasMember <${o}> .
-    `)
+    return await insert(webringMemberTriples(s, o))
   }
 
   const deleteWebringMember = async (s, o) => {
@@ -490,70 +514,30 @@ export const createIndexer = (deps) => {
 
   ////////// handlers //////////
 
-  const handleThorpe = async (s, o, { instance: inst } = {}) => {
+  // Fixed round trips per page: two batched reads, then one INSERT. (#262)
+  const handleThorpes = async (s, tags, { instance: inst } = {}) => {
     const base = inst || instance
-    console.log(`#`, s, o)
-    let isExtantTerm = await extantTerm(o, { instance: base })
-    if (!isExtantTerm) {
-      await createTerm(o, { instance: base })
-    }
-    let isExtantThorpe = await extantThorpe(s, o, { instance: base })
-    if (!isExtantThorpe) {
-      await createOctothorpe(s, o, { instance: base })
-      await recordUsage(s, o, { instance: base })
-    }
-  }
+    const unique = [...new Set(tags)].filter(Boolean)
+    if (unique.length === 0) return
 
-  // handleMention creates two graph structures for each page-to-page relationship:
-  // 1. createMention: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
-  // 2. createBacklink: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
-  //    (carries metadata: subtype, terms, created timestamp)
-  // Both are needed: the direct triple supports simple joins in queries,
-  // the blank node carries relationship metadata.
-  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
-    const base = inst || instance
-    const subj = deslash(s)
-    const obj = deslash(o)
+    const termUri = (t) => `${base}~/${t}`
 
-    // Phase 1: parallel reads. All existence checks are independent.
-    // On production each SPARQL ASK is ~1–2s; running them sequentially with
-    // typed-relationship terms used to push handleMention past the 15s ceiling.
-    const [isObjWebring, isExtantMention, isExtantbacklink, ...termExists] = await Promise.all([
-      extantPage(obj, "Webring"),
-      extantMention(subj, obj),
-      extantBacklink(subj, obj),
-      ...terms.map(term => extantTerm(term, { instance: base })),
+    const [existingTerms, existingThorpes] = await Promise.all([
+      existingAmong(unique.map(termUri), (v) => `?anyS ?anyP ${v} .`),
+      existingAmong(unique.map(termUri), (v) => `<${s}> ${p} ${v} .`),
     ])
 
-    if (isObjWebring) {
-      const domain = await getDomainForUrl(subj)
-      const hasLinked = await queryBoolean(`
-        ask {
-          <${obj}> octo:octothorpes <${domain}> .
-        }
-      `)
-      if (hasLinked) {
-        await createWebringMember(obj, domain)
-      }
-      console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked)
-    }
-
-    // Phase 2: batch all conditional writes into a single INSERT DATA update.
     const now = Date.now()
     const blocks = []
-
-    if (!isExtantMention) {
-      blocks.push(mentionTriples(subj, obj, now))
-    }
-
-    if (!isExtantbacklink) {
-      terms.forEach((term, i) => {
-        if (!termExists[i]) {
-          blocks.push(termTriples(term, base, now))
-        }
-        blocks.push(usageTriples(term, base, now))
-      })
-      blocks.push(backlinkTriples(subj, obj, subtype, terms, base, now))
+    for (const tag of unique) {
+      const uri = termUri(tag)
+      if (!existingTerms.has(uri)) {
+        blocks.push(termTriples(tag, base, now))
+      }
+      if (!existingThorpes.has(uri)) {
+        blocks.push(octothorpeTriples(s, tag, base, now))
+        blocks.push(usageTriples(tag, base, now))
+      }
     }
 
     if (blocks.length > 0) {
@@ -561,51 +545,133 @@ export const createIndexer = (deps) => {
     }
   }
 
+  const handleThorpe = async (s, o, opts = {}) => handleThorpes(s, [o], opts)
+
+  // Builds two graph structures for each page-to-page relationship:
+  // 1. mentionTriples: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
+  // 2. backlinkTriples: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
+  //    (carries metadata: subtype, terms, created timestamp)
+  // Both are needed: the direct triple supports simple joins in queries,
+  // the blank node carries relationship metadata.
+  //
+  // Fixed round trips per page: four batched reads in parallel, then one INSERT. (#262)
+  const handleMentions = async (s, mentions, { instance: inst } = {}) => {
+    const base = inst || instance
+    if (!mentions || mentions.length === 0) return
+    const subj = deslash(s)
+
+    // Collapse duplicate targets, unioning their relationship terms. The old
+    // path wrote each occurrence separately; the existence checks made all but
+    // the first a no-op, so merging preserves the resulting graph.
+    const byObject = new Map()
+    for (const m of mentions) {
+      if (!m || !m.uri) continue
+      const obj = deslash(m.uri)
+      if (!byObject.has(obj)) {
+        byObject.set(obj, { obj, subtype: m.subtype || 'Backlink', terms: [] })
+      }
+      const entry = byObject.get(obj)
+      for (const term of m.terms || []) {
+        if (!entry.terms.includes(term)) entry.terms.push(term)
+      }
+    }
+    const entries = [...byObject.values()]
+    if (entries.length === 0) return
+
+    const objects = entries.map((e) => e.obj)
+    const allTerms = [...new Set(entries.flatMap((e) => e.terms))]
+    const termUri = (t) => `${base}~/${t}`
+
+    // Phase 1: batched reads. Four queries regardless of how many mentions.
+    const [webringObjects, extantMentions, extantBacklinks, extantTerms] = await Promise.all([
+      existingAmong(objects, (v) => `${v} rdf:type <octo:Webring> .`),
+      existingAmong(objects, (v) => `<${subj}> ${p} ${v} .`),
+      existingAmong(objects, (v) => `<${subj}> ${p} ?bn . ?bn octo:url ${v} .`),
+      existingAmong(allTerms.map(termUri), (v) => `?anyS ?anyP ${v} .`),
+    ])
+
+    // Phase 2: one INSERT carrying every triple this page needs.
+    const now = Date.now()
+    const blocks = []
+    for (const entry of entries) {
+      if (!extantMentions.has(entry.obj)) {
+        blocks.push(mentionTriples(subj, entry.obj, now))
+      }
+      if (!extantBacklinks.has(entry.obj)) {
+        for (const term of entry.terms) {
+          if (!extantTerms.has(termUri(term))) {
+            blocks.push(termTriples(term, base, now))
+          }
+          blocks.push(usageTriples(term, base, now))
+        }
+        blocks.push(backlinkTriples(subj, entry.obj, entry.subtype, entry.terms, base, now))
+      }
+    }
+
+    if (blocks.length > 0) {
+      await insert(blocks.join('\n'))
+    }
+
+    // Runs after the relationship writes so a webring failure can't cost us
+    // those. One probe for which rings link back, one INSERT for the members.
+    if (webringObjects.size > 0) {
+      const domain = await getDomainForUrl(subj)
+      const ringsLinkingBack = await existingAmong(
+        [...webringObjects],
+        (v) => `${v} ${p} <${domain}> .`
+      )
+      console.log(
+        `${ringsLinkingBack.size}/${webringObjects.size} webring target(s) link back to ${domain}`
+      )
+      if (ringsLinkingBack.size > 0) {
+        await insert(
+          [...ringsLinkingBack].map((obj) => webringMemberTriples(obj, domain)).join('\n')
+        )
+      }
+    }
+  }
+
+  const handleMention = async (s, o, subtype = 'Backlink', terms = [], opts = {}) =>
+    handleMentions(s, [{ uri: o, subtype, terms }], opts)
+
+  // Membership is written in one INSERT, so a ring with hundreds of members
+  // costs the same as one with two. (#262)
   const handleWebring = async (s, friends, alreadyRing) => {
+    const domainsOnPage = [...new Set(friends.linked.map(member => deslash(member)))]
+
+    // webringMembers() resolves to the raw SPARQL response, not a list of URIs.
+    // Passing it straight to deslash() yields '' (non-string), which silently
+    // makes every member look new on every index.
+    const membersResponse = await webringMembers(s)
+    const extantMembers = new Set(
+      (membersResponse?.results?.bindings || []).map(b => deslash(b.o.value))
+    )
+    const newDomains = domainsOnPage.filter(domain => !extantMembers.has(domain))
+    console.log(`Webring ${s}: ${extantMembers.size} extant member(s), ${newDomains.length} candidate(s)`)
+
+    const blocks = []
+
+    // Folded into the batch below. This was previously fire-and-forget — the
+    // insert was never awaited, so the type triple could outlive the request.
     if (!alreadyRing) {
       console.log(`Create new Webring for ${s}`)
-      createWebring(s)
+      blocks.push(webringTriples(s))
     }
 
-    let domainsOnPage = friends.linked.map(member => deslash(member))
-    let extantMembers = [await webringMembers(s)]
-    extantMembers = extantMembers.map(member => deslash(member))
-    let newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
-    console.log("Extant Members:", extantMembers)
-    console.log(`New Domains: ${newDomains}`)
-
-    const processDomains = async (newDomains, s) => {
-      if (newDomains.length === 0) {
-        console.log("No new domains to process")
-        return
-      }
+    if (newDomains.length > 0) {
       const mentioningUrls = await getAllMentioningUrls(s)
-      console.log("MentioningURLS", mentioningUrls)
-      console.log(`Processing ${newDomains.length} domains:`, newDomains)
-
-      const promises = newDomains.map(async (domain) => {
-        try {
-          const isMentioned = mentioningUrls.some(url => url.includes(domain))
-          if (isMentioned) {
-            console.log(`Domain ${domain} is mentioned in the mentioning urls, can be added to webring`)
-            await createWebringMember(s, domain)
-          } else {
-            console.log(`Domain ${domain} is not mentioned in the mentioning urls, cannot be added to webring`)
-          }
-        } catch (error) {
-          console.error(`Error processing domain ${domain}:`, error)
-        }
-      })
-
-      try {
-        console.log("Starting processDomains...")
-        await Promise.all(promises)
-        console.log("processDomains completed successfully")
-      } catch (error) {
-        console.error("Error in Promise.all:", error)
+      const joining = newDomains.filter(domain =>
+        mentioningUrls.some(url => url.includes(domain))
+      )
+      console.log(`${joining.length}/${newDomains.length} candidate(s) link back and can join`)
+      for (const domain of joining) {
+        blocks.push(webringMemberTriples(s, domain))
       }
     }
-    await processDomains(newDomains, s)
+
+    if (blocks.length > 0) {
+      await insert(blocks.join('\n'))
+    }
   }
 
   const ingestBlobject = async (harmed, { instance: inst } = {}) => {
@@ -620,24 +686,33 @@ export const createIndexer = (deps) => {
       await createPage(s)
     }
 
+    // Sort the page's octothorpes first, then write each kind in one batch. (#262)
     let friends = { endorsed: [], linked: [] }
+    const tags = []
+    const mentions = []
     for (const octothorpe of (harmed.octothorpes || [])) {
       if (typeof octothorpe === 'string') {
-        await handleThorpe(s, octothorpe, { instance: base })
+        tags.push(octothorpe)
         continue
       }
       if (!octothorpe.uri) continue
       let octoURI = deslash(octothorpe.uri)
       if (octothorpe.type === 'hashtag') {
-        await handleThorpe(s, octoURI, { instance: base })
+        tags.push(octoURI)
       } else if (octothorpe.type === 'endorse') {
         friends.endorsed.push(octoURI)
       } else {
         friends.linked.push(octoURI)
-        const terms = octothorpe.terms || []
-        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base })
+        mentions.push({
+          uri: octoURI,
+          subtype: resolveSubtype(octothorpe.type),
+          terms: octothorpe.terms || [],
+        })
       }
     }
+
+    await handleThorpes(s, tags, { instance: base })
+    await handleMentions(s, mentions, { instance: base })
 
     if (harmed.type === 'Webring') {
       const isExtantWebring = await extantPage(s, 'Webring')
@@ -763,7 +838,9 @@ export const createIndexer = (deps) => {
     handleHTML,
     ingestBlobject,
     handleThorpe,
+    handleThorpes,
     handleMention,
+    handleMentions,
     handleWebring,
     isHarmonizerAllowed,
     checkIndexingRateLimit,
