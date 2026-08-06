@@ -257,11 +257,7 @@ export const createIndexer = (deps) => {
     `)
   }
 
-  // #262: batched existence probe. Resolves membership for a whole set of URIs
-  // in ONE query instead of one ASK per URI. The per-item ASKs are ~1-2s on
-  // production, so anything that scales with page size blows the 15s function
-  // ceiling — a 156-link page truncated at 7 with no error surfaced.
-  //
+
   // buildPattern receives the bound variable and returns the graph pattern that
   // makes a URI "existing". Returns the Set of URIs that matched.
   const existingAmong = async (uris, buildPattern) => {
