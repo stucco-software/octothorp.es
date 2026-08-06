@@ -157,6 +157,46 @@ describe('#262 ingestBlobject - round trips do not scale with octothorpe count',
     }
   })
 
+  // Webring targets were left per-object on the first pass of #262 on the
+  // assumption they stay rare. That assumption is not enforced anywhere, and at
+  // 2 round trips each they would wedge at ~7 exactly like the original bug.
+  it('keeps round trips flat when every target is a webring', async () => {
+    const ringBlob = (n) => ({
+      '@id': 'https://source.com/page',
+      octothorpes: Array.from({ length: n }, (_, i) => ({
+        type: 'link',
+        uri: `https://ring-${i}.com`,
+      })),
+    })
+    const allRings = (n) => {
+      const uris = Array.from({ length: n }, (_, i) => `https://ring-${i}.com`)
+      mockQueryArray.mockImplementation(async (q) => {
+        if (q.includes('octo:Webring')) {
+          return { results: { bindings: uris.map((u) => ({ probe: { value: u } })) } }
+        }
+        if (q.includes('octo:hasPart')) {
+          return { results: { bindings: [{ domain: { value: 'https://source.com' } }] } }
+        }
+        // every ring links back, so membership writes are exercised too
+        return { results: { bindings: uris.map((u) => ({ probe: { value: u } })) } }
+      })
+    }
+
+    const indexer = makeIndexer()
+    allRings(5)
+    await indexer.ingestBlobject(ringBlob(5), { instance })
+    const few = roundTrips()
+
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    allRings(50)
+
+    await indexer.ingestBlobject(ringBlob(50), { instance })
+    expect(roundTrips()).toBeLessThanOrEqual(few + 2)
+  })
+
   it('keeps round trips flat as hashtag count grows', async () => {
     const indexer = makeIndexer()
     const tagBlob = (n) => ({

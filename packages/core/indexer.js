@@ -366,11 +366,13 @@ export const createIndexer = (deps) => {
     `)
   }
 
+  const webringMemberTriples = (s, o) => `
+      <${s}> octo:hasMember <${o}> .
+    `
+
   const createWebringMember = async (s, o) => {
     console.log(`member added for domain ${o}`)
-    return await insert(`
-      <${s}> octo:hasMember <${o}> .
-    `)
+    return await insert(webringMemberTriples(s, o))
   }
 
   const deleteWebringMember = async (s, o) => {
@@ -610,21 +612,23 @@ export const createIndexer = (deps) => {
       await insert(blocks.join('\n'))
     }
 
-    // Webring targets are rare, so the residual per-object work runs afterwards
-    // and only over that subset. Running it last also means a webring failure
-    // can no longer cost us the relationship writes above.
+    // Webring membership runs after the relationship writes, so a webring
+    // failure can no longer cost us those. Batched on the same principle as the
+    // rest: one probe for which rings link back, one INSERT for the members.
+    // Flat regardless of how many webrings a page points at.
     if (webringObjects.size > 0) {
       const domain = await getDomainForUrl(subj)
-      for (const obj of webringObjects) {
-        const hasLinked = await queryBoolean(`
-          ask {
-            <${obj}> ${p} <${domain}> .
-          }
-        `)
-        if (hasLinked) {
-          await createWebringMember(obj, domain)
-        }
-        console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked)
+      const ringsLinkingBack = await existingAmong(
+        [...webringObjects],
+        (v) => `${v} ${p} <${domain}> .`
+      )
+      console.log(
+        `${ringsLinkingBack.size}/${webringObjects.size} webring target(s) link back to ${domain}`
+      )
+      if (ringsLinkingBack.size > 0) {
+        await insert(
+          [...ringsLinkingBack].map((obj) => webringMemberTriples(obj, domain)).join('\n')
+        )
       }
     }
   }
