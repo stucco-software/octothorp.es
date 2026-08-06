@@ -360,10 +360,12 @@ export const createIndexer = (deps) => {
     return await insert(backlinkTriples(s, o, subtype, terms, base, Date.now()))
   }
 
-  const createWebring = async (s) => {
-    return await insert(`
+  const webringTriples = (s) => `
       <${s}> rdf:type <octo:Webring> .
-    `)
+    `
+
+  const createWebring = async (s) => {
+    return await insert(webringTriples(s))
   }
 
   const webringMemberTriples = (s, o) => `
@@ -642,51 +644,46 @@ export const createIndexer = (deps) => {
   const handleMention = async (s, o, subtype = 'Backlink', terms = [], opts = {}) =>
     handleMentions(s, [{ uri: o, subtype, terms }], opts)
 
+  // #262: a ring's membership is written in one INSERT rather than one per new
+  // member, so a group with hundreds of members costs the same as one with two.
   const handleWebring = async (s, friends, alreadyRing) => {
+    const domainsOnPage = [...new Set(friends.linked.map(member => deslash(member)))]
+
+    // webringMembers() resolves to the raw SPARQL response, not a list of URIs.
+    // It used to be handed straight to deslash(), which returns '' for anything
+    // that isn't a string — so no existing member was ever recognised and every
+    // member was reprocessed on every index. Harmless in the graph (inserts are
+    // idempotent) but it made the work permanently maximal.
+    const membersResponse = await webringMembers(s)
+    const extantMembers = new Set(
+      (membersResponse?.results?.bindings || []).map(b => deslash(b.o.value))
+    )
+    const newDomains = domainsOnPage.filter(domain => !extantMembers.has(domain))
+    console.log(`Webring ${s}: ${extantMembers.size} extant member(s), ${newDomains.length} candidate(s)`)
+
+    const blocks = []
+
+    // Folded into the batch below. This was previously fire-and-forget — the
+    // insert was never awaited, so the type triple could outlive the request.
     if (!alreadyRing) {
       console.log(`Create new Webring for ${s}`)
-      createWebring(s)
+      blocks.push(webringTriples(s))
     }
 
-    let domainsOnPage = friends.linked.map(member => deslash(member))
-    let extantMembers = [await webringMembers(s)]
-    extantMembers = extantMembers.map(member => deslash(member))
-    let newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
-    console.log("Extant Members:", extantMembers)
-    console.log(`New Domains: ${newDomains}`)
-
-    const processDomains = async (newDomains, s) => {
-      if (newDomains.length === 0) {
-        console.log("No new domains to process")
-        return
-      }
+    if (newDomains.length > 0) {
       const mentioningUrls = await getAllMentioningUrls(s)
-      console.log("MentioningURLS", mentioningUrls)
-      console.log(`Processing ${newDomains.length} domains:`, newDomains)
-
-      const promises = newDomains.map(async (domain) => {
-        try {
-          const isMentioned = mentioningUrls.some(url => url.includes(domain))
-          if (isMentioned) {
-            console.log(`Domain ${domain} is mentioned in the mentioning urls, can be added to webring`)
-            await createWebringMember(s, domain)
-          } else {
-            console.log(`Domain ${domain} is not mentioned in the mentioning urls, cannot be added to webring`)
-          }
-        } catch (error) {
-          console.error(`Error processing domain ${domain}:`, error)
-        }
-      })
-
-      try {
-        console.log("Starting processDomains...")
-        await Promise.all(promises)
-        console.log("processDomains completed successfully")
-      } catch (error) {
-        console.error("Error in Promise.all:", error)
+      const joining = newDomains.filter(domain =>
+        mentioningUrls.some(url => url.includes(domain))
+      )
+      console.log(`${joining.length}/${newDomains.length} candidate(s) link back and can join`)
+      for (const domain of joining) {
+        blocks.push(webringMemberTriples(s, domain))
       }
     }
-    await processDomains(newDomains, s)
+
+    if (blocks.length > 0) {
+      await insert(blocks.join('\n'))
+    }
   }
 
   const ingestBlobject = async (harmed, { instance: inst } = {}) => {
