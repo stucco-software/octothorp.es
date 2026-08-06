@@ -509,3 +509,39 @@ describe('External Harmonizer Support', () => {
     })
   })
 })
+
+// #257: <octo-thorpe o="demo"></octo-thorpe> renders its term client-side, so in
+// source HTML its textContent is empty. The default `hashtag` harmonizer reads
+// octo-thorpe via textContent, so every such element minted a bare `{instance}~/`
+// term URI that surfaced as a `""` row in thorpes results.
+describe('Empty octothorpe extraction (#257)', () => {
+  const page = (body) => `<!DOCTYPE html><html><head><title>T</title></head><body>${body}</body></html>`
+  const terms = (result) => (result.octothorpes ?? []).map((o) => (typeof o === 'string' ? o : o.uri))
+
+  it('emits no octothorpe for an attribute-form octo-thorpe with empty textContent', async () => {
+    const result = await harmonizeSource(page('<octo-thorpe o="demo"></octo-thorpe>'))
+    expect(terms(result)).not.toContain('')
+    expect(terms(result).some((t) => /~\/$/.test(t ?? ''))).toBe(false)
+  })
+
+  it('emits no octothorpe for a bare octo-thorpe with no attributes', async () => {
+    const result = await harmonizeSource(page('<octo-thorpe></octo-thorpe>'))
+    expect(terms(result)).not.toContain('')
+  })
+
+  it('ignores whitespace-only textContent', async () => {
+    const result = await harmonizeSource(page('<octo-thorpe>   \n  </octo-thorpe>'))
+    expect(terms(result)).not.toContain('')
+  })
+
+  it('still extracts the textContent form', async () => {
+    const result = await harmonizeSource(page('<octo-thorpe>testTag</octo-thorpe>'))
+    expect(terms(result)).toContain('testTag')
+  })
+
+  it('drops only the empty element when both forms are present', async () => {
+    const result = await harmonizeSource(page('<octo-thorpe o="demo"></octo-thorpe><octo-thorpe>realTag</octo-thorpe>'))
+    expect(terms(result)).toContain('realTag')
+    expect(terms(result)).not.toContain('')
+  })
+})

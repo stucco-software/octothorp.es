@@ -805,3 +805,23 @@ New route **`src/routes/debug/identity/+server.js`** reports `{ instance, server
 Smoketest failures are now the expected five (`matrix-pages-linked`, `matrix-thorpes-posted`, and the three RSS trailing-slash fixtures) — the previously-known six minus `matrix-domains-posted`. All resolve in Phase 2 or by the Phase 1 API fixes; none are new.
 
 **Files affected:** `scripts/smoketest.js`, `src/routes/debug/identity/+server.js` (new), `src/tests/integration/normalize.js`, `src/tests/integration/normalize.test.js` (6 new tests), `src/routes/debug/api-check/matrix.js`, `src/tests/integration/golden/smoke/matrix-domains-posted.json` (deleted).
+
+## #260 / #256 / #257 / #259 — golden regeneration blockers (Phase 1)
+
+Phase 1 of epic #264. All four change `/get/` output, so they must be deployed to `next` before the golden regeneration pass — regenerating first would enshrine each bug as expected behaviour. Landed on one branch at the user's direction; the plan's incremental-deploy caveat about diff attribution applies.
+
+**#260 — `parseBindings` dropped object rows for any URI that is also a subject.** `packages/core/utils.js` used a single `seenUris` set across both roles, so a URI appeared at most once in the whole result, with whichever role it was encountered in first. Since all 19 devdemo pages are subjects, *no* devdemo page could ever appear as an object — every internal link was invisible in `pages/linked`. It also made output order-dependent: role assignment followed row order from `ORDER BY DESC(COALESCE(?postDate, ?date))`, so a `postDate` edit could flip a URI's role and therefore which predicates supplied its enrichment. Roles now dedupe independently. Verified live: `tags-only` returns in both roles where it previously returned as subject only.
+
+Landed *after* the component fix, per the issue's ordering. **`OctoBacklinks.svelte`** now filters to `role === 'subject'` before rendering — the component queries `pages/linked` with `o` = the current page, so the object row *is* the page being asked about, and nothing on screen distinguished roles. Without this, the `parseBindings` fix would have surfaced two near-identical entries differing only by a missing date and a null image (a broken-looking card in `cards` mode). Filtering flows through all four render modes and the count, so `count` and the `N backlinks` label report backlinks rather than raw rows.
+
+**#259 — object `image` was unconditionally null.** `parseBindings` read `b.omg`; `queryBuilders.js` binds `?oimg` in all three places. Nothing binds `?omg`, so the lookup never matched — 0 of 12 golden object rows carried an image, against 92 of 192 subject rows. One-word fix. Verified live: object rows now populate.
+
+**#256 — `thorpes/posted` returned one row per posting page.** A term thorped by 16 pages came back 16 times. The terms branch of `parseBindings` now collapses to one row per term, keeping the first (most recent, since the query orders by descending date). Verified live: 35 rows → 18, no duplicates. Note the dedupe happens *after* SPARQL applies `limit`, so a limited query can return fewer rows than requested — documented in the code.
+
+**#257 — pages emitted an empty `""` octothorpe.** Root cause confirmed: the default `hashtag` harmonizer reads `octo-thorpe` via `textContent`, but the rendered form `<octo-thorpe o="demo"></octo-thorpe>` carries its term in an attribute and is **empty in source HTML**. Every such element minted a bare `{instance}~/` term URI. Exactly the 5 devdemo pages containing `<octo-thorpe>` elements carried the empty term; the 14 without did not. The HTML handler now drops blank object values at extraction. Named rules are unaffected, since those feed `documentRecord` where an empty extracted field may be legitimate, and the `<octo-thorpe>demo</octo-thorpe>` textContent form still works.
+
+Note the stale empty-term triples survive re-indexing — the indexer adds relationships rather than replacing them — so the fixture effect only appears after the wipe+reindex that `npm run smoketest` already performs. Verified by harmonizing the real `devdemo/rss-feeds` page through the fixed handler: no blank value among the 7 extracted octothorpes.
+
+Each fix was confirmed to fail without the change: reverting `utils.js` fails 6 of the 11 new `parseBindings` tests, reverting `handler.js` fails 3 of the 5 new harmonizer tests. Full suite: 1115 passed, 1 failure — `matrix-pages-linked`, which is #258 step 1 and resolves in the regeneration pass itself.
+
+**Files affected:** `packages/core/utils.js`, `packages/core/handlers/html/handler.js`, `src/lib/web-components/octo-backlinks/OctoBacklinks.svelte`, `src/tests/parseBindings.test.js` (new, 11 tests), `src/tests/harmonizer.test.js` (5 new tests).

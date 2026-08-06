@@ -62,9 +62,15 @@ export function parseBindings(bindings, mode="pages") {
   
   switch (mode) {
     case "pages":
-     // Create a flat list with type property
+     // Create a flat list with type property.
+     // Roles are deduped independently: a URI that is both a linker and a link
+     // target is two distinct facts, and a shared set dropped whichever was seen
+     // second (#260). Since row order comes from ORDER BY, a shared set also made
+     // a URI's role — and which predicates supplied its enrichment — depend on
+     // the data, so output was not order-independent.
      const result = [];
-     const seenUris = new Set();
+     const seenSubjects = new Set();
+     const seenObjects = new Set();
 
      bindingArray.forEach((b) => {
        // Check if s and o exist with values before accessing
@@ -72,8 +78,8 @@ export function parseBindings(bindings, mode="pages") {
        const objectUri = b.o?.value;
 
        // Add subject if not already seen and subject exists
-       if (subjectUri && !seenUris.has(subjectUri)) {
-         seenUris.add(subjectUri);
+       if (subjectUri && !seenSubjects.has(subjectUri)) {
+         seenSubjects.add(subjectUri);
          result.push({
            role: 'subject',
            uri: subjectUri,
@@ -85,15 +91,16 @@ export function parseBindings(bindings, mode="pages") {
        }
 
        // Add object if not already seen and object exists
-       if (objectUri && !seenUris.has(objectUri)) {
-         seenUris.add(objectUri);
+       if (objectUri && !seenObjects.has(objectUri)) {
+         seenObjects.add(objectUri);
          result.push({
            role: 'object',
            uri: objectUri,
            title: b.ot?.value || null,
            description: b.od?.value || null,
            // tktk think about object dates more
-           image: b.omg?.value || null
+           // queryBuilders binds ?oimg; reading ?omg made this always null (#259)
+           image: b.oimg?.value || null
          });
        }
      });
@@ -102,12 +109,20 @@ export function parseBindings(bindings, mode="pages") {
       break
     case "thorpes":
     case "terms":
-      output = bindingArray.map((b) => {
-      return {
-        term: b.o?.value ? b.o.value.substring(b.o.value.lastIndexOf('/') + 1) : null,
-        date: parseInt(b.date?.value || null)
-      };
-    });
+      // One binding per posting page, so a term thorped by 16 pages came back
+      // 16 times (#256). Callers asked for terms, not term-postings — collapse
+      // to one row per term, keeping the first, which is the most recent since
+      // the query orders by descending date.
+      // Note this dedupes *after* SPARQL applies `limit`, so a limited query can
+      // return fewer rows than requested.
+      const seenTerms = new Set();
+      output = [];
+      for (const b of bindingArray) {
+        const term = b.o?.value ? b.o.value.substring(b.o.value.lastIndexOf('/') + 1) : null;
+        if (seenTerms.has(term)) continue;
+        seenTerms.add(term);
+        output.push({ term, date: parseInt(b.date?.value || null) });
+      }
      break
   }
 
