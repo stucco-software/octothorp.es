@@ -18,3 +18,5 @@ packages/core/.npmrc
 .npmrc
 docs/.obsidian
 docs/examples
+src/tests/integration/captured/*
+tmp/*
