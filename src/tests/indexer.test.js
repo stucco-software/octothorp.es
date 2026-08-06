@@ -99,3 +99,81 @@ describe('extantBacklink - source-anchored', () => {
     expect(query).toContain('_:backlink octo:url <https://target.com/page>')
   })
 })
+
+// #262: ingestBlobject used to await one handleMention per octothorpe, each
+// costing ~2 SPARQL round trips. On production (ASK ~1-2s) that hit the 15s
+// function ceiling after ~7 links and truncated the write with no error, so a
+// 156-link page recorded 7 and never converged on retry. Round trips must stay
+// bounded regardless of how many octothorpes a page carries.
+describe('#262 ingestBlobject - round trips do not scale with octothorpe count', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+  })
+
+  const roundTrips = () =>
+    mockInsert.mock.calls.length +
+    mockQuery.mock.calls.length +
+    mockQueryBoolean.mock.calls.length +
+    mockQueryArray.mock.calls.length
+
+  const linkBlob = (n) => ({
+    '@id': 'https://source.com/page',
+    octothorpes: Array.from({ length: n }, (_, i) => ({
+      type: 'link',
+      uri: `https://example.com/page-${i}`,
+    })),
+  })
+
+  it('keeps round trips flat as link count grows', async () => {
+    const indexer = makeIndexer()
+
+    await indexer.ingestBlobject(linkBlob(5), { instance })
+    const few = roundTrips()
+
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    await indexer.ingestBlobject(linkBlob(80), { instance })
+    const many = roundTrips()
+
+    // 16x the links must not mean materially more round trips.
+    expect(many).toBeLessThanOrEqual(few + 2)
+  })
+
+  it('writes every link even when there are many', async () => {
+    const indexer = makeIndexer()
+    await indexer.ingestBlobject(linkBlob(80), { instance })
+
+    const written = mockInsert.mock.calls.map((c) => c[0]).join('\n')
+    for (let i = 0; i < 80; i++) {
+      expect(written).toContain(`<https://example.com/page-${i}>`)
+    }
+  })
+
+  it('keeps round trips flat as hashtag count grows', async () => {
+    const indexer = makeIndexer()
+    const tagBlob = (n) => ({
+      '@id': 'https://source.com/page',
+      octothorpes: Array.from({ length: n }, (_, i) => `tag${i}`),
+    })
+
+    await indexer.ingestBlobject(tagBlob(5), { instance })
+    const few = roundTrips()
+
+    vi.clearAllMocks()
+    mockInsert.mockResolvedValue(true)
+    mockQuery.mockResolvedValue(true)
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+
+    await indexer.ingestBlobject(tagBlob(80), { instance })
+    expect(roundTrips()).toBeLessThanOrEqual(few + 2)
+  })
+})
