@@ -4,7 +4,9 @@
 export const whats = ['everything', 'pages', 'thorpes', 'domains']
 
 export const bys = [
-  { by: 'thorped',    needsObject: true,  isLinkType: false },
+  // thorpes/thorped is degenerate: o= is itself a term, so it just echoes that
+  // term once per posting page. Excluded rather than blocked at the route.
+  { by: 'thorped',    needsObject: true,  isLinkType: false, excludeWhats: ['thorpes'] },
   { by: 'linked',     needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'backlinked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'cited',      needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
