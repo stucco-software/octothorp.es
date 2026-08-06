@@ -514,8 +514,7 @@ export const createIndexer = (deps) => {
 
   ////////// handlers //////////
 
-  // #262: handles a whole page's hashtags in a fixed number of round trips —
-  // two batched reads, then one INSERT — instead of up to four per tag.
+  // Fixed round trips per page: two batched reads, then one INSERT. (#262)
   const handleThorpes = async (s, tags, { instance: inst } = {}) => {
     const base = inst || instance
     const unique = [...new Set(tags)].filter(Boolean)
@@ -548,15 +547,14 @@ export const createIndexer = (deps) => {
 
   const handleThorpe = async (s, o, opts = {}) => handleThorpes(s, [o], opts)
 
-  // handleMention creates two graph structures for each page-to-page relationship:
-  // 1. createMention: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
-  // 2. createBacklink: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
+  // Builds two graph structures for each page-to-page relationship:
+  // 1. mentionTriples: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
+  // 2. backlinkTriples: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
   //    (carries metadata: subtype, terms, created timestamp)
   // Both are needed: the direct triple supports simple joins in queries,
   // the blank node carries relationship metadata.
-  // #262: handles every page-to-page relationship on a page in a fixed number of
-  // round trips — four batched reads in parallel, then one INSERT — instead of
-  // ~2 per mention. The old per-mention loop hit the 15s ceiling at ~7 links.
+  //
+  // Fixed round trips per page: four batched reads in parallel, then one INSERT. (#262)
   const handleMentions = async (s, mentions, { instance: inst } = {}) => {
     const base = inst || instance
     if (!mentions || mentions.length === 0) return
@@ -614,10 +612,8 @@ export const createIndexer = (deps) => {
       await insert(blocks.join('\n'))
     }
 
-    // Webring membership runs after the relationship writes, so a webring
-    // failure can no longer cost us those. Batched on the same principle as the
-    // rest: one probe for which rings link back, one INSERT for the members.
-    // Flat regardless of how many webrings a page points at.
+    // Runs after the relationship writes so a webring failure can't cost us
+    // those. One probe for which rings link back, one INSERT for the members.
     if (webringObjects.size > 0) {
       const domain = await getDomainForUrl(subj)
       const ringsLinkingBack = await existingAmong(
@@ -635,25 +631,17 @@ export const createIndexer = (deps) => {
     }
   }
 
-  // handleMention creates two graph structures for each page-to-page relationship:
-  // 1. mentionTriples: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
-  // 2. backlinkTriples: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
-  //    (carries metadata: subtype, terms, created timestamp)
-  // Both are needed: the direct triple supports simple joins in queries,
-  // the blank node carries relationship metadata.
   const handleMention = async (s, o, subtype = 'Backlink', terms = [], opts = {}) =>
     handleMentions(s, [{ uri: o, subtype, terms }], opts)
 
-  // #262: a ring's membership is written in one INSERT rather than one per new
-  // member, so a group with hundreds of members costs the same as one with two.
+  // Membership is written in one INSERT, so a ring with hundreds of members
+  // costs the same as one with two. (#262)
   const handleWebring = async (s, friends, alreadyRing) => {
     const domainsOnPage = [...new Set(friends.linked.map(member => deslash(member)))]
 
     // webringMembers() resolves to the raw SPARQL response, not a list of URIs.
-    // It used to be handed straight to deslash(), which returns '' for anything
-    // that isn't a string — so no existing member was ever recognised and every
-    // member was reprocessed on every index. Harmless in the graph (inserts are
-    // idempotent) but it made the work permanently maximal.
+    // Passing it straight to deslash() yields '' (non-string), which silently
+    // makes every member look new on every index.
     const membersResponse = await webringMembers(s)
     const extantMembers = new Set(
       (membersResponse?.results?.bindings || []).map(b => deslash(b.o.value))
@@ -698,9 +686,7 @@ export const createIndexer = (deps) => {
       await createPage(s)
     }
 
-    // #262: sort the page's octothorpes first, then write each kind in one
-    // batch. Awaiting per octothorpe made round trips scale with page size and
-    // truncated large pages at the function timeout with no error surfaced.
+    // Sort the page's octothorpes first, then write each kind in one batch. (#262)
     let friends = { endorsed: [], linked: [] }
     const tags = []
     const mentions = []
