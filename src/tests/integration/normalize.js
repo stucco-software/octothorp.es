@@ -7,8 +7,17 @@
 //    stable golden.
 //  - the active instance origin in any string -> "{INSTANCE}"
 //  - arrays sorted by a stable key (removes run-to-run ordering drift)
+//  - enrichment on out-of-scope object rows is NULLED (see OUT_OF_SCOPE_KEYS)
 
 const VOLATILE_DATE_KEYS = new Set(['date', 'created', 'indexed'])
+
+// `role: "object"` rows are link *targets*, which for the devdemo set are mostly
+// third-party URIs. buildSimpleQuery enriches them via OPTIONAL clauses, so
+// title/description/image bind only if that target has independently been
+// indexed as a page on the instance under test — i.e. they assert on database
+// state the smoketest neither seeds nor controls (#258). Null them so the
+// fixture depends only on the scoped origin.
+const OUT_OF_SCOPE_KEYS = ['title', 'description', 'image']
 
 /**
  * Normalize an RSS XML string for stable golden comparison:
@@ -34,13 +43,26 @@ const sortKey = (el) => {
   return String(el)
 }
 
+const hostOf = (uri) => {
+  try { return new URL(uri).host } catch { return null }
+}
+
 /**
  * @param {*} value - parsed JSON payload (typically an array of records)
- * @param {{ instanceOrigin?: string }} opts - instanceOrigin e.g. "http://localhost:5173" (no trailing slash)
+ * @param {{ instanceOrigin?: string, scopeHost?: string }} opts
+ *   instanceOrigin - e.g. "http://localhost:5173" (no trailing slash)
+ *   scopeHost      - host of the origin under test, e.g. "nimdaghlian.github.io".
+ *                    When set, enrichment on object rows outside it is nulled.
  * @returns {*} normalized deep copy
  */
 export const normalize = (value, opts = {}) => {
-  const { instanceOrigin } = opts
+  const { instanceOrigin, scopeHost } = opts
+
+  const isOutOfScopeObjectRow = (node) =>
+    scopeHost &&
+    node.role === 'object' &&
+    typeof node.uri === 'string' &&
+    hostOf(node.uri) !== scopeHost
 
   const walk = (node) => {
     if (Array.isArray(node)) {
@@ -49,10 +71,11 @@ export const normalize = (value, opts = {}) => {
       return arr
     }
     if (node && typeof node === 'object') {
+      const stripEnrichment = isOutOfScopeObjectRow(node)
       const out = {}
       for (const [k, v] of Object.entries(node)) {
         if (VOLATILE_DATE_KEYS.has(k)) continue // drop created-derived dates entirely
-        out[k] = walk(v)
+        out[k] = stripEnrichment && OUT_OF_SCOPE_KEYS.includes(k) ? null : walk(v)
       }
       return out
     }

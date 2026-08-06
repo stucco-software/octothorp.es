@@ -39,17 +39,28 @@ because it changes what normalization emits. Step 1 of #258 *is* the pass.
 Without it, `matrix-pages-linked` drifts again the moment anyone indexes one of
 those external sites on the test instance.
 
-**6. `matrix-domains-posted` — unresolved.**
-`/get/domains/posted` accepts `s=nimdaghlian.github.io` and returns 100 unrelated
-domains, so subject filtering appears to be absent. No issue filed yet.
+**6. `matrix-domains-posted` — remove it.** *(decided 2026-08-06)*
 
-Decide one of:
-- implement subject filtering (the test then becomes meaningful), or
-- drop the query from the matrix, as was done for `thorpes/thorped`.
+`/get/domains/posted` accepts `s=nimdaghlian.github.io` and returns 100
+unrelated domains, so subject filtering appears to be absent. The fixture
+enumerates 100 real third-party domains and breaks whenever anyone indexes a new
+site, so it is fragile by construction — regenerating only resets the clock.
 
-Regenerating without deciding bakes in 100 arbitrary third-party domains that
-will drift whenever anyone indexes a new site. Adjacent to the pagination-cap
-work in #244.
+Remove it the same way `thorpes/thorped` was removed:
+
+1. add `excludeWhats: ['domains']` to the `posted` entry in
+   `src/routes/debug/api-check/matrix.js`
+2. `git rm src/tests/integration/golden/smoke/matrix-domains-posted.json`
+3. delete the local `captured/smoke/` copy
+
+Since `matrix.js` already skips `domains` for every `by` except `posted`, this
+drops the only domains query in the set. Note it also removes the combination
+from the debug api-check page, which shares the matrix — if that endpoint should
+stay exercisable there, drop only the fixture and leave the matrix alone.
+
+Removing the test does not fix the underlying `s=` filtering gap. That is worth
+its own issue, adjacent to the pagination-cap work in #244, so the behaviour is
+tracked once the fixture stops surfacing it.
 
 ## Not blocking
 
@@ -99,28 +110,87 @@ take effect immediately on checkout, with no deploy needed.
 
 ## Sequence
 
-```
-merge to development → auto-deploy to next → verify:
+Tracked as epic #264.
 
-  #260 (component filter → parseBindings)
+```
+PHASE 0 — local only, no deploy
+  #261 (preflight guards)              <- first of everything
+  #258 step 2 (normalization guard)
+  remove matrix-domains-posted         (matrix.js + delete its golden fixture)
+  commit the matrix.js exclusion
+
+PHASE 1 — API fixes, each merged to development and deployed to next
+  #260 (component filter -> parseBindings)
   #256 + #257 together
   #259
 
-then, local-only (no deploy needed):
+PHASE 2 — establish the green baseline
+  npm run smoketest                              # capture against next
+  npx vitest run src/tests/integration/smoketest.test.js
+  READ THE DIFF                                  # <- see note below
+  npm run smoketest:update                       # bless -- golden is now GREEN
 
-  #258 step 2 (normalization guard)
-  decide matrix-domains-posted
-  commit the matrix.js exclusion
-─────────────────────────────
-verify preconditions 1–4
-npm run smoketest          # wipe + reindex + capture against next
-npx vitest run src/tests/integration/smoketest.test.js
-npm run smoketest:update   # only once the diff is understood
+PHASE 3 — merge #249 (envelope normalization)
+  deploy, smoketest. Any red here is #249's doing.
+  bless if intended.
+
+PHASE 4 — cherry-pick the #262 indexer hotfix from main
+  deploy, smoketest. Any red here is the hotfix's doing.
+  bless if intended.
 ```
 
-The core fixes can be verified incrementally — deploy one, capture, confirm the
-expected fixture delta and nothing else — rather than deploying all four and
-untangling a combined diff.
+**Why the baseline comes before #249.** A run today yields six failures that are
+already understood and unrelated to #249. That is not a baseline — it is noise
+you cannot separate #249's effects from. A before/after comparison only carries
+signal if "before" is green, so the API fixes and the regeneration both have to
+precede the merge.
+
+**Why #261 goes first.** Everything downstream trusts that captures are honest.
+An unguarded harness writes plausible-but-wrong fixtures silently, which is how
+golden went stale unnoticed. Blessing a new baseline on top of that reproduces
+the problem with no prior golden left to disagree with it.
+
+**Never run `smoketest:update` without reading the diff first.** This is the step
+most likely to be skipped and the most expensive to skip.
+
+`npm run smoketest` captures and compares against the *existing* golden.
+`npm run smoketest:update` overwrites golden with whatever it captured — it
+shows you nothing and asks nothing. So the plain run is the only opportunity to
+see what each fix actually changed, and the only check that a fix did what it
+claimed and not more.
+
+For every fixture that moved, you should be able to say which change moved it
+and why. Anything you cannot attribute is a finding, not noise — that is exactly
+how the `thorpes/posted` duplication and the leaked term row got into the current
+golden. Bless only once the whole diff is accounted for.
+
+The Phase 1 fixes are worth deploying incrementally for the same reason — deploy
+one, capture, confirm the expected fixture delta and nothing else. Landing all
+four together produces a combined diff across ~24 fixtures where attribution is
+guesswork, which forfeits the check.
+
+### What to watch in Phase 4
+
+The indexer fix changes what gets *written*, so it can move fixtures. Devdemo
+pages carry 4–7 mention-type octothorpes, all at or under the old ~7 truncation
+threshold, so most should be unaffected. Measured 2026-08-06:
+
+| Mentions | Pages |
+|---|---|
+| 7 | `demo-webring` |
+| 6 | `link-types` |
+| 5 | `tags-and-octothorpes`, `relationship-terms`, `backlinked-page` |
+| 4 | the other 14 |
+
+`demo-webring` sits exactly on the boundary and additionally runs
+`handleWebring` on top of its mentions, so it is the one page plausibly
+truncating intermittently under the old code — and it backs the
+`in-webring should return member pages` test that has been flaky. Watch it
+specifically.
+
+Also: batched mentions now share a single timestamp. `normalize.js` sorts JSON
+arrays by URI so that is absorbed, but `normalizeRss` does not sort — RSS item
+order may shift.
 
 The intermediate `smoketest` run before `--update` matters: it shows the diff
 against the *old* golden, which is the last chance to catch a fix that changed

@@ -35,6 +35,33 @@ describe('normalize', () => {
   })
 })
 
+// #258 step 2: object-row enrichment binds via OPTIONAL clauses, so it depends
+// on whether the link target happens to be indexed on the instance under test.
+describe('normalize scopeHost guard', () => {
+  const opts = { instanceOrigin: 'http://localhost:5173', scopeHost: 'nimdaghlian.github.io' }
+  const row = (over) => ({ role: 'object', uri: 'https://docs.octothorp.es', title: 'T', description: 'D', image: 'I', ...over })
+
+  it('nulls title/description/image on out-of-scope object rows', () => {
+    expect(normalize(row(), opts)).toEqual({ role: 'object', uri: 'https://docs.octothorp.es', title: null, description: null, image: null })
+  })
+  it('leaves in-scope object rows enriched', () => {
+    const uri = 'https://nimdaghlian.github.io/devdemo/x'
+    expect(normalize(row({ uri }), opts)).toEqual({ role: 'object', uri, title: 'T', description: 'D', image: 'I' })
+  })
+  it('leaves subject rows alone regardless of host', () => {
+    expect(normalize(row({ role: 'subject' }), opts).title).toBe('T')
+  })
+  it('treats an unparseable uri as out of scope', () => {
+    expect(normalize(row({ uri: 'not-a-url' }), opts).title).toBeNull()
+  })
+  it('is a no-op when scopeHost is not supplied', () => {
+    expect(normalize(row(), { instanceOrigin: opts.instanceOrigin }).title).toBe('T')
+  })
+  it('only nulls the enrichment keys, leaving other fields intact', () => {
+    expect(normalize(row({ postDate: 12345 }), opts).postDate).toBe(12345)
+  })
+})
+
 describe('normalizeRss', () => {
   const opts = { instanceOrigin: 'http://localhost:5173' }
 

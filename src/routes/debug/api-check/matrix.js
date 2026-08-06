@@ -11,7 +11,11 @@ export const bys = [
   { by: 'backlinked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'cited',      needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'bookmarked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
-  { by: 'posted',     needsObject: false, isLinkType: false },
+  // domains/posted ignores s=, returning every domain in the database, so the
+  // fixture enumerated 100 third-party domains and broke whenever anyone
+  // indexed a new site. Excluded until s= filtering is fixed; since queries.js
+  // already skips `domains` for every other `by`, this drops it entirely.
+  { by: 'posted',     needsObject: false, isLinkType: false, excludeWhats: ['domains'] },
   { by: 'in-webring', needsObject: false, isLinkType: false, excludeWhats: ['thorpes', 'domains'] },
 ]
 

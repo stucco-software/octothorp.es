@@ -24,6 +24,66 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const manifest = loadManifest()
 const host = new URL(manifest.origin).host
 
+// normalize() options shared by every capture and probe in this script.
+// scopeHost nulls enrichment on link targets outside the origin under test, so
+// fixtures never assert on database state the smoketest does not seed (#258).
+const normOpts = { instanceOrigin: instance, scopeHost: host }
+
+// --- preflight ---
+
+// Every failure mode closed here previously produced a plausible-looking but
+// wrong fixture instead of an error (#261). Abort rather than capture.
+const abort = (msg) => {
+  console.error(`[preflight] ABORT: ${msg}`)
+  process.exit(1)
+}
+
+// The origin the server embeds into generated content. Prefer /debug/identity;
+// fall back to scraping the MultiPass feed description, which carries the same
+// value on deployments predating that endpoint.
+async function reportedOrigin() {
+  try {
+    const res = await fetch(`${instance}/debug/identity`)
+    if (res.ok) {
+      const body = await res.json()
+      if (body?.instance) return { origin: String(body.instance), via: '/debug/identity' }
+    }
+  } catch { /* fall through to the scrape */ }
+
+  try {
+    const res = await fetch(`${instance}/get/pages/posted/rss?s=${host}&limit=1`)
+    const xml = await res.text()
+    const m = xml.match(/request to the (https?:\/\/[^\s<]*?)\/+get API/)
+    if (m) return { origin: m[1], via: 'MultiPass description' }
+  } catch { /* fall through to the null below */ }
+
+  return null
+}
+
+async function preflight() {
+  // 1. Unset/empty `instance` makes every fetch hit a relative path AND
+  //    disables normalization, since normalize.js guards on truthiness.
+  if (!instance) abort('`instance` is unset or empty — fetches would use relative paths and normalization would silently no-op. Set it in .env.')
+  if (!/^https?:\/\//.test(instance)) abort(`\`instance\` must be an absolute http(s) origin, got "${instance}".`)
+  if (!sparql_endpoint) abort('`sparql_endpoint` is unset or empty.')
+
+  // 2. The invariant golden comparison depends on: the origin the server names
+  //    itself by is the origin being queried. Nothing asserted this before, and
+  //    its violation is what left literal production origins in the fixtures.
+  const reported = await reportedOrigin()
+  if (!reported) abort(`could not determine the self-reported origin of ${instance}. The instance may be down, or neither /debug/identity nor an RSS feed responded.`)
+
+  const self = reported.origin.replace(/\/+$/, '')
+  if (self !== instance) {
+    abort(
+      `target mismatch — querying ${instance} but the server reports itself as ${self} (via ${reported.via}).\n` +
+      `           Normalization would find nothing to replace and write literal origins into the fixtures.\n` +
+      `           Fix the instance's \`instance\` env var, or point .env at the right target.`
+    )
+  }
+  console.log(`[preflight] target ok: ${instance} (self-reported via ${reported.via})`)
+}
+
 // --- phases ---
 
 // Indexing is async: /index returns 200 before cross-page backlinks and
@@ -36,7 +96,7 @@ async function settle({ stable = 3, intervalMs = 2000, maxTries = 40 } = {}) {
     try {
       const res = await fetch(`${instance}${probePath}`)
       const payload = (await res.json()).actualResults ?? null
-      return JSON.stringify(normalize(payload, { instanceOrigin: instance }))
+      return JSON.stringify(normalize(payload, normOpts))
     } catch { return null }
   }
   let prev = null, count = 0
@@ -47,7 +107,13 @@ async function settle({ stable = 3, intervalMs = 2000, maxTries = 40 } = {}) {
     } else { count = 0; prev = snap }
     await sleep(intervalMs)
   }
-  console.warn('[settle] timed out waiting for quiescence; proceeding anyway')
+  // 3. Proceeding here captures a mid-propagation state, which is how transient
+  //    results got blessed as golden. A timeout is a failure, not a warning.
+  abort(
+    `timed out after ${maxTries} probes (~${Math.round(maxTries * intervalMs / 1000)}s) waiting for ${instance} to quiesce.\n` +
+    `           ${prev === null ? 'The probe query never returned a parseable result — the instance may be down or erroring.' : 'Results are still changing; indexing has not finished propagating.'}\n` +
+    `           Capturing now would write a mid-propagation snapshot.`
+  )
 }
 
 async function dump() {
@@ -121,7 +187,7 @@ async function fetchAndWrite(outDir, queries) {
     } else {
       let payload
       try { payload = (await res.json()).actualResults ?? null } catch { payload = { error: res.status } }
-      const norm = normalize(payload, { instanceOrigin: instance })
+      const norm = normalize(payload, normOpts)
       writeFileSync(join(outDir, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
     }
   }
@@ -149,6 +215,7 @@ const flags = new Set(process.argv.slice(2))
 const tier = flags.has('--full') ? 'full' : 'smoke'
 
 const run = async () => {
+  await preflight()
   if (flags.has('--update')) { await capture('src/tests/integration/golden'); return }
   if (flags.size === 0 || (flags.size === 1 && flags.has('--full'))) {
     await dump(); await wipe(); await reindex(); await capture('src/tests/integration/captured')

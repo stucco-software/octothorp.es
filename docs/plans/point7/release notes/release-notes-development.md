@@ -786,3 +786,22 @@ Design revision from review of #238/#240, decided before `octothorpes@0.3.5` pub
 Verified live: full markdown suite (52 tests) and the rewritten C14 (9 tests, incl. the live round-trip and negative-edge assertion) pass against the dev server + Oxigraph.
 
 **Files affected:** `packages/core/handlers/markdown/handler.js`, `packages/core/index.js`, `packages/core/wikilinkResolution.js` (deleted), `src/tests/markdownWikilinkResolution.test.js` (deleted), `src/tests/markdownWikilinks.test.js`, `src/tests/c14MemexRoundtrip.test.js`, `src/tests/fixtures/memex/{notes/Alpha,notes/Beta,notes/Gamma,projects/Delta,archive/Delta}.md`, `.claude/skills/octothorpes/handlers.md`, `.claude/skills/octothorpes/package.md`.
+
+## #261 / #258 step 2 / matrix-domains-posted — golden regeneration prerequisites (Phase 0)
+
+Phase 0 of the epic #264 sequence (plan: `docs/plans/point7/2026-08-05-golden-regeneration-prereqs.md`). All three changes are local-only — they alter the query set, normalization and the capture harness, and take effect on checkout with no deploy. No API behaviour changed.
+
+**#261 — `scripts/smoketest.js` fails loudly instead of writing wrong fixtures.** Three silent-failure modes are now aborts:
+- **Unset/non-absolute `instance`.** An empty value made every fetch hit a relative path *and* disabled normalization entirely (`normalize.js` guards on truthiness), with no error either way.
+- **Target mismatch.** Nothing previously asserted the invariant golden comparison depends on: that the origin the server embeds into generated content is the origin being queried. When `next.` was misconfigured to report itself as production, `normalizeRss` found nothing to replace and wrote fixtures containing a literal production origin — silently, for about a week. Preflight resolves the server's self-reported origin from the new `/debug/identity` endpoint, falling back to scraping the MultiPass feed description so the guard also works against deployments predating that endpoint, and aborts on any disagreement.
+- **`settle()` quiescence timeout.** Previously a `console.warn` followed by capturing a mid-propagation snapshot; now an abort.
+
+New route **`src/routes/debug/identity/+server.js`** reports `{ instance, serverName }` (non-secret values only). Verified against the local dev server: happy path passes; empty, non-absolute, unreachable and mismatched targets each abort with exit 1 (mismatch reproduced by querying `127.0.0.1:5173` against a server configured as `localhost:5173`).
+
+**#258 step 2 — normalization guard for out-of-scope object enrichment.** `buildSimpleQuery` enriches object rows through `OPTIONAL` clauses, so `title`/`description`/`image` bind only if that link target has independently been indexed on the instance under test — database state the smoketest neither seeds nor controls, and the reason `matrix-pages-linked` was environment-dependent. `normalize()` takes a new `scopeHost` option and nulls those three keys on `role: "object"` rows whose host differs; subject rows and in-scope object rows are untouched, and omitting `scopeHost` is a no-op. `scripts/smoketest.js` passes the manifest origin's host for every capture and probe. Step 1 (regenerate) is the pass itself and remains pending.
+
+**`matrix-domains-posted` removed** *(decided 2026-08-06)*. `/get/domains/posted` ignores `s=`, so the fixture enumerated 100 third-party domains and broke whenever anyone indexed a new site — fragile by construction, so regenerating only reset the clock. Removed as `thorpes/thorped` was: `excludeWhats: ['domains']` on the `posted` entry in `matrix.js`, plus deletion of the golden fixture. Since `queries.js` already skips `domains` for every other `by`, this drops the only domains query in the set — and, because the matrix is shared, the combination from the debug api-check page too. The underlying `s=` filtering gap is unfixed and tracked separately.
+
+Smoketest failures are now the expected five (`matrix-pages-linked`, `matrix-thorpes-posted`, and the three RSS trailing-slash fixtures) — the previously-known six minus `matrix-domains-posted`. All resolve in Phase 2 or by the Phase 1 API fixes; none are new.
+
+**Files affected:** `scripts/smoketest.js`, `src/routes/debug/identity/+server.js` (new), `src/tests/integration/normalize.js`, `src/tests/integration/normalize.test.js` (6 new tests), `src/routes/debug/api-check/matrix.js`, `src/tests/integration/golden/smoke/matrix-domains-posted.json` (deleted).
