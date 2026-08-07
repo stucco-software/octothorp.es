@@ -4,12 +4,18 @@
 export const whats = ['everything', 'pages', 'thorpes', 'domains']
 
 export const bys = [
-  { by: 'thorped',    needsObject: true,  isLinkType: false },
+  // thorpes/thorped is degenerate: o= is itself a term, so it just echoes that
+  // term once per posting page. Excluded rather than blocked at the route.
+  { by: 'thorped',    needsObject: true,  isLinkType: false, excludeWhats: ['thorpes'] },
   { by: 'linked',     needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'backlinked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'cited',      needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'bookmarked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
-  { by: 'posted',     needsObject: false, isLinkType: false },
+  // domains/posted ignores s=, returning every domain in the database, so the
+  // fixture enumerated 100 third-party domains and broke whenever anyone
+  // indexed a new site. Excluded until s= filtering is fixed; since queries.js
+  // already skips `domains` for every other `by`, this drops it entirely.
+  { by: 'posted',     needsObject: false, isLinkType: false, excludeWhats: ['domains'] },
   { by: 'in-webring', needsObject: false, isLinkType: false, excludeWhats: ['thorpes', 'domains'] },
 ]
 

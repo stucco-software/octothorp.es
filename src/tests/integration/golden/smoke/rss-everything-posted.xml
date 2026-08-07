@@ -6,7 +6,7 @@
       <title>Get blobjects posted from nimdaghlian.github.io</title>
       <link>{INSTANCE}/get/everything/posted/rss?s=nimdaghlian.github.io</link>
       <atom:link href="{INSTANCE}/get/everything/posted/rss?s=nimdaghlian.github.io" rel="self" type="application/rss+xml" />
-      <description>MultiPass auto generated from a request to the {INSTANCE}//get API</description>
+      <description>MultiPass auto generated from a request to the {INSTANCE}/get API</description>
       <pubDate>{DATE}</pubDate>
       <lastBuildDate>{DATE}</lastBuildDate>
       

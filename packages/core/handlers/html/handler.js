@@ -41,6 +41,18 @@ const extractValues = async (content, rule) => {
   return values
 }
 
+// An extracted object value that is empty or whitespace-only is never a real
+// relationship — it mints a bare `{instance}~/` term URI that surfaces as a `""`
+// row in thorpes results (#257). The default `hashtag` harmonizer reads
+// `octo-thorpe` via textContent, but the rendered form `<octo-thorpe o="demo">`
+// carries its term in an attribute and is empty in source HTML, so every such
+// element on a page produced one. Drop them at extraction rather than papering
+// over it downstream; the `<octo-thorpe>demo</octo-thorpe>` form still works.
+const isBlankValue = (v) => {
+  const s = (v && typeof v === 'object') ? v.uri : v
+  return typeof s !== 'string' || s.trim() === ''
+}
+
 const setNestedProperty = (obj, keyPath, value) => {
   const keys = keyPath.split(".")
   let current = obj
@@ -122,7 +134,10 @@ export default {
               values = pVals
             })
           }
-          oValues.push(...values)
+          // Filter here rather than in extractValues: named rules take the
+          // branch above and feed documentRecord, where an empty string may be
+          // a legitimate extracted field.
+          oValues.push(...values.filter((v) => !isBlankValue(v)))
         }
       }
       return oValues

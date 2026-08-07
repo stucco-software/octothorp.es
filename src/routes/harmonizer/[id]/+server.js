@@ -1,4 +1,4 @@
-// src/routes/harmonizers/[id]/+server.js
+// src/routes/harmonizer/[id]/+server.js
 import { json } from '@sveltejs/kit'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 // Cache for harmonizer schemas
@@ -33,7 +33,7 @@ export async function GET({ params }) {
 
     return json(harmonizer);
     // const { html, definitionName } = request.body;
-    
+
 }
 
 

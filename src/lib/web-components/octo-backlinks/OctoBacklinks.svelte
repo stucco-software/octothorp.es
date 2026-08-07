@@ -83,8 +83,15 @@
   // ============================================================================
   // COMPONENT-SPECIFIC HELPERS - Add any custom helpers here
   // ============================================================================
-  
+
   // (Common helpers like getTitle, getUrl, formatDate are imported from display-helpers.js)
+
+  // `pages/linked` is queried with o = the current page, so the object row IS
+  // the page being asked about — a page is not its own backlink (#260). Nothing
+  // on screen distinguishes roles, so it read as a real result. Filter to
+  // subjects and count those, not the raw row total.
+  $: backlinks = $query.results.filter((r) => r.role === 'subject');
+  $: backlinkCount = backlinks.length;
 </script>
 
 {#if render === 'count'}
@@ -94,7 +101,7 @@
   {:else if $query.error}
     <span class="count-error">✗</span>
   {:else}
-    <span class="count">{$query.count}</span>
+    <span class="count">{backlinkCount}</span>
   {/if}
 
 {:else}
@@ -125,19 +132,19 @@
     {/if}
     
     <!-- Empty state (no results after loading) -->
-    {#if hasLoaded && $query.results.length === 0 && !$query.loading && !$query.error}
+    {#if hasLoaded && backlinkCount === 0 && !$query.loading && !$query.error}
       <div class="empty">
         <p>{emptyMessage}</p>
       </div>
     {/if}
     
     <!-- Results -->
-    {#if $query.results.length > 0 && !$query.loading}
+    {#if backlinkCount > 0 && !$query.loading}
       
       {#if render === 'list'}
         <!-- List mode -->
         <ul class="list">
-          {#each $query.results as item}
+          {#each backlinks as item}
             <li>
               <a href={getUrl(item)} target="_blank" rel="noopener noreferrer">
                 {getTitle(item)}
@@ -155,7 +162,7 @@
       {:else if render === 'cards'}
         <!-- Card grid mode -->
         <div class="cards">
-          {#each $query.results as item}
+          {#each backlinks as item}
             <article class="card">
               {#if item.image}
                 <img src={item.image} alt={getTitle(item)} loading="lazy" />
@@ -175,17 +182,17 @@
       {:else if render === 'compact'}
         <!-- Compact inline mode -->
         <div class="compact">
-          {#each $query.results as item, i}
+          {#each backlinks as item, i}
             <a href={getUrl(item)} target="_blank" rel="noopener noreferrer">
               {getTitle(item)}
-            </a>{#if i < $query.results.length - 1}, {/if}
+            </a>{#if i < backlinkCount - 1}, {/if}
           {/each}
         </div>
       {/if}
       
       <!-- Result count -->
       <div class="meta">
-        <span class="result-count">{$query.count} backlink{$query.count === 1 ? '' : 's'}</span>
+        <span class="result-count">{backlinkCount} backlink{backlinkCount === 1 ? '' : 's'}</span>
       </div>
       
     {/if}
