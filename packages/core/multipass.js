@@ -231,7 +231,11 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
 
   const defaultTitle = titleParts.join(' ');
   const feedTitle = options.feedtitle ?? defaultTitle
-  const feedDescription = options.feeddescription ?? `MultiPass auto generated from a request to the ${instance}/get API`
+  // `instance` carries its own trailing slash — every other call site assumes it
+  // (`${instance}~/`, `${instance}harmonizer/`, `${instance}badge.png`). This was
+  // the lone site adding a second one, which is why the feed description read
+  // `//get` while term URIs were well-formed. Do not add a slash here.
+  const feedDescription = options.feeddescription ?? `MultiPass auto generated from a request to the ${instance}get API`
   const feedAuthor = options.feedauthor ?? 'Octothorpes Protocol'
   const feedImage = options.feedimage ?? `${instance}badge.png`
 
