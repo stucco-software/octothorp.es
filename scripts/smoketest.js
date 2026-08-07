@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import 'dotenv/config'
-import { mkdirSync, writeFileSync } from 'fs'
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'fs'
+import { execFileSync } from 'child_process'
 import { join } from 'path'
 import { createSparqlClient, deleteOrigin } from 'octothorpes'
 import { loadManifest } from '../src/tests/integration/manifest.js'
@@ -209,22 +210,95 @@ async function capture(baseDir) {
   }
 }
 
+// --- diff report ---
+
+// `smoketest:check` tells you WHICH fixtures moved; this writes HOW to a file.
+// Reading the diff is the step the regeneration process most depends on and the
+// easiest to skip, and terminal scrollback is a bad place to do it — a file can
+// be scrolled, searched, kept alongside the commit and pasted into review.
+async function writeDiff() {
+  const subdirs = tier === 'full' ? ['smoke', 'full'] : ['smoke']
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const out = [
+    `smoketest diff — captured vs golden`,
+    `instance:  ${instance}`,
+    `captured:  ${stamp}`,
+    `tier:      ${tier}`,
+    '',
+  ]
+  const changed = [], added = [], removed = [], same = []
+
+  for (const sub of subdirs) {
+    const goldenDir = join(ROOT, 'src/tests/integration/golden', sub)
+    const capturedDir = join(ROOT, 'src/tests/integration/captured', sub)
+    // Fixtures only — .DS_Store and friends are not missing captures.
+    const fixtures = (d) => (existsSync(d) ? readdirSync(d).filter((f) => /\.(json|xml)$/.test(f)) : [])
+    const names = [...new Set([...fixtures(goldenDir), ...fixtures(capturedDir)])].sort()
+
+    for (const name of names) {
+      const label = `${sub}/${name}`
+      const g = join(goldenDir, name)
+      const c = join(capturedDir, name)
+      // A fixture present on only one side is its own signal: no golden means a
+      // new query, no captured means a query that stopped being generated.
+      if (!existsSync(g)) { added.push(label); continue }
+      if (!existsSync(c)) { removed.push(label); continue }
+      if (readFileSync(g, 'utf-8') === readFileSync(c, 'utf-8')) { same.push(label); continue }
+      changed.push(label)
+      let body
+      try {
+        execFileSync('diff', ['-u', '--label', `golden/${label}`, '--label', `captured/${label}`, g, c], { encoding: 'utf-8' })
+        body = '(no textual difference)'
+      } catch (e) {
+        // diff exits 1 when files differ, which is the expected path here.
+        body = e.status === 1 ? e.stdout : `(diff failed: ${e.message})`
+      }
+      out.push('='.repeat(72), label, '='.repeat(72), body, '')
+    }
+  }
+
+  out.splice(4, 0,
+    `${changed.length} changed, ${added.length} not in golden, ${removed.length} not captured, ${same.length} unchanged`,
+    '',
+    ...(changed.length ? ['CHANGED:', ...changed.map((n) => `  ${n}`), ''] : []),
+    ...(added.length ? ['NOT IN GOLDEN (new query, or golden never blessed):', ...added.map((n) => `  ${n}`), ''] : []),
+    ...(removed.length ? ['NOT CAPTURED (query removed, or capture incomplete):', ...removed.map((n) => `  ${n}`), ''] : []),
+  )
+
+  const file = join(dir('tmp'), `smokediff-${stamp}.txt`)
+  writeFileSync(file, out.join('\n'))
+  console.log(`[diff] ${changed.length} changed, ${added.length} not in golden, ${removed.length} not captured, ${same.length} unchanged`)
+  console.log(`[diff] wrote ${file}`)
+}
+
 // --- cli ---
 
 const flags = new Set(process.argv.slice(2))
 const tier = flags.has('--full') ? 'full' : 'smoke'
 
+// --diff composes with any phase, but must never IMPLY one: a bare `--diff` is a
+// request for a report, and falling through to the default full cycle would wipe
+// and reindex the target instead. Only a genuinely bare invocation does that.
+const PHASES = ['--dump', '--wipe', '--reindex', '--capture', '--update']
+const explicitPhases = PHASES.filter((f) => flags.has(f))
+const bareInvocation = explicitPhases.length === 0 && !flags.has('--diff')
+
 const run = async () => {
   await preflight()
-  if (flags.has('--update')) { await capture('src/tests/integration/golden'); return }
-  if (flags.size === 0 || (flags.size === 1 && flags.has('--full'))) {
-    await dump(); await wipe(); await reindex(); await capture('src/tests/integration/captured')
+  if (flags.has('--update')) {
+    if (flags.has('--diff')) console.warn('[diff] ignored with --update: golden is overwritten by the capture, so there is nothing left to compare')
+    await capture('src/tests/integration/golden')
     return
   }
-  if (flags.has('--dump')) await dump()
-  if (flags.has('--wipe')) await wipe()
-  if (flags.has('--reindex')) await reindex()
-  if (flags.has('--capture')) await capture('src/tests/integration/captured')
+  if (bareInvocation) {
+    await dump(); await wipe(); await reindex(); await capture('src/tests/integration/captured')
+  } else {
+    if (flags.has('--dump')) await dump()
+    if (flags.has('--wipe')) await wipe()
+    if (flags.has('--reindex')) await reindex()
+    if (flags.has('--capture')) await capture('src/tests/integration/captured')
+  }
+  if (flags.has('--diff')) await writeDiff()
 }
 
 run().catch((e) => { console.error(e); process.exit(1) })
