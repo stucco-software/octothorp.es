@@ -4,6 +4,8 @@
  * @module harmonizerUtils
  */
 
+import { normalizeEnvelope } from './envelope.js'
+
 /**
  * Maximum size for remote harmonizer files (56KB)
  * @constant {number}
@@ -444,15 +446,23 @@ export async function remoteHarmonizer(url, { validateSchema } = {}) {
         throw new Error("Harmonizer missing required 'schema' object property")
       }
 
+      // #249: normalize legacy @-form envelope, then gate on type — never
+      // run a fetched document that doesn't declare itself a harmonizer
+      // (validation gate; pre-req for #166 harmonizeWith).
+      const normalized = normalizeEnvelope(data)
+      if (normalized.type !== 'harmonizer') {
+        throw new Error(`Fetched document is not a harmonizer (type: ${JSON.stringify(normalized.type ?? null)})`)
+      }
+
       // Validate schema safety and complexity if a validator was provided
-      if (schemaValidator && !schemaValidator(data.schema)) {
+      if (schemaValidator && !schemaValidator(normalized.schema)) {
         throw new Error("Harmonizer schema failed safety validation")
       }
 
       // Cache the successful result
-      cacheHarmonizer(url, data)
+      cacheHarmonizer(url, normalized)
 
-      return data
+      return normalized
     } catch (fetchError) {
       clearTimeout(timeoutId)
 

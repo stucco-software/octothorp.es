@@ -1,7 +1,7 @@
 {
-  "@context": "https://octothorp.es/",
-  "@id": "https://octothorp.es/publishers/readable",
-  "@type": "resolver",
+  "context": "https://octothorp.es/",
+  "id": "https://octothorp.es/publishers/readable",
+  "type": "resolver",
   "contentType": "application/json",
   "meta": {
     "name": "Readable",

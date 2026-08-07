@@ -1,4 +1,5 @@
 import { isSparqlSafe } from './utils.js'
+import { normalizeEnvelope } from './envelope.js'
 
 // --- Path resolution ---
 
@@ -97,13 +98,14 @@ function encodeValue(value, type = 'xml') {
 
 export function validateResolver(resolver, options = {}) {
   const { maxMetaBytes = 4096 } = options
-  if (!resolver['@context']) return { valid: false, error: 'Resolver must have @context' }
-  if (!resolver['@id']) return { valid: false, error: 'Resolver must have @id' }
+  if (!resolver.id) return { valid: false, error: 'Resolver must have id' }
   if (!resolver.schema || typeof resolver.schema !== 'object') return { valid: false, error: 'Resolver must have schema object' }
-  const contextCheck = isSparqlSafe(resolver['@context'])
-  if (!contextCheck.valid) return { valid: false, error: `@context: ${contextCheck.error}` }
-  const idCheck = isSparqlSafe(resolver['@id'])
-  if (!idCheck.valid) return { valid: false, error: `@id: ${idCheck.error}` }
+  const idCheck = isSparqlSafe(resolver.id)
+  if (!idCheck.valid) return { valid: false, error: `id: ${idCheck.error}` }
+  if (resolver.context) {
+    const contextCheck = isSparqlSafe(resolver.context)
+    if (!contextCheck.valid) return { valid: false, error: `context: ${contextCheck.error}` }
+  }
   if (resolver.meta) {
     const metaSize = JSON.stringify(resolver.meta).length
     if (metaSize > maxMetaBytes) return { valid: false, error: `Meta exceeds size limit (${maxMetaBytes} bytes)` }
@@ -147,6 +149,7 @@ export function loadResolver(source) {
   } catch (e) {
     return { resolver: null, valid: false, error: `Invalid JSON: ${e.message}` }
   }
+  resolver = normalizeEnvelope(resolver)
   const validation = validateResolver(resolver)
   if (!validation.valid) return { resolver: null, ...validation }
   return { resolver, valid: true }

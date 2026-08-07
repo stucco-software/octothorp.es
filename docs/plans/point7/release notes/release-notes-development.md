@@ -787,6 +787,23 @@ Verified live: full markdown suite (52 tests) and the rewritten C14 (9 tests, in
 
 **Files affected:** `packages/core/handlers/markdown/handler.js`, `packages/core/index.js`, `packages/core/wikilinkResolution.js` (deleted), `src/tests/markdownWikilinkResolution.test.js` (deleted), `src/tests/markdownWikilinks.test.js`, `src/tests/c14MemexRoundtrip.test.js`, `src/tests/fixtures/memex/{notes/Alpha,notes/Beta,notes/Gamma,projects/Delta,archive/Delta}.md`, `.claude/skills/octothorpes/handlers.md`, `.claude/skills/octothorpes/package.md`.
 
+## #249 — harmonizer/publisher definition envelopes drop JSON-LD `@`-keys
+
+Definition documents (harmonizers, publisher resolvers) aren't linked data, so their envelope keys move to plain `id`/`type` instead of JSON-LD `@id`/`@type`/`@context`. Local harmonizer built-ins dropped `@context` entirely (nothing read it); publisher resolvers rename `@context` to `context` (definition metadata naming the external spec a mapping targets, kept distinct from `pubDefs`, which is unrelated per-invocation data). Blobject `@id` — the linked-data identifier on harmonized output and everywhere else in the indexing/query pipeline — is unchanged; this issue is scoped to definition envelopes only.
+
+**What changed:**
+- **`packages/core/envelope.js`** (new): `normalizeEnvelope(def)`, a single-boundary normalizer. Folds legacy `@id`/`@type`/`@context` to `id`/`type`/`context` on a top-level object, leaving nested keys (e.g. resolver `schema` entries like `from: '@id'`, which reference blobject properties) untouched.
+- **`packages/core/harmonizers.js`**: local built-in harmonizer definitions rewritten to plain `id`/`type` keys, `@context` dropped.
+- **`packages/core/harmonizerUtils.js`**: `remoteHarmonizer()` runs fetched documents through `normalizeEnvelope` at the fetch boundary, so both new-form and legacy `@`-form remote harmonizer JSON work. **Behavior change:** a fetched harmonizer document must now declare `type: "harmonizer"` (or legacy `@type`); a missing or mismatched type is rejected (previously unchecked).
+- **`packages/core/publish.js`**: `loadResolver()` normalizes resolvers at load time via `normalizeEnvelope`.
+- **`packages/core/publishers.js`**: `register()`'s flat-vs-explicit publisher shape detection now runs on the normalized object and checks for a top-level `id` (was `@context`/`@id`), so legacy `@`-form site publishers still register correctly.
+- **`packages/core/index.js`**: wires the boundary normalization through `createClient`'s publisher/harmonizer registration paths.
+- **`src/lib/publishers/*/resolver.json`**: rewritten to plain `context`/`id`/`type` keys.
+- **`GET /harmonizer/[id]`** (`src/routes/harmonizer/[id]/+server.js`) is a passthrough of the local harmonizer definition, so its public JSON response shape changed accordingly: `id`/`type` present, no `@context`.
+
+Suite green: 1109 passed / 11 skipped / 0 failures.
+
+**Files affected:** `packages/core/envelope.js` (new), `packages/core/harmonizers.js`, `packages/core/harmonizerUtils.js`, `packages/core/publish.js`, `packages/core/publishers.js`, `packages/core/index.js`, `src/lib/publishers/*/resolver.json`, `src/tests/envelope.test.js` (new), `src/tests/publish.test.js`, `src/tests/publish-core.test.js`, `src/tests/core.test.js`.
 ## #261 / #258 step 2 / matrix-domains-posted — golden regeneration prerequisites (Phase 0)
 
 Phase 0 of the epic #264 sequence (plan: `docs/plans/point7/2026-08-05-golden-regeneration-prereqs.md`). All three changes are local-only — they alter the query set, normalization and the capture harness, and take effect on checkout with no deploy. No API behaviour changed.

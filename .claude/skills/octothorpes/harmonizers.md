@@ -13,14 +13,15 @@ A harmonizer is a JSON document with this top-level shape:
 
 ```javascript
 {
-  "@context": "string",        // JSON-LD context URL
-  "@id": "string",             // Harmonizer resource identifier
-  "@type": "harmonizer",       // Resource type
+  "id": "string",              // Harmonizer resource identifier
+  "type": "harmonizer",        // Resource type -- required for remote docs (see below)
   "title": "string",           // Human-readable name
   "mode": "html|json|xpath",   // Extraction mode (default: "html")
   "schema": { ... }            // Extraction rules (see below)
 }
 ```
+
+Definition envelopes use plain `id`/`type` keys (#249) -- definitions aren't linked data. Local built-ins in `packages/core/harmonizers.js` dropped `@context` entirely (nothing read it). A single-boundary normalizer, `normalizeEnvelope` in `packages/core/envelope.js`, accepts legacy `@id`/`@type`/`@context`-form documents at `remoteHarmonizer()` and folds them to plain keys before anything downstream sees them -- so old remote harmonizer JSON still works. **Behavior change:** a fetched remote harmonizer document must now declare `type: "harmonizer"` (or legacy `@type: "harmonizer"`); missing or mismatched type is rejected. This is about the harmonizer *document's own* envelope keys -- the blobject `@id` that `harmonizeSource()` outputs (see below) is unrelated and unchanged.
 
 ## Schema Structure
 

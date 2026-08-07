@@ -58,6 +58,7 @@ The system now supports arbitrary subtypes beyond the hardcoded set. Any typed o
 - Document the `data-octothorpes` attribute extraction for link types
 - Note the JSDOM case-sensitivity fix: harmonizer authors can now use lowercase tag selectors like `h2` instead of requiring `H2`
 - Document that `link[rel='octo:harmonizer']` `href` must be an **absolute URL**. Relative paths (e.g. `href="custom.json"`) will not resolve and will silently fall back to the default harmonizer.
+- **#249 (envelope normalization):** any example harmonizer JSON document on this page needs updating to the new envelope shape — plain `id`/`type` keys, no `@context`. A remote harmonizer document must now declare `type: "harmonizer"` (missing/wrong type is rejected). This is an external-repo doc (docs.octothorp.es); handle as its own docs session, not bundled with this branch's work. Note for whoever picks it up: blobject-shaped examples elsewhere on the site (harmonized output, `@id` on blobjects) are unaffected and should NOT be changed.
 
 ### `/op-api/` -- RSS
 Mention the webring RSS URL fix if the old (broken) format was documented anywhere.

@@ -1,3 +1,5 @@
+import { normalizeEnvelope } from './envelope.js'
+
 /**
  * Resolve a publisher's output envelope: its declared default feed-level values
  * merged with per-request overrides (canonical vocab: title, link, description, date).
@@ -42,9 +44,9 @@ export const createPublisherRegistry = () => {
   // --- RSS 2.0 ---
 
   const rss2Schema = {
-    '@context': 'https://www.rssboard.org/rss-specification',
-    '@id': 'https://octothorp.es/publishers/rss2',
-    '@type': 'resolver',
+    'context': 'https://www.rssboard.org/rss-specification',
+    'id': 'https://octothorp.es/publishers/rss2',
+    'type': 'resolver',
     // `from` arrays are ordered fallbacks so one resolver consumes both shapes:
     // blobjects (keyed by `@id`, from everything/blobjects routes) and
     // parseBindings rows (keyed by `uri`, from pages/links/thorpes/domains routes).
@@ -117,9 +119,9 @@ export const createPublisherRegistry = () => {
   // --- ATProto ---
 
   const standardSiteSchema = {
-    '@context': 'https://standard.site/',
-    '@id': 'https://octothorp.es/publishers/standard-site.document',
-    '@type': 'resolver',
+    'context': 'https://standard.site/',
+    'id': 'https://octothorp.es/publishers/standard-site.document',
+    'type': 'resolver',
     meta: {
       name: 'Standard Site Document',
       description: 'Publishes rich content to site.standard.document with textContent, site, and path',
@@ -152,9 +154,9 @@ export const createPublisherRegistry = () => {
   // --- Bluesky ---
 
   const blueskySchema = {
-    '@context': 'https://bsky.app/',
-    '@id': 'https://octothorp.es/publishers/bluesky',
-    '@type': 'resolver',
+    'context': 'https://bsky.app/',
+    'id': 'https://octothorp.es/publishers/bluesky',
+    'type': 'resolver',
     schema: {
       url: { from: '@id', required: true },
       title: { from: ['title', '@id'], required: true },
@@ -302,9 +304,9 @@ export const createPublisherRegistry = () => {
   // (calendar-ingested events, or any dated page) → a VCALENDAR document.
 
   const icsSchema = {
-    '@context': 'https://www.rfc-editor.org/rfc/rfc5545',
-    '@id': 'https://octothorp.es/publishers/ics',
-    '@type': 'resolver',
+    'context': 'https://www.rfc-editor.org/rfc/rfc5545',
+    'id': 'https://octothorp.es/publishers/ics',
+    'type': 'resolver',
     schema: {
       uid: { from: '@id', required: true },
       summary: { from: ['title', '@id'], required: true },
@@ -433,16 +435,17 @@ export const createPublisherRegistry = () => {
 
   const register = (name, publisher) => {
     if (builtins.has(name)) throw new Error(`Publisher "${name}" is already registered as a built-in`)
-    // Flat shape: resolver fields at top level (@context, @id, schema, contentType, render)
+    const normalized = normalizeEnvelope(publisher)
+    // Flat shape: resolver fields at top level (id, schema, contentType, render)
     // Explicit shape: { resolver: resolverObj, contentType, meta, render }
-    const isFlat = publisher['@context'] || publisher['@id']
-    const normalized = isFlat
-      ? { resolver: publisher, contentType: publisher.contentType, meta: publisher.meta ?? {}, envelope: publisher.envelope, requires: publisher.requires, render: publisher.render }
-      : publisher
-    if (!normalized.resolver || !normalized.contentType || typeof normalized.render !== 'function') {
+    const isFlat = Boolean(normalized.id)
+    const wrapped = isFlat
+      ? { resolver: normalized, contentType: normalized.contentType, meta: normalized.meta ?? {}, envelope: normalized.envelope, requires: normalized.requires, render: normalized.render }
+      : { ...normalized, resolver: normalizeEnvelope(normalized.resolver) }
+    if (!wrapped.resolver || !wrapped.contentType || typeof wrapped.render !== 'function') {
       throw new Error('Publisher must have resolver, contentType, and render')
     }
-    publishers[name] = normalized
+    publishers[name] = wrapped
   }
 
   return { getPublisher, listPublishers, register }

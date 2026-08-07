@@ -1,7 +1,7 @@
 {
-  "@context": "https://docs.cosmik.network/",
-  "@id": "https://octothorp.es/publishers/semble",
-  "@type": "resolver",
+  "context": "https://docs.cosmik.network/",
+  "id": "https://octothorp.es/publishers/semble",
+  "type": "resolver",
   "contentType": "application/json",
   "meta": {
     "name": "Semble Card",

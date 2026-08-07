@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { 
-  resolve, 
+import {
+  resolve,
   validateResolver,
   loadResolver,
-  resolveFrom, 
-  resolvePath, 
-  applyPostProcess, 
-  formatDate, 
+  resolveFrom,
+  resolvePath,
+  applyPostProcess,
+  formatDate,
   encodeValue,
   extractTags
 } from 'octothorpes'
@@ -196,22 +196,21 @@ describe('Publisher System', () => {
       expect(result.valid).toBe(true)
     })
 
-    it('should reject resolver without @context', () => {
-      const resolver = { '@id': 'test', schema: {} }
+    it('should validate a resolver without context', () => {
+      const resolver = { id: 'test', schema: {} }
       const result = validateResolver(resolver)
-      expect(result.valid).toBe(false)
-      expect(result.error).toContain('@context')
+      expect(result.valid).toBe(true)
     })
 
-    it('should reject resolver without @id', () => {
-      const resolver = { '@context': 'http://example.com', schema: {} }
+    it('should reject resolver without id', () => {
+      const resolver = { context: 'http://example.com', schema: {} }
       const result = validateResolver(resolver)
       expect(result.valid).toBe(false)
-      expect(result.error).toContain('@id')
+      expect(result.error).toContain('id')
     })
 
     it('should reject resolver without schema', () => {
-      const resolver = { '@context': 'http://example.com', '@id': 'test' }
+      const resolver = { context: 'http://example.com', id: 'test' }
       const result = validateResolver(resolver)
       expect(result.valid).toBe(false)
       expect(result.error).toContain('schema')
@@ -219,8 +218,8 @@ describe('Publisher System', () => {
 
     it('should reject meta exceeding size limit', () => {
       const resolver = {
-        '@context': 'http://example.com',
-        '@id': 'test',
+        context: 'http://example.com',
+        id: 'test',
         schema: {},
         meta: { data: 'x'.repeat(5000) }
       }
@@ -231,8 +230,8 @@ describe('Publisher System', () => {
 
     it('should reject dangerous characters in meta', () => {
       const resolver = {
-        '@context': 'http://example.com',
-        '@id': 'test',
+        context: 'http://example.com',
+        id: 'test',
         schema: {},
         meta: { name: '<script>alert("xss")</script>' }
       }
@@ -244,8 +243,8 @@ describe('Publisher System', () => {
 
   describe('resolve', () => {
     const testResolver = {
-      '@context': 'http://example.com',
-      '@id': 'test',
+      context: 'http://example.com',
+      id: 'test',
       schema: {
         title: { from: 'title', required: true },
         link: { from: '@id', required: true },
@@ -297,8 +296,8 @@ describe('Publisher System', () => {
 
     it('should handle hardcoded values', () => {
       const resolverWithValue = {
-        '@context': 'http://example.com',
-        '@id': 'test',
+        context: 'http://example.com',
+        id: 'test',
         schema: {
           title: { from: 'title', required: true },
           type: { value: 'article' }
@@ -314,8 +313,8 @@ describe('Publisher System', () => {
 
     it('should handle "now" as special value', () => {
       const resolverWithNow = {
-        '@context': 'http://example.com',
-        '@id': 'test',
+        context: 'http://example.com',
+        id: 'test',
         schema: {
           title: { from: 'title', required: true },
           timestamp: { value: 'now', postProcess: { method: 'date', params: 'iso8601' } }
@@ -331,8 +330,8 @@ describe('Publisher System', () => {
 
   describe('publish', () => {
     const testResolver = {
-      '@context': 'http://example.com',
-      '@id': 'test',
+      context: 'http://example.com',
+      id: 'test',
       schema: {
         title: { from: 'title', required: true },
         link: { from: '@id', required: true }
@@ -454,14 +453,14 @@ describe('Publisher System', () => {
     it('should load a valid resolver object', () => {
       const result = loadResolver(rssResolver)
       expect(result.valid).toBe(true)
-      expect(result.resolver).toBe(rssResolver)
+      expect(result.resolver).toEqual(rssResolver)
     })
 
     it('should parse and load a JSON string', () => {
       const jsonString = JSON.stringify(rssResolver)
       const result = loadResolver(jsonString)
       expect(result.valid).toBe(true)
-      expect(result.resolver['@id']).toBe(rssResolver['@id'])
+      expect(result.resolver.id).toBe(rssResolver.id)
     })
 
     it('should reject invalid JSON', () => {
@@ -473,13 +472,21 @@ describe('Publisher System', () => {
     it('should reject resolver missing required fields', () => {
       const result = loadResolver({ schema: {} })
       expect(result.valid).toBe(false)
-      expect(result.error).toContain('@context')
+      expect(result.error).toContain('id')
+    })
+
+    it('should normalize legacy @-form resolver JSON', () => {
+      const legacy = { '@id': 'https://example.com/legacy', '@context': 'http://example.com', schema: {} }
+      const result = loadResolver(JSON.stringify(legacy))
+      expect(result.valid).toBe(true)
+      expect(result.resolver.id).toBeDefined()
+      expect(result.resolver['@id']).toBeUndefined()
     })
 
     it('should load the standardSiteDocument resolver from JSON', () => {
       const result = loadResolver(standardSiteDocument)
       expect(result.valid).toBe(true)
-      expect(result.resolver['@context']).toBe('https://standard.site/')
+      expect(result.resolver.context).toBe('https://standard.site/')
       expect(result.resolver.meta.lexicon).toBe('site.standard.document')
     })
   })

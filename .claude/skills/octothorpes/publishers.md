@@ -26,7 +26,7 @@ A publisher is a plain object:
 
 ```js
 {
-  resolver,      // a resolver: { '@context', '@id', '@type':'resolver', schema: {...} }
+  resolver,      // a resolver: { context, id, type: 'resolver', schema: {...} }
   contentType,   // MIME string, e.g. 'text/calendar'
   meta,          // { name, description, ... } — static publisher identity
   envelope,      // OPTIONAL: default feed-level wrapper values { title, link, description, feedDate }
@@ -53,7 +53,7 @@ Defaults live on the publisher (`pub.envelope`), not in `meta`. Keep `meta` for 
 
 ## pubDefs: per-invocation inputs (capabilities + request data)
 
-Feed-producing client methods (`client.get`, `client.publish`) accept a **`pubDefs`** bag of per-invocation values the caller supplies to publishers — distinct from RDF `@context` (hence not "context"). Two classes of thing live in it:
+Feed-producing client methods (`client.get`, `client.publish`) accept a **`pubDefs`** bag of per-invocation values the caller supplies to publishers — distinct from a resolver's own `context` key (definition metadata naming the external spec a mapping targets, not linked-data `@context` — resolvers dropped the `@` prefix in #249), hence not called "context" itself. Two classes of thing live in it:
 
 - **`pubDefs.utils`** — functions/capabilities. Today just `utils.fetch` (the host's request-scoped fetch, used by async publishers like `readable`). Core never inspects these; it forwards the whole `pubDefs` to `render`.
 - **`pubDefs.<data>`** — request-derived data. Core reads the canonical envelope keys (`title`/`link`/`description`/`feedDate`) from here to overlay envelope overrides (e.g. the SvelteKit route passes `link: url.href`; `feedDate` defaults to now in both `get` and `publish` when unset). Anything else is for the publisher's own use.
@@ -89,12 +89,12 @@ Edit `createPublisherRegistry()` in `packages/core/publishers.js`: define `schem
 ## Adding a site-defined publisher
 
 Drop a folder in `src/lib/publishers/<name>/`:
-- `resolver.json` — the resolver (`@context`, `@id`, `@type`, `contentType`, `meta`, `schema`).
+- `resolver.json` — the resolver (`context`, `id`, `type`, `contentType`, `meta`, `schema`). Plain keys, not JSON-LD `@`-keys (#249) — a legacy `@`-form document still normalizes cleanly at `loadResolver()`, but new resolvers should be written with plain keys.
 - `renderer.js` — `import resolver from './resolver.json'; export default { ...resolver, render: (items, envelope, pubDefs) => ... }`.
 
 The glob loader auto-discovers it (names starting `_` are skipped); `load.js` registers all site publishers into the core registry at startup. Use this path for site-specific output (event-filtered feeds, content extraction, etc.); use built-ins for general-purpose formats. The engine is **never** duplicated — both paths register into the same core registry.
 
-**Flat shape vs registered shape.** Your `renderer.js` default export is the *flat* shape (`{ ...resolver, render }`), so its `.schema` is the **field map** directly. `register()` detects the flat shape (it has `@context`/`@id`) and **re-wraps** it into `{ resolver: <whole flat object>, contentType, meta, render }`. So after registration, `getPublisher(name).resolver` is the whole resolver (with `.schema` — the field map — nested inside), which is what `publish()`/`resolve()` expect (they destructure `const { schema } = resolver`). **Pass the registered `pub.resolver` to `publish()`.** The publisher's resolver lives under `.resolver`, never `.schema`; `.schema` is always the field map one level down. (Before mid-2026 the publisher key was also called `schema`, which collided with the field map — that's been renamed.)
+**Flat shape vs registered shape.** Your `renderer.js` default export is the *flat* shape (`{ ...resolver, render }`), so its `.schema` is the **field map** directly. `register()` detects the flat shape — it has a top-level `id` (after normalization; a legacy `@id` is folded to `id` first) — and **re-wraps** it into `{ resolver: <whole flat object>, contentType, meta, render }`. So after registration, `getPublisher(name).resolver` is the whole resolver (with `.schema` — the field map — nested inside), which is what `publish()`/`resolve()` expect (they destructure `const { schema } = resolver`). **Pass the registered `pub.resolver` to `publish()`.** The publisher's resolver lives under `.resolver`, never `.schema`; `.schema` is always the field map one level down. (Before mid-2026 the publisher key was also called `schema`, which collided with the field map — that's been renamed.)
 
 ## Route flow (`?as=<name>`)
 
