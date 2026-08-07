@@ -6,7 +6,7 @@
       <title>Get blobjects thorped from nimdaghlian.github.io to demo</title>
       <link>{INSTANCE}/get/everything/thorped/rss?s=nimdaghlian.github.io&amp;o=demo</link>
       <atom:link href="{INSTANCE}/get/everything/thorped/rss?s=nimdaghlian.github.io&amp;o=demo" rel="self" type="application/rss+xml" />
-      <description>MultiPass auto generated from a request to the {INSTANCE}//get API</description>
+      <description>MultiPass auto generated from a request to the {INSTANCE}/get API</description>
       <pubDate>{DATE}</pubDate>
       <lastBuildDate>{DATE}</lastBuildDate>
       
