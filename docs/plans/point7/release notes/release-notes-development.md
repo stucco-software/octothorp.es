@@ -842,3 +842,21 @@ Note the stale empty-term triples survive re-indexing — the indexer adds relat
 Each fix was confirmed to fail without the change: reverting `utils.js` fails 6 of the 11 new `parseBindings` tests, reverting `handler.js` fails 3 of the 5 new harmonizer tests. Full suite: 1115 passed, 1 failure — `matrix-pages-linked`, which is #258 step 1 and resolves in the regeneration pass itself.
 
 **Files affected:** `packages/core/utils.js`, `packages/core/handlers/html/handler.js`, `src/lib/web-components/octo-backlinks/OctoBacklinks.svelte`, `src/tests/parseBindings.test.js` (new, 11 tests), `src/tests/harmonizer.test.js` (5 new tests).
+
+## RSS link feeds were empty — `parseBindings` dropped object dates
+
+Reported against production (`main`): `/get/everything/linked/rss?s=…/blogroll/` looked empty. Two separate things, only one of which is a bug.
+
+**Not a bug — `everything` is subject-grouped.** `getBlobjectFromResponse` keys on `binding.s.value`, so a subject-scoped `everything` query yields exactly one blobject, and every publisher emits one item per top-level result. The 110 links live inside that blobject's `octothorpes` array. A one-item feed is what that route is built to produce; whether it *should* project its targets as items is a semantics question, still open. Ruled out the reported race: `+server.js` awaits `load()` fully, the SPARQL client throws rather than returning partial results, and five production runs returned byte-identical output.
+
+**The bug — the new resolver-based publisher discards dateless records.** `rss2Schema` declares `pubDate: { from: 'date', required: true }` with no fallback, and `resolve()` returns `null` for a missing required field, which `publish()` then filters out. The legacy `rssify.js` converters both defaulted to `new Date()`, so this only bites on `development`. Verified on `next`: `pages/linked` for a devdemo page returned 3 rows, 2 dateless, and rendered 1 item. The same query on production returns 101 rows, **100 of them dateless** — so shipping as-is would have collapsed that feed from 101 items to 1.
+
+Root cause of the datelessness is upstream: only the page *being indexed* gets `octo:created` (`createPage`, called on `harmed['@id']`). Link targets are written by `mentionTriples`, which emits `rdf:type octo:Page` and nothing else. Sampled 10 of the blogroll's targets against `everything/posted` (whose query requires `?s octo:created ?date`): 0 of 10 have one. There is no created/indexed date to backfill *from* for exactly the records that need it.
+
+The fix uses the date that does exist. `mentionTriples` writes `<s> <o> now`, and the query already SELECTs it as `?date` on every relationship row — the timestamp of when that link was first indexed. `parseBindings` was throwing it away for object rows (the `// tktk think about object dates more` marker). Object rows now carry it. Because the binding is per subject-object pair, a target's date is scoped to *its relationship with the querying subject*: in a feed of links from page B, target C carries the moment B linked C, not whenever some other page did. Null rather than NaN when genuinely absent, so `formatDate`'s guard drops the item cleanly instead of emitting an invalid date.
+
+No golden churn expected: `normalize.js` drops `date` as a volatile index-time key, so the three fixtures containing object rows (`matrix-pages-linked`, `matrix-pages-bookmarked`, `matrix-pages-cited`) compare unchanged, and all three RSS goldens are `posted`/`thorped` queries with no object rows. Confirmed the tests fail without the change (3 of 4 new cases). Unit suite: 1067 passed, 0 failed.
+
+Still open: link targets arguably *should* get their own `octo:created` at index time, which would fix new data at the source rather than deriving chronology from the relationship. Not done here — it only helps records indexed after the change, and leaves every existing target dateless until a reindex.
+
+**Files affected:** `packages/core/utils.js`, `src/tests/parseBindings.test.js` (4 new tests).

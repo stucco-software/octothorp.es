@@ -98,7 +98,13 @@ export function parseBindings(bindings, mode="pages") {
            uri: objectUri,
            title: b.ot?.value || null,
            description: b.od?.value || null,
-           // tktk think about object dates more
+           // ?date is the s->o assertion timestamp (mentionTriples writes
+           // `<s> <o> now`), so an object's date is when the *querying subject*
+           // linked it — the chronology a link feed wants. Targets have no date
+           // of their own: only the page being indexed gets octo:created, so
+           // dropping this left every object row dateless and the RSS
+           // publisher's `required` pubDate discarded the items.
+           date: b.date?.value ? parseInt(b.date.value) : null,
            // queryBuilders binds ?oimg; reading ?omg made this always null (#259)
            image: b.oimg?.value || null
          });

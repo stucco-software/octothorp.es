@@ -63,6 +63,38 @@ describe('parseBindings pages mode — object image (#259)', () => {
   })
 })
 
+describe('parseBindings pages mode — object dates', () => {
+  // Link targets are written by the indexer's mentionTriples, which emits
+  // `<s> <o> now` but no octo:created — so a target that was never crawled in
+  // its own right has no date of its own. The ?date binding on the row IS the
+  // s->o assertion timestamp, i.e. when this link was first indexed. Dropping
+  // it left every object row dateless, and the RSS publisher's `required`
+  // pubDate then discarded the whole item, emptying link feeds.
+  it('carries the assertion date of its relationship to the subject', () => {
+    const out = parseBindings([binding({ s: A, o: X, date: 1700000000000 })])
+    expect(out.find((r) => r.role === 'object').date).toBe(1700000000000)
+  })
+
+  it('is scoped to the querying subject, not the target globally', () => {
+    // A and B both link X at different times. In a feed of links from B, X
+    // carries B's assertion date.
+    const fromB = parseBindings([binding({ s: B, o: X, date: 200 })])
+    expect(fromB.find((r) => r.role === 'object').date).toBe(200)
+    const fromA = parseBindings([binding({ s: A, o: X, date: 100 })])
+    expect(fromA.find((r) => r.role === 'object').date).toBe(100)
+  })
+
+  it('is null, never NaN, when the row has no date', () => {
+    const out = parseBindings([binding({ s: A, o: X })])
+    expect(out.find((r) => r.role === 'object').date).toBeNull()
+  })
+
+  it('leaves the subject row reading its own ?date', () => {
+    const out = parseBindings([binding({ s: A, o: X, date: 42 })])
+    expect(out.find((r) => r.role === 'subject').date).toBe(42)
+  })
+})
+
 describe('parseBindings terms mode — dedupe (#256)', () => {
   const term = (name, date) => binding({ o: `https://octothorp.es/~/${name}`, date })
 
