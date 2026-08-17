@@ -5,10 +5,10 @@
 
 **Milestone:** [v 0.7](https://github.com/stucco-software/octothorp.es/milestone/16)
 **Branch:** `development`
-**Wave labels:** `wave/0` through `wave/7`, plus `wave/1.5`, applied to all milestone issues.
+**Wave labels:** `wave/0` through `wave/7`, applied to all milestone issues. Integers only — there is no `wave/1.5` or `wave/4.5` label, and there never was. Sub-structure within a wave uses letters (`0a`, `4a`), which is what the GitHub label set can actually express.
 
 > **◆ = Memex-driven, not core-critical OP.** Useful for the Memex 2.0 client but deferrable if shipping only OP core — see the "Memex-adjacent at a glance" section before the Decisions log.
-> **Critical path:** Wave 4.5 (RDF-star) blocks Wave 5 (deletion). Waves 2, 3, 4, 6 are independent.
+> **Critical path:** Wave 4a (RDF-star) blocks Wave 5 (deletion). Waves 2, 3, 6 are independent; Wave 4b is independent of everything including 4a.
 
 ---
 
@@ -60,6 +60,8 @@
 - [x] **#150** Pages queries returning octothorpes as pages — `parseBindings` emits the matched term (`?o rdf:type Term`) as a `role:object` row, leaking octothorpes into `pages` results. `api.get` now drops `role:object` rows when `objects.type === 'termsOnly'` (thorped/tagged); `notTerms`/`pagesOnly` object rows (linked/cited/bookmarked) are kept. Unit (`api.test.js`) + live verified; smoketest golden reblessed.
 - [x] **#115** Fuzzy tags broken with separator chars (hyphen, camelCase, spaces) — `getFuzzyTags` had its separator-normalization (`[-_]`→space, camelCase split) commented out with a "errors when run" note; the real crash was `words[0]`/`singleWord[0]` on separator-only input. Restored the normalization + added an empty-`words` guard. Unit (`fuzzytags.test.js`) + live verified (`web-components`/`webComponents`/`webcomponents` all match stored `webcomponents` via very-fuzzy).
 - [ ] **#213** Wire endorsement gating in `handleMention` — DEFERRED (design-heavy, labeled wave/4; out of scope for this bug-fix pass)
+- [x] **#258** `matrix-pages-linked` asserts on out-of-devdemo database state — step 2 (normalization scope guard) landed in #264 Phase 0; step 1 *is* the regeneration pass, which has now run. 
+- [x] **Object rows were dateless → RSS link feeds empty** (`75e3750`, 2026-08-12) — the sibling of #233, one field over. `parseBindings` dropped the `?date` binding on `role: "object"` rows (the old `// tktk think about object dates more`), and `rss2Schema.pubDate` is `required` with no fallback, so `resolve()` returned `null` and `publish()` filtered every link target out. Production `pages/linked` for a 110-link blogroll: 101 rows, **100 dateless**. Fixed by reading `?s ?o ?date`, the s→o assertion timestamp — scoped to the querying subject, so a target's date is when *that* page linked it. Follow-up **#268** (Wave 4a) makes it statement-level under RDF-star. 4 new tests in `parseBindings.test.js`; suite 1067/0.
 - [x] #233 -- rss-pages-posted smoketest failure — root cause: rss2 resolver read `link`/`guid`/`title` from blobject `@id` only, so `parseBindings` rows (pages/links/thorpes, keyed by `uri`) failed the required `link` and were filtered out → empty feed. Fixed by adding `uri` as an ordered `from` fallback in `publishers.js`. `pages/posted/rss` 0→18 items; smoketest goldens reblessed (origin→`{INSTANCE}`, RSS whitespace, devdemo growth + relationship-terms enrichment). Suite 23/23.
 
 > **Note (dep fix, out-of-band):** `@mozilla/readability` + `linkedom` were declared in `package.json` but missing from `node_modules`; the eager publishers glob (`src/lib/publishers/index.js`) crashed on the `readable` renderer import, 500ing the entire `/get/` read path. `npm install` resolved it. This was the real cause of the prior mass integration-test failures.
@@ -84,8 +86,8 @@
 
 ### Vocabulary (OP's own house — client-extensible vocab is DEFERRED)
 - [x] **documentRecord projection** — CLOSED as **#237**, shipped in #240/PR #245: declared predicates → typed `documentRecord` (range enum literal/uri/timestamp/number/boolean), undeclared dropped; write path `recordDocumentRecord` + live `/index` wiring (#242, PR #247 — **merged 2026-07-16**). Read *and* write paths are now live.
-- [ ] **Canonical vocab cleanup (#195)** — **SPEC: `docs/plans/point7/2026-07-09-canonical-vocabulary-spec.md`** (the retired `vocabulary-design.md` is absorbed into it). Wave-2 slice: registry module (`packages/core/vocabulary.js`), naming fixes incl. the newly found `<octo:Item>` compact-IRI-form disagreement, `sha256` namespace resolution ◆ (Memex-specific), absorb `documentRecordNamespaces`, generated `/vocabulary` doc. `context.json` regeneration deliberately WAITS for Wave 4.5 (RDF-star serialization is an open design point). Open decisions in spec §6 (vocab hosting, IRI-form normalization); harmonizer envelope DECIDED → **#249** (drop `@`-keys, keep `id`/`type`, publisher sweep, skills/docs in definition-of-done); self-describing harmonizer schema + cross-relay rescoping scoped onto #166 (spec §9).
-- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2). **Rides on the Wave 4.5 RDF-star migration** (lazy-policy scope decision 2026-07-08: labels are relationships-with-metadata; shipping them pre-migration would build a second, parallel metadata mechanism).
+- [ ] **Canonical vocab cleanup (#195)** — **SPEC: `docs/plans/point7/2026-07-09-canonical-vocabulary-spec.md`** (the retired `vocabulary-design.md` is absorbed into it). Wave-2 slice: registry module (`packages/core/vocabulary.js`), naming fixes incl. the newly found `<octo:Item>` compact-IRI-form disagreement, `sha256` namespace resolution ◆ (Memex-specific), absorb `documentRecordNamespaces`, generated `/vocabulary` doc. `context.json` regeneration deliberately WAITS for Wave 4a (RDF-star serialization is an open design point). Open decisions in spec §6 (vocab hosting, IRI-form normalization); harmonizer envelope DECIDED → **#249** (drop `@`-keys, keep `id`/`type`, publisher sweep, skills/docs in definition-of-done); self-describing harmonizer schema + cross-relay rescoping scoped onto #166 (spec §9).
+- [ ] **#192** Content labels — `octo:label` is *canonical* OP vocab; harmonizer-extracted, projected as `labels[]`. No client-vocab machinery. Profile's `contentLabels[]` field exists (inert, Rev 2). **Tracked in Wave 4a, not here** — it rides on the RDF-star migration (lazy-policy scope decision 2026-07-08: labels are relationships-with-metadata; shipping them pre-migration would build a second, parallel metadata mechanism). Listed in this section only for vocabulary context.
 - [ ] **#166** On-demand Document Records ◆ (Memex-driven; general feature) — **simplified post-#237 (see issue comment):** harmonize-at-request → feed the EXISTING projection/typing (`coerceDocumentRecordValue` + admission) → return, do NOT store. Remaining design surface = the stored `octo:harmonizeWith` ref. Carries the self-describing-harmonizer profile-reference pattern + cross-relay rescoping (spec §9.4).
 
 **Design decisions (see the 2026-07-02 doc):**
@@ -106,23 +108,54 @@
 - [ ] **#180** Batch Indexing MVP — see `docs/plans/point7/180-batch-indexing-mvp.md` (rev. 2026-07-09). Whole-set options belong here: `documentRecordSchema`, `reconcile` (#26), and `wikilinkTargets` ◆ (Memex vault sync)
 - [ ] **#43** Index statements via Octothorpes blobject file — **materially closer than "deferred":** the blobject handler + `indexSource({ content })` direct-write path already ship; only the HTTP-batch dispatch branch is missing. Recommend folding into the #180 MVP.
 - [ ] **#177** Harmonize standard sitemap.xml files — still greenfield, unaffected by #240; depends on #180
+- [ ] **#267** Optimize the update method on re-index — filed 2026-08-10, previously unwaved. Sits with the batch work: same write path, and the #262/#265 timeout episode (a 110-link page wedging mid-write, prod function timeout raised to 5 min) is the motivating case.
 
 
 ---
 
-## Wave 4 — API additions
-> Independent.
+## Wave 4 — Relationship model + API additions
+
+> Two independent tracks under one wave. **4a is the milestone's critical path** — it blocks Wave 5. 4b is a bag of small, unblocked API work that can proceed in parallel or fill gaps.
+>
+> *Renumbered 2026-08-12:* this section absorbs the former "Wave 4.5". Non-integer waves couldn't be expressed as GitHub labels, so the RDF-star work was invisible to every issue query — the reason it sat unticketed while being the longest pole. See the Decisions log.
+
+### 4a — RDF-star relationship migration (critical path)
+
+> **In-milestone**, after epic #240 (done), **before Wave 5**: deletion SPARQL is relationship-model-specific and should be written once, against the new model. Design docs: `2026-07-02-231-relationship-model-rdfstar.md` (+ resolved scope decision 2026-07-08: lazy per-statement metadata) and `2026-07-06-jsonld-graph-model-and-terms.md` §8.
+>
+> Do alongside the remainder of #217 where convenient (same hot files). #248's semantics table / API design can proceed anytime (model-agnostic contract); its SPARQL implementation lands on the new model.
+
+> **Ticketing status (decided 2026-08-12):** only #231, #268 and #192 are in GitHub. The remaining items below stay **deliberately unticketed** until the migration design is settled — this document is their tracking surface for now. Don't "fix" it by filing issues; that's a decision, not an oversight.
+
+**Precursors (cheap, additive — can land independently, in any order):**
+- [ ] **#231** Derive backlinks, stop storing the switch (§2) — the issue *is* this task; closes semantically once derived. Can precede the migration proper. Added to the milestone 2026-08-12.
+- [ ] `@id` → `uri` rename / identifier-key consistency (§1)
+- [ ] `octo:Term rdfs:subClassOf skos:Concept` + `skos:prefLabel` (§4)
+
+**Migration proper:**
+- [ ] RDF-star statement-metadata migration — rewrites `queryBuilders.js` + `getBlobjectFromResponse` blank-node patterns; **must assert base triples** (Memex backlinks/Collections depend on them; locked during #240)
+- [ ] **#268** `octo:created` on relationships — retires the `<s> <o> <ts>` predicate-as-object-URI pattern in favour of `<< <s> octo:octothorpes <o> >> octo:created <ts>`. **Read-path constraint:** `parseBindings` object rows derive their date from `?s ?o ?date` (`75e3750`); if that binding disappears without the projector migrating in the same change, RSS link feeds go empty again (`rss2Schema.pubDate` is `required` with no fallback). Carries an open question on whether resource-level `octo:created` survives alongside statement-level.
+- [ ] **#192** Content labels — moved here from Wave 2 (2026-08-12; label updated to `wave/4`). Lazy-policy scope decision: labels are structurally relationships-with-metadata, so shipping them pre-migration builds a second parallel metadata mechanism. Vocabulary definition of `octo:label` still belongs to #195 in Wave 2.
+- [ ] Re-verify subtype paths (#236 behavior) + relationship-terms queries on the new model
+- [ ] Data migration for existing stores (blank nodes → quoted triples; also the `<s> <o> <ts>` flat facts per #268)
+- [ ] JSON-LD publisher endpoint (URL + MultiPass `@graph`) — same doc, "next" tier; bundle or follow
+- [ ] `context.json` regeneration — deliberately waits on this wave (RDF-star serialization was the open design point); coordinate with #195
+
+### 4b — API additions
+
+> Independent of 4a and of each other.
 
 - [ ] **#200** Add `?st=` parameter for arbitrary relationship subtype queries — **shrank post-#240 (see issue comment):** #236 built the machinery (`buildMultiPass` honors injected `subtype`; guard admits subtype-bounded). Remainder ≈ parse the param + precedence vs declared paths + tests. Quick win.
 - [ ] **#204** Typed `IndexError` from core indexer — verified 2026-07-09: **no existing code, net-new** (small design task: error taxonomy + HTTP status mapping)
 - [ ] **#213** Wire endorsement gating in `handleMention` — deferred here from Wave 1 (design-heavy)
-- [ ] **#244** Replace `getStatements` guard with validity matrix + route-level pagination policy — deferred by maintainer 2026-07-08; spec is complete on the issue
+- [ ] **#244** Replace `getStatements` guard with validity matrix + route-level pagination policy — deferred by maintainer 2026-07-08; spec is complete on the issue. Subject-less `thorpes/posted` and `thorpes/linked` currently 500 on both prod and next (verified 2026-08-12) — same guard, and the concrete symptom this issue removes.
+- [ ] **#266** `/get/domains/posted` ignores `s=` — surfaced by the #264 fixture removal; adjacent to #244's pagination caps, bundle with it
 - [ ] make orchestra-pit and rolodex core utilities — unspecced; needs an issue or demotion to Wave 7
 ---
 
 ## Wave 5 — Deletion
 
-> **Depends on Wave 4.5 (RDF-star migration)** — all deletion SPARQL is relationship-model-specific; write it once against the new model. #248's design/semantics table can start anytime. **Spec-revised 2026-07-09** — both plan docs carry dated revision sections that supersede conflicting task steps (post-#240 alignment, delete.js absorption). Sequence: Wave 4.5 → #248 → #26 → #167.
+> **Depends on Wave 4a (RDF-star migration)** — all deletion SPARQL is relationship-model-specific; write it once against the new model. #248's design/semantics table can start anytime. **Spec-revised 2026-07-09** — both plan docs carry dated revision sections that supersede conflicting task steps (post-#240 alignment, delete.js absorption). Sequence: Wave 4a → #248 → #26 → #167.
 
 - [ ] **#248** Unified deletion module — absorb `packages/core/delete.js` into `createDeleter`, one semantics table, `client.deleter`/`deleteSource` surface. **Blocker for the rest.** Carries the two open maintainer decisions: inbound refs on hard delete; read-side meaning of soft-delete.
 - [ ] **#26** Delete statements when removed from a page — plan: `docs/plans/point7/2026-05-19-stale-statement-removal-26.md` (rev. 2026-07-09: `<s> <o> <ts>` correctness fix, documentRecord reconciliation, vault partial-reindex `reconcile` option ◆, subtype-change edge)
@@ -134,7 +167,7 @@
 
 ## Wave 6 — UI & discovery
 > Functional UI work; design considerations skipped. op-core stable, no blockers.
-> Note: "domains" here = origins registered on the Server, distinct from Client Profile (Wave 1.5).
+> Note: "domains" here = origins registered on the Server, distinct from Client Profile (Wave 2).
 
 * [ ] Implement a lewk.css based layout system
 
@@ -143,6 +176,7 @@
 - [ ] **#199** Add "links with this hashtag" view to hashtag-based lists — pure UI plumbing over existing endpoints
 - [ ] add ui for /discover
 - [ ] route legacy RSS endpoints through modern system
+- [ ] **#254** Stop committing built web components; fix `emptyOutDir` chunk accumulation — previously unwaved; 43 built files are still tracked in git as of 2026-08-12
 
 ---
 
@@ -166,27 +200,6 @@ Everything here could get pushed to the next version without dependencies
 > Lower priority, design-heavy. Consider whether these belong in v0.7 or a future milestone.
 
 - [ ] **#196** Add basic graph relationship primitives (CLI: `op related`, `op neighbors`, `op path`) — **recommend moving to v0.8** (design-heavy, nothing depends on it)
-
----
-
-## Wave 4.5 — RDF-star relationship migration (IN-MILESTONE; corrected 2026-07-09)
-
-> **Sequencing correction:** the 2026-07-09 tracker reconciliation wrongly queued this post-v0.7. The graph-model doc (`2026-07-06-jsonld-graph-model-and-terms.md` §8) places it "Next (bigger, in this wave/epic)" — in-milestone, after epic #240 (done). It must land **before Wave 5**: deletion SPARQL is relationship-model-specific and should be written once, against the new model. Design docs: `2026-07-02-231-relationship-model-rdfstar.md` (+ resolved scope decision 2026-07-08: lazy per-statement metadata) and the graph-model doc.
-
-**Precursors (cheap, additive — the doc's "now" items; can land independently):**
-- [ ] Derive backlinks, stop storing the switch (§2) — closes #231 semantically; can precede the migration proper
-- [ ] `@id` → `uri` rename / identifier-key consistency (§1)
-- [ ] `octo:Term rdfs:subClassOf skos:Concept` + `skos:prefLabel` (§4)
-
-**Migration proper:**
-- [ ] RDF-star statement-metadata migration — rewrites `queryBuilders.js` + `getBlobjectFromResponse` blank-node patterns; **must assert base triples** (Memex backlinks/Collections depend on them; locked during #240)
-- [ ] **#192 content labels ride on this** (lazy-policy scope decision: labels are structurally relationships-with-metadata) — moves here from Wave 2 in practice
-- [ ] Re-verify subtype paths (#236 behavior) + relationship-terms queries on the new model
-- [ ] Data migration for existing stores (blank nodes → quoted triples)
-- [ ] JSON-LD publisher endpoint (URL + MultiPass `@graph`) — same doc, "next" tier; bundle or follow
-
-> Do alongside the remainder of #217 where convenient (same hot files). #248's semantics table/API design can proceed anytime (model-agnostic contract); its SPARQL implementation lands on the new model.
-
 
 ---
 
@@ -230,6 +243,9 @@ The Memex client install itself lives in `~/dev/memex2` (plan: `memex2/docs/plan
 | 2026-07-16 | **#249 envelope normalization is NOT yet merged** — it lives on branch `249-envelope-normalization` only; `development` does not contain it. The `octothorpes:new-client` skill's change-watch note ("landed 2026-07-17") is written ahead of the merge. Scope confirmed as *definition* envelopes only (harmonizer/resolver/publisher docs → plain `id`/`type`); **blobject keys including `@id` are untouched**, so Memex read/write assertions are unaffected either way. |
 | 2026-07-09 | **Wave 5 spec-revised:** #248 filed as keystone (absorb `delete.js` into `createDeleter`; one semantics table; two open maintainer decisions: inbound refs on hard delete, read-side meaning of soft-delete). #26/#167 plan docs carry dated revision headers; sequence #248 → #26 → #167. |
 | 2026-07-09 | **Tracker reconciled against shipped work:** Wave 2 mostly closed by #240 (#216/#236/#237 + the projection bullet); #217 respecced as field-by-field Rev 2 checklist; #200 shrank (machinery exists); #204 confirmed net-new; #213/#244 added to Wave 4; 12 stale open issues closed on GitHub. |
+| 2026-08-12 | **Wave 4.5 folded into Wave 4; non-integer waves retired.** Wave numbers are GitHub labels, and `wave/4.5` was never one — so the RDF-star work, the milestone's critical path, was invisible to every issue query and sat unticketed for a month while `wave/4` returned only the small API items. Wave 4 is now **4a (RDF-star relationship migration, critical path)** and **4b (API additions, independent)**, using the same letter convention as Wave 0. Sequencing is unchanged: 4a still blocks Wave 5. Historical entries below keep their original numbering. Same reasoning retires "Wave 1.5" (already renumbered to Wave 2 in practice; no `wave/1.5` label exists either). Every open milestone issue now carries a wave label; #192 moved `wave/2`→`wave/4`, #231 joined the milestone as `wave/4`, and #258/#266/#267/#254 got their first wave labels. The four remaining 4a items stay unticketed by decision — the tracker is their home until the migration design settles. |
+| 2026-08-12 | **#264 (smoketest epic) closed** — Phase 0 (harness guards, scope guard, fixture removal) and Phase 1 (#256/#257/#259/#260) landed and deployed; the golden regeneration pass ran against a trustworthy harness. Nine finished-but-open issues closed in the same pass (#227, #242, #246, #249, #256, #257, #259, #260, #261). |
+| 2026-08-12 | **RSS link feeds un-emptied** (`75e3750`): `parseBindings` object rows now carry `?s ?o ?date`, the s→o assertion timestamp. Link targets have no date of their own — only the page being indexed gets `octo:created` — so the new resolver-based `rss2` publisher, whose `pubDate` is `required` with no fallback, was dropping every target row. Production `pages/linked` for a 110-link blogroll: 101 rows, 100 dateless. Filed **#268** to make this principled under RDF-star (statement-level `octo:created`) rather than derived. Separately confirmed **not** a bug: `everything/*` is subject-grouped, so a subject-scoped `everything/linked/rss` is a one-item feed by construction — maintainer accepted this behavior 2026-08-12, no fix. |
 | 2026-07-09 | **RDF-star sequencing corrected (maintainer catch):** the reconciliation wrongly queued the migration post-v0.7. Per the graph-model doc §8 it is IN-milestone ("next, in this wave/epic"), after epic #240. Now **Wave 4.5**, a hard prerequisite for Wave 5 (deletion SPARQL written once, on the new model); #192 rides on it (lazy-policy scope). Precursors (derive-backlinks, `@id`→`uri`, SKOS subClassOf/prefLabel) can land independently. |
 
 ---
@@ -261,6 +277,6 @@ Changes that would break/alter the OP New Client skill
 2. **#235** rename `packages/core/index.js` → `client.js` — if it changes the package entry or import paths, the skill's wiring examples need updating.
 3. **#217 Rev 2** — behavior-gating profile fields (`indexingMode`, `registrationPolicy`, harmonizer/publisher defaults) go *live*; the skill's profile skeleton stops being inert config and starts changing runtime behavior. Schema is closed, so field set is stable — semantics aren't.
 4. **#195 vocabulary registry** (`packages/core/vocabulary.js`) — may change how the profile's `vocabulary` block is validated/consumed.
-5. **Wave 4.5 RDF-star migration** — changes relationship storage and blobject-adjacent query internals; skill's *scaffold* survives, but any `/get` output examples and the smoke test's expectations may shift; `context.json` regeneration waits on it.
+5. **Wave 4a RDF-star migration** — changes relationship storage and blobject-adjacent query internals; skill's *scaffold* survives, but any `/get` output examples and the smoke test's expectations may shift; `context.json` regeneration waits on it.
 6. **#204 typed `IndexError`** — would improve the scaffolded `/index` wrapper's error mapping (enhancement, not breakage).
 7. **#249 harmonizer envelope** (`@`-key drop) — touches blobject key shapes the interface page might render.
