@@ -129,13 +129,13 @@ Run `scripts/smoke.js` and report its actual output. A scaffold whose smoke chec
 
 ## Change-watch (what would invalidate this skill)
 
-Tracked in `docs/plans/point7/v07-tracker.md`. Summary:
+Tracked in `docs/plans/point7/v07-epics.md`. Summary:
 
 1. ~~Publish `octothorpes@0.3.5`~~ — done 2026-07-17.
 2. **#235** `packages/core/index.js` → `client.js` rename — if the package entry or import paths change, update the skeletons here.
 3. **#217 Rev 2** — behavior-gating profile fields (`indexingMode`, `registrationPolicy`, harmonizer/publisher defaults) go live; the profile skeleton stops being inert. Field set is stable (closed schema); semantics aren't.
 4. **#195** vocabulary registry (`packages/core/vocabulary.js`) — may change how the `vocabulary` block is validated/consumed.
-5. **Wave 4.5 RDF-star migration** — scaffold survives, but `/get` output shapes and smoke-test expectations may shift.
+5. **#270 RDF-star relationship model migration (epic)** — scaffold survives, but `/get` output shapes and smoke-test expectations may shift.
 6. **#204** typed `IndexError` — would improve the `/index` wrapper's error mapping (enhancement).
 7. ~~**#249** harmonizer/publisher envelope `@`-key drop~~ — landed 2026-07-17 (definition envelopes only — harmonizer/resolver docs moved to plain `id`/`type`; blobject keys, including `@id`, are untouched, so the interface page's rendering is unaffected).
 8. ~~`profile.schema.json` exports-map gap~~ — resolved: `"./profile.schema.json"` subpath export added for 0.3.6; the `client.js` skeleton uses it directly.
