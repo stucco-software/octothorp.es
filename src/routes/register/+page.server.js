@@ -30,9 +30,12 @@ const hostBlocked = (domain) => {
   )
 }
 
-// Spam registrations are usually URLs that don't resolve. Fetch the domain and
-// reject anything that 404s.
-const domainNotFound = async (domain) => {
+// Spam registrations are usually URLs that don't serve anything. Reject a 404
+// response, and also reject hosts we can't reach at all -- a domain that
+// doesn't resolve or refuses connections can never pass verification either.
+const UNREACHABLE = ['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED']
+
+const domainUnreachable = async (domain) => {
   try {
     let res = await fetch(domain, {
       method: 'GET',
@@ -42,9 +45,11 @@ const domainNotFound = async (domain) => {
     })
     return res.status === 404
   } catch (e) {
-    console.log(`registration fetch failed for ${domain}: ${e.message}`)
-    // Network errors are not 404s -- let the admin adjudicate.
-    return false
+    let code = e.cause?.code
+    console.log(`registration fetch failed for ${domain}: ${code ?? e.name} ${e.message}`)
+    // Timeouts and everything else fall through to admin review -- those also
+    // describe slow hosts and ones that block unknown user agents.
+    return UNREACHABLE.includes(code)
   }
 }
 
@@ -104,7 +109,7 @@ export const actions = {
       return fail(403, { domain, banned: true })
     }
 
-    if (await domainNotFound(domain)) {
+    if (await domainUnreachable(domain)) {
       return fail(400, { domain, notFound: true })
     }
 
