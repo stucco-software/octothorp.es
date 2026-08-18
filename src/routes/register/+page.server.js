@@ -16,6 +16,38 @@ const domainPresent = async (domain) => await queryBoolean(`ask {
   <${domain}> rdf:type <octo:Origin> .
 }`)
 
+const BLOCKED_HOSTS = ['example.com']
+
+const hostBlocked = (domain) => {
+  let hostname
+  try {
+    hostname = new URL(domain).hostname.toLowerCase()
+  } catch (e) {
+    return true
+  }
+  return BLOCKED_HOSTS.some(blocked =>
+    hostname === blocked || hostname.endsWith(`.${blocked}`)
+  )
+}
+
+// Spam registrations are usually URLs that don't resolve. Fetch the domain and
+// reject anything that 404s.
+const domainNotFound = async (domain) => {
+  try {
+    let res = await fetch(domain, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: { 'user-agent': 'octothorpes-registration-check' },
+      signal: AbortSignal.timeout(10000)
+    })
+    return res.status === 404
+  } catch (e) {
+    console.log(`registration fetch failed for ${domain}: ${e.message}`)
+    // Network errors are not 404s -- let the admin adjudicate.
+    return false
+  }
+}
+
 const insertRequest = async ({domain, challenge}) => {
   if (domain === 'https://new.example.com/' || domain === 'http://new.example.com/') {
     return true
@@ -64,8 +96,16 @@ export const actions = {
       ? data.get('domain')
       : `${data.get('domain')}/`
 
+    if (hostBlocked(domain)) {
+      return fail(400, { domain, blocked: true })
+    }
+
     if (await domainBanned(domain)) {
       return fail(403, { domain, banned: true })
+    }
+
+    if (await domainNotFound(domain)) {
+      return fail(400, { domain, notFound: true })
     }
 
     if(await domainVerified(domain)) {
