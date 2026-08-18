@@ -860,3 +860,15 @@ No golden churn expected: `normalize.js` drops `date` as a volatile index-time k
 Still open: link targets arguably *should* get their own `octo:created` at index time, which would fix new data at the source rather than deriving chronology from the relationship. Not done here — it only helps records indexed after the change, and leaves every existing target dateless until a reindex.
 
 **Files affected:** `packages/core/utils.js`, `src/tests/parseBindings.test.js` (4 new tests).
+
+## Registration spam guards on `/register`
+
+Production has been collecting spam domain registrations. Two guards now run in the `/register` form action, both before `alertAdmin`, so a rejected submission never sends the admin email.
+
+**Blocked hosts.** `hostBlocked` rejects `example.com` and any subdomain of it, along with any submission whose value doesn't parse as a URL. Local and cheap, so it runs first — ahead of the existing `domainBanned` SPARQL check.
+
+**404 check.** `domainNotFound` fetches the submitted URL (GET, follows redirects, 10s timeout, identifying user-agent) and rejects when the response status is 404. A fetch that *throws* — DNS failure, timeout, connection refused — is deliberately not treated as a rejection: those also describe legitimate sites behind a slow host or one that blocks unknown user agents, so they fall through to admin review as before. Only an explicit 404 blocks.
+
+Both return `fail(400, …)` with a distinct flag (`blocked`, `notFound`), rendered as messages in `+page.svelte` alongside the existing `banned` block.
+
+**Files affected:** `src/routes/register/+page.server.js`, `src/routes/register/+page.svelte`.

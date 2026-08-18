@@ -74,6 +74,22 @@
 
     </div>
 
+    {#if form?.blocked}
+      <p>
+        <span>
+          <mark>Please register a real domain &mdash; example.com is not accepted.</mark>
+        </span>
+      </p>
+    {/if}
+
+    {#if form?.notFound}
+      <p>
+        <span>
+          <mark>We couldn't reach that URL (it returned a 404). Check the address and try again.</mark>
+        </span>
+      </p>
+    {/if}
+
     {#if form?.banned}
       <p>
         <span>
