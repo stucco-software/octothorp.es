@@ -77,7 +77,7 @@
     {#if form?.blocked}
       <p>
         <span>
-          <mark>Please register a real domain &mdash; example.com is not accepted.</mark>
+          <mark>Please register a real domain.</mark>
         </span>
       </p>
     {/if}
@@ -85,7 +85,7 @@
     {#if form?.notFound}
       <p>
         <span>
-          <mark>We couldn't reach that URL (it returned a 404). Check the address and try again.</mark>
+          <mark>We couldn't reach that site. Check that the address is correct and that it's online, then try again.</mark>
         </span>
       </p>
     {/if}
