@@ -44,7 +44,17 @@ At the end of an implementation session, after a wave or feature set lands on `d
 docs/plans/point7/wave-N-docs-handoff.md
 ```
 
-in the main `octothorp.es` repo. This is the only artifact the docs session needs.
+in the main `octothorp.es` repo.
+
+### Verify the handoff against the implementation first
+
+A handoff note is a snapshot of what was true the day it was written. Features ship after it, mechanisms get added, and open questions get resolved without anyone reopening the note — so treat it as **intent and history, not current fact**.
+
+Before documenting any specific from a handoff (a built-in's name, a content type, a code path, an "open question"), confirm it in the source. Where a reference file exists in `.claude/skills/octothorpes/` — `publishers.md`, `handlers.md`, `harmonizers.md`, `api-reference.md` — prefer it; those track the current shape. Fall back to reading the module directly.
+
+When you find drift, correct the handoff inline with a dated note and add any newly-shipped features to its Documentation Candidates table, so the Review Dialogue runs against reality. Then continue.
+
+Documenting a retired code path is worse than documenting nothing: it sends readers looking for something that isn't there. This has already happened once — the wave-0b handoff described a legacy RSS shim as live for three months after the route stopped calling it.
 
 ### Handoff note template
 

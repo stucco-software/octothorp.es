@@ -4,6 +4,9 @@
 **Delivered:** 2026-05-22 (in progress)
 **Branch:** development
 **Status:** core + route wiring landed; integration testing, site-publisher path docs, and public docs page remain
+**Epic:** #272
+
+> **Corrected 2026-08-17 against the code.** Several claims below were written on 2026-05-22 and had gone stale: the built-in list was missing `ics` and the ATProto variant, the `envelope`/`requires` mechanisms didn't exist yet, and the legacy `rss()` shim has since been retired from the route. Corrections are marked inline. Verify anything else here against the source before documenting it — `.claude/skills/octothorpes/publishers.md` tracks the current shape.
 
 ## Delivered Features
 
@@ -14,6 +17,11 @@
 | Built-in publisher: `rss2` (alias `rss`) | #161 | `packages/core/publishers.js` |
 | Built-in publisher: `standardSiteDocument` | #161 | `packages/core/publishers.js` |
 | Built-in publisher: `bluesky` (with facets, grapheme-aware truncation) | #161 | `packages/core/publishers.js` |
+| Built-in publisher: `ics` (iCalendar Feed) — *added after this handoff* | #226 | `packages/core/publishers.js` |
+| Built-in publisher: ATProto `StandardSiteDocument` variant — *added after this handoff* | #161 | `packages/core/publishers.js` |
+| Publisher envelope (`resolveEnvelope`, declared defaults + per-request overrides) — *added after this handoff* | #249 | `packages/core/publishers.js` |
+| Publisher `requires` / `assertRequires` (declared input validation) — *added after this handoff* | #250 | `packages/core/publishers.js` |
+| Site-defined publisher: `readable` (Readability.js extraction) — *added after this handoff* | #227 | `src/lib/publishers/readable/` |
 | Site-defined publisher glob loader | #161 | `src/lib/publishers/index.js` |
 | Site-defined publishers: `blarg`, `semble`, `_example` | #161 | `src/lib/publishers/` |
 | Protocol-agnostic `prepare()` (returns `meta` instead of `collection`) | — | `docs/plans/point7/2026-05-19-generic-prepare.md` |
@@ -28,8 +36,12 @@
 | Built-in publishers reference | TBD | TBD | Table of name → contentType → meta.lexicon |
 | Bluesky publisher (atproto record output) | TBD | TBD | Worth its own page — facet semantics, grapheme limits, validation rules |
 | `standardSiteDocument` publisher | TBD | TBD | Likely paired with ATProto Bridge docs |
-| RSS via the registry vs. legacy `rss()` | TBD | TBD | Note: legacy path still active for parseBindings shapes; registry rss2 expects blobject shape |
+| RSS via the registry | TBD | TBD | **Corrected:** legacy `rss()` no longer runs on the route; `rss2` handles both shapes via `from` fallbacks |
 | Site-defined publishers (glob loader) | TBD | TBD | Dual-location ambiguity (glob vs `register()`) is unresolved — see below |
+| Publisher envelope (`envelope` / `resolveEnvelope`) | TBD | TBD | Feed-level defaults merged with per-request overrides; canonical vocab keys |
+| Publisher `requires` (`assertRequires`) | TBD | TBD | Declared input validation; throws on missing input. Related to #250 |
+| `ics` / iCalendar publisher | TBD | TBD | Relevant to #226 — decide whether the built-in closes that issue |
+| `readable` site publisher | TBD | TBD | Readability.js extraction; #227 closed |
 
 ## Technical Material
 
@@ -68,8 +80,11 @@ const out = op.prepare(blobjects, 'bluesky')
 | `rss2` (alias `rss`) | `application/rss+xml` | — | XML string |
 | `standardSiteDocument` | `application/json` | `site.standard.document` | array of records |
 | `bluesky` | `application/json` | `app.bsky.feed.post` | array of post records with facets |
+| `ics` | `text/calendar` | — | iCalendar VEVENT string |
 
-The `rss2` schema reads from blobject fields (`@id`, `title`, `description`, `date`, `image`). It is suitable for `?what=everything` queries that return blobjects. It is **not** suitable for `parseBindings`-shaped routes (`pages`, `links`, `backlinks`, `thorpes`, `domains`) — for those, the legacy `rss()` shim is still in place on `?as=rss`.
+**Corrected 2026-08-17.** The original text here said `rss2` was unsuitable for `parseBindings`-shaped routes and that the legacy `rss()` shim handled `?as=rss`. Both are now false. `rss2`'s schema uses ordered `from` fallbacks (`['@id', 'uri']`, `['title', '@id', 'uri']`) so a single resolver consumes both blobject and row shapes — see the comment in `packages/core/publishers.js` citing #233 and #212. `rssify.js` is still exported from `packages/core/index.js` for back-compat but no route imports it.
+
+Worth documenting as a debugging cue: a field marked `required` that resolves to nothing drops the record, which is how a feed silently empties. That was the #233 failure.
 
 The `bluesky` renderer is non-trivial: it builds Bluesky post records including UTF-8-byte-accurate richtext facets (#link, #tag), enforces 300-grapheme text and 640-grapheme-per-tag limits, validates tag characters, and falls back through description/tags/title in that order when truncating.
 
@@ -98,7 +113,7 @@ The route handler now dispatches by publisher name in `params.as`:
 GET /get/everything/by/?as=bluesky        → application/json (bluesky records)
 GET /get/everything/by/?as=standardSiteDocument → application/json (atproto record shape)
 GET /get/everything/by/?as=blarg          → site-defined publisher
-GET /get/everything/by/?as=rss            → legacy rss() shim (parseBindings-compatible)
+GET /get/everything/by/?as=rss            → rss2 via the registry (alias; handles both result shapes)
 GET /get/everything/by/?as=debug          → debug response (unchanged)
 GET /get/everything/by/?as=multipass      → multipass response (unchanged)
 ```
@@ -138,7 +153,7 @@ Local setup assumed: `instance=http://localhost:5173/`, dev server running, SPAR
 ### 1. Built-in publishers via `/get`
 
 ```sh
-# RSS (legacy path — still wired)
+# RSS (rss2 via the registry)
 curl -s 'http://localhost:5173/get/everything/by/recent?as=rss' | head -20
 
 # standardSiteDocument (ATProto record shape)
@@ -197,9 +212,7 @@ import('octothorpes').then(({ createPublisherRegistry }) => {
 ## Open Questions / Outstanding Work
 
 - **Site-defined vs core publisher path is undocumented.** Right now we have both a glob loader (`src/lib/publishers/<name>/renderer.js`) and an explicit `register()` call (used by `createClient({ publishers: {...} })`). Both produce a registered publisher; neither is the "right" way. Needs a decision and a docs page.
-- **Legacy `rss()` shim still in place.** `?as=rss` on non-`everything` routes goes through `packages/core/rssify.js`, not the registry, because `rss2`'s schema expects blobject shape (`@id`, `title`, `date`). Either:
-  - extend `rss2` schema to handle both shapes, or
-  - keep the shim and document the split.
+- ~~**Legacy `rss()` shim still in place.**~~ **RESOLVED.** The first option was taken: `rss2`'s schema was extended with ordered `from` fallbacks to handle both blobject and row shapes, and the route no longer calls the shim. `rssify.js` remains exported for back-compat only. Docs should describe one RSS path, not a split.
 - **Integration tests against live endpoints not yet written.** Should cover each built-in + at least one site-defined publisher.
 - **Bridges are dropped from v0.7 scope** (per Decisions log 2026-05-19). The `prepare()` API is bridge-ready but no bridge consumer exists in this branch.
 - **8 pre-existing failures in `src/tests/publish.test.js`** referencing the obsolete `'atproto'` publisher name were fixed alongside this work (renamed to `standardSiteDocument`, dropped `image` field assertion which the schema does not extract).

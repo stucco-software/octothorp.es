@@ -28,6 +28,12 @@ When you tick a checkbox, the detail goes somewhere else. Pick by audience:
 
 No fixed rule between the first two. Use both when both fit.
 
+### Which model writes it
+
+Draft issue comments, release notes, and development notes with **Opus at low effort**, or **Sonnet at low-to-medium effort**. High-effort reasoning produces padded, over-hedged prose for what should be a few tight paragraphs — the point is a findable record, not an essay.
+
+If you're delegating the writing, set it explicitly: `Agent(..., model: "opus", effort: "low")`. If you're writing it yourself in a high-effort session, cut hard before posting — no restating the issue title back, no summarizing what you just did in the paragraph above, no "Summary"/"Conclusion" headers on a three-paragraph note.
+
 ## Syncing against GitHub
 
 1. Take issue numbers from the tracker's own `Issues` lists. Don't rediscover them by searching GitHub.
@@ -49,7 +55,7 @@ No fixed rule between the first two. Use both when both fit.
 
 - **Epic-worthy:** propose a new `(epic)` issue and wait for approval. Don't file it yourself — issues are shared state. Match the existing shape: `Title (epic)`, body with a summary, `## Scope`, `## Related`, milestone `v 0.7`, topical labels only.
 - **Not epic-worthy:** add a line to a catch-all bucket (Bug Fixes, UI, API Additions, Untracked). No epic needed.
-- Relationship to an epic lives in the epic's body as issue numbers, never as a label.
+- **The epic's body is the source of truth** for which issues belong to it. Each epic also has an `epic/<name>` label for querying (`gh issue list --label epic/deletion`) — add it to new sub-issues, but if the label and the body disagree, the body wins. Don't let the label become a second list to maintain.
 
 ## Red flags — stop
 
@@ -58,6 +64,7 @@ No fixed rule between the first two. Use both when both fit.
 - A section grew past one screen → its epic issue should absorb the detail
 - Adding a `wave/N` label → those were deleted 2026-08-17, deliberately
 - Ticking a box you haven't verified → verify or leave it
+- Drafting an issue comment at high effort → drop to low, or cut hard before posting
 
 ## Rationalizations
 
