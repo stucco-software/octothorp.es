@@ -6,7 +6,7 @@
 
 import { deslash } from './utils.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
-import { parseUri, validateSameOrigin } from './uri.js'
+import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
 import { verifiedOrigin } from './origin.js'
 import normalizeUrl from 'normalize-url'
 
@@ -72,10 +72,18 @@ export const isHarmonizerAllowed = (harmonizerUrl, requestingOrigin, { instance 
 
 export const checkIndexingRateLimit = (origin) => {
   const now = Date.now()
-  const limit = indexingRateLimitMap.get(origin)
+  // Bucket by canonical origin so www.foo.com and foo.com share one quota
+  // rather than getting a separate allowance each.
+  let key
+  try {
+    key = canonicalOrigin(origin)
+  } catch (e) {
+    key = origin
+  }
+  const limit = indexingRateLimitMap.get(key)
 
   if (!limit || now > limit.resetTime) {
-    indexingRateLimitMap.set(origin, {
+    indexingRateLimitMap.set(key, {
       count: 1,
       resetTime: now + INDEXING_RATE_LIMIT_WINDOW
     })

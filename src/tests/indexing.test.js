@@ -1535,5 +1535,62 @@ describe('Indexing Business Logic', () => {
       expect(result).toBe(true)
       expect(localMockQueryBoolean).toHaveBeenCalled()
     })
+
+    // Stands in for a store holding exactly these origins: the ASK matches
+    // when any URI named in the query's VALUES clause is one of them.
+    const storeContaining = (...stored) => vi.fn().mockImplementation(async (q) => {
+      const asked = [...q.matchAll(/<(https?:\/\/[^>]*)>/g)].map(m => m[1])
+      return asked.some(uri => stored.includes(uri))
+    })
+
+    it('verifies a www request against a canonically stored origin', async () => {
+      const queryBoolean = storeContaining('https://foo.com')
+      expect(await verifyApprovedDomain('https://www.foo.com/', { queryBoolean })).toBe(true)
+    })
+
+    it('verifies a canonical request against a legacy www-stored origin', async () => {
+      const queryBoolean = storeContaining('https://www.foo.com')
+      expect(await verifyApprovedDomain('https://foo.com', { queryBoolean })).toBe(true)
+    })
+
+    it('verifies against a legacy origin stored with a trailing slash', async () => {
+      const queryBoolean = storeContaining('https://foo.com/')
+      expect(await verifyApprovedDomain('https://www.foo.com', { queryBoolean })).toBe(true)
+    })
+
+    it('does not verify an unrelated origin', async () => {
+      const queryBoolean = storeContaining('https://foo.com')
+      expect(await verifyApprovedDomain('https://bar.com', { queryBoolean })).toBe(false)
+    })
+
+    it('does not treat a www-prefixed lookalike host as the same site', async () => {
+      const queryBoolean = storeContaining('https://foo.com')
+      expect(await verifyApprovedDomain('https://wwwfoo.com', { queryBoolean })).toBe(false)
+    })
+
+    it('does not verify across schemes', async () => {
+      const queryBoolean = storeContaining('https://foo.com')
+      expect(await verifyApprovedDomain('http://foo.com', { queryBoolean })).toBe(false)
+    })
+  })
+
+  describe('Rate limiting buckets by canonical origin', () => {
+    it('shares one quota between www and non-www spellings', () => {
+      // MAX_INDEXING_REQUESTS is 10; spend it across both spellings.
+      for (let i = 0; i < 5; i++) {
+        expect(checkIndexingRateLimit('https://ratelimit-www.test')).toBe(true)
+        expect(checkIndexingRateLimit('https://www.ratelimit-www.test')).toBe(true)
+      }
+      expect(checkIndexingRateLimit('https://www.ratelimit-www.test')).toBe(false)
+      expect(checkIndexingRateLimit('https://ratelimit-www.test')).toBe(false)
+    })
+
+    it('keeps separate quotas for genuinely different origins', () => {
+      for (let i = 0; i < 10; i++) {
+        expect(checkIndexingRateLimit('https://ratelimit-a.test')).toBe(true)
+      }
+      expect(checkIndexingRateLimit('https://ratelimit-a.test')).toBe(false)
+      expect(checkIndexingRateLimit('https://ratelimit-b.test')).toBe(true)
+    })
   })
 })

@@ -3,18 +3,24 @@ import { fail, redirect } from '@sveltejs/kit'
 import { admin_email } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
 import { server_name } from '$lib/config.js'
+import { canonicalOrigin, originVariants, verifyApprovedDomain } from 'octothorpes'
 
-const domainBanned = async (domain) => await queryBoolean(`ask {
-  <${domain}> octo:banned "true" .
-}`)
+// Origins are stored canonically, but older rows may carry www or a trailing
+// slash, so every lookup here has to match any spelling of the same site --
+// otherwise a ban on www.foo.com wouldn't cover foo.com. See originVariants.
+const askAnyVariant = async (domain, predicate, object) => {
+  const variants = originVariants(domain).map(o => `<${o}>`).join(' ')
+  return await queryBoolean(`ask {
+    values ?origin { ${variants} }
+    ?origin ${predicate} ${object} .
+  }`)
+}
 
-const domainVerified = async (domain) => await queryBoolean(`ask {
-  <${domain}> octo:verified "true" .
-}`)
+const domainBanned = async (domain) => await askAnyVariant(domain, 'octo:banned', '"true"')
 
-const domainPresent = async (domain) => await queryBoolean(`ask {
-  <${domain}> rdf:type <octo:Origin> .
-}`)
+const domainVerified = async (domain) => await verifyApprovedDomain(domain, { queryBoolean })
+
+const domainPresent = async (domain) => await askAnyVariant(domain, 'rdf:type', '<octo:Origin>')
 
 const BLOCKED_HOSTS = ['example.com']
 
@@ -97,9 +103,17 @@ export const actions = {
   default: async ({request}) => {
     const data = await request.formData()
     const email = data.get('email')
-    const domain = data.get('domain').endsWith('/')
-      ? data.get('domain')
-      : `${data.get('domain')}/`
+    const submitted = data.get('domain')
+
+    // Store one canonical spelling per site -- no www, no trailing slash --
+    // so a domain registered as www.foo.com and one registered as foo.com
+    // don't become two separate identities in the graph.
+    let domain
+    try {
+      domain = canonicalOrigin(submitted)
+    } catch (e) {
+      return fail(400, { domain: submitted, blocked: true })
+    }
 
     if (hostBlocked(domain)) {
       return fail(400, { domain, blocked: true })

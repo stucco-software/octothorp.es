@@ -874,3 +874,25 @@ The first pass rejected *only* an explicit 404 and let every fetch error through
 Both return `fail(400, …)` with a distinct flag (`blocked`, `notFound`), rendered as messages in `+page.svelte` alongside the existing `banned` block.
 
 **Files affected:** `src/routes/register/+page.server.js`, `src/routes/register/+page.svelte`.
+
+## One canonical origin per site — www and trailing-slash spellings unified (#275)
+
+Registration never canonicalized an origin, and the indexer verified against a different spelling than the one it stored content under. `parseUri` returns both `origin` (`new URL().origin`, **keeps** www) and `normalized` (`normalizeUrl`, **strips** www and the trailing slash); the indexer verified against `parsed.origin` but stored the page subject as `parsed.normalized`. Since `octothorpeTriples`/`mentionTriples` derive the origin from that stripped subject, content landed under the www-less origin while verification looked up the www-bearing one. A site registered as `foo.com` submitting `https://www.foo.com/page` got "Origin is not registered with this server."
+
+Production carried 6 non-canonical origins out of 277, including two genuine duplicate pairs (`foteinikorre.com`/`www.foteinikorre.com`, `lazaruscorporation.co.uk`/`www.lazaruscorporation.co.uk`) and two trailing-slash pairs.
+
+**Canonical form is scheme + host, no www, no trailing slash.** `canonicalOrigin()` and `originVariants()` in `packages/core/uri.js`. Scheme and port stay part of identity — http and https are not merged.
+
+**Lookups are lenient, storage is canonical.** `verifyApprovedDomain` now matches any variant via a SPARQL `VALUES` clause, so a domain stored as `foo.com` verifies when it asks as `https://www.foo.com/`, and legacy rows stored *with* www still verify. The register route's `domainBanned`/`domainPresent` got the same treatment — otherwise a ban on `www.foo.com` wouldn't cover `foo.com` — and `domainVerified` now delegates to core's `verifyApprovedDomain` instead of duplicating the query.
+
+**`validateSameOrigin` compares canonical origins.** Deliberate widening of a security boundary, decided rather than inherited: the same DNS owner controls both spellings, and a strict comparison blocks a page that merely redirected between them. Scheme, port, and any non-www subdomain still distinguish origins — `evil.foo.com` cannot claim `foo.com`, and `wwwfoo.com` is not `foo.com`.
+
+**Rate limiting buckets by canonical origin**, so www and non-www share one quota rather than getting a separate allowance each.
+
+Worth noting what did *not* need fixing: reads were already www-insensitive, because the `/get` path normalizes the `s` param and page subjects were already stored canonically. Verified against production — querying `www.foteinikorre.com` returns the canonical `foteinikorre.com` page. So the stranded data is only the origin *registration* nodes, which is why the migration is a node merge rather than a content rewrite.
+
+`scripts/canonicalize-origins.js` merges non-canonical registrations, rewriting every triple in subject and object position onto the canonical node. **Dry run by default; requires `--write` to apply. Not yet run against production.**
+
+Confirmed the new tests fail without the change: 4 of the 8 added to `indexing.test.js` and 3 of the 8 added to `canonicalOrigin.test.js` (the rest are negative cases that hold either way). Full suite: 1163 passed, 14 skipped, 0 failures.
+
+**Files affected:** `packages/core/uri.js`, `packages/core/origin.js`, `packages/core/indexer.js`, `packages/core/index.js`, `src/routes/register/+page.server.js`, `scripts/canonicalize-origins.js` (new), `src/tests/canonicalOrigin.test.js` (new, 25 tests), `src/tests/indexing.test.js` (8 new tests).
