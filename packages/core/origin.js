@@ -1,3 +1,5 @@
+import { originVariants } from './uri.js'
+
 export const verifiyContent = async (s) => {
   let response = await fetch(s)
   const src = await response.text()
@@ -39,15 +41,19 @@ export const verifiyContent = async (s) => {
   }
 }
 
+
 export const verifyApprovedDomain = async (origin, { queryBoolean }) => {
+  // Match any spelling of the origin, not just the one that asked. Origins are
+  // stored canonically (no www, no trailing slash), but a site may request
+  // indexing as https://www.foo.com/ and must still verify. See originVariants.
+  const variants = originVariants(origin).map(o => `<${o}>`).join(' ')
   let originVerified = await queryBoolean(`
     ask {
-      <${origin}> octo:verified "true" .
+      values ?origin { ${variants} }
+      ?origin octo:verified "true" .
     }
   `)
-  console.log(`ask {
-      <${origin}> octo:verified "true" .
-    }`, originVerified)
+  console.log(`verifyApprovedDomain ${origin} [${variants}]`, originVerified)
   return originVerified
 }
 
