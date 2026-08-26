@@ -16,7 +16,24 @@
 //   node scripts/canonicalize-origins.js --write
 //
 import 'dotenv/config'
-import { createSparqlClient, canonicalOrigin } from 'octothorpes'
+import { createSparqlClient } from 'octothorpes'
+
+// Deliberately NOT canonicalOrigin(), and deliberately not normalize-url.
+// Both reduce a URI to scheme + host, which would merge an origin registered
+// with a path (https://cdpn.io/pen/debug/RwXrWWV -> https://cdpn.io) and
+// would mangle malformed ones (https://https://256rem.xyz -> https://https).
+//
+// This is purely lexical and purely subtractive: drop one trailing slash,
+// drop a leading `www.`. Nothing else -- no path trimming, no case folding,
+// no query sorting. A URI it can't shorten is left exactly as it is, so
+// anything odd in the store is skipped rather than rewritten into garbage.
+const narrowCanonical = (uri) => {
+  const out = uri
+    .replace(/\/$/, '')
+    .replace(/^(https?:\/\/)www\./i, '$1')
+  // Refuse to emit something that stopped being a plausible absolute URL.
+  return /^https?:\/\/.+/.test(out) ? out : uri
+}
 
 const WRITE = process.argv.includes('--write')
 
@@ -44,13 +61,7 @@ const res = await sparql.queryArray(`select distinct ?d {
 const origins = res.results.bindings.map(b => b.d.value)
 
 const nonCanonical = origins.flatMap(uri => {
-  let canonical
-  try {
-    canonical = canonicalOrigin(uri)
-  } catch (e) {
-    console.warn(`  skipping unparseable origin: ${uri}`)
-    return []
-  }
+  const canonical = narrowCanonical(uri)
   return canonical === uri ? [] : [{ uri, canonical }]
 })
 
@@ -60,10 +71,6 @@ if (!nonCanonical.length) {
   console.log('nothing to do.')
   process.exit(0)
 }
-
-const canonicalSet = new Set(origins.map(o => {
-  try { return canonicalOrigin(o) } catch (e) { return o }
-}))
 
 for (const { uri, canonical } of nonCanonical) {
   // Does the canonical spelling already exist as its own node? If so this is a
