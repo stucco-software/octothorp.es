@@ -34,6 +34,16 @@ git -C /Users/nim/dev/doctothorpes branch --show-current
 
 ---
 
+## Scaffold mode vs. Draft mode
+
+This file describes **Scaffold mode**: structure, front matter, paths, verified code and parameters, `<!-- TODO: write copy -->` in place of prose. That is the default, and it is what "stub," "scaffold," "set up," or "rough in" mean.
+
+When the user says **"draft," "write," "take a pass at," "fill in," or "rewrite,"** switch to **Draft mode** and read `documentation-voice.md` in this directory before writing a word. It carries the mode gate, the required draft label, markup verification, the reading list, and a gallery of the author's real edits to Claude-written docs.
+
+If the ask is ambiguous, stay in Scaffold mode and say so in one line.
+
+---
+
 ## Handoff & Review
 
 ### When to create a handoff note
@@ -139,7 +149,7 @@ Example live demo include:
 {% include post-list.html multipass='{"what":"pages","by":"thorped","o":"term"}' %}
 ```
 
-Leave body copy as `<!-- TODO: write copy -->` comment placeholders. Do not write prose.
+Leave body copy as `<!-- TODO: write copy -->` comment placeholders. Do not write prose — in Scaffold mode. For Draft mode, see `documentation-voice.md`.
 
 ### Permalink rule
 
@@ -148,7 +158,7 @@ Always set `permalink:` explicitly. Filenames may change but URLs must stay stab
 ### What not to do
 
 - Do not add the page to `site-index.md` — the author updates navigation manually
-- Do not write prose or copywriting
+- Do not write prose or copywriting (Scaffold mode; Draft mode is governed by `documentation-voice.md`)
 - Do not add indexing logic — `_includes/octocode.html` handles this automatically
 
 ---
@@ -207,11 +217,11 @@ demo_url: "https://demo.ideastore.dev/feature-name"
 <!-- TODO: write copy -->
 ```
 
-Leave all prose sections as `<!-- TODO: write copy -->`. Only fill in technical content (code examples, parameter names, types) that exists in the source plan or issue.
+Leave all prose sections as `<!-- TODO: write copy -->`. Only fill in technical content (code examples, parameter names, types) that exists in the source plan or issue. This is Scaffold mode; if the user asked for a draft, follow `documentation-voice.md` instead.
 
 ### What not to do
 
-- Do not write prose or copywriting
+- Do not write prose or copywriting (Scaffold mode; Draft mode is governed by `documentation-voice.md`)
 - Do not update `eleventyNavigation.order` — the author sets navigation order manually
 - Do not update any index or navigation files
 

@@ -13,7 +13,7 @@ In-progress
 ### Issues
 
 * [ ] 235 - rename index.js
-* [ ] 269 - we should rename profile.json to op-profile.json. it's too generic
+* [ ] 269 - we should rename profile.json to op_client.json. it's too generic
 * [ ] 216 - merged but needs work
 	* [ ] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
 * [ ] 217 Actually read from profile - REVIEW

@@ -11,6 +11,8 @@ description: Use when working with OP /get/ endpoints, query parameters, matchin
 {instance}/get/[what]/[by]/[[as]]?s=<subjects>&o=<objects>&<filters>
 ```
 
+**Path arguments are never duplicated as query params.** `what`, `by`, and `as` are path segments only; the query string carries filters (`s`, `o`, `not-s`, …) and nothing else. There is no `?what=`, `?by=`, or `?as=`, and none is planned — `?as=rss` silently returns the default `{ results }` JSON rather than erroring, so it is easy to write and hard to notice. (`as` is a query param on the *indexing* endpoints — `/index?as=<harmonizer>` — where it selects how the source document is read. Same meaning, different position.)
+
 ## [what] -- Result Type
 
 Multiple aliases map to the same result mode:

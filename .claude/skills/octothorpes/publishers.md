@@ -1,11 +1,17 @@
 ---
 name: octothorpes:publishers
-description: Use when writing, adding, registering, or debugging an OP Publisher — a new `?as=<format>` output (RSS, ICS, ATProto, JSON, custom), modifying how blobjects become a final feed/document, or touching the publisher registry, resolver schemas, or the `[[as]]` route response.
+description: Use when writing, adding, registering, or debugging an OP Publisher — a new `/[[as]]` output (RSS, ICS, ATProto, JSON, custom), modifying how blobjects become a final feed/document, or touching the publisher registry, resolver schemas, or the `[[as]]` route response.
 ---
 
 # Writing OP Publishers
 
-A **publisher** turns blobjects into an output format (RSS, ICS, a Bluesky post, JSON…). It is the inverse of a handler: handlers parse a source *into* blobjects; publishers serialize blobjects *out*. Reached via the `?as=<name>` / `/[[as]]` query on `/get/[what]/[by]/[[as]]`, and by Bridges.
+A **publisher** turns blobjects into an output format (RSS, ICS, a Bluesky post, JSON…). It is the inverse of a handler: handlers parse a source *into* blobjects; publishers serialize blobjects *out*. Reached via the **final path segment** on `/get/[what]/[by]/[[as]]`, and by Bridges.
+
+> **On `/get/`, `as` is a path segment.** `load.js` destructures `as` from route `params` and never reads `url.searchParams` for it, so `?as=rss` silently returns plain JSON `{ results }` with no error. This has always been true — no commit in the route's history has read `as` from the query string.
+>
+> `as` means the same thing across OP — *give me this as X* — and the name is deliberately shared. Only its position differs, by endpoint convention: indexing requests take it as a query param (`/index?as=<harmonizer>`, selecting how the source document is read), and `/get/` takes it as the final path segment (selecting the publisher), because `/get/` expresses **all** of its arguments as path segments.
+>
+> `/get/` will not gain a `?as=` alias: path arguments are deliberately not duplicated as query params there. Write the path form.
 
 > The old `/src/lib/publish/` layout is gone. Source of truth is the core package.
 
@@ -17,7 +23,7 @@ A **publisher** turns blobjects into an output format (RSS, ICS, a Bluesky post,
 | Built-in publishers + registry (`createPublisherRegistry`) | `packages/core/publishers.js` |
 | Site-defined publisher *definitions* | `src/lib/publishers/<name>/{resolver.json, renderer.js}` |
 | Site glob loader | `src/lib/publishers/index.js` |
-| Route wiring (`?as=` dispatch) | `src/routes/get/[what]/[by]/[[as]]/load.js` + `+server.js` |
+| Route wiring (`/[[as]]` dispatch) | `src/routes/get/[what]/[by]/[[as]]/load.js` + `+server.js` |
 | Tests | `src/tests/publish-core.test.js` |
 
 ## The publisher contract
@@ -96,7 +102,7 @@ The glob loader auto-discovers it (names starting `_` are skipped); `load.js` re
 
 **Flat shape vs registered shape.** Your `renderer.js` default export is the *flat* shape (`{ ...resolver, render }`), so its `.schema` is the **field map** directly. `register()` detects the flat shape — it has a top-level `id` (after normalization; a legacy `@id` is folded to `id` first) — and **re-wraps** it into `{ resolver: <whole flat object>, contentType, meta, render }`. So after registration, `getPublisher(name).resolver` is the whole resolver (with `.schema` — the field map — nested inside), which is what `publish()`/`resolve()` expect (they destructure `const { schema } = resolver`). **Pass the registered `pub.resolver` to `publish()`.** The publisher's resolver lives under `.resolver`, never `.schema`; `.schema` is always the field map one level down. (Before mid-2026 the publisher key was also called `schema`, which collided with the field map — that's been renamed.)
 
-## Route flow (`?as=<name>`)
+## Route flow (`/[[as]]`)
 
 The route calls `op.get({ what, by, as, ...options, pubDefs })` and renders the returned payload to HTTP, setting `Content-Type` from `op.publisher.getPublisher(as)?.contentType`. Unknown `as` → falls through to plain JSON `{ results }`.
 

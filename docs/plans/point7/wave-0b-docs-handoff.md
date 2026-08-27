@@ -109,13 +109,15 @@ Names starting with `_` are skipped (so `_example/` is a template, not registere
 
 The route handler now dispatches by publisher name in `params.as`:
 
+**Corrected 2026-08-26.** The `?as=` URLs below were never valid. `load.js` reads the publisher name from route `params.as` -- the **final path segment** -- and has never read `url.searchParams` for it, so a query-string `?as=` silently returns the default `{ results }` with no error. (The prose in this same section says `params.as` correctly; only the example URLs were wrong -- likely carried over from the indexing endpoints, where `as` is a query param.) `/get/` expresses all of its arguments as path segments and will not gain a `?as=` alias. URLs below are corrected to the path form.
+
 ```
-GET /get/everything/by/?as=bluesky        → application/json (bluesky records)
-GET /get/everything/by/?as=standardSiteDocument → application/json (atproto record shape)
-GET /get/everything/by/?as=blarg          → site-defined publisher
-GET /get/everything/by/?as=rss            → rss2 via the registry (alias; handles both result shapes)
-GET /get/everything/by/?as=debug          → debug response (unchanged)
-GET /get/everything/by/?as=multipass      → multipass response (unchanged)
+GET /get/everything/<by>/bluesky              → application/json (bluesky records)
+GET /get/everything/<by>/standardSiteDocument → application/json (atproto record shape)
+GET /get/everything/<by>/blarg                → site-defined publisher
+GET /get/everything/<by>/rss                  → rss2 via the registry (alias; handles both result shapes)
+GET /get/everything/<by>/debug                → debug response (unchanged)
+GET /get/everything/<by>/multipass            → multipass response (unchanged)
 ```
 
 If `params.as` does not match a registered publisher, the route falls through to `{ results: actualResults }` as before.
@@ -154,13 +156,13 @@ Local setup assumed: `instance=http://localhost:5173/`, dev server running, SPAR
 
 ```sh
 # RSS (rss2 via the registry)
-curl -s 'http://localhost:5173/get/everything/by/recent?as=rss' | head -20
+curl -s 'http://localhost:5173/get/everything/posted/rss' | head -20
 
 # standardSiteDocument (ATProto record shape)
-curl -s 'http://localhost:5173/get/everything/by/recent?as=standardSiteDocument' | jq '.[0]'
+curl -s 'http://localhost:5173/get/everything/posted/standardSiteDocument' | jq '.[0]'
 
 # bluesky post records (with facets)
-curl -s 'http://localhost:5173/get/everything/by/recent?as=bluesky' | jq '.[0]'
+curl -s 'http://localhost:5173/get/everything/posted/bluesky' | jq '.[0]'
 ```
 
 Verify:
@@ -171,8 +173,8 @@ Verify:
 ### 2. Site-defined publishers
 
 ```sh
-curl -s 'http://localhost:5173/get/everything/by/recent?as=blarg' | jq '.'
-curl -s 'http://localhost:5173/get/everything/by/recent?as=semble' | jq '.'
+curl -s 'http://localhost:5173/get/everything/posted/blarg' | jq '.'
+curl -s 'http://localhost:5173/get/everything/posted/semble' | jq '.'
 ```
 
 Verify: each returns the shape its `renderer.js` produces. `blarg` and `semble` both `(items) => items` by default — confirm both have working `resolver.json` schemas.
@@ -180,7 +182,7 @@ Verify: each returns the shape its `renderer.js` produces. `blarg` and `semble` 
 ### 3. Unknown publisher
 
 ```sh
-curl -s 'http://localhost:5173/get/everything/by/recent?as=nonexistent' | jq '.results | length'
+curl -s 'http://localhost:5173/get/everything/posted/nonexistent' | jq '.results | length'
 ```
 
 Should fall through to the default `{ results: [...] }` response.

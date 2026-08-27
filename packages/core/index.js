@@ -245,7 +245,7 @@ export const createClient = (config) => {
     const rendered = await publisher.render(items, envelope, pubDefs)
 
     // Programmatic-only debug bundle (op.get({ debug: true })); the HTTP route
-    // never sets this — it reaches debug output via `?as=debug` → api.get.
+    // never sets this — it reaches debug output via the `/debug` path segment → api.get.
     if (debugFlag) {
       return {
         output: rendered,

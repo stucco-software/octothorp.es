@@ -4,7 +4,8 @@ import { getProfile } from '$lib/profile.js'
 
 // Thin adapter: map the request to op.get (core owns querying + publishing),
 // then hand the payload + the publisher's contentType to +server.js for
-// transport. `?as=debug` and `?as=multipass` return op.get's data shapes as JSON.
+// transport. The `/debug` and `/multipass` path segments return op.get's data shapes
+// as JSON. `as` is a route param only — a query-string `?as=` is never read.
 //
 // Profile-driven surface (the route layer is where the profile shapes the API):
 //   C9 (#236): a `what` matching a declared relationshipSubtypes[].path is a
