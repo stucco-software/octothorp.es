@@ -22,7 +22,7 @@ describe('end-to-end: RSS feed via indexSource', () => {
   })
 
   it('indexes an RSS feed without per-item opt-in markers', async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
 
     const rss = `<?xml version="1.0"?>
 <rss version="2.0">

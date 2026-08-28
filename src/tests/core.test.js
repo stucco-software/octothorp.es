@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createClient } from '../../packages/core/index.js'
+import { createClient } from '../../packages/core/client.js'
 
 describe('createClient', () => {
   it('should accept sparql as flat env object', () => {

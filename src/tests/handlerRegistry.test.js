@@ -3,7 +3,7 @@ import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 import htmlHandler from '../../packages/core/handlers/html/handler.js'
 import jsonHandler, { resolvePath, extractValues } from '../../packages/core/handlers/json/handler.js'
 import blobjectHandler from '../../packages/core/handlers/blobject/handler.js'
-import { createClient } from '../../packages/core/index.js'
+import { createClient } from '../../packages/core/client.js'
 
 describe('createHandlerRegistry', () => {
   it('should register and retrieve a handler by mode', () => {
