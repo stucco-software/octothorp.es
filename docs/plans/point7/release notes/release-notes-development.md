@@ -874,3 +874,17 @@ The first pass rejected *only* an explicit 404 and let every fetch error through
 Both return `fail(400, …)` with a distinct flag (`blocked`, `notFound`), rendered as messages in `+page.svelte` alongside the existing `banned` block.
 
 **Files affected:** `src/routes/register/+page.server.js`, `src/routes/register/+page.svelte`.
+
+## Cleanup: core rename, #245-review fixes, profile rename (#235, #279, #269, #216)
+
+Four small changes merged as one branch (`cleanup-235-279-269`), all endpoint-invisible — smoketest goldens confirmed unchanged after deploy.
+
+**#235 — `packages/core/index.js` → `client.js`.** Kills the visual collision with `indexer.js`; the file's primary export is `createClient`. `package.json` `main`/`exports` updated. Grep found 8 relative-path importers rather than the 6 the issue measured (`markdownHandler.test.js` and `client-documentRecordSchema.test.js` were missed); all updated.
+
+**#279 — post-merge fixes from the PR #245 review.** `recordDocumentRecord` now validates uri-range values through a `safeIri` helper (rejects IRI-illegal characters, requires `new URL()` to parse, skips-and-warns on failure) instead of interpolating raw values into the SPARQL IRI token. Timestamp coercion in `blobject.js` treats ≤10-digit numeric strings as seconds and 11+ as milliseconds, so 12-digit ms values are no longer inflated 1000x. The hardcoded `memex:` namespace is gone from `queryBuilders.js` — external consumers declare their own via the per-entry `iri` override, and the tests now exercise exactly that path.
+
+**#216 follow-up — Relay profile pollution.** The committed profile declared a memex-namespaced `addedBy` documentRecord entry; removed. That was the only memex reference in the profile.
+
+**#269 — `profile.json` → `octothorpes.json`.** Repo-root filename only; the `/profile` and `/profile.json` endpoints are unchanged.
+
+**Files affected:** `packages/core/client.js` (renamed), `packages/core/indexer.js`, `packages/core/blobject.js`, `packages/core/queryBuilders.js`, `packages/core/profile.js`, `octothorpes.json` (renamed), `src/lib/profile.js`, `scripts/core-test.js`, 15 test files.
