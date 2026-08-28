@@ -12,10 +12,10 @@ In-progress
 
 ### Issues
 
-* [ ] 235 - rename index.js
-* [ ] 269 - we should rename profile.json to op_client.json. it's too generic
+* [x] 235 - rename index.js
+* [x] 269 - renamed profile.json to octothorpes.json
 * [ ] 216 - merged but needs work
-	* [ ] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
+	* [x] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
 * [ ] 217 Actually read from profile - REVIEW
 	* [ ] write human-readable description of issue
 	* [ ] compare requirements against what was shipped and merged
@@ -130,6 +130,7 @@ Deployed on staging. Lightly tested.
 * [ ] 253 - case matching on search pages too strict; stale tags after rename
 * [ ] 241 - guard mention-path origin logic against non-http(s) schemes
 * [ ] 243 - markdown handler follow-ups
+* [x] 279 - post-merge fixes from the 245 review
 
 ### TODO:
 
