@@ -41,6 +41,14 @@ describe('C6 coerceDocumentRecordValue - typing by range', () => {
     expect(coerceDocumentRecordValue('1700000000', 'timestamp')).toBe('2023-11-14T22:13:20.000Z')
     expect(coerceDocumentRecordValue('2023-11-14T22:13:20.000Z', 'timestamp')).toBe('2023-11-14T22:13:20.000Z')
   })
+  it('timestamp digit-length heuristic: <=10 digits is seconds, 11+ is ms', () => {
+    // 10-digit seconds value
+    expect(coerceDocumentRecordValue('1700000000', 'timestamp')).toBe('2023-11-14T22:13:20.000Z')
+    // 13-digit ms value
+    expect(coerceDocumentRecordValue('1700000000000', 'timestamp')).toBe('2023-11-14T22:13:20.000Z')
+    // 12-digit ms value (pre-2001) must NOT be inflated 1000x
+    expect(coerceDocumentRecordValue('900000000000', 'timestamp')).toBe(new Date(900000000000).toISOString())
+  })
   it('timestamp malformed -> raw string (never null)', () => {
     expect(coerceDocumentRecordValue('garbage', 'timestamp')).toBe('garbage')
   })

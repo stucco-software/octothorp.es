@@ -29,7 +29,9 @@ export const coerceDocumentRecordValue = (raw, range) => {
     case 'timestamp': {
       if (/^\d+$/.test(s)) {
         const num = Number(s)
-        const ms = s.length >= 13 ? num : num * 1000
+        // <=10 digits is unix seconds; 11+ digits is already milliseconds.
+        // (A 12-digit ms value must not be inflated 1000x.)
+        const ms = s.length <= 10 ? num * 1000 : num
         const d = new Date(ms)
         return Number.isNaN(d.getTime()) ? s : d.toISOString()
       }

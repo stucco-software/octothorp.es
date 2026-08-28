@@ -410,6 +410,20 @@ export const createIndexer = (deps) => {
     .replace(/\r/g, '\\r')
     .replace(/\t/g, '\\t')
 
+  // Characters that cannot appear in a SPARQL IRIREF token, plus a parse check.
+  // Returns the safe IRI string, or null if the value is not a usable IRI.
+  const safeIri = (value) => {
+    const text = String(value).trim()
+    if (!text) return null
+    if (/[<>"{}|\^`\\\s]/.test(text)) return null
+    try {
+      new URL(text)
+    } catch {
+      return null
+    }
+    return text
+  }
+
   const recordProperty = async (s, predicate, value) => {
     if (!value) {
       return
@@ -461,10 +475,17 @@ export const createIndexer = (deps) => {
       if (value === undefined || value === null || value === '') continue
       const iri = resolveDocumentRecordIri(entry)
       if (!iri) continue
-      const object =
-        entry.range === 'uri'
-          ? `<${String(value).trim()}>`
-          : `"${escapeLiteral(String(value))}"`
+      let object
+      if (entry.range === 'uri') {
+        const safe = safeIri(value)
+        if (!safe) {
+          console.warn(`recordDocumentRecord: skipping ${entry.predicate}; not a valid IRI:`, value)
+          continue
+        }
+        object = `<${safe}>`
+      } else {
+        object = `"${escapeLiteral(String(value))}"`
+      }
       await query(`
         delete { <${s}> <${iri}> ?o . }
         insert { <${s}> <${iri}> ${object} . }
