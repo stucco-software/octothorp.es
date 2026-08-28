@@ -13,15 +13,15 @@ const SCHEMA = [
   { predicate: 'contentSize', namespace: 'schema', range: 'number' },
   { predicate: 'dateCreated', namespace: 'schema', range: 'timestamp' },
   { predicate: 'sha256', namespace: 'schema', range: 'literal' },
-  { predicate: 'addedBy', namespace: 'memex', range: 'literal' },
+  { predicate: 'addedBy', namespace: 'memex', iri: 'https://vocab.octothorp.es/memex#addedBy', range: 'literal' },
 ]
 
 describe('C5 documentRecord IRI + var resolution', () => {
   it('resolves declared namespaces to full IRIs', () => {
     expect(resolveDocumentRecordIri({ predicate: 'encodingFormat', namespace: 'schema' }))
       .toBe('https://schema.org/encodingFormat')
-    expect(resolveDocumentRecordIri({ predicate: 'addedBy', namespace: 'memex' }))
-      .toBe('https://vocab.octothorp.es/memex#addedBy')
+    expect(resolveDocumentRecordIri({ predicate: 'octothorpes', namespace: 'octo' }))
+      .toBe('https://vocab.octothorp.es#octothorpes')
   })
 
   it('returns null for an unknown namespace (entry skipped, no malformed IRI)', () => {

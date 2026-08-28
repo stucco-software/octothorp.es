@@ -30,7 +30,7 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
     if (!live) return
     await cleanup()
     // Two pages sharing a term; only the first carries declared documentRecord
-    // predicates (schema.encodingFormat/contentSize + memex.addedBy).
+    // predicates (schema.encodingFormat/contentSize).
     await insert(`
       <${term}> rdf:type <octo:Term> .
       <${term}> octo:created 1700000000000 .
@@ -42,7 +42,6 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
       <${withDR}> <${term}> 1700000000000 .
       <${withDR}> <https://schema.org/encodingFormat> "text/markdown" .
       <${withDR}> <https://schema.org/contentSize> 42 .
-      <${withDR}> <https://vocab.octothorp.es/memex#addedBy> "tester" .
 
       <${withoutDR}> rdf:type <octo:Page> .
       <${withoutDR}> octo:created 1700000000000 .
@@ -64,7 +63,6 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
     expect(blob.documentRecord).toEqual({
       encodingFormat: 'text/markdown',
       contentSize: 42, // typed number, not the string "42"
-      addedBy: 'tester',
     })
   })
 

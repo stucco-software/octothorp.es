@@ -4,7 +4,7 @@ import { getFuzzyTags } from './utils.js'
  * documentRecord namespace -> IRI base map (#237).
  *
  * The profile declares each documentRecord predicate as `{ predicate, namespace,
- * range }` where `namespace` is a short prefix ("schema", "memex", ...). The read
+ * range }` where `namespace` is a short prefix ("schema", "octo", ...). The read
  * path resolves it to a full IRI here — this is the single core-owned resolver so
  * the read query and any future write path agree on the predicate IRI. An entry
  * may carry an explicit `iri` to bypass the map entirely.
@@ -16,7 +16,6 @@ import { getFuzzyTags } from './utils.js'
  */
 export const documentRecordNamespaces = {
   schema: 'https://schema.org/',
-  memex: 'https://vocab.octothorp.es/memex#',
   octo: 'https://vocab.octothorp.es#',
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   foaf: 'http://xmlns.com/foaf/0.1/',

@@ -111,8 +111,9 @@ describe('#242 — live /index route persists documentRecord', () => {
     expect(dr.encodingFormat).toBe('text/markdown')
     expect(dr.contentUrl).toBe('https://cdn.example.org/assets/c242-probe.bin')
     expect(dr.sha256).toBe('c242c242c242c242c242c242c242c242c242c242c242c242c242c242c242c2')
-    expect(dr.addedBy).toBe('c242-integration-test')
-    // undeclared frontmatter never reaches the read surface
+    // undeclared frontmatter never reaches the read surface (addedBy was
+    // removed from the profile's documentRecord declaration, #279)
+    expect(dr.addedBy).toBeUndefined()
     expect(dr.layout).toBeUndefined()
   })
 })

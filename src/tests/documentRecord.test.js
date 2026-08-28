@@ -7,7 +7,7 @@ const SCHEMA = [
   { predicate: 'contentSize', namespace: 'schema', range: 'number' },
   { predicate: 'dateCreated', namespace: 'schema', range: 'timestamp' },
   { predicate: 'active', namespace: 'schema', range: 'boolean' },
-  { predicate: 'addedBy', namespace: 'memex', range: 'literal' },
+  { predicate: 'addedBy', namespace: 'memex', iri: 'https://vocab.octothorp.es/memex#addedBy', range: 'literal' },
 ]
 
 // Build a minimal blobject-shaped binding row with documentRecord vars.
