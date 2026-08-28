@@ -180,6 +180,20 @@ Not started.
 
 * [ ] Make orchestra-pit and rolodex core utilities — unspecced, needs an issue or a demotion
 
+# Dependency Modernization
+
+Mini-epic, tracked in `2026-08-27-dependency-modernization.md` (no GitHub issue, deliberately).
+
+### Status
+
+Not started. Batch 3 likely rides on 270.
+
+### TODO
+
+* [ ] Batch 1 - build/test toolchain majors (vite, svelte, kit, vitest)
+* [ ] Batch 2 - runtime dep bumps
+* [ ] Batch 3 - retire jsonld-rdfa-parser
+
 # Untracked
 
 Things in the milestone that don't have a home yet.
