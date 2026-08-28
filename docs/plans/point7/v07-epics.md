@@ -16,9 +16,9 @@ In-progress
 * [x] 269 - renamed profile.json to octothorpes.json
 * [ ] 216 - merged but needs work
 	* [x] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
-* [ ] 217 Actually read from profile - REVIEW
-	* [ ] write human-readable description of issue
-	* [ ] compare requirements against what was shipped and merged
+* [ ] 217 Actually read from profile - gap audit in issue; 4 design decisions pending
+	* [x] write human-readable description of issue
+	* [x] compare requirements against what was shipped and merged
 * [ ] 236 Declare link subtypes in Profile -- REVIEW
 	* [ ] confirm that subtype paths still behave after the RDF-Star migration
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
