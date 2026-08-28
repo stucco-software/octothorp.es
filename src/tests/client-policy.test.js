@@ -22,7 +22,7 @@ describe('createClient policy threading', () => {
   })
 
   it("forwards Client policyMode 'active' into handler() callerContext", async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       text: async () => '<html><body><p>no markers</p></body></html>',

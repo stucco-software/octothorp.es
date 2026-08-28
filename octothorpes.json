@@ -33,8 +33,7 @@
       { "predicate": "contentUrl", "namespace": "schema", "range": "uri" },
       { "predicate": "contentSize", "namespace": "schema", "range": "number" },
       { "predicate": "dateCreated", "namespace": "schema", "range": "timestamp" },
-      { "predicate": "sha256", "namespace": "schema", "range": "literal" },
-      { "predicate": "addedBy", "namespace": "memex", "range": "literal" }
+      { "predicate": "sha256", "namespace": "schema", "range": "literal" }
     ]
   }
 }

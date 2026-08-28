@@ -1,4 +1,4 @@
-import { createClient } from '../packages/core/index.js'
+import { createClient } from '../packages/core/client.js'
 
 const client = createClient({
   instance: process.env.instance,

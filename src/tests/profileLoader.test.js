@@ -15,7 +15,7 @@ const schema = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/core/profile.schema.json'), 'utf8')
 )
 const rawProfile = JSON.parse(
-  readFileSync(resolve(repoRoot, 'profile.json'), 'utf8')
+  readFileSync(resolve(repoRoot, 'octothorpes.json'), 'utf8')
 )
 // $schema is a local authoring pointer, not part of the data shape (mirrors
 // the C1 contract test's handling of the committed file).

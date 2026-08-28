@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// createClient (packages/core/index.js) builds its internal createIndexer(...)
+// createClient (packages/core/client.js) builds its internal createIndexer(...)
 // call directly from config, and its `get` surface calls into api.get(...).
 // Mock both to inspect exactly what config/options createClient forwards,
 // without needing a live SPARQL endpoint.
@@ -31,7 +31,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
   })
 
   it('forwards config.documentRecordSchema into the internal createIndexer call', async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
     const schema = [{ predicate: 'octo:type', namespace: 'octo', range: 'string' }]
 
     createClient({
@@ -45,7 +45,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
   })
 
   it('leaves indexer construction unchanged when documentRecordSchema is not provided', async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
 
     createClient({
       instance: 'http://localhost:5173/',
@@ -57,7 +57,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
   })
 
   it('threads config.documentRecordSchema as the default for client.get reads', async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
     const schema = [{ predicate: 'octo:type', namespace: 'octo', range: 'string' }]
 
     const op = createClient({
@@ -74,7 +74,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
   })
 
   it('lets a per-call documentRecordSchema override the client-level default', async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
     const clientSchema = [{ predicate: 'octo:type', namespace: 'octo', range: 'string' }]
     const callSchema = [{ predicate: 'octo:override', namespace: 'octo', range: 'string' }]
 
@@ -91,7 +91,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
   })
 
   it('does not set a documentRecordSchema default on reads when client config omits it', async () => {
-    const { createClient } = await import('../../packages/core/index.js')
+    const { createClient } = await import('../../packages/core/client.js')
 
     const op = createClient({
       instance: 'http://localhost:5173/',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import markdownHandler from '../../packages/core/handlers/markdown/handler.js'
-import { createDefaultHandlerRegistry } from '../../packages/core/index.js'
+import { createDefaultHandlerRegistry } from '../../packages/core/client.js'
 
 describe('markdown handler — contract', () => {
   it('declares mode and content type', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import calendarHandler from '../../packages/core/handlers/calendar/handler.js'
-import { createDefaultHandlerRegistry } from '../../packages/core/index.js'
+import { createDefaultHandlerRegistry } from '../../packages/core/client.js'
 
 const veventSchema = {
   mode: 'calendar',

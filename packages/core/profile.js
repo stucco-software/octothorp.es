@@ -2,17 +2,17 @@ import Ajv from 'ajv'
 
 // C2 — OP Client Profile loader (#216). Framework-agnostic: takes the already
 // -parsed profile object, the schema object, an `instance` value (used to
-// resolve `relay`, which the committed profile.json sets to null by C1
+// resolve `relay`, which the committed octothorpes.json sets to null by C1
 // contract), and an optional `env` accessor object for point-of-use
 // credential resolution. No fs/path/$env access happens in this module — the
-// adapter (src/lib/profile.js) is responsible for reading profile.json and
+// adapter (src/lib/profile.js) is responsible for reading octothorpes.json and
 // injecting process/SvelteKit env, mirroring how src/lib/indexing.js injects
 // sparql fns + $env into createIndexer/createClient.
 
-// Defense-in-depth: the committed profile.json must never carry a secret
+// Defense-in-depth: the committed octothorpes.json must never carry a secret
 // -shaped key (C1's contract test already asserts this for the committed
 // file); this guard re-checks whatever profile object is actually loaded at
-// runtime, in case profile.json drifts or a caller injects a doctored object.
+// runtime, in case octothorpes.json drifts or a caller injects a doctored object.
 const SECRET_KEY_RE = /key|secret|token|password|credential/i
 
 const assertNoSecrets = (node, path = '') => {
@@ -25,7 +25,7 @@ const assertNoSecrets = (node, path = '') => {
       const fieldPath = path ? `${path}.${k}` : k
       if (SECRET_KEY_RE.test(k)) {
         throw new Error(
-          `Profile contains a secret-shaped key "${fieldPath}" — credentials must live in env and be resolved at point-of-use via getAccountCredentials(), never in profile.json`
+          `Profile contains a secret-shaped key "${fieldPath}" — credentials must live in env and be resolved at point-of-use via getAccountCredentials(), never in octothorpes.json`
         )
       }
       assertNoSecrets(v, fieldPath)
@@ -57,7 +57,7 @@ export const credentialEnvKey = (provider) => `${String(provider).toUpperCase()}
 /**
  * Creates a validated, framework-agnostic profile accessor.
  * @param {Object} config
- * @param {Object} config.profile - The parsed profile.json contents (relay may be null).
+ * @param {Object} config.profile - The parsed octothorpes.json contents (relay may be null).
  * @param {Object} config.schema - The parsed profile.schema.json JSON Schema.
  * @param {string} config.instance - This install's canonical instance URL; resolves `relay`.
  * @param {Object} [config.env] - Env accessor object (e.g. flat process.env-shaped object)
@@ -66,7 +66,7 @@ export const credentialEnvKey = (provider) => `${String(provider).toUpperCase()}
  */
 export const createProfile = ({ profile, schema, instance, env = {} } = {}) => {
   if (!profile || typeof profile !== 'object') {
-    throw new Error('createProfile requires a `profile` object (the parsed profile.json contents)')
+    throw new Error('createProfile requires a `profile` object (the parsed octothorpes.json contents)')
   }
   if (!schema || typeof schema !== 'object') {
     throw new Error('createProfile requires a `schema` object (the parsed profile.schema.json contents)')

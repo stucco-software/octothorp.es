@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { getProfile, getAccountCredentials } from '$lib/profile.js'
 
 // C2: thin SvelteKit adapter smoke test. Confirms src/lib/profile.js wires
-// $env + the repo-root profile.json/schema into packages/core's
+// $env + the repo-root octothorpes.json/schema into packages/core's
 // createProfile without adding logic of its own (that lives in
 // packages/core/profile.js, covered by src/tests/profileLoader.test.js).
 
