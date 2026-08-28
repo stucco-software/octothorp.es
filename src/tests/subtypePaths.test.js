@@ -3,7 +3,7 @@ import { buildMultiPass } from 'octothorpes'
 import { insert, query } from '$lib/sparql.js'
 
 // C9 (#236): profile-declared relationship subtypes get first-class API paths.
-// The committed profile.json declares Item -> path "items" and AliasOf ->
+// The committed octothorpes.json declares Item -> path "items" and AliasOf ->
 // "aliasesOf". The route layer maps /get/<path>/<by> to a subtype-filtered
 // blobject query; buildMultiPass honors the injected `subtype` option.
 

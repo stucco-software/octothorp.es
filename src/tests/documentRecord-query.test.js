@@ -6,7 +6,7 @@ import {
   buildDocumentRecordClauses,
 } from 'octothorpes'
 
-// The frozen C1 declaration shape (committed example in profile.json).
+// The frozen C1 declaration shape (committed example in octothorpes.json).
 const SCHEMA = [
   { predicate: 'encodingFormat', namespace: 'schema', range: 'literal' },
   { predicate: 'contentUrl', namespace: 'schema', range: 'uri' },

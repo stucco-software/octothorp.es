@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import Ajv from 'ajv'
 
 // C1: freeze the OP Client Profile shared contract (#215/#216).
-// This test validates the committed repo-root profile.json against
+// This test validates the committed repo-root octothorpes.json against
 // packages/core/profile.schema.json, so downstream chunks (C2 loader,
 // C5-C7 documentRecord projection, C9 subtype paths) build on a fixed shape.
 
@@ -16,7 +16,7 @@ const schema = JSON.parse(
   readFileSync(resolve(repoRoot, 'packages/core/profile.schema.json'), 'utf8')
 )
 const profile = JSON.parse(
-  readFileSync(resolve(repoRoot, 'profile.json'), 'utf8')
+  readFileSync(resolve(repoRoot, 'octothorpes.json'), 'utf8')
 )
 
 // $schema is a local authoring pointer for editors; strip before validating
@@ -27,7 +27,7 @@ describe('OP Client Profile schema (C1 contract)', () => {
   const ajv = new Ajv({ allErrors: true })
   const validate = ajv.compile(schema)
 
-  it('committed profile.json validates against profile.schema.json', () => {
+  it('committed octothorpes.json validates against profile.schema.json', () => {
     const ok = validate(profileForValidation)
     if (!ok) {
       // surface ajv errors on failure for a useful diff
