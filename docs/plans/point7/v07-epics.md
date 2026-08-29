@@ -16,7 +16,7 @@ In-progress
 * [x] 269 - renamed profile.json to octothorpes.json
 * [ ] 216 - merged but needs work
 	* [x] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
-* [ ] 217 Actually read from profile - gap audit in issue; 4 design decisions pending
+* [ ] 217 Actually read from profile - declarative/resolved model settled in issue; awaiting hand-authored schema draft
 	* [x] write human-readable description of issue
 	* [x] compare requirements against what was shipped and merged
 * [ ] 236 Declare link subtypes in Profile -- REVIEW
