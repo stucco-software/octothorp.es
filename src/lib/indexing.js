@@ -1,22 +1,22 @@
-import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource } from 'octothorpes'
+import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource, mergeNamespaces } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
-import { instance, default_handler } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
+
+// #217: everything operational comes from the profile now. `instance` still
+// originates in .env when a deploy overrides it, but it arrives here through
+// the loader's precedence rules rather than a second config read.
+const profile = getProfile()
+const { instance } = profile.identity
+const { documentRecord, handlers } = profile.api
 
 // One registry, one harmonizer lookup, shared across the whole indexing path:
 // the indexer uses them on the fetch-path, and the exported `harmonize` binds
-// the same pair for the content-path. `default_handler` (optional env) lets an
-// operator pick the format used when no mode/content-type is given; it falls
-// back to 'html'. Registered handlers (builtins + any future custom) are
+// the same pair for the content-path. `default` is a handler mode
+// (api.handlers.default), not a harmonizer id — resolving design question 1
+// from the gap audit. Registered handlers (builtins + any future custom) are
 // reachable from both paths.
-const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: default_handler })
+const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: handlers.default })
 const { getHarmonizer } = createHarmonizerRegistry(instance)
-
-// C7 mirror (#242): the declared documentRecord schema is injected here so
-// the write path (recordDocumentRecord, invoked from ingestBlobject) can
-// persist documentRecord fields. No-op without it. Same profile vocab used
-// by the read side (see src/routes/get/[what]/[by]/[[as]]/load.js).
-const vocabulary = getProfile().vocabulary || {}
 
 const indexer = createIndexer({
   insert,
@@ -26,7 +26,8 @@ const indexer = createIndexer({
   instance,
   handlerRegistry,
   getHarmonizer,
-  documentRecordSchema: vocabulary.documentRecord,
+  documentRecordSchema: documentRecord,
+  namespaces: mergeNamespaces(profile.vocabulary.namespaces),
 })
 
 // Content-path harmonization bound to the same registry/lookup the indexer

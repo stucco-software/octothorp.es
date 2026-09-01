@@ -1,33 +1,53 @@
 import { describe, it, expect, vi } from 'vitest'
 
-// #242: mirrors src/tests/profileAdapter.test.js's smoke-test style, but for
+// #217: mirrors src/tests/profileAdapter.test.js's smoke-test style, but for
 // the write-side wiring. Confirms src/lib/indexing.js (the SvelteKit adapter)
-// injects the profile's declared documentRecord schema into createIndexer, so
-// the core write path (recordDocumentRecord, invoked from ingestBlobject) is
-// no longer a no-op on the live HTTP routes. No logic under test here lives
-// in this file — packages/core owns recordDocumentRecord itself (see
-// src/tests/indexing.test.js / c14MemexRoundtrip.test.js for that).
-const mockCreateIndexer = vi.fn(() => ({}))
-vi.mock('octothorpes', async (importOriginal) => {
-  const actual = await importOriginal()
+// injects the profile's declared api.documentRecord schema and
+// api.handlers.default into createIndexer, so the adapter is reading the
+// nested profile shape rather than $lib/config.js's flat .env-derived
+// values. No logic under test here lives in this file — packages/core owns
+// createIndexer/recordDocumentRecord itself.
+const fakeProfile = {
+  identity: { instance: 'https://example.test/' },
+  api: {
+    documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+    handlers: { dir: null, default: 'markdown' },
+    harmonizers: { dir: null },
+  },
+  policies: {
+    indexing: { mode: 'request' },
+    access: {
+      registration: 'registered',
+      blocks: { domains: [], terms: [] },
+      whitelist: { domains: [] },
+    },
+  },
+  vocabulary: { namespaces: [] },
+}
+vi.mock('$lib/profile.js', () => ({ getProfile: () => fakeProfile }))
+
+const captured = {}
+vi.mock('octothorpes', async (orig) => {
+  const actual = await orig()
   return {
     ...actual,
-    createIndexer: (deps) => mockCreateIndexer(deps),
+    createIndexer: (config) => { Object.assign(captured, config); return actual.createIndexer(config) },
   }
 })
 
-describe('src/lib/indexing.js adapter — documentRecordSchema wiring', () => {
-  it('passes the profile-declared documentRecord schema through to createIndexer', async () => {
-    const { getProfile } = await import('$lib/profile.js')
-    await import('$lib/indexing.js')
+await import('$lib/indexing.js')
 
-    expect(mockCreateIndexer).toHaveBeenCalledTimes(1)
-    const deps = mockCreateIndexer.mock.calls[0][0]
+describe('#217 indexing adapter reads the profile', () => {
+  it('passes api.documentRecord as documentRecordSchema', () => {
+    expect(captured.documentRecordSchema).toEqual(fakeProfile.api.documentRecord)
+  })
 
-    const expectedSchema = getProfile().vocabulary.documentRecord
-    expect(deps.documentRecordSchema).toBeDefined()
-    expect(Array.isArray(deps.documentRecordSchema)).toBe(true)
-    expect(deps.documentRecordSchema.length).toBeGreaterThan(0)
-    expect(deps.documentRecordSchema).toEqual(expectedSchema)
+  it('uses api.handlers.default for the handler registry default, not .env', () => {
+    const def = captured.handlerRegistry.getDefault?.()
+    expect(def?.mode ?? def ?? captured.handlerRegistry.default).toBe('markdown')
+  })
+
+  it('passes the effective namespace list', () => {
+    expect(captured.namespaces.map((n) => n.prefix)).toContain('schema')
   })
 })
