@@ -1,175 +1,321 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://octothorp.es/profile.schema.json",
-  "title": "OP Client Profile (Rev 1)",
-  "description": "Frozen Rev-1 contract for an OP Client's profile. One profile per install, committed at repo root as profile.json, served publicly at /profile and /profile.json. Contains NO secrets by construction: credentials/tokens/passwords live only in .env and are resolved at point-of-use by `provider`. See issues #215 (epic) and #216 (Rev 1), and docs/plans/point7/2026-07-02-profile-vocabulary-decoupling.md. Field buckets: A. behavior-gating (relay, indexing*, registrationPolicy, *Harmonizer(s), *Publisher(s), vocabularyDocument, contentLabels, externalAccounts, vocabulary) — inert in Rev 1, wired in Rev 2 (#217); B. declarative identity (name, description, favicon, badge, avatar, terms, contacts, commercialActivity) — only /profile renders them; C. secrets — .env only, never here.",
+  "title": "OP Client Profile (authored)",
+  "description": "The declarative half of an OP Client Profile. This file declares intent and pointers only; anything discoverable (named publishers, harmonizers) is resolved at init from the declared directories and surfaced via the resolved profile, never written here. Every field is optional unless noted; the loader fills documented defaults.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "description", "vocabulary"],
   "properties": {
-    "relay": {
-      "description": "This relay's canonical URI. LOADER-RESOLVED: the committed profile MUST set this to null; the C2 loader (packages/core/profile.js) fills it from .env `instance` at load time so the value is never duplicated across the file and .env. Stored as null here to keep the file the single non-secret source of truth without owning the relay URL.",
-      "type": "null"
-    },
-    "indexingMode": {
-      "description": "Whether the relay actively crawls/indexes or only indexes on explicit request.",
-      "type": "string",
-      "enum": ["active", "on-request"]
-    },
-    "indexingFrequency": {
-      "description": "Advisory cadence for active indexing. Free-form label (e.g. 'hourly', 'daily'); semantics finalized in Rev 2.",
-      "type": "string"
-    },
-    "registrationPolicy": {
-      "description": "Who may register with this relay.",
-      "type": "string",
-      "enum": ["open", "invite", "closed"]
-    },
-    "defaultHarmonizer": {
-      "description": "Name of the harmonizer/handler mode used when none is specified (mirrors .env default_handler in Rev 1; wired from profile in Rev 2).",
-      "type": "string"
-    },
-    "namedHarmonizers": {
-      "description": "Additional harmonizers this client exposes by name. Empty in Rev 1.",
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "defaultPublisher": {
-      "description": "Name of the publisher used when none is specified.",
-      "type": "string"
-    },
-    "namedPublishers": {
-      "description": "Additional publishers this client exposes by name. Empty in Rev 1.",
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "vocabularyDocument": {
-      "description": "URI of this client's vocabulary document (#194). The canonical core vocab lives in core; this points at the client's additions.",
-      "type": "string",
-      "format": "uri"
-    },
-    "contentLabels": {
-      "description": "Content labels this client declares (#192). Empty in Rev 1.",
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "externalAccounts": {
-      "description": "Accounts the relay itself posts to. PUBLIC side only: { provider, handle }. Credentials are NEVER here — the loader resolves them from .env keyed by `provider` at point-of-use (#216).",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["provider", "handle"],
-        "properties": {
-          "provider": {
-            "description": "Stable provider key used to look up credentials in .env at point-of-use.",
-            "type": "string"
+    "$schema": { "type": "string" },
+
+    "identity": {
+      "description": "Who this client is. Everything here is optional and identity-only — nothing operational. Consumers render what's present and skip what isn't (the 'OP Client card').",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instance": {
+          "description": "Canonical base URL of this client. Authored here rather than .env (.env is secrets-only); a deploy-level environment override, when present, wins — see loader precedence notes. Required for a functioning client, but may be supplied entirely by the override (e.g. staging).",
+          "type": "string",
+          "format": "uri"
+        },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "terms": {
+          "description": "Usable URI prefix for all terms on this instance — appending a term name yields that term's URI (and is how feeds.thorpes term names expand). Must match the prefix actually minted into the graph (currently instance + '~/'). NOTE: this key previously meant terms-of-service; that link needs a new home (rules?).",
+          "type": "string",
+          "format": "uri"
+        },
+        "feeds": {
+          "description": "Known-shape feed pointers for building a rich client card: 'if you want to follow / embed / explore this relay, pay attention to these.' Keys are conventional slots. A value is either a URL (relative to instance or absolute) or an array of term names the consumer builds feed URLs from.",
+          "type": "object",
+          "properties": {
+            "thorpes": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ]
+            },
+            "multipass": { "type": "string" }
           },
-          "handle": {
-            "description": "Public handle/identifier on that provider.",
-            "type": "string"
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } }
+            ]
+          }
+        },
+        "images": {
+          "description": "Identity imagery. All optional. Note: the registration badge is NOT identity — it lives at policies.access.badge.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "favicon": { "type": "string" },
+            "avatar": { "type": "string" },
+            "blinkie": { "type": "string" },
+            "stamp": { "type": "string" },
+            "preview": { "type": "string" },
+            "button": { "type": "string" }
+          }
+        },
+        "contact": {
+          "description": "Freeform map of contact/follow points ({ email, bluesky, fediverse, ... }). This replaces the old externalAccounts field: discovery lives here; posting credentials live in .env, resolved at point-of-use by a posting publisher's own config.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+
+    "policies": {
+      "description": "What this client will and won't do.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commercial": {
+          "description": "Whether this relay engages in / indexes commercial activity. A relay that indexes commercial activity is a commercial relay.",
+          "type": "boolean",
+          "default": false
+        },
+        "labels": {
+          "description": "Content labels. Reserved — rides on #192 via #270. Shape TBD there.",
+          "type": "array",
+          "default": []
+        },
+        "indexing": {
+          "description": "WHAT TRIGGERS indexing. Orthogonal to policies.access.registration, which governs WHAT GATE an index request must pass. All six combinations are valid.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "description": "'request' (default): indexing happens only when asked via /index. 'active': this client crawls/re-indexes on its own schedule. Maps to core's createClient({ config.indexingMode }) as the IDENTITY function — same two spellings, no translation table.",
+              "type": "string",
+              "enum": ["request", "active"],
+              "default": "request"
+            },
+            "frequency": {
+              "description": "Re-index cadence when mode is 'active'. Inert under 'request'.",
+              "type": "string"
+            }
+          }
+        },
+        "access": {
+          "description": "WHAT GATE an index request must pass. Orthogonal to policies.indexing.mode (what triggers indexing).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "registration": {
+              "description": "The registration gate the indexing process enforces. 'registered' (default): the source origin must be verified in this client's datastore — today's behavior, the verifiedOrigin check in the indexer. 'open': no gate; any URL may be indexed (this is the ONLY mode in which blocks.domains is meaningful — allow all except listed; blocks.terms is separate and applies in every mode). 'closed': nothing is indexed unless its origin appears in whitelist.domains; a non-empty whitelist.domains is required or the relay can index nothing. NOTE: 'invite' was dropped from this enum — 'closed' plus a whitelist IS invite-only, and octothorp.es's own flow (submit form -> admin email -> admin approves) is just 'registered' with a human in the loop.",
+              "type": "string",
+              "enum": ["registered", "open", "closed"],
+              "default": "registered"
+            },
+            "badge": {
+              "description": "Path to the badge image OP uses operationally (e.g. #168: badge triggers a registration request). Operational, not identity — identity imagery is identity.images.",
+              "type": "string"
+            },
+            "blocks": {
+              "description": "Public blocklists, in two independent kinds with two DIFFERENT enforcement points. `domains` is the origin blocklist and is MEANINGFUL ONLY when registration is 'open' (allow all except these) — enforced at the access gate in the indexing path. `terms` is a term blocklist and is ORTHOGONAL TO THE REGISTRATION MODE: it applies under 'registered', 'open' and 'closed' alike, because a relay wants to refuse a slur term regardless of how its origin gate is configured; enforcement is at WRITE time during indexing, dropping the offending statement while the rest of the page indexes normally (the page is NOT rejected wholesale). Advertised deliberately; private blocks are the client's own business, rolled outside the profile. Validation guidance: a non-empty blocks.domains under any mode other than 'open' is a configuration error worth warning on — under 'registered' and 'closed' the gate already excludes unlisted origins, so the list is inert and misleadingly advertised. blocks.terms carries NO such restriction and is never warned on. NOT RETROACTIVE: statements already written about a term that is later added to blocks.terms are not removed — retroactive removal is deletion work and belongs to epic #271. Read-time filtering (refusing to SERVE a blocked term's page) is deliberately not implemented; this is write-time only.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "domains": {
+                  "description": "Origin blocklist: either an inline array of strings, or a string path to a JSON file containing an array of strings. Blocklists get long and are often maintained separately, sometimes shared between deployments. The loader expands a path via an injected read dependency; a missing or unparseable file is a LOAD-TIME ERROR, not a silent empty list. The resolved profile always surfaces the expanded array, never the path.",
+                  "oneOf": [
+                    { "type": "array", "items": { "type": "string" } },
+                    { "type": "string" }
+                  ],
+                  "default": []
+                },
+                "terms": {
+                  "description": "Term blocklist: same array-or-path form and same expansion rules as domains. Applies in ALL registration modes. A harmonized blobject carrying an octothorpe that names a blocked term has that statement dropped at write time; sibling statements on the same page still index.",
+                  "oneOf": [
+                    { "type": "array", "items": { "type": "string" } },
+                    { "type": "string" }
+                  ],
+                  "default": []
+                }
+              }
+            },
+            "whitelist": {
+              "description": "Public allowlist. MEANINGFUL ONLY when registration is 'closed' (index nothing except these), where it declares this relay's curated scope. Shaped as an object for symmetry with blocks, but carries `domains` ONLY: a terms allowlist is a different product decision with no current use case, so it is deliberately absent rather than reserved. Validation guidance: registration 'closed' with an empty whitelist.domains is a configuration error worth warning on — the relay can index nothing at all.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "domains": {
+                  "description": "Origin allowlist: either an inline array of strings, or a string path to a JSON file containing an array of strings, expanded by the loader exactly like blocks.domains.",
+                  "oneOf": [
+                    { "type": "array", "items": { "type": "string" } },
+                    { "type": "string" }
+                  ],
+                  "default": []
+                }
+              }
+            }
           }
         }
       }
     },
-    "name": {
-      "description": "Human-readable client name.",
-      "type": "string",
-      "minLength": 1
-    },
-    "description": {
-      "description": "Short human-readable description of the client.",
-      "type": "string",
-      "minLength": 1
-    },
-    "favicon": {
-      "description": "Favicon URL or site-relative path.",
-      "type": ["string", "null"]
-    },
-    "badge": {
-      "description": "OP badge image URL or site-relative path (mirrors .env badge_image).",
-      "type": ["string", "null"]
-    },
-    "avatar": {
-      "description": "Avatar image URL or site-relative path.",
-      "type": ["string", "null"]
-    },
-    "terms": {
-      "description": "URI of the client's terms of service.",
-      "type": ["string", "null"],
-      "format": "uri"
-    },
-    "contacts": {
-      "description": "Contacts for admins/mods, distinct from externalAccounts.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["name"],
-        "properties": {
-          "name": { "type": "string" },
-          "email": { "type": "string", "format": "email" }
-        }
-      }
-    },
-    "commercialActivity": {
-      "description": "Whether the client engages in commercial activity.",
-      "type": "boolean"
-    },
-    "vocabulary": {
-      "description": "The client's vocabulary additions. Two independent arrays with opposite declaration semantics (see 'The subtype / documentRecord asymmetry' in the decoupling doc): relationshipSubtypes declare TO BE PROMOTED (optional, opt-in first-class path); documentRecord entries declare TO BE ADMITTED AT ALL (required to store + type + project).",
+
+    "api": {
+      "description": "What this client's API admits and exposes. linkTypes and documentRecord are authored declarations; publishers, handlers and harmonizers are POINTERS — the actual registries are resolved at init from the declared directories and appear only in the resolved profile. The three extension dirs are SIBLINGS, not nested: harmonizer definitions reference handlers through their `mode` field, so the dependency points harmonizer -> handler and nesting handlers under harmonizers would invert it. They are also different artifact kinds — handlers are JS modules exporting a function, harmonizers are declarative JSON ({ id, type, title, mode, schema: { subject: { ...selectors } } }) — so the same `dir` pattern is served by two different loaders: import modules vs read-and-validate JSON. A local harmonizer JSON file is the same shape as a harmonizer fetched over HTTP.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["relationshipSubtypes", "documentRecord"],
       "properties": {
-        "relationshipSubtypes": {
-          "description": "Traversable custom edge types promoted to first-class API paths (#236). Undeclared subtypes still flow into the octothorpes array and are reachable ad-hoc via ?st= (#200); declaring one mints /get/<path>/<by> routes. May be empty.",
+        "linkTypes": {
+          "description": "Declared first-class link types (formerly relationshipSubtypes, #236). Each mints a dedicated /get/<path>/<by> route; label feeds the generated vocabulary document. Undeclared types still work ad-hoc via ?st= (#200).",
           "type": "array",
+          "default": [],
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["type", "label", "path"],
+            "required": ["type", "path"],
             "properties": {
-              "type": {
-                "description": "The subtype class name, stored as octo:<type> (e.g. 'AliasOf', 'Item').",
-                "type": "string"
-              },
-              "label": {
-                "description": "Human-readable label for generated context/vocab docs (e.g. 'is an alias of').",
-                "type": "string"
-              },
-              "path": {
-                "description": "URL path segment for the minted routes (e.g. 'aliasesOf' -> /get/aliasesOf/posted).",
-                "type": "string"
-              }
+              "type": { "type": "string" },
+              "label": { "type": "string" },
+              "path": { "type": "string" }
             }
           }
         },
         "documentRecord": {
-          "description": "Non-canonical LEAF predicates admitted into blobject.documentRecord (#237). This list is the admission allowlist AND the typing contract: only declared predicates are stored/projected (undeclared harmonizer output is dropped, the #166 abuse guard), and `range` drives the value's JSON type in and out. documentRecord is never traversed by the relationship engine. May be empty (then no documentRecord key is projected).",
+          "description": "Admission + typing contract for document-record predicates (#237): what non-canonical metadata this client stores on index.",
           "type": "array",
+          "default": [],
           "items": {
             "type": "object",
             "additionalProperties": false,
             "required": ["predicate", "namespace", "range"],
             "properties": {
-              "predicate": {
-                "description": "Local predicate name (e.g. 'encodingFormat', 'sha256', 'addedBy').",
+              "predicate": { "type": "string" },
+              "namespace": {
+                "description": "Short prefix resolved through core builtins plus vocabulary.namespaces.",
                 "type": "string"
               },
-              "namespace": {
-                "description": "Namespace prefix the predicate belongs to (e.g. 'schema', 'memex'). Resolved to an IRI by the vocabulary/context layer.",
-                "type": "string"
+              "iri": {
+                "description": "Explicit full predicate IRI; bypasses namespace resolution.",
+                "type": "string",
+                "format": "uri"
               },
               "range": {
-                "description": "Value type for storage typing and read-side projection: literal->string, uri->string (semantically a node), timestamp->ISO-8601 string, number->JSON number, boolean->JSON boolean. Enum matches the projection plan (docs/plans/point7/2026-07-07-documentrecord-projection.md).",
                 "type": "string",
-                "enum": ["literal", "uri", "timestamp", "number", "boolean"]
+                "enum": ["literal", "uri", "number", "timestamp"]
+              }
+            }
+          }
+        },
+        "publishers": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dir": {
+              "description": "Directory of site publishers. Init walks it and registers what it finds; discovered names appear in the resolved profile, never here.",
+              "type": "string"
+            },
+            "named": {
+              "description": "Reserved: remote/additional publishers declared by reference ({ name, url }). Unioned with dir discovery at resolve time.",
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "object",
+                "required": ["name", "url"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "url": { "type": "string", "format": "uri" }
+                }
+              }
+            }
+          }
+        },
+        "handlers": {
+          "description": "Content HANDLERS: JS modules exporting a harmonize function, registered by `mode` and by content-type. Sibling of harmonizers, not a child of it.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dir": {
+              "description": "Directory of site handler modules, walked at init like publishers.dir. Each module's default export is registered into the handler registry.",
+              "type": "string"
+            },
+            "default": {
+              "description": "Default handler MODE when dispatch can't decide (explicit mode -> content-type -> this). Lives here, not under harmonizers: 'html' is a handler mode, not a harmonizer id — that category error is what this split fixes.",
+              "type": "string",
+              "default": "html"
+            },
+            "named": {
+              "description": "Reserved: remote/additional handlers by reference, unioned at resolve time.",
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "object",
+                "required": ["name", "url"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "url": { "type": "string", "format": "uri" }
+                }
+              }
+            }
+          }
+        },
+        "harmonizers": {
+          "description": "HARMONIZERS: declarative JSON definitions ({ id, type, title, mode, schema }) that select fields out of a source. Each names the handler it runs under via `mode`, so handlers must be discoverable independently.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dir": {
+              "description": "Directory of site harmonizer definitions (.json), read and validated at init. Different loader from handlers.dir — these are data, not modules.",
+              "type": "string"
+            },
+            "named": {
+              "description": "Reserved: remote harmonizers by reference, unioned at resolve time.",
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "object",
+                "required": ["name", "url"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "url": { "type": "string", "format": "uri" }
+                }
               }
             }
           }
         }
       }
+    },
+
+    "vocabulary": {
+      "description": "Namespace declarations for SPARQL and documentRecord resolution, and the identity of the OP vocabulary itself.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "octo": {
+          "description": "The OP vocabulary namespace IRI. Defaults to the canonical vocabulary; override ONLY to use a forked or self-hosted vocabulary. Overriding is identity-affecting: different IRIs are written into the graph and your data no longer merges with standard-vocab relays. The resolved profile always surfaces the effective value.",
+          "type": "string",
+          "format": "uri",
+          "default": "https://vocab.octothorp.es#"
+        },
+        "namespaces": {
+          "description": "External namespaces this client operates with. Replaces core's hardcoded namespace map as the extension point; core still ships protocol builtins (octo, rdf, schema — foaf was audited as unused and demoted to declare-if-you-want-it).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["prefix", "iri"],
+            "properties": {
+              "prefix": { "type": "string" },
+              "iri": { "type": "string", "format": "uri" },
+              "import": {
+                "description": "false (default): declare-only — the prefix resolves in queries and documentRecord entries. true: init fetches the ontology and loads its triples into a named graph (Oxigraph does no inference; imported triples serve only queries that traverse them explicitly). Import implementation may ride with #270.",
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "federation": {
+      "description": "RESERVED — post-v0.7 (candidate v0.8 main feature). Will hold replicate (dump/changefeed) first, query (read-only SPARQL passthrough tri-state) later. Declaring it now is a no-op.",
+      "type": "object"
     }
   }
 }
