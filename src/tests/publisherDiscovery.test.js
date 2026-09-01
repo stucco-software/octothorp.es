@@ -70,3 +70,19 @@ describe('discoverPublishers (#217 wave 3)', () => {
     expect(skipped[0].name).toBe('empty')
   })
 })
+
+describe('SvelteKit publisher discovery adapter', () => {
+  it('discovers the shipped site publishers from api.publishers.dir', async () => {
+    const { publishers } = await import('$lib/publishers/index.js')
+    expect(Object.keys(publishers).length).toBeGreaterThan(0)
+    for (const name of Object.keys(publishers)) {
+      expect(name.startsWith('_')).toBe(false)
+      expect(typeof publishers[name]).toBe('object')
+    }
+  })
+
+  it('exposes skipped publishers rather than throwing', async () => {
+    const { skippedPublishers } = await import('$lib/publishers/index.js')
+    expect(Array.isArray(skippedPublishers)).toBe(true)
+  })
+})
