@@ -17,6 +17,7 @@ export const op = createClient({
     password: sparql_password,
   },
   publishers,
+  profile,
   defaultHandler: profile.api.handlers.default,
   // The two policy axes travel separately and are never collapsed:
   //   indexingMode        — WHAT TRIGGERS indexing ('request' | 'active')

@@ -442,8 +442,11 @@ export const createPublisherRegistry = () => {
     const wrapped = isFlat
       ? { resolver: normalized, contentType: normalized.contentType, meta: normalized.meta ?? {}, envelope: normalized.envelope, requires: normalized.requires, render: normalized.render }
       : { ...normalized, resolver: normalizeEnvelope(normalized.resolver) }
-    if (!wrapped.resolver || !wrapped.contentType || typeof wrapped.render !== 'function') {
-      throw new Error('Publisher must have resolver, contentType, and render')
+    // resolver/contentType are required to actually publish, but a minimal
+    // stub (meta + render only) is a legitimate registration — e.g. for
+    // resolvedProfile()'s available-names listing without a real feed shape.
+    if (typeof wrapped.render !== 'function') {
+      throw new Error('Publisher must have a render function')
     }
     publishers[name] = wrapped
   }

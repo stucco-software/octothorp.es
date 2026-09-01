@@ -11,6 +11,7 @@ import xmlHandler from './handlers/xml/handler.js'
 import calendarHandler from './handlers/calendar/handler.js'
 import markdownHandler from './handlers/markdown/handler.js'
 import { publish } from './publish.js'
+import { resolveProfile } from './resolveProfile.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
@@ -126,7 +127,9 @@ const normalizeIndexPolicy = (policy) => {
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
  *   which is a no-op identical to prior behavior.
- * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api }}
+ * @param {Object} [config.profile] - A resolved profile (result of `getProfile()`). When supplied,
+ *   `resolvedProfile()` projects it against what actually registered (publishers/handlers/harmonizers).
+ * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api, resolvedProfile }}
  */
 export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
@@ -212,6 +215,25 @@ export const createClient = (config) => {
     for (const [name, publisher] of Object.entries(config.publishers)) {
       publisherRegistry.register(name, publisher)
     }
+  }
+
+  // #217: the resolved profile is computed once at init from what actually
+  // registered, then handed back by a pure getter. Publishing it is the client
+  // owner's choice — mounting at /profile is convention, not requirement.
+  const resolved = config.profile
+    ? resolveProfile({
+        profile: config.profile,
+        publisherNames: publisherRegistry.listPublishers(),
+        handlerNames: handlerRegistry.listHandlers(),
+        harmonizerNames: registry.listHarmonizers?.() ?? [],
+      })
+    : null
+
+  const resolvedProfile = () => {
+    if (!resolved) {
+      throw new Error('resolvedProfile() requires createClient({ profile }) — no profile was supplied')
+    }
+    return resolved
   }
 
   const get = async ({ what, by, as: asFormat, debug: debugFlag, pubDefs = {}, ...rest } = {}) => {
@@ -306,5 +328,6 @@ export const createClient = (config) => {
     publisher: publisherRegistry,
     sparql,
     api,
+    resolvedProfile,
   }
 }

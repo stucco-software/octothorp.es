@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve as res } from 'node:path'
-import { createProfile, resolveProfile, expandTermUri, absolutize } from 'octothorpes'
+import { createProfile, resolveProfile, expandTermUri, absolutize, createClient } from 'octothorpes'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const schema = JSON.parse(readFileSync(res(here, '../../packages/core/profile.schema.json'), 'utf8'))
@@ -153,5 +153,39 @@ describe('resolveProfile — purity', () => {
     }
     walk(resolved())
     expect(keys.some((k) => /key|secret|token|password|credential/i.test(k))).toBe(false)
+  })
+})
+
+describe('client.resolvedProfile()', () => {
+  const mk = (extra = {}) => createClient({
+    instance: 'https://example.test/',
+    sparql: { endpoint: 'http://localhost:1/unused' },
+    profile,
+    publishers: { blarg: { meta: { name: 'blarg' }, render: () => '' } },
+    ...extra,
+  })
+
+  it('includes core builtin publishers and the injected ones', () => {
+    const available = mk().resolvedProfile().api.publishers.available
+    expect(available).toContain('blarg')
+    expect(available).toContain('rss2')
+  })
+
+  it('includes registered harmonizer names', () => {
+    expect(mk().resolvedProfile().api.harmonizers.available).toContain('default')
+  })
+
+  it('includes builtin handler modes under api.handlers.available', () => {
+    expect(mk().resolvedProfile().api.handlers.available).toContain('html')
+  })
+
+  it('is a stable getter — same value, no I/O per call', () => {
+    const client = mk()
+    expect(client.resolvedProfile()).toEqual(client.resolvedProfile())
+  })
+
+  it('throws a clear error when the client was built without a profile', () => {
+    const client = createClient({ instance: 'https://example.test/', sparql: { endpoint: 'http://localhost:1/x' } })
+    expect(() => client.resolvedProfile()).toThrow(/profile/i)
   })
 })

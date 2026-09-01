@@ -350,5 +350,7 @@ export const createHarmonizerRegistry = (instance) => {
     )
   }
 
-  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode }
+  const listHarmonizers = () => Object.keys(localHarmonizers)
+
+  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode, listHarmonizers }
 }
