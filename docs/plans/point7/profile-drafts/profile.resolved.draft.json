@@ -1,0 +1,70 @@
+{
+  "//": "DRAFT — example of the RESOLVED profile: what op.resolvedProfile() returns and what /profile.json serves (exposing it publicly is the client owner's choice; /profile is convention). Authored declarations + loader defaults + init-time discovery, merged. Never written to disk; a projection of the live client that cannot drift from what actually runs.",
+
+  "identity": {
+    "instance": "https://octothorp.es/",
+    "name": "Octothorpes",
+    "description": "The Octothorpes Protocol relay and reference client.",
+    "terms": "https://octothorp.es/terms",
+    "feeds": {
+      "thorpes": ["octothorpe-news", "cats"],
+      "multipass": "https://octothorp.es/news-and-favs.json"
+    },
+    "images": {
+      "favicon": "https://octothorp.es/favicon.ico",
+      "avatar": "https://octothorp.es/avatar.png"
+    },
+    "contact": {
+      "email": "admin@octothorp.es",
+      "bluesky": "@octothorp.es"
+    }
+  },
+
+  "policies": {
+    "commercial": false,
+    "labels": [],
+    "indexing": {
+      "mode": "request",
+      "frequency": "hourly"
+    },
+    "access": {
+      "registration": "registered",
+      "badge": "https://octothorp.es/badge.png",
+      "blocks-note//": "always the EXPANDED arrays, never a path — a path-form authored blocklist is read and parsed at load time and only its contents appear here",
+      "blocks": {
+        "domains": [],
+        "terms": []
+      },
+      "whitelist": {
+        "domains": []
+      }
+    }
+  },
+
+  "api": {
+    "linkTypes": [],
+    "documentRecord": [],
+    "publishers": {
+      "default-note//": "discovered at init from api.publishers.dir plus core builtins; names only — publisher internals are not profile data",
+      "available": ["rss2", "ics", "standardSiteDocument", "bluesky", "blarg", "readable", "semble"]
+    },
+    "handlers": {
+      "default-note//": "builtin handler modes plus anything discovered at init from api.handlers.dir; 'csv' is the site-level demo handler at src/lib/handlers/csv.js",
+      "default": "html",
+      "available": ["html", "json", "xml", "blobject", "markdown", "calendar", "csv"]
+    },
+    "harmonizers": {
+      "default-note//": "core local harmonizers plus JSON definitions read from api.harmonizers.dir; 'csv' and 'anchors' are the site-level demos",
+      "available": ["default", "openGraph", "keywords", "rss", "csv", "anchors"]
+    }
+  },
+
+  "vocabulary": {
+    "octo": "https://vocab.octothorp.es#",
+    "namespaces": [
+      { "prefix": "schema", "iri": "https://schema.org/", "import": false, "source": "builtin" },
+      { "prefix": "rdf", "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#", "import": false, "source": "builtin" },
+      { "prefix": "skos", "iri": "http://www.w3.org/2004/02/skos/core#", "import": true, "source": "declared" }
+    ]
+  }
+}
