@@ -159,3 +159,41 @@ describe('#217 profile-driven namespaces', () => {
     expect(resolveDocumentRecordIri({ predicate: 'prefLabel', namespace: 'skos' })).toBeNull()
   })
 })
+
+describe('#217 wave 2 review fix: buildDocumentRecordClauses accepts the merged-array namespace shape', () => {
+  // mergeNamespaces() returns an Array of {prefix, iri, import, source} — the
+  // shape asserted at the op.get boundary by the route test in
+  // subtypePaths.test.js (options.namespaces). buildDocumentRecordClauses used
+  // to string-index that array as if it were a Record<string,string>, so every
+  // documentRecord entry using a declared (non-builtin) namespace silently
+  // resolved to null and its clause was dropped. This exercises the real
+  // query-building path with the merged-array shape and a non-builtin declared
+  // namespace to confirm the resolved IRI is emitted, not dropped.
+  const declaredNamespaces = mergeNamespaces([
+    { prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' },
+  ])
+
+  it('resolves a declared-namespace predicate to its IRI when given the array shape', () => {
+    const schema = [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }]
+    const { selectVars, optionals } = buildDocumentRecordClauses(schema, declaredNamespaces)
+
+    expect(selectVars).toContain('?dr_skos_prefLabel')
+    expect(optionals).toContain('http://www.w3.org/2004/02/skos/core#prefLabel')
+  })
+
+  it('still resolves builtin-namespace predicates when given the array shape', () => {
+    const schema = [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }]
+    const { selectVars, optionals } = buildDocumentRecordClauses(schema, declaredNamespaces)
+
+    expect(selectVars).toContain('?dr_schema_encodingFormat')
+    expect(optionals).toMatch(/encodingFormat/)
+  })
+
+  it('a Record<string,string> shape still works as before (backward compatible)', () => {
+    const schema = [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }]
+    const recordNamespaces = { skos: 'http://www.w3.org/2004/02/skos/core#' }
+    const { selectVars } = buildDocumentRecordClauses(schema, recordNamespaces)
+
+    expect(selectVars).toContain('?dr_skos_prefLabel')
+  })
+})
