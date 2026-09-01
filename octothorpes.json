@@ -1,5 +1,5 @@
 {
-  "$schema": "./docs/plans/point7/profile-drafts/profile.schema.draft.json",
+  "$schema": "./packages/core/profile.schema.json",
 
   "identity": {
     "instance": "https://octothorp.es/",

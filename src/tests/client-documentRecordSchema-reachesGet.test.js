@@ -42,4 +42,32 @@ describe('createClient documentRecordSchema default reaches get()', () => {
     expect(seen.join('\n')).toMatch(/schema\.org\/encodingFormat|dr_schema_encodingFormat/)
     spy.mockRestore()
   })
+
+  // #217 final review finding 1: createClient(config.namespaces) was captured
+  // but never threaded into get() — a documentRecord entry using a declared,
+  // non-builtin namespace (not schema/octo/rdf) silently resolved against
+  // builtins only and its clause was dropped from the query. Uses `skos`,
+  // which is not a builtin, to prove the client-level namespaces default
+  // actually reaches the generated SPARQL.
+  it('uses the client-level namespaces default to resolve a non-builtin documentRecord entry', async () => {
+    const seen = []
+    const client = createClient({
+      instance: 'https://example.test/',
+      sparql: { endpoint: 'http://localhost:1/unused' },
+      documentRecordSchema: [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }],
+      namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
+    })
+    let call = 0
+    const spy = vi.spyOn(global, 'fetch').mockImplementation(async (url, opts) => {
+      seen.push(String(opts?.body ?? ''))
+      call += 1
+      if (call === 1) {
+        return { ok: true, json: async () => ({ results: { bindings: [{ s: { type: 'uri', value: 'https://example.com/' } }] } }) }
+      }
+      return { ok: true, json: async () => ({ results: { bindings: [] } }) }
+    })
+    await client.get({ what: 'everything', by: 'posted', s: 'https://example.com/' })
+    expect(decodeURIComponent(seen.join('\n'))).toContain('http://www.w3.org/2004/02/skos/core#prefLabel')
+    spy.mockRestore()
+  })
 })

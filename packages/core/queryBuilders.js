@@ -72,7 +72,8 @@ export const namespaceMap = (namespaces = BUILTIN_NAMESPACES) =>
 export const resolveDocumentRecordIri = (entry, namespaces = namespaceMap()) => {
   if (!entry || !entry.predicate) return null
   if (entry.iri) return entry.iri
-  const lookup = Array.isArray(namespaces) ? namespaceMap(namespaces) : namespaces
+  const effective = namespaces ?? namespaceMap()
+  const lookup = Array.isArray(effective) ? namespaceMap(effective) : effective
   const base = lookup[entry.namespace]
   if (!base) return null
   return `${base}${entry.predicate}`
@@ -101,7 +102,8 @@ export const buildDocumentRecordClauses = (schema = [], namespaces = namespaceMa
   if (!Array.isArray(schema) || schema.length === 0) {
     return { selectVars: '', optionals: '' }
   }
-  const lookup = Array.isArray(namespaces) ? namespaceMap(namespaces) : namespaces
+  const effective = namespaces ?? namespaceMap()
+  const lookup = Array.isArray(effective) ? namespaceMap(effective) : effective
   const selectVars = []
   const optionals = []
   for (const entry of schema) {

@@ -393,6 +393,41 @@ describe('Indexing Business Logic', () => {
     })
   })
 
+  describe('recordDocumentRecord namespace threading (#217 final review)', () => {
+    // createIndexer receives `namespaces` from src/lib/indexing.js
+    // (mergeNamespaces(profile.vocabulary.namespaces)) but previously ignored
+    // it: resolveDocumentRecordIri was called with no map, so a declared
+    // (non-builtin) prefix like `skos` resolved to null and the write was
+    // silently skipped. This proves the config value is actually threaded
+    // into the resolver call, not just captured.
+    it('resolves a declared non-builtin namespace and writes it when namespaces are configured', async () => {
+      mockQuery.mockResolvedValue({})
+      const declaredIndexer = createIndexer({
+        insert: mockInsert,
+        query: mockQuery,
+        queryBoolean: mockQueryBoolean,
+        queryArray: mockQueryArray,
+        instance,
+        handlerRegistry: makeHandlerRegistry(),
+        namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
+      })
+      const schema = [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }]
+      await declaredIndexer.recordDocumentRecord('https://example.com/page', { prefLabel: 'Example' }, schema)
+      expect(mockQuery).toHaveBeenCalledTimes(1)
+      expect(mockQuery.mock.calls[0][0]).toContain('http://www.w3.org/2004/02/skos/core#prefLabel')
+    })
+
+    it('skips the declared-namespace predicate when no namespaces are configured (pre-fix behavior)', async () => {
+      mockQuery.mockResolvedValue({})
+      const schema = [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }]
+      // `indexer` (the shared instance) is built via makeIndexer() with no
+      // `namespaces`, so `skos` is unresolvable and the write is skipped —
+      // demonstrates the config value is what makes the difference above.
+      await indexer.recordDocumentRecord('https://example.com/page', { prefLabel: 'Example' }, schema)
+      expect(mockQuery).not.toHaveBeenCalled()
+    })
+  })
+
   describe('getAllMentioningUrls', () => {
     it('should return URLs from SPARQL bindings', async () => {
       mockQueryArray.mockResolvedValue({

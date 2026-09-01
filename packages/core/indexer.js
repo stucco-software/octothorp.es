@@ -166,7 +166,7 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, namespaces } = deps
 
   const p = 'octo:octothorpes'
   const indexCooldown = 300000 // 5min
@@ -473,7 +473,7 @@ export const createIndexer = (deps) => {
     for (const entry of schema) {
       const value = documentRecord[entry.predicate]
       if (value === undefined || value === null || value === '') continue
-      const iri = resolveDocumentRecordIri(entry)
+      const iri = resolveDocumentRecordIri(entry, namespaces)
       if (!iri) continue
       let object
       if (entry.range === 'uri') {
