@@ -1,6 +1,57 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest'
 import { buildMultiPass } from 'octothorpes'
 import { insert, query } from '$lib/sparql.js'
+
+// #217 wave 2: the route reads api.linkTypes (renamed from
+// vocabulary.relationshipSubtypes) and api.documentRecord (moved out of
+// vocabulary). Profile is mocked so this never depends on authored values.
+
+const fakeProfile = {
+  identity: { instance: 'https://example.test/' },
+  api: {
+    linkTypes: [{ type: 'Item', label: 'Item', path: 'items' }],
+    documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+  },
+  vocabulary: { octo: 'https://vocab.octothorp.es#', namespaces: [] },
+}
+
+vi.mock('$lib/profile.js', () => ({ getProfile: () => fakeProfile }))
+
+const seen = []
+vi.mock('$lib/op.js', () => ({
+  op: {
+    get: async (args) => { seen.push(args); return { results: [] } },
+    publisher: { getPublisher: () => null },
+  },
+}))
+
+const { load } = await import('../routes/get/[what]/[by]/[[as]]/load.js')
+
+describe('#217 route reads api.linkTypes / api.documentRecord', () => {
+  beforeEach(() => { seen.length = 0 })
+
+  it('rewrites a declared linkTypes path to a subtype-filtered everything query', async () => {
+    await load({ params: { what: 'items', by: 'posted' }, url: new URL('https://example.test/get/items/posted'), fetch })
+    expect(seen[0].what).toBe('everything')
+    expect(seen[0].subtype).toBe('Item')
+  })
+
+  it('leaves an undeclared what untouched', async () => {
+    await load({ params: { what: 'everything', by: 'posted' }, url: new URL('https://example.test/get/everything/posted'), fetch })
+    expect(seen[0].what).toBe('everything')
+    expect(seen[0].subtype).toBeUndefined()
+  })
+
+  it('injects api.documentRecord as the read-path schema', async () => {
+    await load({ params: { what: 'everything', by: 'posted' }, url: new URL('https://example.test/get/everything/posted'), fetch })
+    expect(seen[0].documentRecordSchema).toEqual(fakeProfile.api.documentRecord)
+  })
+
+  it('injects the effective namespaces so declared prefixes resolve', async () => {
+    await load({ params: { what: 'everything', by: 'posted' }, url: new URL('https://example.test/get/everything/posted'), fetch })
+    expect(seen[0].namespaces.map((n) => n.prefix)).toContain('schema')
+  })
+})
 
 // C9 (#236): profile-declared relationship subtypes get first-class API paths.
 // The committed octothorpes.json declares Item -> path "items" and AliasOf ->

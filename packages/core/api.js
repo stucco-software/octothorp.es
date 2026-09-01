@@ -42,7 +42,7 @@ export const createApi = (config) => {
         case 'everything':
         case 'blobjects':
         case 'whatever':
-          query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema: options.documentRecordSchema })
+          query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema: options.documentRecordSchema, documentRecordNamespaces: options.namespaces })
           break
         case 'thorpes':
         case 'octothorpes':
@@ -86,7 +86,7 @@ export const createApi = (config) => {
         // the profile itself). Undefined when no profile is wired -> projection
         // is a no-op, identical to prior behavior.
         const documentRecordSchema = options.documentRecordSchema
-        query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema })
+        query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema, documentRecordNamespaces: options.namespaces })
         const bj = await queryArray(query)
         actualResults = await getBlobjectFromResponse(bj, multiPass.filters, documentRecordSchema)
         actualResults = await enrichBlobjectTargets(actualResults)

@@ -1,6 +1,7 @@
 import { op } from '$lib/op.js'
 import { getQueryOptions } from '$lib/converters.js'
 import { getProfile } from '$lib/profile.js'
+import { mergeNamespaces } from 'octothorpes'
 
 // Thin adapter: map the request to op.get (core owns querying + publishing),
 // then hand the payload + the publisher's contentType to +server.js for
@@ -21,17 +22,21 @@ export async function load({ params, url, fetch }) {
   const pubDefs = { utils: { fetch }, link: url.href }
 
   const profile = getProfile()
-  const vocab = profile.vocabulary || {}
+  const { linkTypes, documentRecord } = profile.api
 
-  // C9: intercept declared subtype paths -> subtype-filtered blobject query.
-  const subtypeDecl = (vocab.relationshipSubtypes || []).find(st => st.path === what)
-  if (subtypeDecl) {
-    options.subtype = subtypeDecl.type
+  // #236, renamed in #217: a `what` matching a declared linkTypes[].path is a
+  // first-class link-type path — rewritten to a subtype-filtered blobject query.
+  const linkType = linkTypes.find((lt) => lt.path === what)
+  if (linkType) {
+    options.subtype = linkType.type
     what = 'everything'
   }
 
-  // C7: hand the declared documentRecord schema to the blobject read path.
-  options.documentRecordSchema = vocab.documentRecord
+  // #237, moved to api in #217: hand the declared documentRecord schema and the
+  // effective namespace list to the blobject read path. Core stays
+  // framework-agnostic — the profile reaches it as injected values.
+  options.documentRecordSchema = documentRecord
+  options.namespaces = mergeNamespaces(profile.vocabulary.namespaces)
 
   const output = await op.get({ what, by, as, ...options, pubDefs })
 
