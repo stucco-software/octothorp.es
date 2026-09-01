@@ -115,6 +115,7 @@ const fakeProfile = {
     documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
     handlers: { dir: null, default: 'html' },
     harmonizers: { dir: null },
+    publishers: { dir: null },
   },
   policies: {
     indexing: { mode: 'request' },
