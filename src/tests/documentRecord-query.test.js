@@ -4,7 +4,11 @@ import {
   resolveDocumentRecordIri,
   documentRecordVar,
   buildDocumentRecordClauses,
+  BUILTIN_NAMESPACES,
+  mergeNamespaces,
+  namespaceMap,
 } from 'octothorpes'
+import corePrefixes from '../../packages/core/ld/prefixes.js'
 
 // The frozen C1 declaration shape (committed example in octothorpes.json).
 const SCHEMA = [
@@ -91,5 +95,67 @@ describe('C5 buildEverythingQuery surfaces declared predicates', () => {
     const q = await builders.buildEverythingQuery(multiPass)
     expect(q).not.toContain('dr_schema_')
     expect(q).not.toContain('schema.org')
+  })
+})
+
+describe('#217 profile-driven namespaces', () => {
+  it('ships octo, rdf and schema as builtins — and not foaf', () => {
+    expect(BUILTIN_NAMESPACES.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'schema'])
+  })
+
+  it('drops the unused foaf PREFIX from the injected SPARQL prologue', () => {
+    expect(corePrefixes).not.toMatch(/foaf/)
+    expect(corePrefixes).toMatch(/PREFIX octo:/)
+  })
+
+  it('tags builtin vs declared', () => {
+    const merged = mergeNamespaces([
+      { prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true },
+    ])
+    expect(merged.find((n) => n.prefix === 'octo').source).toBe('builtin')
+    const skos = merged.find((n) => n.prefix === 'skos')
+    expect(skos.source).toBe('declared')
+    expect(skos.import).toBe(true)
+  })
+
+  it('a declared namespace overrides a builtin of the same prefix', () => {
+    const merged = mergeNamespaces([{ prefix: 'schema', iri: 'https://fork.test/schema/' }])
+    const schema = merged.filter((n) => n.prefix === 'schema')
+    expect(schema).toHaveLength(1)
+    expect(schema[0].iri).toBe('https://fork.test/schema/')
+    expect(schema[0].source).toBe('declared')
+  })
+
+  it('mergeNamespaces() with no argument is just the builtins', () => {
+    expect(mergeNamespaces().map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'schema'])
+  })
+
+  it('resolves a documentRecord IRI through a declared namespace', () => {
+    const ns = namespaceMap(mergeNamespaces([
+      { prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' },
+    ]))
+    expect(resolveDocumentRecordIri({ predicate: 'prefLabel', namespace: 'skos' }, ns))
+      .toBe('http://www.w3.org/2004/02/skos/core#prefLabel')
+  })
+
+  it('import:true resolves exactly like import:false (declare-only in v0.7)', () => {
+    const declared = [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true }]
+    const withImport = namespaceMap(mergeNamespaces(declared))
+    const withoutImport = namespaceMap(mergeNamespaces(
+      declared.map((n) => ({ ...n, import: false }))
+    ))
+    expect(withImport).toEqual(withoutImport)
+    const entry = { predicate: 'prefLabel', namespace: 'skos' }
+    expect(resolveDocumentRecordIri(entry, withImport))
+      .toBe(resolveDocumentRecordIri(entry, withoutImport))
+  })
+
+  it('falls back to builtins when no namespaces are passed', () => {
+    expect(resolveDocumentRecordIri({ predicate: 'encodingFormat', namespace: 'schema' }))
+      .toBe('https://schema.org/encodingFormat')
+  })
+
+  it('returns null for an undeclared prefix rather than minting a malformed IRI', () => {
+    expect(resolveDocumentRecordIri({ predicate: 'prefLabel', namespace: 'skos' })).toBeNull()
   })
 })

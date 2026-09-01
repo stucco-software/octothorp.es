@@ -14,23 +14,65 @@ import { getFuzzyTags } from './utils.js'
  * blank-node machinery. This keeps the feature orthogonal to the RDF-star
  * migration.
  */
-export const documentRecordNamespaces = {
-  schema: 'https://schema.org/',
-  octo: 'https://vocab.octothorp.es#',
-  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-  foaf: 'http://xmlns.com/foaf/0.1/',
+/**
+ * Protocol builtins. Core ships only the namespaces the protocol itself needs;
+ * everything else is declared in the profile's vocabulary.namespaces (#217).
+ * foaf was audited as unused in the #217 gap audit and demoted to
+ * declare-if-you-want-it — it is no longer a builtin or a SPARQL prologue PREFIX.
+ */
+export const BUILTIN_NAMESPACES = Object.freeze([
+  Object.freeze({ prefix: 'octo', iri: 'https://vocab.octothorp.es#', import: false, source: 'builtin' }),
+  Object.freeze({ prefix: 'rdf', iri: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', import: false, source: 'builtin' }),
+  Object.freeze({ prefix: 'schema', iri: 'https://schema.org/', import: false, source: 'builtin' }),
+])
+
+/**
+ * Merge profile-declared namespaces over the protocol builtins.
+ * A declared prefix shadows a builtin of the same name (forking a namespace is
+ * deliberate and identity-affecting, same caveat as vocabulary.octo).
+ *
+ * NOTE (#217, deferred to #270): `import: true` is validated and carried
+ * through here, but loading the ontology's triples into a named graph is NOT
+ * implemented in v0.7. Both values resolve identically today — import is
+ * DECLARE-ONLY. Do not add fetch/load behavior here; it belongs in the init
+ * step alongside #270's graph-model work.
+ *
+ * @param {Array<{prefix:string, iri:string, import?:boolean}>} [declared=[]]
+ * @returns {Array<{prefix:string, iri:string, import:boolean, source:'builtin'|'declared'}>}
+ */
+export const mergeNamespaces = (declared = []) => {
+  const tagged = (declared ?? []).map((ns) => ({
+    prefix: ns.prefix,
+    iri: ns.iri,
+    import: ns.import ?? false,
+    source: 'declared',
+  }))
+  const shadowed = new Set(tagged.map((n) => n.prefix))
+  return [
+    ...BUILTIN_NAMESPACES.filter((n) => !shadowed.has(n.prefix)).map((n) => ({ ...n })),
+    ...tagged,
+  ]
 }
+
+/**
+ * Flatten a namespace list to a prefix -> IRI lookup.
+ * @param {Array<{prefix:string, iri:string}>} [namespaces]
+ * @returns {Record<string,string>}
+ */
+export const namespaceMap = (namespaces = BUILTIN_NAMESPACES) =>
+  Object.fromEntries((namespaces ?? []).map((n) => [n.prefix, n.iri]))
 
 /**
  * Resolve a documentRecord declaration entry to a full predicate IRI.
  * @param {{predicate:string, namespace?:string, iri?:string}} entry
+ * @param {Record<string,string>} [namespaces] - prefix -> IRI; defaults to builtins.
  * @returns {string|null} full IRI, or null when the namespace is unknown (entry
  *   is then skipped from the query — a malformed IRI is never injected).
  */
-export const resolveDocumentRecordIri = (entry) => {
+export const resolveDocumentRecordIri = (entry, namespaces = namespaceMap()) => {
   if (!entry || !entry.predicate) return null
   if (entry.iri) return entry.iri
-  const base = documentRecordNamespaces[entry.namespace]
+  const base = namespaces[entry.namespace]
   if (!base) return null
   return `${base}${entry.predicate}`
 }
@@ -51,16 +93,17 @@ export const documentRecordVar = (entry) =>
  * declared predicates are queried (the admission allowlist), and each is a plain
  * `?s <iri> ?var` leaf — no FILTER(isBlank(...)) path.
  * @param {Array<{predicate:string, namespace?:string, iri?:string}>} [schema=[]]
+ * @param {Record<string,string>} [namespaces] - prefix -> IRI; defaults to builtins.
  * @returns {{selectVars:string, optionals:string}}
  */
-export const buildDocumentRecordClauses = (schema = []) => {
+export const buildDocumentRecordClauses = (schema = [], namespaces = namespaceMap()) => {
   if (!Array.isArray(schema) || schema.length === 0) {
     return { selectVars: '', optionals: '' }
   }
   const selectVars = []
   const optionals = []
   for (const entry of schema) {
-    const iri = resolveDocumentRecordIri(entry)
+    const iri = resolveDocumentRecordIri(entry, namespaces)
     if (!iri) continue
     const v = documentRecordVar(entry)
     selectVars.push(`?${v}`)
@@ -403,7 +446,7 @@ export const createQueryBuilders = (instance, queryArray) => {
    * Builds a comprehensive SPARQL query for retrieving complete blobjects with metadata
    */
   const buildEverythingQuery = async ({
-    meta, subjects, objects, filters, documentRecordSchema
+    meta, subjects, objects, filters, documentRecordSchema, documentRecordNamespaces
     }) => {
     const subjectList = await prepEverything({
       meta, subjects, objects, filters
@@ -416,7 +459,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       }`;
     }
     const statements = getStatements(subjectList, objects, filters, meta.resultMode)
-    const dr = buildDocumentRecordClauses(documentRecordSchema)
+    const dr = buildDocumentRecordClauses(documentRecordSchema, documentRecordNamespaces)
     let noObjectHandler = ""
 
     if (objects.type === 'none') {

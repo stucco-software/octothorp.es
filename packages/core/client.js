@@ -14,7 +14,7 @@ import { publish } from './publish.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
-export { createQueryBuilders, documentRecordNamespaces, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses } from './queryBuilders.js'
+export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { buildMultiPass } from './multipass.js'
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
