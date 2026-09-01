@@ -1,7 +1,7 @@
-import { getProfile } from '$lib/profile.js'
+import { op } from '$lib/op.js'
 
-// C3 (#216): the HTML view of the OP Client Profile. Data comes straight from
-// the loader; +page.svelte renders it.
+// The HTML view of the OP Client Profile, over the same projection /profile.json
+// serves. +page.svelte renders it.
 export function load() {
-  return { profile: getProfile() }
+  return { profile: op.resolvedProfile() }
 }
