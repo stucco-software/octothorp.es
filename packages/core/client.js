@@ -211,9 +211,18 @@ export const createClient = (config) => {
 
   const publisherRegistry = createPublisherRegistry()
 
+  // #217 wave 3: bulk registration is survivable. register() stays strict for
+  // direct programmatic use, but a single bad entry here (a builtin name
+  // collision, a malformed module) must not take down the whole client — warn
+  // and skip it so every other publisher still registers.
   if (config.publishers) {
     for (const [name, publisher] of Object.entries(config.publishers)) {
-      publisherRegistry.register(name, publisher)
+      try {
+        publisherRegistry.register(name, publisher)
+      } catch (e) {
+        const warn = config.warn ?? console.warn
+        warn(`[publishers] "${name}" failed to register and was skipped: ${e.message}`)
+      }
     }
   }
 

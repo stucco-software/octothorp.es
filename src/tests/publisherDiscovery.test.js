@@ -85,4 +85,52 @@ describe('SvelteKit publisher discovery adapter', () => {
     const { skippedPublishers } = await import('$lib/publishers/index.js')
     expect(Array.isArray(skippedPublishers)).toBe(true)
   })
+
+  it('discovers the shipped site publishers by name from the bundled glob', async () => {
+    const { publishers } = await import('$lib/publishers/index.js')
+    for (const name of ['blarg', 'semble', 'readable']) {
+      expect(publishers[name]).toBeDefined()
+    }
+    expect(publishers._example).toBeUndefined()
+  })
+})
+
+describe('createClient bulk publisher registration (#217 wave 3)', () => {
+  const minimal = {
+    instance: 'http://localhost:5173/',
+    sparql: { sparql_endpoint: 'http://0.0.0.0:7878' },
+  }
+
+  it('survives a builtin name collision: warns, skips, keeps the rest', async () => {
+    const { createClient } = await import('../../packages/core/client.js')
+    const warn = vi.fn()
+    const op = createClient({
+      ...minimal,
+      warn,
+      publishers: {
+        rss2: pub('collides-with-builtin'),
+        blarg: pub('blarg'),
+      },
+    })
+    const names = op.publisher.listPublishers()
+    expect(names).toContain('blarg')
+    expect(names).toContain('rss2')
+    // the builtin, not the colliding override
+    expect(op.publisher.getPublisher('rss2').meta.name).toBe('RSS 2.0 Feed')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toMatch(/rss2/)
+  })
+
+  it('survives a malformed publisher module without throwing', async () => {
+    const { createClient } = await import('../../packages/core/client.js')
+    const warn = vi.fn()
+    const op = createClient({
+      ...minimal,
+      warn,
+      publishers: { broken: { meta: { name: 'broken' } }, blarg: pub('blarg') },
+    })
+    expect(op.publisher.listPublishers()).toContain('blarg')
+    expect(op.publisher.getPublisher('broken')).toBeNull()
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
 })
