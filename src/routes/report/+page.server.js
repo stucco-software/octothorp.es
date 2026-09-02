@@ -1,12 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit'
-import { admin_email } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
+import { getProfile } from '$lib/profile.js'
 
 const alertAdmin = async ({url}) => {
   let success
   try {
     let success = await send({
-      to: admin_email,
+      to: getProfile().identity.contact.email,
       subject: 'New Report',
       html: `
         <p>

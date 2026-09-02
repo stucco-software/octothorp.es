@@ -2,6 +2,38 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## Profile consumption: `octothorpes.json` becomes the source of truth -- #217
+
+An instance's identity, policies, and API surface now live in one declarative file, `octothorpes.json`, instead of being split across `.env` and ad hoc config. Every route that used to read `server_name`, `badge_image`, `admin_email`, or `default_handler` from `src/lib/config.js` now reads the equivalent field off `getProfile()`. `.env` is down to secrets (`sparql_*`, `smtp_*`, `robot_email`) plus the `instance` deploy-level override.
+
+**Authored vs. resolved.** `octothorpes.json` is what a site operator writes -- inline arrays, or paths to JSON files for blocklists. `getProfile()` returns the *resolved* profile: paths expanded to arrays, defaults filled in, schema-validated. Nothing downstream of `getProfile()` should ever see a path where an array is expected.
+
+**Shape change.** The old flat shape (`relay`, `name`, `vocabulary.*`, `externalAccounts`, `defaultHarmonizer`, `namedPublishers`, `registrationPolicy`, `indexingMode`) is replaced by a nested `identity` / `policies` / `api` shape:
+
+| old | new |
+|---|---|
+| `relay` | `identity.instance` |
+| `name` | `identity.name` |
+| `vocabulary.relationshipSubtypes` | `api.linkTypes` |
+| `vocabulary.documentRecord` | `api.documentRecord` |
+| `externalAccounts` | `identity.contact` |
+| `defaultHarmonizer` | `api.handlers.default` |
+| `namedPublishers` | derived (`api.publishers.available`) |
+| `registrationPolicy` | `policies.access.registration` (**redefined**: the indexing gate, not a signup policy) |
+| `indexingMode` | `policies.indexing.mode` |
+
+**Breaking semantics** -- these are not mechanical renames:
+- `policies.access.registration` enum is now `registered` (default) | `open` | `closed`. **`invite` is removed** -- use `closed` + `whitelist.domains`.
+- `policies.access.blocks` is no longer a flat array. It is `{ domains, terms }`, and `policies.access.whitelist` is `{ domains }`. Each sub-key accepts either an inline array of strings or a **path to a JSON file** containing one, expanded at load time; the resolved profile always shows the expanded array. `blocks.domains` is the origin gate list (`open` mode only); **`blocks.terms` is a write-time statement filter that applies in every mode**, is not retroactive (#271), and has no read-time counterpart.
+- `policies.indexing.mode` enum is now `request` | `active`. **`on-request` is spelled `request`.**
+- `createClient({ indexPolicy })` is now `createClient({ indexingMode })`, values `request` | `active`. **`pull` and `registered` are removed** from that enum. `blobject.indexPolicy` (page markup opt-in) is unaffected.
+- `api.handlers` is a new sibling of `api.harmonizers`; `api.harmonizers.defaultHandler` moved to `api.handlers.default`.
+- The `foaf` prefix is removed; nothing in the shipped vocabulary used it.
+
+**`.env` migration:** delete `server_name`, `badge_image`, `admin_email`, `default_handler` from any deployed `.env` -- they're read from `octothorpes.json` now and are ignored if still set. `.env.example` documents the remaining secrets-plus-`instance` shape.
+
+Affected files: `src/lib/config.js`, `src/lib/profile.js`, `src/lib/emails/alertAdmin.js`, `src/routes/load.js`, `src/routes/index/+server.js`, `src/routes/indexwrapper/+server.js`, `src/routes/badge/+server.js`, `src/routes/register/+page.server.js`, `src/routes/report/+page.server.js`, `src/routes/debug/identity/+server.js`, `src/routes/debug/rolodex/+server.js`, `.env.example`, `octothorpes.json`, `packages/core/profile.js`, `packages/core/resolveProfile.js`, `packages/core/profile.schema.json`.
+
 ## lewk CSS foundation pilot
 
 Adopted the local **lewk** editorial CSS framework as OP's styling foundation while preserving OP's visual identity. This is a foundation swap, not a redesign: only the visible "frame" of the site (Header, Nav, Footer, layout shell) gets refactored to use lewk primitives; per-component and per-route styles inherit the new tokens via a compatibility shim.

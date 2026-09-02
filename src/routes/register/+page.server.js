@@ -1,6 +1,5 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
-import { admin_email } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
 import { originBlocked } from 'octothorpes'
 import { getProfile } from '$lib/profile.js'
@@ -79,7 +78,7 @@ const alertAdmin = async ({domain, email}) => {
   let success
   try {
     let success = await send({
-      to: admin_email,
+      to: getProfile().identity.contact.email,
       subject: 'New Domain Verification Request',
       html: `
         <p>
