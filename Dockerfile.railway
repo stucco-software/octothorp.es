@@ -23,19 +23,18 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./package.json
-# #217 wave 3: site publishers are plain-ESM modules walked from disk at runtime
-# at the path the profile declares (api.publishers.dir = "./static/publishers",
-# resolved against the server CWD, which is /app here as in the repo root during
-# dev). SvelteKit copies static/ verbatim into build/client, so the built tree is
-# the source of truth; place it where the declared pointer resolves.
-COPY --from=build /app/build/client/publishers ./static/publishers
-# #217 wave 5: site handlers are the same pattern (plain-ESM modules walked
-# from disk at api.handlers.dir = "./static/handlers"). Empty at present
-# (only .gitkeep) — Task 21+ adds the first real handler.
-COPY --from=build /app/build/client/handlers ./static/handlers
-# #217 wave 5: site harmonizers are JSON data walked from disk at
-# api.harmonizers.dir = "./static/harmonizers". Empty at present (only
-# .gitkeep) — Tasks 22/23 add the first real harmonizer definitions.
-COPY --from=build /app/build/client/harmonizers ./static/harmonizers
+# #217 wave 5 final review: site publishers/handlers/harmonizers are all
+# walked from disk at runtime at paths the profile declares (api.*.dir =
+# "./static/<kind>"), resolved against the server CWD (/app here, the repo
+# root during dev). But those declared dirs aren't the only module-scope fs
+# reads against static/ — e.g. src/routes/badge/+server.js readFileSync's
+# static/badge.png at import time, and future features (path-form blocklists,
+# etc.) will keep adding more. Copying only the three declared dirs is brittle
+# (silently ENOENTs on anything not enumerated here, and COPY of a dir that's
+# still empty/gitkeep-only can behave oddly across builders). SvelteKit copies
+# static/ verbatim into build/client, so the built tree is the complete source
+# of truth — ship all of it in one shot and every module-scope fs read against
+# static/ just resolves, present or future.
+COPY --from=build /app/build/client/ ./static/
 EXPOSE 3000
 CMD ["node", "build"]

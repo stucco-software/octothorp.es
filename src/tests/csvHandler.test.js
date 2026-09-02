@@ -253,7 +253,9 @@ describe('the shipped csv.json drives the shipped handler', () => {
   it('the committed definition produces the same result as the built-in map', () => {
     // The two agreed by hand through Task 24; after this task the definition is
     // the source of truth and this test is what keeps them honest.
-    const doc = 'octothorpes,bookmarks,title\ncats,https://a.test/,My Links'
+    const doc =
+      'octothorpes,bookmarks,cites,links,title,description\n' +
+      'cats,https://a.test/,https://c.test/,https://l.test/,My Links,A demo file'
     expect(csvHandler.harmonize(doc, definition)).toEqual(csvHandler.harmonize(doc, null))
   })
 
