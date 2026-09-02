@@ -1,8 +1,19 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import { createDefaultHandlerRegistry, harmonizeSource, validateHarmonizer } from 'octothorpes'
 // NOTE: site handlers live at static/handlers/ (runtime modules discovered by
 // Task 19's walk of api.handlers.dir), NOT under src/lib — they are outside
 // the Vite alias space, so this import is a relative path, not `$lib/...`.
 import csvHandler, { parseCsv } from '../../static/handlers/csv.js'
+
+// NOTE: the harmonizer JSON lives at static/harmonizers/ (controller ruling,
+// task 22), not src/lib/harmonizers/ — resolved relative to this test file.
+const here = dirname(fileURLToPath(import.meta.url))
+const definition = JSON.parse(
+  readFileSync(resolve(here, '../../static/harmonizers/csv.json'), 'utf8')
+)
 
 const harmonize = (content, options = {}) => csvHandler.harmonize(content, null, options)
 
@@ -106,5 +117,49 @@ describe('csv handler — one document, many statements', () => {
     const { resolveIndexPolicy } = await import('octothorpes')
     expect(resolveIndexPolicy({ blobject: harmonize('octothorpes\ncats') }).optedIn).toBe(true)
     expect(resolveIndexPolicy({ blobject: harmonize('bookmarks\nhttps://a.test/') }).optedIn).toBe(false)
+  })
+})
+
+describe('csv harmonizer definition', () => {
+  it('is a valid harmonizer definition', () => {
+    expect(validateHarmonizer(definition)).toEqual([])
+  })
+
+  it('references the csv HANDLER through its mode field', () => {
+    // This is the cross-registry link: a JSON file in api.harmonizers.dir
+    // naming a JS module in api.handlers.dir.
+    expect(definition.mode).toBe('csv')
+  })
+
+  it('maps columns to OP fields', () => {
+    expect(Object.keys(definition.schema.subject)).toEqual(
+      expect.arrayContaining(['octothorpes', 'bookmarks', 'cites', 'links'])
+    )
+  })
+})
+
+describe('csv harmonizer dispatches to the csv handler', () => {
+  const registry = createDefaultHandlerRegistry({ defaultHandler: 'html' })
+  registry.register('csv', csvHandler)
+
+  const doc = 'octothorpes,bookmarks\ncats,https://a.test/'
+
+  it('resolves handler by the harmonizer-declared mode', async () => {
+    const blob = await harmonizeSource(doc, definition, { handlerRegistry: registry })
+    expect(blob.octothorpes).toEqual(['cats'])
+    expect(blob.bookmarks).toEqual(['https://a.test/'])
+  })
+
+  it('also dispatches by content-type when no mode is supplied', async () => {
+    const blob = await harmonizeSource(doc, null, {
+      handlerRegistry: registry,
+      contentType: 'text/csv',
+    })
+    expect(blob.octothorpes).toEqual(['cats'])
+  })
+
+  it('falls back to default dispatch when the csv handler is absent', async () => {
+    const bare = createDefaultHandlerRegistry({ defaultHandler: 'html' })
+    await expect(harmonizeSource(doc, definition, { handlerRegistry: bare })).resolves.toBeDefined()
   })
 })

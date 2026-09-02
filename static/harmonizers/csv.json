@@ -1,0 +1,18 @@
+{
+  "//": "Site-level demo harmonizer (#217 wave 5, #273). Discovered from api.harmonizers.dir. Its `mode` names the csv HANDLER, discovered separately from api.handlers.dir — this file is the proof that the two registries reference each other correctly. Same shape as a harmonizer fetched over HTTP. As of task 22 this is deliberately decorative: the csv handler (task 21) hardcodes the same column map by hand rather than reading schema.subject[*].column — wiring that up is task 25.",
+  "id": "harmonizer/csv",
+  "type": "harmonizer",
+  "title": "CSV Column Harmonizer",
+  "mode": "csv",
+  "schema": {
+    "subject": {
+      "s": "source",
+      "title": [{ "column": "title" }],
+      "description": [{ "column": "description" }],
+      "octothorpes": [{ "column": "octothorpes" }],
+      "bookmarks": [{ "column": "bookmarks" }],
+      "cites": [{ "column": "cites" }],
+      "links": [{ "column": "links" }]
+    }
+  }
+}
