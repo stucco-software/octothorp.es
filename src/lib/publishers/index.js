@@ -1,41 +1,43 @@
+import { readdir } from 'node:fs/promises'
+import { resolve, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { discoverPublishers } from 'octothorpes'
 import { getProfile } from '$lib/profile.js'
 
-// #217 wave 3: site publishers are loaded from a NON-EAGER Vite glob, so every
-// renderer (and its `./resolver.json` import) stays inside the bundle and works
-// in the production image, which ships no `src/` tree. The glob is only the
-// load mechanism; core's discoverPublishers still owns the policy — underscore
-// skip, per-publisher failure isolation, and skip-and-warn — so one broken site
-// publisher can no longer 500 every /get/ route.
+// #217 wave 3: site publishers are public, framework-agnostic, plain-ESM
+// modules that live at a BUILT path (`static/publishers/<name>/renderer.js`,
+// which SvelteKit copies verbatim into the output tree). This module is only a
+// thin real-fs adapter: it walks the path DECLARED by the profile
+// (`api.publishers.dir`) at RUNTIME and hands the entries to core, which owns
+// all the policy — underscore skip, per-publisher failure isolation, and
+// skip-and-warn — so one broken site publisher can no longer 500 every /get/
+// route.
 //
-// The declared api.publishers.dir is VALIDATED, not walked: a bundled glob is a
-// build-time construct and cannot follow an arbitrary runtime path, so a
-// mismatch is reported as a warning rather than honoured.
+// The declared pointer is operative, not merely validated: nothing here is a
+// build-time construct, so an operator can repoint `api.publishers.dir` at any
+// directory on disk and it will be honoured. See #280 for the alternative
+// bundled-source-tree pattern (a non-eager Vite glob over `src/`), which is
+// kept as a documented future option rather than the site's mechanism.
+//
 // Module scope, awaited once — createClient is a singleton.
-
-/** @type {Record<string, () => Promise<any>>} */
-const modules = import.meta.glob('./*/renderer.js')
-
-const nameOf = (key) => key.slice(2, key.indexOf('/', 2))
 
 const dir = getProfile().api.publishers.dir
 
-// Normalize away leading './' and trailing '/' for the pointer comparison.
-const normalizeDir = (d) => String(d ?? '').replace(/^\.?\/*/, '').replace(/\/+$/, '')
-const BUNDLED_DIR = 'src/lib/publishers'
-if (normalizeDir(dir) !== BUNDLED_DIR) {
-  console.warn(
-    `[profile] api.publishers.dir "${dir}" does not match the bundled publisher location "${BUNDLED_DIR}" — ` +
-      `site publishers are loaded from the bundle, so the declared pointer is ignored`
-  )
+const listEntries = async (d) => {
+  const entries = await readdir(resolve(process.cwd(), d), { withFileTypes: true })
+  return entries.filter((e) => e.isDirectory()).map((e) => e.name)
+}
+
+const loadPublisher = async (d, name) => {
+  const rendererPath = join(resolve(process.cwd(), d), name, 'renderer.js')
+  const mod = await import(pathToFileURL(rendererPath).href)
+  return mod.default
 }
 
 const { publishers: discovered, skipped } = await discoverPublishers({
-  // The bundled location is what actually gets loaded; `dir` above is only
-  // validated, so discovery never depends on the declared pointer.
-  dir: BUNDLED_DIR,
-  listEntries: async () => Object.keys(modules).map(nameOf),
-  loadPublisher: async (_d, name) => (await modules[`./${name}/renderer.js`]()).default,
+  dir,
+  listEntries,
+  loadPublisher,
 })
 
 export const publishers = discovered

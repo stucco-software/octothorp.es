@@ -1,4 +1,4 @@
-import resolver from './resolver.json'
+import resolver from './resolver.json' with { type: 'json' }
 import { Readability } from '@mozilla/readability'
 // linkedom, not jsdom: jsdom 24's nwsapi rejects the comma-joined selectors
 // (e.g. `h1,h2`) that Readability 0.6.0 passes to querySelectorAll, throwing

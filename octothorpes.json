@@ -43,7 +43,7 @@
     "linkTypes": [],
     "documentRecord": [],
     "publishers": {
-      "dir": "./src/lib/publishers"
+      "dir": "./static/publishers"
     },
     "handlers": {
       "dir": "./src/lib/handlers",

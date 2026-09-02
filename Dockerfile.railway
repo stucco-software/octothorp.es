@@ -23,5 +23,11 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./package.json
+# #217 wave 3: site publishers are plain-ESM modules walked from disk at runtime
+# at the path the profile declares (api.publishers.dir = "./static/publishers",
+# resolved against the server CWD, which is /app here as in the repo root during
+# dev). SvelteKit copies static/ verbatim into build/client, so the built tree is
+# the source of truth; place it where the declared pointer resolves.
+COPY --from=build /app/build/client/publishers ./static/publishers
 EXPOSE 3000
 CMD ["node", "build"]

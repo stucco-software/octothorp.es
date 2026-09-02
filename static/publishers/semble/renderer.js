@@ -1,4 +1,4 @@
-import resolver from './resolver.json'
+import resolver from './resolver.json' with { type: 'json' }
 
 export default {
   ...resolver,

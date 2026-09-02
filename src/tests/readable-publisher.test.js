@@ -3,7 +3,7 @@ import { publish } from '../../packages/core/publish.js'
 import { createPublisherRegistry } from '../../packages/core/publishers.js'
 
 // Import the site-defined publisher directly
-import readablePublisher from '../lib/publishers/readable/renderer.js'
+import readablePublisher from '../../static/publishers/readable/renderer.js'
 
 // Create a registry with the readable publisher registered so we can use the
 // normalized pub.resolver that publish() expects (the full resolver object).
