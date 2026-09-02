@@ -46,7 +46,7 @@
       "dir": "./static/publishers"
     },
     "handlers": {
-      "dir": "./src/lib/handlers",
+      "dir": "./static/handlers",
       "default": "html"
     },
     "harmonizers": {

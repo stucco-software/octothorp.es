@@ -48,3 +48,55 @@ export const discoverPublishers = async ({ dir, listEntries, loadPublisher, warn
 
   return { publishers, skipped }
 }
+
+const HANDLER_SHAPE = 'handler must export { mode, contentTypes, harmonize }'
+
+/**
+ * Init-time HANDLER discovery (#217 wave 5). Same injected-fs, skip-and-warn
+ * contract as discoverPublishers — one broken site handler must degrade to
+ * "that format is unavailable", never take the process down.
+ *
+ * Handlers are JS MODULES (a harmonize function plus its dispatch metadata).
+ * Harmonizers are JSON DATA and use a different loader — see discoverHarmonizers.
+ * Do not merge the two: the artifact kinds differ, and the dependency points
+ * harmonizer -> handler (a harmonizer names its handler via its `mode` field).
+ *
+ * @param {Object} config
+ * @param {string|null} config.dir - api.handlers.dir
+ * @param {(dir: string) => Promise<string[]>} config.listEntries - file names under dir
+ * @param {(dir: string, file: string) => Promise<Object|undefined>} config.loadHandler
+ * @param {(message: string) => void} [config.warn=console.warn]
+ * @returns {Promise<{handlers: Record<string, Object>, skipped: Array<{name: string, reason: string}>}>}
+ */
+export const discoverHandlers = async ({ dir, listEntries, loadHandler, warn = console.warn } = {}) => {
+  const handlers = {}
+  const skipped = []
+  if (!dir) return { handlers, skipped }
+
+  let entries
+  try {
+    entries = await listEntries(dir)
+  } catch (e) {
+    warn(`[profile] handlers dir "${dir}" could not be read: ${e.message} — no site handlers registered`)
+    return { handlers, skipped }
+  }
+
+  for (const file of entries) {
+    if (file.startsWith('_')) continue
+    try {
+      const handler = await loadHandler(dir, file)
+      if (!handler) throw new Error('module has no default export')
+      if (!handler.mode || !Array.isArray(handler.contentTypes) || typeof handler.harmonize !== 'function') {
+        throw new Error(HANDLER_SHAPE)
+      }
+      // Keyed by the DECLARED mode. The filename is convenience; the mode is
+      // the identifier harmonizers reference.
+      handlers[handler.mode] = handler
+    } catch (e) {
+      skipped.push({ name: file, reason: e.message })
+      warn(`[profile] site handler "${file}" failed to load and was skipped: ${e.message}`)
+    }
+  }
+
+  return { handlers, skipped }
+}

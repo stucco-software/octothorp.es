@@ -1,6 +1,7 @@
 import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource, mergeNamespaces } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
+import { handlers as siteHandlers } from '$lib/handlers/index.js'
 
 // #217: everything operational comes from the profile now. `instance` still
 // originates in .env when a deploy overrides it, but it arrives here through
@@ -16,6 +17,9 @@ const { documentRecord, handlers } = profile.api
 // from the gap audit. Registered handlers (builtins + any future custom) are
 // reachable from both paths.
 const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: handlers.default })
+// #217 wave 5: site handlers discovered from api.handlers.dir layer on top of
+// the builtins, same pattern as the publisher registry.
+for (const [mode, siteHandler] of Object.entries(siteHandlers)) handlerRegistry.register(mode, siteHandler)
 const { getHarmonizer } = createHarmonizerRegistry(instance)
 
 const indexer = createIndexer({

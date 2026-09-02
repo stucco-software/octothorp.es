@@ -38,7 +38,7 @@ export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { resolveProfile, expandTermUri, absolutize } from './resolveProfile.js'
-export { discoverPublishers } from './discover.js'
+export { discoverPublishers, discoverHandlers } from './discover.js'
 export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route

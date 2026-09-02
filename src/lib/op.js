@@ -6,6 +6,7 @@ import { createClient, mergeNamespaces } from 'octothorpes'
 import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { publishers } from '$lib/publishers'
+import { handlers as siteHandlers } from '$lib/handlers/index.js'
 
 const profile = getProfile()
 
@@ -17,6 +18,7 @@ export const op = createClient({
     password: sparql_password,
   },
   publishers,
+  handlers: siteHandlers,
   profile,
   defaultHandler: profile.api.handlers.default,
   // The two policy axes travel separately and are never collapsed:
