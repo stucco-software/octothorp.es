@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createClient } from '../../packages/core/client.js'
 
 describe('createClient', () => {
@@ -340,12 +340,16 @@ describe('custom publishers via createClient', () => {
     expect(op.publisher.getPublisher('semble')).toBeDefined()
   })
 
-  it('should not clobber built-in publishers', () => {
-    expect(() => createClient({
+  it('does not clobber built-in publishers — collision is warned and skipped', () => {
+    const warn = vi.fn()
+    const op = createClient({
       instance: 'http://localhost:5173/',
       sparql: { endpoint: 'http://0.0.0.0:7878' },
-      publishers: { rss2: semble }
-    })).toThrow(/already registered/)
+      publishers: { rss2: semble },
+      warn
+    })
+    expect(op.publisher.getPublisher('rss2').meta?.name).not.toBe(semble.meta.name)
+    expect(warn).toHaveBeenCalled()
   })
 
   it('op.publish merges envelope overrides (canonical pubDefs keys) for rss', async () => {
