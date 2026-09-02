@@ -920,3 +920,20 @@ Four small changes merged as one branch (`cleanup-235-279-269`), all endpoint-in
 **#269 — `profile.json` → `octothorpes.json`.** Repo-root filename only; the `/profile` and `/profile.json` endpoints are unchanged.
 
 **Files affected:** `packages/core/client.js` (renamed), `packages/core/indexer.js`, `packages/core/blobject.js`, `packages/core/queryBuilders.js`, `packages/core/profile.js`, `octothorpes.json` (renamed), `src/lib/profile.js`, `scripts/core-test.js`, 15 test files.
+
+## #217 wave 5 — discovered handlers and harmonizers reach the resolved profile, plus demos
+
+Closes #273's "add an example demo handler/harmonizer" item. Tasks 19–23 built the extension points (`api.handlers.dir` / `api.harmonizers.dir` discovery, `static/handlers/` + `static/harmonizers/` as the built-path adapters, the `csv` handler, and the `csv` / `anchors` demo harmonizers); this task is the coverage pass confirming the wiring reaches `op.resolvedProfile()` and `/profile.json` end to end, and that a failed discovery is skip-and-warn rather than fatal.
+
+`src/lib/op.js` already passed `handlers: siteHandlers` and `harmonizers: siteHarmonizers` into `createClient` (Task 19/20 wiring) — verified as a no-op for this task rather than re-added. `createClient` registers both registries before computing the resolved projection (Task 12), so `packages/core/resolveProfile.js`'s existing `handlerNames`/`harmonizerNames` → `api.handlers.available` / `api.harmonizers.available` projection needed no changes either; this task is test coverage confirming that wiring, not new plumbing.
+
+New assertions: `src/tests/profileEndpoints.test.js` gained a describe block confirming `/profile.json` lists the `csv` demo handler and both `csv`/`anchors` demo harmonizers among `available`, that none of those names leak into the authored `octothorpes.json` (which only ever declares `api.handlers.dir` / `api.harmonizers.dir`), and that a handler present in `skippedHandlers` (from `$lib/handlers/index.js`'s discovery-time skip list) never appears in the projection. `src/tests/resolveProfile.test.js` gained a direct unit assertion that `handlerNames`/`harmonizerNames` reach `api.handlers.available` / `api.harmonizers.available` unmodified apart from de-duplication (Set-based, insertion order preserved).
+
+**Deferred to deploy (per Task 13/24 ruling):** the smoketest targets the deployed instance, which does not run this branch, so no fixtures or golden recapture happened here. TODO at deploy time:
+- add the CSV demo fixture (`octothorpes`/`bookmarks` columns plus one deliberately unrecognized column) and the small curated anchors-harmonizer HTML fixture to the smoketest corpus, indexed via `/index`;
+- run `npm run smoketest` and review the diff deliberately — expected churn is `api.handlers`/`api.harmonizers` gaining `csv`/`anchors`/`html` in the `/profile.json` golden, plus the two new demo-capture goldens;
+- this closes the remaining half of #273 (smoketest coverage for the demos).
+
+Full suite: 1356 passed, 6 pre-existing failures (confirmed unrelated via `git stash` re-run) — all four failing files (`c14MemexRoundtrip`, `documentRecordProjection`, `indexRouteDocumentRecord`, `integration`) require a live local dev server and fail identically with this branch's changes reverted; see `project_integration_test_cycle_staging` / `project_integration_tests_live_server_hmr` memory notes.
+
+**Files affected:** `src/tests/profileEndpoints.test.js`, `src/tests/resolveProfile.test.js`.

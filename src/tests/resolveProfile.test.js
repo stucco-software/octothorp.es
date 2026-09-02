@@ -47,6 +47,16 @@ describe('resolveProfile — discovery projection', () => {
     expect(resolved().api.harmonizers.defaultHandler).toBeUndefined()
   })
 
+  it('#217 wave 5: handlerNames and harmonizerNames reach the projection unmodified apart from dedup', () => {
+    const out = resolveProfile({
+      profile,
+      handlerNames: ['html', 'csv', 'html', 'json'],
+      harmonizerNames: ['default', 'anchors', 'default', 'csv'],
+    })
+    expect(out.api.handlers.available).toEqual(['html', 'csv', 'json'])
+    expect(out.api.harmonizers.available).toEqual(['default', 'anchors', 'csv'])
+  })
+
   it('drops every directory pointer from the public projection', () => {
     expect(resolved().api.publishers.dir).toBeUndefined()
     expect(resolved().api.publishers.named).toBeUndefined()

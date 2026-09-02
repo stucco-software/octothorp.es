@@ -70,3 +70,33 @@ describe('/profile page load', () => {
     expect(data.profile).toEqual(body)
   })
 })
+
+describe('#217 wave 5: discovery shows up in the projection, not the authored file', () => {
+  it('lists the demo handler among available handlers', async () => {
+    const body = await (await GET()).json()
+    expect(body.api.handlers.available).toContain('csv')
+    expect(body.api.handlers.available).toContain('html')
+  })
+
+  it('lists both demo harmonizers among available harmonizers', async () => {
+    const body = await (await GET()).json()
+    expect(body.api.harmonizers.available).toEqual(expect.arrayContaining(['csv', 'anchors', 'default']))
+  })
+
+  it('none of those names appear in the authored octothorpes.json', () => {
+    // The authored file declares DIRECTORIES. Names are discovered, never written.
+    const authored = JSON.stringify(profileData)
+    expect(authored).not.toContain('"available"')
+    expect(authored).not.toContain('"anchors"')
+    expect(profileData.api.handlers.dir).toBeTypeOf('string')
+    expect(profileData.api.harmonizers.dir).toBeTypeOf('string')
+  })
+
+  it('a handler that fails to load is absent from the projection rather than fatal', async () => {
+    const { skippedHandlers } = await import('$lib/handlers/index.js')
+    const body = await (await GET()).json()
+    for (const { name } of skippedHandlers) {
+      expect(body.api.handlers.available).not.toContain(name.replace(/\.js$/, ''))
+    }
+  })
+})
