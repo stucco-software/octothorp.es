@@ -38,7 +38,7 @@ vi.mock('$lib/sparql.js', () => ({
   queryBoolean: vi.fn(),
 }))
 
-import { GET, badgeFileName } from '../routes/badge/+server.js'
+import { GET, _badgeFileName } from '../routes/badge/+server.js'
 import { verifiedOrigin } from 'octothorpes'
 import { handler } from '$lib/indexing.js'
 
@@ -156,16 +156,16 @@ describe('Badge Route Handler', () => {
 
 describe('#217 badge route reads the profile', () => {
   it('takes the basename of a profile badge path', () => {
-    expect(badgeFileName('/badge.png')).toBe('badge.png')
-    expect(badgeFileName('/img/custom-badge.png')).toBe('custom-badge.png')
+    expect(_badgeFileName('/badge.png')).toBe('badge.png')
+    expect(_badgeFileName('/img/custom-badge.png')).toBe('custom-badge.png')
   })
 
   it('accepts an absolute URL and still yields a static filename', () => {
-    expect(badgeFileName('https://example.test/badge.png')).toBe('badge.png')
+    expect(_badgeFileName('https://example.test/badge.png')).toBe('badge.png')
   })
 
   it('falls back to badge.png when the policy is unset', () => {
-    expect(badgeFileName(null)).toBe('badge.png')
-    expect(badgeFileName('')).toBe('badge.png')
+    expect(_badgeFileName(null)).toBe('badge.png')
+    expect(_badgeFileName('')).toBe('badge.png')
   })
 })

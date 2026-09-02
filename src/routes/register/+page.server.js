@@ -11,10 +11,12 @@ import { getProfile } from '$lib/profile.js'
  *   'registered' -> active   (registering IS how you pass the gate)
  *   'open'       -> hidden   (no gate to pass; registering accomplishes nothing)
  *   'closed'     -> disabled (membership is the admin-managed whitelist)
+ * Underscore prefix is required: SvelteKit +page.server.js files only allow
+ * load/actions/etc. exports plus underscore-prefixed non-endpoint exports.
  * @param {string} [gate]
  * @returns {'active'|'hidden'|'disabled'}
  */
-export const registrationFormState = (gate = 'registered') => {
+export const _registrationFormState = (gate = 'registered') => {
   if (gate === 'open') return 'hidden'
   if (gate === 'closed') return 'disabled'
   return 'active'
@@ -29,7 +31,7 @@ const gate = () => {
   // The ORIGIN blocklist. blocks.terms is not consulted here — it is enforced
   // at statement-write time in the indexer (Task 14) and has nothing to do
   // with whether an origin may submit a registration request.
-  return { profile, registration, blockedDomains: blocks.domains, formState: registrationFormState(registration) }
+  return { profile, registration, blockedDomains: blocks.domains, formState: _registrationFormState(registration) }
 }
 
 const domainBanned = async (domain) => await queryBoolean(`ask {

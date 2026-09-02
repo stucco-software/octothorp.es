@@ -11,16 +11,18 @@ const { instance, name: serverName } = profile.identity
 /**
  * The badge policy is a path or URL; the file lives in static/. Exported for
  * testing. #217: replaces the .env `badge_image` read.
+ * Underscore prefix is required: SvelteKit endpoint files only allow
+ * GET/POST/etc. exports plus underscore-prefixed non-endpoint exports.
  * @param {string|null} badgePath
  * @returns {string}
  */
-export const badgeFileName = (badgePath) => {
+export const _badgeFileName = (badgePath) => {
   if (!badgePath) return 'badge.png'
   const withoutQuery = String(badgePath).split(/[?#]/)[0]
   return withoutQuery.split('/').filter(Boolean).pop() || 'badge.png'
 }
 
-const badgeFile = badgeFileName(profile.policies.access.badge)
+const badgeFile = _badgeFileName(profile.policies.access.badge)
 const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))
 const badgeFail = readFileSync(resolve(`static/${badgeVariant(badgeFile, 'fail')}`))
 const badgeUnregistered = readFileSync(resolve(`static/${badgeVariant(badgeFile, 'unregistered')}`))

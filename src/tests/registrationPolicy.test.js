@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { registrationFormState } from '../routes/register/+page.server.js'
+import { _registrationFormState } from '../routes/register/+page.server.js'
 
 // #217 wave 4a: /register no longer owns a policy. Its state DERIVES from
 // policies.access.registration — the indexing gate enforced in core (Task 14) —
@@ -23,21 +23,21 @@ const submit = (domain = 'https://ok.test/') => actions.default({
   request: { formData: async () => new Map([['email', 'a@b.test'], ['domain', domain]]) },
 })
 
-describe('registrationFormState', () => {
+describe('_registrationFormState', () => {
   it('registered: the form is active — registering is how you pass the gate', () => {
-    expect(registrationFormState('registered')).toBe('active')
+    expect(_registrationFormState('registered')).toBe('active')
   })
 
   it('open: the form is hidden — there is no gate to pass', () => {
-    expect(registrationFormState('open')).toBe('hidden')
+    expect(_registrationFormState('open')).toBe('hidden')
   })
 
   it('closed: the form is disabled — membership is admin-managed', () => {
-    expect(registrationFormState('closed')).toBe('disabled')
+    expect(_registrationFormState('closed')).toBe('disabled')
   })
 
   it('defaults to active for an absent gate value', () => {
-    expect(registrationFormState(undefined)).toBe('active')
+    expect(_registrationFormState(undefined)).toBe('active')
   })
 })
 
