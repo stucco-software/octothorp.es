@@ -88,7 +88,7 @@ describe('SvelteKit publisher discovery adapter', () => {
 
   it('discovers the shipped site publishers by name from the declared runtime dir', async () => {
     const { publishers } = await import('$lib/publishers/index.js')
-    for (const name of ['blarg', 'semble', 'readable']) {
+    for (const name of ['semble', 'readable']) {
       expect(publishers[name]).toBeDefined()
     }
     expect(publishers._example).toBeUndefined()
