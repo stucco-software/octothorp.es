@@ -1,11 +1,26 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { instance, badge_image, server_name } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { verifiedOrigin, determineBadgeUri, badgeVariant } from 'octothorpes'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'
 
-const badgeFile = badge_image || 'badge.png'
+const profile = getProfile()
+const { instance, name: serverName } = profile.identity
+
+/**
+ * The badge policy is a path or URL; the file lives in static/. Exported for
+ * testing. #217: replaces the .env `badge_image` read.
+ * @param {string|null} badgePath
+ * @returns {string}
+ */
+export const badgeFileName = (badgePath) => {
+  if (!badgePath) return 'badge.png'
+  const withoutQuery = String(badgePath).split(/[?#]/)[0]
+  return withoutQuery.split('/').filter(Boolean).pop() || 'badge.png'
+}
+
+const badgeFile = badgeFileName(profile.policies.access.badge)
 const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))
 const badgeFail = readFileSync(resolve(`static/${badgeVariant(badgeFile, 'fail')}`))
 const badgeUnregistered = readFileSync(resolve(`static/${badgeVariant(badgeFile, 'unregistered')}`))
@@ -59,7 +74,7 @@ export async function GET({ request, url }) {
   // verified above.
   handler(pageUrl, harmonizer, null, {
     instance,
-    serverName: server_name,
+    serverName,
     queryBoolean,
     verifyOrigin: async () => true
   }).catch((e) => {

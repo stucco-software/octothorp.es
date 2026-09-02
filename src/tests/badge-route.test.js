@@ -8,10 +8,18 @@ vi.mock('fs', () => ({
   })
 }))
 
-vi.mock('$lib/config.js', () => ({
-  instance: 'http://localhost:5173/',
-  badge_image: 'badge.png',
-  server_name: 'Test Server',
+vi.mock('$lib/profile.js', () => ({
+  getProfile: () => ({
+    identity: {
+      instance: 'http://localhost:5173/',
+      name: 'Test Server',
+    },
+    policies: {
+      access: {
+        badge: '/badge.png',
+      },
+    },
+  }),
 }))
 
 vi.mock('octothorpes', async () => {
@@ -30,7 +38,7 @@ vi.mock('$lib/sparql.js', () => ({
   queryBoolean: vi.fn(),
 }))
 
-import { GET } from '../routes/badge/+server.js'
+import { GET, badgeFileName } from '../routes/badge/+server.js'
 import { verifiedOrigin } from 'octothorpes'
 import { handler } from '$lib/indexing.js'
 
@@ -143,5 +151,21 @@ describe('Badge Route Handler', () => {
       const response = await GET(makeEvent({ uri: 'https://example.com/page' }))
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
+  })
+})
+
+describe('#217 badge route reads the profile', () => {
+  it('takes the basename of a profile badge path', () => {
+    expect(badgeFileName('/badge.png')).toBe('badge.png')
+    expect(badgeFileName('/img/custom-badge.png')).toBe('custom-badge.png')
+  })
+
+  it('accepts an absolute URL and still yields a static filename', () => {
+    expect(badgeFileName('https://example.test/badge.png')).toBe('badge.png')
+  })
+
+  it('falls back to badge.png when the policy is unset', () => {
+    expect(badgeFileName(null)).toBe('badge.png')
+    expect(badgeFileName('')).toBe('badge.png')
   })
 })
