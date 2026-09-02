@@ -18,8 +18,16 @@ const { documentRecord, handlers } = profile.api
 // reachable from both paths.
 const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: handlers.default })
 // #217 wave 5: site handlers discovered from api.handlers.dir layer on top of
-// the builtins, same pattern as the publisher registry.
-for (const [mode, siteHandler] of Object.entries(siteHandlers)) handlerRegistry.register(mode, siteHandler)
+// the builtins, same pattern as the publisher registry. Survivable: a site
+// handler declaring a builtin mode must warn and skip, not crash module
+// evaluation of this adapter (and every route that imports it).
+for (const [mode, siteHandler] of Object.entries(siteHandlers)) {
+  try {
+    handlerRegistry.register(mode, siteHandler)
+  } catch (e) {
+    console.warn(`[handlers] "${mode}" failed to register and was skipped: ${e.message}`)
+  }
+}
 const { getHarmonizer } = createHarmonizerRegistry(instance)
 
 const indexer = createIndexer({

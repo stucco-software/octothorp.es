@@ -91,3 +91,30 @@ describe('discoverHandlers (#217 wave 5)', () => {
     expect(() => registry.register('html', handlers.html)).toThrow(/built-in/i)
   })
 })
+
+describe('createClient bulk handler registration (#217 wave 5)', () => {
+  const minimal = {
+    instance: 'http://localhost:5173/',
+    sparql: { sparql_endpoint: 'http://0.0.0.0:7878' },
+  }
+
+  it('survives a builtin mode collision: warns, skips, keeps the builtin intact', async () => {
+    const { createClient } = await import('../../packages/core/client.js')
+    const warn = vi.fn()
+    const op = createClient({
+      ...minimal,
+      warn,
+      handlers: {
+        html: handler('html'),
+        csv: handler('csv'),
+      },
+    })
+    const names = op.handler.listHandlers()
+    expect(names).toContain('csv')
+    expect(names).toContain('html')
+    // the builtin, not the colliding override
+    expect(op.handler.getHandler('html').meta.name).toBe('HTML Handler')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toMatch(/html/)
+  })
+})

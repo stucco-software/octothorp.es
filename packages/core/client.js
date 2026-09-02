@@ -175,9 +175,18 @@ export const createClient = (config) => {
   // Consumer-supplied handlers layer on top as non-builtins.
   const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: config.defaultHandler })
 
+  // #217 wave 5: bulk registration is survivable, mirroring the publishers
+  // loop below — a site handler declaring a builtin mode (html/json/xml/...)
+  // must not crash createClient at construction time. warn and skip it so
+  // every other handler still registers.
   if (config.handlers) {
     for (const [mode, handler] of Object.entries(config.handlers)) {
-      handlerRegistry.register(mode, handler)
+      try {
+        handlerRegistry.register(mode, handler)
+      } catch (e) {
+        const warn = config.warn ?? console.warn
+        warn(`[handlers] "${mode}" failed to register and was skipped: ${e.message}`)
+      }
     }
   }
 
