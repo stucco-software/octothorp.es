@@ -14,11 +14,9 @@ In-progress
 
 * [x] 235 - rename index.js
 * [x] 269 - renamed profile.json to octothorpes.json
-* [ ] 216 - merged but needs work
-	* [x] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
+* [x] 216 - Rev 1 profile schema/loader/endpoints; superseded by 217
 * [x] 217 - actually read from profile; awaiting merge of profile-consumption branch
-* [ ] 236 Declare link subtypes in Profile -- REVIEW
-	* [ ] confirm that subtype paths still behave after the RDF-Star migration
+* [x] 236 - link subtypes get first-class paths; superseded by 217 as api.linkTypes
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
 * [ ] 166 - on-demand Document Records. Open surface is the stored `octo:harmonizeWith` ref.
 
@@ -40,6 +38,7 @@ Not started. Critical path — blocks Deletion.
 ### Issues
 
 * [ ] 231 - derive backlinks instead of storing the reciprocal switch
+	* [ ] confirm profile-declared link-type paths still filter correctly after the migration (from 236)
 * [ ] 268 - octo:created on relationships
 	* [ ] don't break the `?s ?o ?date` read path or RSS link feeds go empty
 * [ ] 192 - content labels, riding on this migration
