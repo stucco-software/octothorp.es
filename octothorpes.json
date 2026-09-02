@@ -30,7 +30,7 @@
       "registration": "registered",
       "badge": "/badge.png",
       "blocks": {
-        "domains": [],
+        "domains": ["example.com"],
         "terms": []
       },
       "whitelist": {

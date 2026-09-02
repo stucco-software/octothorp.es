@@ -15,10 +15,13 @@
 {:else}
 <h1>Register your Domain</h1>
 <section class="dotgrid">
-  <!-- <iframe src="https://embeds.beehiiv.com/622f1b7c-3782-45cc-8991-e78207df2960" data-test-id="beehiiv-embed" width="100%" height="320" frameborder="0" scrolling="no" style="border-radius: 4px; border: 2px solid #e5e7eb; margin: 0; background-color: transparent; max-width: 44ch"></iframe>
+
+{#if data.formState === 'hidden'}
   <p>
-    Domain registrations are temporarily closed.
-  </p> -->
+    <span>This relay indexes any URL, so there is nothing to register for.</span>
+  </p>
+{:else}
+
 <form
     method="POST"
     action="/register">
@@ -34,7 +37,8 @@
       type="url"
       id="domain"
       placeholder="https://example.com"
-      name="domain">
+      name="domain"
+      disabled={data.formState === 'disabled'}>
     <label
       for="email">
       <span>
@@ -46,7 +50,8 @@
       required
       type="email"
       name="email"
-      id="email">
+      id="email"
+      disabled={data.formState === 'disabled'}>
     <p>
       <span>We'll send you an email once your website has been verified.</span>
     </p>
@@ -57,7 +62,8 @@
       class="inline"
       type="checkbox"
       id="acceptTerms"
-      name="acceptTerms">
+      name="acceptTerms"
+      disabled={data.formState === 'disabled'}>
       <label
         class="inline"
         for="acceptTerms">
@@ -67,12 +73,28 @@
       </label>
 
       <p>
-        <button>
+        <button disabled={data.formState === 'disabled'}>
           Register
         </button>
       </p>
 
     </div>
+
+    {#if data.formState === 'disabled'}
+      <p>
+        <span>
+          This relay indexes a curated list. Membership is arranged with the admin.
+        </span>
+      </p>
+    {/if}
+
+    {#if form?.formUnavailable}
+      <p>
+        <span>
+          <mark>Registration is not available right now.</mark>
+        </span>
+      </p>
+    {/if}
 
     {#if form?.blocked}
       <p>
@@ -100,6 +122,7 @@
 
 
   </form>
+{/if}
   <div>
     <h3><span>Once you're verified: </span></h3>
     <p><span>Here's some flair to show off your membership in the first Octothorpes server.</span></p>
