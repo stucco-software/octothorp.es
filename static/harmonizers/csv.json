@@ -1,5 +1,5 @@
 {
-  "//": "Site-level demo harmonizer (#217 wave 5, #273). Discovered from api.harmonizers.dir. Its `mode` names the csv HANDLER, discovered separately from api.handlers.dir — this file is the proof that the two registries reference each other correctly. Same shape as a harmonizer fetched over HTTP. As of task 22 this is deliberately decorative: the csv handler (task 21) hardcodes the same column map by hand rather than reading schema.subject[*].column — wiring that up is task 25.",
+  "//": "Site-level demo harmonizer (#217 wave 5, #273). Discovered from api.harmonizers.dir. Its `mode` names the csv HANDLER, discovered separately from api.handlers.dir — this file is the proof that the two registries reference each other correctly. Same shape as a harmonizer fetched over HTTP. As of task 25 this definition is READ BY the handler: schema.subject IS the column-to-field map the csv handler applies. Editing this file changes what gets extracted with no code change in static/handlers/csv.js.",
   "id": "harmonizer/csv",
   "type": "harmonizer",
   "title": "CSV Column Harmonizer",

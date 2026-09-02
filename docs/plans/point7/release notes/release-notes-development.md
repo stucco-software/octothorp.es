@@ -937,3 +937,9 @@ New assertions: `src/tests/profileEndpoints.test.js` gained a describe block con
 Full suite: 1356 passed, 6 pre-existing failures (confirmed unrelated via `git stash` re-run) — all four failing files (`c14MemexRoundtrip`, `documentRecordProjection`, `indexRouteDocumentRecord`, `integration`) require a live local dev server and fail identically with this branch's changes reverted; see `project_integration_test_cycle_staging` / `project_integration_tests_live_server_hmr` memory notes.
 
 **Files affected:** `src/tests/profileEndpoints.test.js`, `src/tests/resolveProfile.test.js`.
+
+## #217 task 25 — the CSV handler reads its column map from the harmonizer
+
+Closes the loop that Tasks 21–24 deliberately left open: `static/handlers/csv.js` now reads its column-to-field map from the discovered harmonizer's `schema.subject` instead of hardcoding it, so editing `static/harmonizers/csv.json` changes what gets extracted with no code change. `harmonize(content, schema)`'s second argument is now load-bearing for this handler; a null/absent definition still falls back to the built-in `DEFAULT_SUBJECT` map (identical to the shipped `csv.json`), so content-type dispatch (`text/csv` with no harmonizer named) is unaffected. Field classification (which OP fields are lists vs. scalars) stays the handler's; the harmonizer only says which column feeds which field. Smoketest recapture skipped per standing ruling — the deployed target does not carry this branch.
+
+**Files affected:** `static/handlers/csv.js`, `static/harmonizers/csv.json`, `src/tests/csvHandler.test.js`.
