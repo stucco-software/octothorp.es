@@ -7,7 +7,7 @@
   console.log(data)
 </script>
 
-{#if data.server_name === 'Bear Blog'}
+{#if data.serverName === 'Bear Blog'}
   <h1>Registrations are Automatic for Bear Blog Sites</h1>
   <p>
     This server is soley for sites on <a href="https://bearblog.dev/">Bear Blog</a>. Read more about how it works <a href="https://octothorpes.bearblog.dev/you-can-use-hashtags-on-your-bear-blog-now/">on the Octothorpes bear blog</a>.
@@ -15,6 +15,14 @@
 {:else}
 <h1>Register your Domain</h1>
 <section class="dotgrid">
+
+{#if form?.formUnavailable}
+  <p>
+    <span>
+      <mark>Registration is not available right now.</mark>
+    </span>
+  </p>
+{/if}
 
 {#if data.formState === 'hidden'}
   <p>
@@ -84,14 +92,6 @@
       <p>
         <span>
           This relay indexes a curated list. Membership is arranged with the admin.
-        </span>
-      </p>
-    {/if}
-
-    {#if form?.formUnavailable}
-      <p>
-        <span>
-          <mark>Registration is not available right now.</mark>
         </span>
       </p>
     {/if}
