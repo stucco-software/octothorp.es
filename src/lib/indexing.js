@@ -2,6 +2,7 @@ import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, 
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
+import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
 
 // #217: everything operational comes from the profile now. `instance` still
 // originates in .env when a deploy overrides it, but it arrives here through
@@ -28,7 +29,19 @@ for (const [mode, siteHandler] of Object.entries(siteHandlers)) {
     console.warn(`[handlers] "${mode}" failed to register and was skipped: ${e.message}`)
   }
 }
-const { getHarmonizer } = createHarmonizerRegistry(instance)
+const harmonizerRegistry = createHarmonizerRegistry(instance)
+// #217 wave 5: site harmonizers discovered from api.harmonizers.dir layer on
+// top of the builtins, same survivable pattern as the handler loop above — a
+// site harmonizer reusing a builtin name must warn and skip, not crash module
+// evaluation of this adapter (and every route that imports it).
+for (const [name, siteHarmonizer] of Object.entries(siteHarmonizers)) {
+  try {
+    harmonizerRegistry.register(name, siteHarmonizer)
+  } catch (e) {
+    console.warn(`[harmonizers] "${name}" failed to register and was skipped: ${e.message}`)
+  }
+}
+const { getHarmonizer } = harmonizerRegistry
 
 const indexer = createIndexer({
   insert,

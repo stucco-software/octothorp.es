@@ -33,5 +33,9 @@ COPY --from=build /app/build/client/publishers ./static/publishers
 # from disk at api.handlers.dir = "./static/handlers"). Empty at present
 # (only .gitkeep) — Task 21+ adds the first real handler.
 COPY --from=build /app/build/client/handlers ./static/handlers
+# #217 wave 5: site harmonizers are JSON data walked from disk at
+# api.harmonizers.dir = "./static/harmonizers". Empty at present (only
+# .gitkeep) — Tasks 22/23 add the first real harmonizer definitions.
+COPY --from=build /app/build/client/harmonizers ./static/harmonizers
 EXPOSE 3000
 CMD ["node", "build"]

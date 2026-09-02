@@ -50,7 +50,7 @@
       "default": "html"
     },
     "harmonizers": {
-      "dir": "./src/lib/harmonizers"
+      "dir": "./static/harmonizers"
     }
   },
 

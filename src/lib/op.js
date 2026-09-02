@@ -7,6 +7,7 @@ import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { publishers } from '$lib/publishers'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
+import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
 
 const profile = getProfile()
 
@@ -19,6 +20,7 @@ export const op = createClient({
   },
   publishers,
   handlers: siteHandlers,
+  harmonizers: siteHarmonizers,
   profile,
   defaultHandler: profile.api.handlers.default,
   // The two policy axes travel separately and are never collapsed:

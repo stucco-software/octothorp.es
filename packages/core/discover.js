@@ -100,3 +100,73 @@ export const discoverHandlers = async ({ dir, listEntries, loadHandler, warn = c
 
   return { handlers, skipped }
 }
+
+/**
+ * Shallow validation of a harmonizer DEFINITION (#217 wave 5). Harmonizers are
+ * declarative JSON — { id, type, title, mode, schema: { subject: {...} } } —
+ * and a local file is the same shape as one fetched over HTTP, so this is the
+ * check both paths want.
+ *
+ * Deliberately shallow: selector dialects belong to individual handlers, and
+ * validating them here would couple this loader to every handler's schema.
+ *
+ * @param {Object} definition
+ * @returns {string[]} problems; empty means valid
+ */
+export const validateHarmonizer = (definition) => {
+  const problems = []
+  if (!definition || typeof definition !== 'object') return ['not an object']
+  if (!definition.id) problems.push('missing id')
+  if (!definition.title) problems.push('missing title')
+  // `mode` is the HANDLER reference. Not resolved here: discovery order between
+  // handlers.dir and harmonizers.dir is not guaranteed, and an unknown mode
+  // falls through to the registry's normal default-handler dispatch.
+  if (typeof definition.mode !== 'string' || !definition.mode) problems.push('missing mode')
+  if (!definition.schema || typeof definition.schema.subject !== 'object') {
+    problems.push('missing schema.subject')
+  }
+  return problems
+}
+
+/**
+ * Init-time HARMONIZER discovery. Same skip-and-warn policy as the handler and
+ * publisher walks, but a DIFFERENT loader: these are read-and-validated JSON
+ * documents, not imported modules. Keyed by file basename, so a site
+ * harmonizer is referenced exactly like core's `default`.
+ *
+ * @param {Object} config
+ * @param {string|null} config.dir - api.harmonizers.dir
+ * @param {(dir: string) => Promise<string[]>} config.listEntries
+ * @param {(dir: string, file: string) => Promise<Object>} config.readJson
+ * @param {(message: string) => void} [config.warn=console.warn]
+ * @returns {Promise<{harmonizers: Record<string, Object>, skipped: Array<{name: string, reason: string}>}>}
+ */
+export const discoverHarmonizers = async ({ dir, listEntries, readJson, warn = console.warn } = {}) => {
+  const harmonizers = {}
+  const skipped = []
+  if (!dir) return { harmonizers, skipped }
+
+  let entries
+  try {
+    entries = await listEntries(dir)
+  } catch (e) {
+    warn(`[profile] harmonizers dir "${dir}" could not be read: ${e.message} — no site harmonizers registered`)
+    return { harmonizers, skipped }
+  }
+
+  for (const file of entries) {
+    if (file.startsWith('_') || !file.endsWith('.json')) continue
+    const name = file.replace(/\.json$/, '')
+    try {
+      const definition = await readJson(dir, file)
+      const problems = validateHarmonizer(definition)
+      if (problems.length) throw new Error(problems.join(', '))
+      harmonizers[name] = { type: 'harmonizer', ...definition }
+    } catch (e) {
+      skipped.push({ name: file, reason: e.message })
+      warn(`[profile] site harmonizer "${file}" failed to load and was skipped: ${e.message}`)
+    }
+  }
+
+  return { harmonizers, skipped }
+}

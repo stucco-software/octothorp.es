@@ -38,7 +38,7 @@ export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { resolveProfile, expandTermUri, absolutize } from './resolveProfile.js'
-export { discoverPublishers, discoverHandlers } from './discover.js'
+export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer } from './discover.js'
 export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
@@ -186,6 +186,20 @@ export const createClient = (config) => {
       } catch (e) {
         const warn = config.warn ?? console.warn
         warn(`[handlers] "${mode}" failed to register and was skipped: ${e.message}`)
+      }
+    }
+  }
+
+  // #217 wave 5: bulk registration is survivable, mirroring config.handlers
+  // above — a site harmonizer collision (same name as a core local) must not
+  // crash createClient at construction time. warn and skip it.
+  if (config.harmonizers) {
+    for (const [name, harmonizer] of Object.entries(config.harmonizers)) {
+      try {
+        registry.register(name, harmonizer)
+      } catch (e) {
+        const warn = config.warn ?? console.warn
+        warn(`[harmonizers] "${name}" failed to register and was skipped: ${e.message}`)
       }
     }
   }
