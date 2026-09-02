@@ -12,6 +12,7 @@ import calendarHandler from './handlers/calendar/handler.js'
 import markdownHandler from './handlers/markdown/handler.js'
 import { publish } from './publish.js'
 import { resolveProfile } from './resolveProfile.js'
+import { normalizeAccess } from './access.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
@@ -38,6 +39,7 @@ export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { resolveProfile, expandTermUri, absolutize } from './resolveProfile.js'
 export { discoverPublishers } from './discover.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
@@ -127,6 +129,11 @@ const normalizeIndexPolicy = (policy) => {
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
  *   which is a no-op identical to prior behavior.
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}}} [config.access] -
+ *   The #217 access block. `registration` is the gate an index request must pass
+ *   ('registered' | 'open' | 'closed'); `blocks.domains`/`whitelist.domains` modify it.
+ *   `blocks.terms` is a separate, mode-independent write-time filter. Orthogonal to
+ *   `config.indexingMode`, which says what TRIGGERS indexing rather than what gate it passes.
  * @param {Object} [config.profile] - A resolved profile (result of `getProfile()`). When supplied,
  *   `resolvedProfile()` projects it against what actually registered (publishers/handlers/harmonizers).
  * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api, resolvedProfile }}
@@ -136,6 +143,9 @@ export const createClient = (config) => {
   const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance)
   const policy = normalizeIndexPolicy(config.indexPolicy)
+  // #217: the access gate is orthogonal to indexingMode. `access` says what gate
+  // an index request must pass; `indexingMode` says what triggers indexing.
+  const access = normalizeAccess(config.access)
 
   // Builtins (html/json/xml/blobject, frozen) + null + default come from the
   // shared builder, so there is one place to register a new core format.
@@ -170,6 +180,7 @@ export const createClient = (config) => {
     handlerRegistry,
     getHarmonizer: registry.getHarmonizer,
     documentRecordSchema: config.documentRecordSchema,
+    access,
   })
 
   const api = createApi({

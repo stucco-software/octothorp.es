@@ -28,6 +28,12 @@ const indexer = createIndexer({
   getHarmonizer,
   documentRecordSchema: documentRecord,
   namespaces: mergeNamespaces(profile.vocabulary.namespaces),
+  // #217: the access block feeds two independent enforcement points.
+  // `registration` + `blocks.domains`/`whitelist.domains` are the GATE axis —
+  // what an index request must pass. `indexingMode` (Task 17) is the TRIGGER
+  // axis and is orthogonal to all of it. `blocks.terms` is neither: it is a
+  // write-time, statement-level filter that applies in every registration mode.
+  access: profile.policies.access,
 })
 
 // Content-path harmonization bound to the same registry/lookup the indexer
