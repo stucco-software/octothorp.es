@@ -16,9 +16,7 @@ In-progress
 * [x] 269 - renamed profile.json to octothorpes.json
 * [ ] 216 - merged but needs work
 	* [x] profile on the main Relay is confused and incorrect. it has some memex related stuff in it.
-* [ ] 217 Actually read from profile - declarative/resolved model settled in issue; awaiting hand-authored schema draft
-	* [x] write human-readable description of issue
-	* [x] compare requirements against what was shipped and merged
+* [x] 217 - actually read from profile; awaiting merge of profile-consumption branch
 * [ ] 236 Declare link subtypes in Profile -- REVIEW
 	* [ ] confirm that subtype paths still behave after the RDF-Star migration
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
@@ -93,7 +91,7 @@ Epic: **273**
 
 ### Status
 
-Deployed on staging. Lightly tested. Needs documentation and examples. Code-complete otherwise.
+Code-complete including profile-driven discovery and the csv/anchors example demos, awaiting merge of profile-consumption. Needs documentation; smoketest fixtures wait on deploy.
 
 ### TODO:
 
