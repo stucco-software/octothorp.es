@@ -28,6 +28,7 @@ const indexer = createIndexer({
   getHarmonizer,
   documentRecordSchema: documentRecord,
   namespaces: mergeNamespaces(profile.vocabulary.namespaces),
+  indexingMode: profile.policies.indexing.mode,
   // #217: the access block feeds two independent enforcement points.
   // `registration` + `blocks.domains`/`whitelist.domains` are the GATE axis —
   // what an index request must pass. `indexingMode` (Task 17) is the TRIGGER

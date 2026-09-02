@@ -148,7 +148,7 @@ describe('client.harmonize uses the client handler registry', () => {
     const op = createClient({
       instance: 'http://localhost:5173/',
       sparql,
-      indexPolicy: 'active',
+      indexingMode: 'active',
       handlers: {
         bar: {
           mode: 'bar',

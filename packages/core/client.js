@@ -110,12 +110,34 @@ const normalizeSparqlConfig = (sparql) => {
   }
 }
 
-const normalizeIndexPolicy = (policy) => {
-  if (!policy || policy === 'registered') return { mode: 'registered' }
-  if (policy === 'pull') return { mode: 'pull' }
-  if (policy === 'active') return { mode: 'active' }
-  if (typeof policy === 'object') return policy  // custom/stubbed
-  throw new Error(`Unknown indexPolicy: ${policy}`)
+/**
+ * Normalize the client-level INDEXING MODE — what TRIGGERS indexing.
+ *   'request' (default): index only when asked via /index
+ *   'active':            this client crawls/re-indexes on its own schedule
+ * A custom object is passed through untouched (escape hatch for stubs/experiments).
+ *
+ * These are the same two spellings as the profile's policies.indexing.mode, so
+ * the profile -> core hop is the identity function (#217).
+ *
+ * Renamed from `indexPolicy` because that name collided with
+ * `blobject.indexPolicy`, the per-page opt-in marker harmonizers extract from
+ * markup — an unrelated thing that is NOT affected by this rename.
+ *
+ * Two former values are gone:
+ *   'pull'       — audited dead in #217; no code path ever read mode: 'pull'.
+ *   'registered' — that concept is the ACCESS GATE now
+ *                  (policies.access.registration, see access.js). It is a
+ *                  different axis: gate vs trigger. All six combinations of
+ *                  the two are valid.
+ *
+ * @param {'request'|'active'|Object} [mode]
+ * @returns {{mode: string}|Object}
+ */
+export const normalizeIndexingMode = (mode) => {
+  if (!mode || mode === 'request') return { mode: 'request' }
+  if (mode === 'active') return { mode: 'active' }
+  if (typeof mode === 'object') return mode // custom/stubbed
+  throw new Error(`Unknown indexingMode: ${mode} (expected 'request', 'active', or a custom object)`)
 }
 
 /**
@@ -124,7 +146,8 @@ const normalizeIndexPolicy = (policy) => {
  * @param {string} config.instance - OP instance URL (with trailing slash)
  * @param {Object} config.sparql - Explicit sparql config ({ endpoint, user, password })
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
- * @param {string|Object} [config.indexPolicy] - 'registered' (default), 'pull', 'active', or custom object
+ * @param {'request'|'active'|Object} [config.indexingMode] - What TRIGGERS indexing:
+ *   'request' (default) or 'active'. Orthogonal to config.access, which is the GATE.
  * @param {Array<{predicate: string, namespace: string, range: string}>} [config.documentRecordSchema] -
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
@@ -142,7 +165,7 @@ export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance)
-  const policy = normalizeIndexPolicy(config.indexPolicy)
+  const policy = normalizeIndexingMode(config.indexingMode)
   // #217: the access gate is orthogonal to indexingMode. `access` says what gate
   // an index request must pass; `indexingMode` says what triggers indexing.
   const access = normalizeAccess(config.access)

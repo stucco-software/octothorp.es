@@ -50,4 +50,12 @@ describe('#217 indexing adapter reads the profile', () => {
   it('passes the effective namespace list', () => {
     expect(captured.namespaces.map((n) => n.prefix)).toContain('schema')
   })
+
+  it('passes the profile indexing mode straight through — no translation', () => {
+    expect(captured.indexingMode).toBe('request')
+  })
+
+  it('passes the access gate separately from the indexing mode', () => {
+    expect(captured.access.registration).toBe('registered')
+  })
 })
