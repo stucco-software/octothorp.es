@@ -166,6 +166,21 @@ describe('termBlocked — the write-time enforcement point', () => {
     // blocks.terms applies under registered, open and closed alike.
     expect(termBlocked.length).toBe(2)
   })
+
+  it('strips a trailing slash on the needle so it cannot evade the blocklist', () => {
+    // The indexer's deslash step would otherwise turn a hashtag uri like
+    // '#someslur/' into the canonical '~/someslur' term AFTER an exact-match
+    // check already let it through, writing a near-duplicate page.
+    expect(termBlocked('someslur/', ['someslur'])).toBe(true)
+  })
+
+  it('strips a leading slash on the needle', () => {
+    expect(termBlocked('/someslur', ['someslur'])).toBe(true)
+  })
+
+  it('strips surrounding slashes on list entries too', () => {
+    expect(termBlocked('someslur', ['someslur/'])).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------

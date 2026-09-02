@@ -28,6 +28,9 @@ const indexer = createIndexer({
   getHarmonizer,
   documentRecordSchema: documentRecord,
   namespaces: mergeNamespaces(profile.vocabulary.namespaces),
+  // Forward-looking: createIndexer does not consume indexingMode today (the
+  // HTTP /index path is request-mode-only until core reads this). Passed
+  // through now so wiring doesn't need revisiting once it does.
   indexingMode: profile.policies.indexing.mode,
   // #217: the access block feeds two independent enforcement points.
   // `registration` + `blocks.domains`/`whitelist.domains` are the GATE axis —

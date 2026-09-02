@@ -223,7 +223,7 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   const { registration, blocks, whitelist } = access
   if (registration !== 'open' && blocks.domains.length > 0) {
     warn(
-      `[profile] policies.access.blocks.domains is non-empty but registration is "${registration}" — the ORIGIN blocklist only applies in "open" mode and is inert here`
+      `[profile] policies.access.blocks.domains is non-empty but registration is "${registration}" — the ORIGIN blocklist only applies in "open" mode for the INDEXING GATE and is inert there; it is still consulted by the /register form's short-circuit under every mode`
     )
   }
   // NOTE: blocks.terms is deliberately NOT warned on. It is orthogonal to the

@@ -117,9 +117,14 @@ export const termBlocked = (term, terms) => {
   // contract (there is no mode argument, because blocks.terms is
   // mode-independent), so the empty case is handled in the body instead.
   const list = terms ?? []
-  const needle = String(term ?? '').trim().toLowerCase()
+  // Strip surrounding slashes before comparing so a trailing (or leading)
+  // '/' on either side of the match can't evade the blocklist — the indexer's
+  // deslash step would otherwise turn '#someslur/' into the canonical
+  // '~/someslur' term after the exact-match check already let it through.
+  const normalize = (value) => String(value ?? '').trim().toLowerCase().replace(/^\/+|\/+$/g, '')
+  const needle = normalize(term)
   if (!needle) return false
-  return list.some((entry) => String(entry).trim().toLowerCase() === needle)
+  return list.some((entry) => normalize(entry) === needle)
 }
 
 /**
