@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Fix: declare `fast-xml-parser`, which `handlers/xml` imports. It was declared only in the monorepo root, so it resolved in development and in the octothorp.es app but was missing from the published package — a fresh `npm install octothorpes@0.4.0` crashed on first import. 0.4.0 is broken on install; use this instead.
+
 ## 0.4.0
 
 The OP Client Profile now drives the client (#217). Contains breaking changes.
