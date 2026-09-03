@@ -384,7 +384,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       meta, subjects, objects, filters
       });
     const subjectResults = await queryArray(subjectQuery);
-    console.log(subjectResults)
+    // console.log(subjectResults)
     // Extract subject URIs from first query
     const incls = subjectResults.results.bindings
       .filter(binding => binding.s && binding.s.type === 'uri')
