@@ -384,7 +384,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       meta, subjects, objects, filters
       });
     const subjectResults = await queryArray(subjectQuery);
-    console.log(subjectResults)
+    // console.log(subjectResults)
     // Extract subject URIs from first query
     const incls = subjectResults.results.bindings
       .filter(binding => binding.s && binding.s.type === 'uri')
@@ -495,7 +495,20 @@ export const createQueryBuilders = (instance, queryArray) => {
       ? 'SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg'
       : 'SELECT DISTINCT ?s ?title ?description ?image ?date ?postDate ?pageType'
 
-    // Build object-related clauses conditionally
+    // Build object-related clauses conditionally.
+    //
+    // #282: every REQUIRED triple pattern must be emitted before the first
+    // OPTIONAL in this group. Oxigraph 0.4+ will not hoist a required pattern
+    // above a LeftJoin, so one stranded below the OPTIONAL stack makes the
+    // planner left-join against an unconstrained intermediate — 11s vs 23ms on
+    // a 68k-triple store, scaling as store size × result rows. `?s rdf:type
+    // ?pageType` used to sit below these OPTIONALs; that was the whole bug.
+    //
+    // Safe because the reassociation Join(LeftJoin(P, B), C) -> LeftJoin(Join(P, C), B)
+    // holds only when C shares no variables with B beyond those P already binds.
+    // Here C is `?s rdf:type ?pageType`: ?pageType appears in no OPTIONAL, and
+    // ?s / ?o are bound by the preceding required patterns. Re-check that
+    // condition before moving anything else across this boundary.
     const objectClauses = includeObjects ? `
       ${statements.subtypeFilter}
       ${statements.relationTermsFilter}
@@ -503,11 +516,13 @@ export const createQueryBuilders = (instance, queryArray) => {
       ?s octo:octothorpes ?o .
       ${objectTypes[objects.type]}
       ?s ?o ?date .
+      ?s rdf:type ?pageType .
       OPTIONAL { ?o octo:title ?ot . }
       OPTIONAL { ?o octo:description ?od . }
       OPTIONAL { ?o octo:image ?oimg . }
     ` : `
       ?s octo:created ?date .
+      ?s rdf:type ?pageType .
     `
 
     const query = `${selectClause}
@@ -518,8 +533,6 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${statements.dateFilter}
       ${statements.createdFilter ? `OPTIONAL { ?s octo:created ?createdDate . } ${statements.createdFilter}` : ''}
       ${statements.indexedFilter ? `OPTIONAL { ?s octo:indexed ?indexedDate . } ${statements.indexedFilter}` : ''}
-      ?s rdf:type ?pageType .
-
       OPTIONAL { ?s octo:title ?title . }
       OPTIONAL { ?s octo:image ?image . }
       OPTIONAL { ?s octo:description ?description . }
