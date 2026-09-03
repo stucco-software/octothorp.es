@@ -888,3 +888,35 @@ Four small changes merged as one branch (`cleanup-235-279-269`), all endpoint-in
 **#269 — `profile.json` → `octothorpes.json`.** Repo-root filename only; the `/profile` and `/profile.json` endpoints are unchanged.
 
 **Files affected:** `packages/core/client.js` (renamed), `packages/core/indexer.js`, `packages/core/blobject.js`, `packages/core/queryBuilders.js`, `packages/core/profile.js`, `octothorpes.json` (renamed), `src/lib/profile.js`, `scripts/core-test.js`, 15 test files.
+
+## `/get` phase-1 query: required pattern stranded below the OPTIONAL stack (#282)
+
+The long-standing ~10-12s `/get` slowdown was a single misplaced line in `buildSimpleQuery`. `?s rdf:type ?pageType .` — a **required** triple pattern — was emitted after four `OPTIONAL` blocks. Oxigraph 0.4+ will not hoist a required pattern above a `LeftJoin`, so it left-joined the whole OPTIONAL stack against an unconstrained intermediate. Moved into the required block: after `?s ?o ?date .` in the objects branch, after `?s octo:created ?date .` in the `objects: none` branch.
+
+Measured against the 68,648-triple dev store on Oxigraph 0.4.11, comparing the generated query before and after, with result sets compared by sorted binding fingerprint (not row count):
+
+| case | before | after |
+|---|---|---|
+| termsOnly exact, 1 term | 10,303ms / 282r | 26ms |
+| termsOnly exact, 3 terms | 10,220ms / 472r | 20ms |
+| very-fuzzy | 10,650ms / 282r | 80ms |
+| nonexistent term | 10,046ms / 0r | 4ms |
+| dateRange filter | 10,248ms / 282r | 15ms |
+| createdRange filter | 10,221ms / 282r | 26ms |
+| subtype filter | 10,529ms / 0r | 10ms |
+| pagesOnly objects | 891ms / 27r | 2ms |
+| no objects (subject) | 17ms / 2r | 1ms |
+
+All nine identical before and after.
+
+**Why it wasn't reproducible on production.** The regression is Oxigraph 0.4's. Same dump, same query text, fresh containers: v0.3.22 36ms, 0.4.0 11.0s, 0.4.11 10.2s, 0.5.0 9.8s. On 0.4 the cost is roughly *store size × result rows*; on 0.3 it tracks result rows alone. Production shows the 0.3 signature (a nonexistent term costs nothing above the network floor, where on 0.4 an empty result costs the same as a full one), so prod is running an older engine than local dev and is currently fast by accident. The fix is neutral-to-faster on 0.3.22, so it is safe to ship ahead of any engine upgrade.
+
+This corrects the diagnosis in the #282 issue body, which attributed the slowdown to `VALUES ?o` in predicate position. That framing made `fuzzy`/`very-fuzzy` and multi-object `VALUES` look like blockers requiring separate handling; both are fixed by the reorder, and there was only one defect site rather than the three the issue listed. `buildEverythingQuery` already ordered its required patterns correctly, which is why only phase-1 was slow.
+
+**Correctness constraint**, recorded at the site: the reassociation `Join(LeftJoin(P, B), C)` → `LeftJoin(Join(P, C), B)` is valid only when `C` shares no variables with `B` beyond those `P` already binds. `?pageType` appears in no OPTIONAL and `?s`/`?o` are bound by preceding required patterns, so it holds here.
+
+`queryPatternOrdering.test.js` asserts the invariant structurally across all four builders — no required triple pattern may follow an `OPTIONAL` within a group. It is a shape assertion, so it needs no populated store and no timing.
+
+**Not addressed here:** `prepEverything` still runs a full second query and discards everything but `?s`; phase-1 remains unbounded for `resultMode: 'blobjects'` (`getStatements` suppresses LIMIT/OFFSET there); a stray `console.log(subjectResults)` at `queryBuilders.js:434` serialises the whole phase-1 binding array to stdout on every `everything` request; and `ghcr.io/oxigraph/oxigraph:latest` is unpinned in `octothorpes-suite/docker-compose.yml` and `docs/railway-deploy.md`, which is what let prod and local diverge silently.
+
+**Files affected:** `packages/core/queryBuilders.js`, `src/tests/queryPatternOrdering.test.js` (new, 12 tests).
