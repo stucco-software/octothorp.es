@@ -4,6 +4,9 @@
   "type": "module",
   "description": "Core library for the Octothorpes Protocol",
   "main": "client.js",
+  "bin": {
+    "octothorpes": "./bin/octothorpes.js"
+  },
   "exports": {
     ".": "./client.js",
     "./profile.schema.json": "./profile.schema.json",
@@ -13,6 +16,7 @@
     "*.js",
     "ld/",
     "handlers/",
+    "bin/",
     "profile.schema.json"
   ],
   "dependencies": {
