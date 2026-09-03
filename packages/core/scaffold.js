@@ -78,10 +78,11 @@ export const scaffoldProfile = ({
     profile.policies.indexing = { mode: indexing }
   }
   if (dirs !== undefined) {
+    const base = dirs.endsWith('/') ? dirs.slice(0, -1) : dirs
     profile.api = {
-      publishers: { dir: dirs },
-      handlers: { dir: dirs },
-      harmonizers: { dir: dirs },
+      publishers: { dir: `${base}/publishers` },
+      handlers: { dir: `${base}/handlers` },
+      harmonizers: { dir: `${base}/harmonizers` },
     }
   }
 

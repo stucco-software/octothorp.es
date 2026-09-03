@@ -58,14 +58,21 @@ describe('scaffoldProfile', () => {
     expect(withBoth.policies.indexing.mode).toBe('active')
   })
 
-  it('emits all three dir pointers under api when dirs is supplied, and omits api otherwise', () => {
+  it('emits all three dir pointers under api joined with the kind name, and omits api otherwise', () => {
     const withDirs = scaffoldProfile({ instance: 'https://example.test/', dirs: './static' })
-    expect(withDirs.api.publishers.dir).toBe('./static')
-    expect(withDirs.api.handlers.dir).toBe('./static')
-    expect(withDirs.api.harmonizers.dir).toBe('./static')
+    expect(withDirs.api.publishers.dir).toBe('./static/publishers')
+    expect(withDirs.api.handlers.dir).toBe('./static/handlers')
+    expect(withDirs.api.harmonizers.dir).toBe('./static/harmonizers')
 
     const without = scaffoldProfile({ instance: 'https://example.test/' })
     expect(without.api).toBeUndefined()
+  })
+
+  it('handles a dirs base with a trailing slash', () => {
+    const withDirs = scaffoldProfile({ instance: 'https://example.test/', dirs: './static/' })
+    expect(withDirs.api.publishers.dir).toBe('./static/publishers')
+    expect(withDirs.api.handlers.dir).toBe('./static/handlers')
+    expect(withDirs.api.harmonizers.dir).toBe('./static/harmonizers')
   })
 
   it('lets an explicit terms win over the derived one', () => {
