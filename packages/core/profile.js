@@ -1,4 +1,5 @@
 import Ajv from 'ajv'
+import { normalizeInstance } from './resolveProfile.js'
 
 // #217 Rev 2 — OP Client Profile loader. Framework-agnostic: takes the parsed
 // authored profile object, the schema object, and an optional flat env object.
@@ -194,10 +195,24 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   // Deploy-level override wins. Empty string is treated as absent so an unset
   // Docker/Railway variable never clobbers the authored value.
   if (env?.instance) resolved.identity.instance = env.instance
+  // Canonicalize before anything downstream interpolates it. createClient
+  // reads identity.instance straight from here, so this single point covers
+  // queryBuilders, the harmonizer registry and the indexer alike.
+  resolved.identity.instance = normalizeInstance(resolved.identity.instance)
   if (!resolved.identity.instance) {
     throw new Error(
       'Profile has no `identity.instance` and no `instance` env override — a client needs a canonical base URL'
     )
+  }
+
+  // `instance + '~/'` is the convention and the prefix core actually mints
+  // into the graph, so an undeclared terms defaults to it rather than staying
+  // null — the same derivation `octothorpes new` scaffolds. Absolute on
+  // purpose: a relative default would leave the published prefix dependent on
+  // the consumer's base URL. An authored value always wins, including one
+  // pointing at another origin.
+  if (!resolved.identity.terms) {
+    resolved.identity.terms = `${resolved.identity.instance}~/`
   }
 
   // Per-item default that mergeDefaults cannot reach (array items are replaced

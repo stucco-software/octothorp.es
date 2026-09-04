@@ -21,9 +21,9 @@
         "name": { "type": "string" },
         "description": { "type": "string" },
         "terms": {
-          "description": "Usable URI prefix for all terms on this instance — appending a term name yields that term's URI (and is how feeds.thorpes term names expand). Must match the prefix actually minted into the graph (currently instance + '~/'). NOTE: this key previously meant terms-of-service; that link needs a new home (rules?).",
+          "description": "Usable URI prefix for all terms on this instance — appending a term name yields that term's URI (and is how feeds.thorpes term names expand). Must match the prefix actually minted into the graph (currently instance + '~/'), which is why an undeclared terms defaults to exactly that. May be authored relative (e.g. '~/'), in which case it is absolutized against identity.instance and so follows a deploy-level instance override; an absolute value passes through untouched, including one whose origin differs from instance. NOTE: this key previously meant terms-of-service; that link needs a new home (rules?).",
           "type": "string",
-          "format": "uri"
+          "format": "uri-reference"
         },
         "feeds": {
           "description": "Known-shape feed pointers for building a rich client card: 'if you want to follow / embed / explore this relay, pay attention to these.' Keys are conventional slots. A value is either a URL (relative to instance or absolute) or an array of term names the consumer builds feed URLs from.",
