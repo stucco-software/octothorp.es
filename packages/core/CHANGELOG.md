@@ -1,4 +1,7 @@
 # Changelog
+## 0.4.2
+
+Gracefully handle paths and defaults in identity block of profile 
 
 ## 0.4.1
 
