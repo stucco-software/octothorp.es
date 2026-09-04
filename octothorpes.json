@@ -1,62 +1,39 @@
 {
   "$schema": "./packages/core/profile.schema.json",
-
-  "identity": {
-    "instance": "https://octothorp.es/",
-    "name": "Octothorpes",
-    "description": "The Octothorpes Protocol relay and reference client.",
-    "terms": "https://octothorp.es/~/",
-    "feeds": {
-      "thorpes": ["octothorpe-news", "cats"],
-      "multipass": "https://octothorp.es/news-and-favs.json"
-    },
-    "images": {
-      "favicon": "/favicon.ico",
-      "avatar": "/avatar.png"
-    },
-    "contact": {
-      "email": "admin@octothorp.es",
-      "bluesky": "@octothorp.es"
-    }
-  },
-
-  "policies": {
-    "commercial": false,
-    "indexing": {
-      "mode": "request",
-      "frequency": "hourly"
-    },
-    "access": {
-      "registration": "registered",
-      "badge": "/badge.png",
-      "blocks": {
-        "domains": ["example.com"],
-        "terms": []
-      },
-      "whitelist": {
-        "domains": []
-      }
-    }
-  },
-
-  "api": {
-    "linkTypes": [],
-    "documentRecord": [],
-    "publishers": {
-      "dir": "./static/publishers"
-    },
-    "handlers": {
-      "dir": "./static/handlers",
-      "default": "html"
-    },
-    "harmonizers": {
-      "dir": "./static/harmonizers"
-    }
-  },
-
+  "relay": null,
+  "indexingMode": "active",
+  "indexingFrequency": "hourly",
+  "registrationPolicy": "invite",
+  "defaultHarmonizer": "html",
+  "namedHarmonizers": [],
+  "defaultPublisher": "rss2",
+  "namedPublishers": [],
+  "vocabularyDocument": "https://octothorp.es/vocabulary",
+  "contentLabels": [],
+  "externalAccounts": [
+    { "provider": "bluesky", "handle": "@octothorpes.bsky.social" }
+  ],
+  "name": "Octothorpes",
+  "description": "The Octothorpes Protocol relay and reference client.",
+  "favicon": "/favicon.ico",
+  "badge": "/badge.png",
+  "avatar": null,
+  "terms": "https://octothorp.es/terms",
+  "contacts": [
+    { "name": "Octothorpes Admin", "email": "admin@octothorp.es" }
+  ],
+  "commercialActivity": false,
   "vocabulary": {
-    "namespaces": [
-      { "prefix": "skos", "iri": "http://www.w3.org/2004/02/skos/core#", "import": true }
+    "relationshipSubtypes": [
+      { "type": "AliasOf", "label": "is an alias of", "path": "aliasesOf" },
+      { "type": "Item", "label": "is an item in", "path": "items" }
+    ],
+    "documentRecord": [
+      { "predicate": "encodingFormat", "namespace": "schema", "range": "literal" },
+      { "predicate": "contentUrl", "namespace": "schema", "range": "uri" },
+      { "predicate": "contentSize", "namespace": "schema", "range": "number" },
+      { "predicate": "dateCreated", "namespace": "schema", "range": "timestamp" },
+      { "predicate": "sha256", "namespace": "schema", "range": "literal" }
     ]
   }
 }
