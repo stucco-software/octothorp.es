@@ -5,7 +5,8 @@
     "instance": "https://octothorp.es/",
     "name": "Octothorpes",
     "description": "The Octothorpes Protocol relay and reference client.",
-    "terms": "https://octothorp.es/~/",
+    "terms": "/~/",
+    "rules": "/terms",
     "feeds": {
       "thorpes": ["octothorpe-news", "cats"],
       "multipass": "https://octothorp.es/news-and-favs.json"

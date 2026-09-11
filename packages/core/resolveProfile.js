@@ -98,11 +98,20 @@ export const resolveProfile = ({
     ? absolutize(profile.identity.terms, instance)
     : `${instance}~/`
 
+  // `rules` is the human-readable rules/ToS document, absolutized like every
+  // other identity URL. Unlike `terms` it gets NO derived fallback: there is no
+  // conventional path a relay's rules must live at, so an undeclared value stays
+  // null and consumers correctly render nothing.
+  const rules = profile.identity.rules
+    ? absolutize(profile.identity.rules, instance)
+    : null
+
   return {
     identity: {
       ...profile.identity,
       instance,
       terms,
+      rules,
       feeds: expandFeeds(profile.identity.feeds, { instance, terms }),
       images: Object.fromEntries(
         Object.entries(profile.identity.images ?? {}).map(([k, v]) => [k, absolutize(v, instance)])

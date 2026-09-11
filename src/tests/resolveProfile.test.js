@@ -283,6 +283,35 @@ describe('identity.instance — trailing slash normalization', () => {
   })
 })
 
+describe('identity.rules — the human-readable rules/ToS link', () => {
+  const resolveWith = (identity) =>
+    resolveProfile({ profile: { ...profile, identity: { ...profile.identity, ...identity } } })
+
+  it('resolves a relative rules path against instance', () => {
+    expect(resolveWith({ instance: 'https://example.test/', rules: '/rules' }).identity.rules).toBe(
+      'https://example.test/rules'
+    )
+  })
+
+  it('passes an absolute rules URL through untouched', () => {
+    expect(
+      resolveWith({ rules: 'https://elsewhere.test/tos' }).identity.rules
+    ).toBe('https://elsewhere.test/tos')
+  })
+
+  it('stays null when undeclared — there is NO derived default', () => {
+    // Unlike identity.terms, no convention exists for where a relay's rules
+    // live, so guessing would advertise a document that may not exist.
+    expect(resolveWith({ rules: null }).identity.rules).toBeNull()
+  })
+
+  it('is independent of identity.terms — the two are not the same key', () => {
+    const out = resolveWith({ terms: '~/', rules: '/rules' }).identity
+    expect(out.terms).toBe('https://example.test/~/')
+    expect(out.rules).toBe('https://example.test/rules')
+  })
+})
+
 describe('identity.terms — absolutized like every other identity URL', () => {
   const resolveWith = (identity) =>
     resolveProfile({ profile: { ...profile, identity: { ...profile.identity, ...identity } } })

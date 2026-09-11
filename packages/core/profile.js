@@ -61,6 +61,7 @@ export const PROFILE_DEFAULTS = Object.freeze({
     name: null,
     description: null,
     terms: null,
+    rules: null,
     feeds: {},
     images: {},
     contact: {},

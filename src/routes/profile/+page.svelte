@@ -32,7 +32,8 @@
     {#if identity.instance}<li><strong>Instance:</strong> {identity.instance}</li>{/if}
     {#if identity.contact?.email}<li><strong>Contact:</strong> <a href="mailto:{identity.contact.email}">{identity.contact.email}</a></li>{/if}
     {#if identity.contact?.bluesky}<li><strong>Bluesky:</strong> {identity.contact.bluesky}</li>{/if}
-    {#if identity.terms}<li><strong>Terms:</strong> <a href={identity.terms}>{identity.terms}</a></li>{/if}
+    {#if identity.terms}<li><strong>Term prefix:</strong> <a href={identity.terms}>{identity.terms}</a></li>{/if}
+    {#if identity.rules}<li><strong>Rules:</strong> <a href={identity.rules}>{identity.rules}</a></li>{/if}
   </ul>
   {#if identity.images && Object.keys(identity.images).length}
     <h3>Images</h3>
