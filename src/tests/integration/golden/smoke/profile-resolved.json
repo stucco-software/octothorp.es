@@ -1,0 +1,122 @@
+{
+  "identity": {
+    "instance": "{INSTANCE}/",
+    "name": "Octothorpes",
+    "description": "The Octothorpes Protocol relay and reference client.",
+    "terms": "{INSTANCE}/~/",
+    "rules": "{INSTANCE}/terms",
+    "feeds": {
+      "thorpes": [
+        "{INSTANCE}/~/cats",
+        "{INSTANCE}/~/octothorpe-news"
+      ],
+      "multipass": "https://octothorp.es/news-and-favs.json"
+    },
+    "images": {
+      "favicon": "{INSTANCE}/favicon.ico",
+      "avatar": "{INSTANCE}/avatar.png"
+    },
+    "contact": {
+      "email": "admin@octothorp.es",
+      "bluesky": "@octothorp.es"
+    }
+  },
+  "policies": {
+    "commercial": false,
+    "labels": [],
+    "indexing": {
+      "mode": "request",
+      "frequency": "hourly"
+    },
+    "access": {
+      "registration": "registered",
+      "badge": "{INSTANCE}/badge.png",
+      "blocks": {
+        "domains": [
+          "example.com"
+        ],
+        "terms": []
+      },
+      "whitelist": {
+        "domains": []
+      },
+      "endorsement": {
+        "sources": []
+      }
+    }
+  },
+  "api": {
+    "linkTypes": [],
+    "documentRecord": [
+      {
+        "predicate": "richContent",
+        "range": "literal"
+      }
+    ],
+    "publishers": {
+      "available": [
+        "bluesky",
+        "ics",
+        "rss",
+        "rss2",
+        "standardSiteDocument"
+      ]
+    },
+    "handlers": {
+      "default": "html",
+      "available": [
+        "blobject",
+        "calendar",
+        "html",
+        "json",
+        "markdown",
+        "null",
+        "xml"
+      ]
+    },
+    "harmonizers": {
+      "available": [
+        "anchors",
+        "csv",
+        "default",
+        "ghost",
+        "keywords",
+        "openGraph",
+        "rss",
+        "schema-org",
+        "standardSite",
+        "vevent"
+      ]
+    }
+  },
+  "vocabulary": {
+    "octo": "https://vocab.octothorp.es#",
+    "namespaces": [
+      {
+        "prefix": "octo",
+        "iri": "https://vocab.octothorp.es#",
+        "import": false,
+        "source": "builtin"
+      },
+      {
+        "prefix": "rdf",
+        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "import": false,
+        "source": "builtin"
+      },
+      {
+        "prefix": "schema",
+        "iri": "https://schema.org/",
+        "import": false,
+        "source": "builtin"
+      },
+      {
+        "prefix": "skos",
+        "iri": "http://www.w3.org/2004/02/skos/core#",
+        "import": true,
+        "source": "declared"
+      }
+    ]
+  },
+  "federation": {}
+}

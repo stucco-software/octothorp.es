@@ -84,6 +84,10 @@ export const PROFILE_DEFAULTS = Object.freeze({
       badge: null,
       blocks: { domains: [], terms: [] },
       whitelist: { domains: [] },
+      // Admit-only second chance, tried after the registration check fails and
+      // meaningful only under 'registered'. Empty = stage off, which is why an
+      // absent endorsement block leaves every existing profile unchanged.
+      endorsement: { sources: [] },
     },
   },
   api: {
@@ -171,13 +175,17 @@ const expandList = (value, label, readFile) => {
  *   overrides identity.instance (deploy-level override; .env stays secrets-plus-override).
  * @param {(message: string) => void} [config.warn=console.warn] - Sink for coherence
  *   warnings (schema-valid but inert policy combinations).
+ * @param {string[]|{name?:string}[]} [config.endorsers] - Names (or `{ name }`
+ *   objects) of the endorsers the consumer injected into createClient. Used
+ *   ONLY to emit the unresolvable-source coherence warning; the loader never
+ *   calls them and nothing here enforces anything.
  * @param {(path: string) => string} [config.readFile] - Injected synchronous file
  *   read, used ONLY to expand path-form blocklists. Same injection pattern as the
  *   directory discovery in Wave 3: core stays framework-agnostic and the
  *   SvelteKit adapter supplies readFileSync.
  * @returns {{ getProfile: () => Object }}
  */
-export const createProfile = ({ profile, schema, env = {}, warn = console.warn, readFile } = {}) => {
+export const createProfile = ({ profile, schema, env = {}, warn = console.warn, readFile, endorsers = [] } = {}) => {
   if (!isPlainObject(profile)) {
     throw new Error('createProfile requires a `profile` object (the parsed octothorpes.json contents)')
   }
@@ -233,6 +241,7 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   access.whitelist = {
     domains: expandList(access.whitelist?.domains, 'whitelist.domains', readFile),
   }
+  access.endorsement = { sources: [...(access.endorsement?.sources ?? [])] }
 
   // Coherence warnings, not errors: the profile is schema-valid but the
   // combination is inert or self-defeating.
@@ -248,6 +257,30 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   if (registration === 'closed' && whitelist.domains.length === 0) {
     warn(
       '[profile] policies.access.registration is "closed" with an empty whitelist.domains — this client can index nothing at all'
+    )
+  }
+
+  // Endorsement coherence, same warn-never-throw contract as blocks.domains
+  // above. The stage is admit-only and tried after the registration check
+  // fails, so it has nothing to do under 'open' (no gate to fail) or 'closed'
+  // (whitelist-only by definition).
+  const endorsementSources = access.endorsement.sources
+  if (endorsementSources.length > 0 && registration !== 'registered') {
+    warn(
+      `[profile] policies.access.endorsement.sources is non-empty but registration is "${registration}" — endorsement is an admit-only fallback after the registration check fails and is inert in this mode`
+    )
+  }
+  // A source naming an endorser that was never injected is unresolvable: it
+  // occupies its slot in the ordered list and never admits anyone.
+  const injectedNames = new Set(
+    (endorsers ?? [])
+      .map((e) => (typeof e === 'string' ? e : e?.name))
+      .filter((name) => typeof name === 'string')
+  )
+  const unresolved = endorsementSources.filter((name) => !injectedNames.has(name))
+  if (unresolved.length > 0) {
+    warn(
+      `[profile] policies.access.endorsement.sources names ${unresolved.map((n) => `"${n}"`).join(', ')} with no matching injected endorser — unresolvable source(s), they never admit anything (endorsers are injected via createClient({ endorsers }))`
     )
   }
 

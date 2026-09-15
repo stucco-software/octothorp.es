@@ -9,7 +9,7 @@ const fakeProfile = {
   identity: { instance: 'https://example.test/' },
   api: {
     linkTypes: [{ type: 'Item', label: 'Item', path: 'items' }],
-    documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+    documentRecord: [{ predicate: 'encodingFormat', range: 'literal' }],
   },
   vocabulary: { octo: 'https://vocab.octothorp.es#', namespaces: [] },
 }

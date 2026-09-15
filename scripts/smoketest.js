@@ -187,7 +187,11 @@ async function fetchAndWrite(outDir, queries) {
       writeFileSync(join(outDir, `${q.name}.xml`), norm)
     } else {
       let payload
-      try { payload = (await res.json()).actualResults ?? null } catch { payload = { error: res.status } }
+      try {
+        const body = await res.json()
+        // `raw` queries are not /get results and have no actualResults envelope.
+        payload = q.raw ? body : (body.actualResults ?? null)
+      } catch { payload = { error: res.status } }
       const norm = normalize(payload, normOpts)
       writeFileSync(join(outDir, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
     }

@@ -1,4 +1,4 @@
-import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource, mergeNamespaces } from 'octothorpes'
+import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource } from 'octothorpes'
 import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
@@ -52,7 +52,6 @@ const indexer = createIndexer({
   handlerRegistry,
   getHarmonizer,
   documentRecordSchema: documentRecord,
-  namespaces: mergeNamespaces(profile.vocabulary.namespaces),
   // Forward-looking: createIndexer does not consume indexingMode today (the
   // HTTP /index path is request-mode-only until core reads this). Passed
   // through now so wiring doesn't need revisiting once it does.

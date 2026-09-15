@@ -1,4 +1,15 @@
 # Changelog
+
+## Unreleased
+
+### Breaking
+
+- `api.documentRecord` entries are now `{ predicate, range }` and OCTO-ONLY. The `namespace` and `iri` keys are removed; because the entry schema is closed (`additionalProperties: false`), a profile still carrying either fails validation. A predicate is a bare local name (`^[A-Za-z][A-Za-z0-9_]*$`) and always resolves to the octo namespace base + that name, so `schema:foo` or a full IRI can no longer be smuggled in through the predicate string. Declaring a documentRecord entry IS "add a field to the octo namespace"; to use a foreign ontology, declare it in `vocabulary.namespaces` and extract it with a harmonizer. `buildDocumentRecordClauses(schema)` and `resolveDocumentRecordIri(entry)` no longer take a namespaces argument, and `buildEverythingQuery` no longer accepts `documentRecordNamespaces`. Binding var names change from `dr_<prefix>_<predicate>` to `dr_<predicate>`.
+
+### Added
+
+- Exports: `OCTO_NAMESPACE`, `DOCUMENT_RECORD_PREDICATE_PATTERN`.
+
 ## 0.4.2
 
 Gracefully handle paths and defaults in identity block of profile 

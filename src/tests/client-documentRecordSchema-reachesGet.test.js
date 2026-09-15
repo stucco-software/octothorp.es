@@ -13,7 +13,7 @@ describe('createClient documentRecordSchema default reaches get()', () => {
     const client = createClient({
       instance: 'https://example.test/',
       sparql: { endpoint: 'http://localhost:1/unused' },
-      documentRecordSchema: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+      documentRecordSchema: [{ predicate: 'encodingFormat', range: 'literal' }],
     })
     expect(client).toBeDefined()
     // client.sparql.queryArray is captured by value into api.js's closure at
@@ -39,22 +39,20 @@ describe('createClient documentRecordSchema default reaches get()', () => {
     // supply a subject so this test isolates the documentRecordSchema
     // threading behavior it's actually about.
     await client.get({ what: 'everything', by: 'posted', s: 'https://example.com/' })
-    expect(seen.join('\n')).toMatch(/schema\.org\/encodingFormat|dr_schema_encodingFormat/)
+    expect(decodeURIComponent(seen.join('\n'))).toMatch(/vocab\.octothorp\.es#encodingFormat|dr_encodingFormat/)
     spy.mockRestore()
   })
 
-  // #217 final review finding 1: createClient(config.namespaces) was captured
-  // but never threaded into get() — a documentRecord entry using a declared,
-  // non-builtin namespace (not schema/octo/rdf) silently resolved against
-  // builtins only and its clause was dropped from the query. Uses `skos`,
-  // which is not a builtin, to prove the client-level namespaces default
-  // actually reaches the generated SPARQL.
-  it('uses the client-level namespaces default to resolve a non-builtin documentRecord entry', async () => {
+  // 2026-09-14 decision: documentRecord predicates are octo-only. A profile may
+  // declare skos in vocabulary.namespaces, but a documentRecord entry named
+  // `prefLabel` still means octo:prefLabel — declared namespaces never leak into
+  // documentRecord resolution.
+  it('resolves a documentRecord entry under octo even when a namespace is declared', async () => {
     const seen = []
     const client = createClient({
       instance: 'https://example.test/',
       sparql: { endpoint: 'http://localhost:1/unused' },
-      documentRecordSchema: [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }],
+      documentRecordSchema: [{ predicate: 'prefLabel', range: 'literal' }],
       namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
     })
     let call = 0
@@ -67,7 +65,9 @@ describe('createClient documentRecordSchema default reaches get()', () => {
       return { ok: true, json: async () => ({ results: { bindings: [] } }) }
     })
     await client.get({ what: 'everything', by: 'posted', s: 'https://example.com/' })
-    expect(decodeURIComponent(seen.join('\n'))).toContain('http://www.w3.org/2004/02/skos/core#prefLabel')
+    const body = decodeURIComponent(seen.join('\n'))
+    expect(body).toContain('https://vocab.octothorp.es#prefLabel')
+    expect(body).not.toContain('skos/core#prefLabel')
     spy.mockRestore()
   })
 })

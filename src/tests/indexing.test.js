@@ -393,14 +393,12 @@ describe('Indexing Business Logic', () => {
     })
   })
 
-  describe('recordDocumentRecord namespace threading (#217 final review)', () => {
-    // createIndexer receives `namespaces` from src/lib/indexing.js
-    // (mergeNamespaces(profile.vocabulary.namespaces)) but previously ignored
-    // it: resolveDocumentRecordIri was called with no map, so a declared
-    // (non-builtin) prefix like `skos` resolved to null and the write was
-    // silently skipped. This proves the config value is actually threaded
-    // into the resolver call, not just captured.
-    it('resolves a declared non-builtin namespace and writes it when namespaces are configured', async () => {
+  describe('recordDocumentRecord octo-only resolution (2026-09-14 decision)', () => {
+    // documentRecord predicates live ONLY in the octo namespace. A profile may
+    // declare skos in vocabulary.namespaces, but that never affects how a
+    // documentRecord entry resolves on the write side: `prefLabel` is written as
+    // octo:prefLabel regardless of what namespaces the indexer was built with.
+    it('writes the predicate under octo: even when a foreign namespace is declared', async () => {
       mockQuery.mockResolvedValue({})
       const declaredIndexer = createIndexer({
         insert: mockInsert,
@@ -411,19 +409,25 @@ describe('Indexing Business Logic', () => {
         handlerRegistry: makeHandlerRegistry(),
         namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
       })
-      const schema = [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }]
+      const schema = [{ predicate: 'prefLabel', range: 'literal' }]
       await declaredIndexer.recordDocumentRecord('https://example.com/page', { prefLabel: 'Example' }, schema)
       expect(mockQuery).toHaveBeenCalledTimes(1)
-      expect(mockQuery.mock.calls[0][0]).toContain('http://www.w3.org/2004/02/skos/core#prefLabel')
+      expect(mockQuery.mock.calls[0][0]).toContain('https://vocab.octothorp.es#prefLabel')
+      expect(mockQuery.mock.calls[0][0]).not.toContain('skos/core#prefLabel')
     })
 
-    it('skips the declared-namespace predicate when no namespaces are configured (pre-fix behavior)', async () => {
+    it('writes the same IRI with no namespaces configured at all', async () => {
       mockQuery.mockResolvedValue({})
-      const schema = [{ predicate: 'prefLabel', namespace: 'skos', range: 'literal' }]
-      // `indexer` (the shared instance) is built via makeIndexer() with no
-      // `namespaces`, so `skos` is unresolvable and the write is skipped —
-      // demonstrates the config value is what makes the difference above.
+      const schema = [{ predicate: 'prefLabel', range: 'literal' }]
       await indexer.recordDocumentRecord('https://example.com/page', { prefLabel: 'Example' }, schema)
+      expect(mockQuery).toHaveBeenCalledTimes(1)
+      expect(mockQuery.mock.calls[0][0]).toContain('https://vocab.octothorp.es#prefLabel')
+    })
+
+    it('skips an entry whose predicate is not a bare local name', async () => {
+      mockQuery.mockResolvedValue({})
+      const schema = [{ predicate: 'skos:prefLabel', range: 'literal' }]
+      await indexer.recordDocumentRecord('https://example.com/page', { 'skos:prefLabel': 'Example' }, schema)
       expect(mockQuery).not.toHaveBeenCalled()
     })
   })

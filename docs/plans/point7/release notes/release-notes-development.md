@@ -959,3 +959,19 @@ An undeclared `identity.terms` now defaults to `instance + '~/'` at the loader �
 Full suite: 1410 passed, 0 failed.
 
 **Files affected:** `packages/core/resolveProfile.js`, `packages/core/profile.js`, `packages/core/client.js` (re-export), `packages/core/profile.schema.json`, `src/tests/resolveProfile.test.js`.
+
+## A declared handler mode with no registered handler is an error
+
+Dispatch precedence stays explicit mode → content-type → default → null, but the fallback steps now apply ONLY when no mode was declared. If a harmonizer definition (or an explicit `mode`/`as` option) names a mode and `getHandler(mode)` returns null, dispatch throws `No handler registered for mode "<mode>" (declared by harmonizer "<id>")` instead of quietly handing the content to the HTML handler. The HTML handler is not a universal decoder: silently decoding CSV or markdown as HTML produced empty blobjects that read as missing data rather than misconfiguration. Both dispatch sites are covered — `harmonizeSource` (`packages/core/client.js`) and the indexer's `dispatch` (`packages/core/indexer.js`) — sharing a new `harmonizerId()` label helper in `packages/core/utils.js` (utils, not client, because client imports indexer and the reverse would be circular). The harmonizer-clause is omitted when the mode came from an option rather than a definition. Behaviour with no declared mode is unchanged, including `as=default` (the default harmonizer declares `mode: html`, always registered) and unknown harmonizer ids, which fail resolution, declare nothing, and still fall through by content-type.
+
+Relatedly, the HTML handler's required-`attribute` check is unconditional again — the `elements.length > 0` hedge added earlier today existed to let CSV-shaped rules fall through this handler harmlessly, which is exactly the silent behaviour being removed.
+
+Verified: `csvHandler`, `harmonizer`, `handlerRegistry`, `indexer`, `indexing`, `handlerDiscovery`, `harmonizerDiscovery`, `anchorHarmonizer`, `calendarHandler`, `calendarHarmonizer`, `markdownHandler`, `xmlHandler`, `core`, `exports` — 374 passed, 0 failed.
+
+**Files affected:** `packages/core/client.js`, `packages/core/indexer.js`, `packages/core/utils.js`, `packages/core/handlers/html/handler.js`, `src/tests/csvHandler.test.js`, `.claude/skills/octothorpes/handlers.md`.
+
+## C14 Memex round-trip test removed
+
+Memex is at a stopping point, so `src/tests/c14MemexRoundtrip.test.js` and its fixture vault `src/tests/fixtures/memex/` are deleted. Nothing in `src/` or `packages/` referenced them; `buildTargetMap` in the markdown handler and `src/tests/markdownWikilinks.test.js` (35 tests, passing) are untouched and remain the coverage for wikilink resolution. Two forward-looking docs that cited the test in the present tense — the batch-indexing R5 recipe and the documentation-recommendations verified-artifacts note — now say it was removed 2026-09-14. Historical release-note entries are left as written.
+
+**Files affected:** `src/tests/c14MemexRoundtrip.test.js` (deleted), `src/tests/fixtures/memex/**` (deleted, 5 fixtures), `docs/plans/point7/180-batch-indexing-mvp.md`, `docs/plans/point7/release notes/documentation-recommendations.md`.

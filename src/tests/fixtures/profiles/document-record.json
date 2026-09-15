@@ -1,0 +1,33 @@
+{
+  "identity": {
+    "instance": "http://localhost:5173/",
+    "name": "OP Test Profile (documentRecord)",
+    "description": "Sample profile fixture: open registration plus an api.documentRecord declaring one octo-only predicate of each range.",
+    "terms": "http://localhost:5173/~/",
+    "rules": "http://localhost:5173/terms",
+    "contact": { "email": "test@localhost" }
+  },
+  "policies": {
+    "commercial": false,
+    "indexing": { "mode": "request" },
+    "access": {
+      "registration": "open",
+      "blocks": { "domains": [], "terms": [] },
+      "whitelist": { "domains": [] }
+    }
+  },
+  "api": {
+    "linkTypes": [],
+    "documentRecord": [
+      { "predicate": "encodingFormat", "range": "literal" },
+      { "predicate": "url", "range": "uri" },
+      { "predicate": "contentSize", "range": "number" },
+      { "predicate": "dateModified", "range": "timestamp" }
+    ]
+  },
+  "vocabulary": {
+    "namespaces": [
+      { "prefix": "skos", "iri": "http://www.w3.org/2004/02/skos/core#" }
+    ]
+  }
+}

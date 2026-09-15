@@ -26,7 +26,9 @@ describe('buildQueries smoke tier (default)', () => {
     for (const q of qs) {
       expect(typeof q.name).toBe('string')
       expect(q.name).not.toMatch(/[/\s]/) // filesystem-safe
-      expect(q.path.startsWith('/get/')).toBe(true)
+      // `raw` descriptors are instance-level endpoints (e.g. /profile.json),
+      // not /get queries.
+      expect(q.path.startsWith(q.raw ? '/' : '/get/')).toBe(true)
     }
   })
 
@@ -44,6 +46,13 @@ describe('buildQueries smoke tier (default)', () => {
   it('names are unique', () => {
     const names = qs.map((q) => q.name)
     expect(new Set(names).size).toBe(names.length)
+  })
+
+  it('includes the resolved-profile capture', () => {
+    const p = qs.find((q) => q.name === 'profile-resolved')
+    expect(p).toBeTruthy()
+    expect(p.path).toBe('/profile.json')
+    expect(p.raw).toBe(true)
   })
 
   it('includes a completeness query', () => {

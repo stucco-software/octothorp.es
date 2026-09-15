@@ -20,11 +20,16 @@ export const ACCESS_DEFAULTS = Object.freeze({
   // different product decision with no current use case.
   blocks: Object.freeze({ domains: [], terms: [] }),
   whitelist: Object.freeze({ domains: [] }),
+  // ENDORSEMENT is an admit-only second chance, tried after the registration
+  // check fails and meaningful only under 'registered'. `sources` names (and
+  // orders) the endorsers injected via createClient({ endorsers }); empty —
+  // the default — means the stage is off and nothing changes.
+  endorsement: Object.freeze({ sources: [] }),
 })
 
 /**
- * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}}} [access]
- * @returns {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}}}
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}, endorsement?:{sources?:string[]}}} [access]
+ * @returns {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}, endorsement:{sources:string[]}}}
  */
 export const normalizeAccess = (access = {}) => {
   const registration = access.registration ?? ACCESS_DEFAULTS.registration
@@ -41,6 +46,7 @@ export const normalizeAccess = (access = {}) => {
       terms: [...(access.blocks?.terms ?? [])],
     },
     whitelist: { domains: [...(access.whitelist?.domains ?? [])] },
+    endorsement: { sources: [...(access.endorsement?.sources ?? [])] },
   }
 }
 

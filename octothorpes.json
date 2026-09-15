@@ -42,7 +42,7 @@
 
   "api": {
     "linkTypes": [],
-    "documentRecord": [],
+    "documentRecord": [{ "predicate": "richContent", "range": "literal" }],
     "publishers": {
       "dir": "./static/publishers"
     },

@@ -160,9 +160,38 @@ describe('csv harmonizer dispatches to the csv handler', () => {
     expect(blob.octothorpes).toEqual(['cats'])
   })
 
-  it('falls back to default dispatch when the csv handler is absent', async () => {
+  // A DECLARED mode with no registered handler is an error, not a silent
+  // fallback: the HTML handler is not a universal decoder.
+  it('throws when the declared csv mode has no registered handler', async () => {
     const bare = createDefaultHandlerRegistry({ defaultHandler: 'html' })
-    await expect(harmonizeSource(doc, definition, { handlerRegistry: bare })).resolves.toBeDefined()
+    await expect(harmonizeSource(doc, definition, { handlerRegistry: bare })).rejects.toThrow(
+      `No handler registered for mode "csv" (declared by harmonizer "${definition.id}")`
+    )
+  })
+
+  it('throws for an explicitly declared mode option with no handler', async () => {
+    const bare = createDefaultHandlerRegistry({ defaultHandler: 'html' })
+    await expect(
+      harmonizeSource(doc, null, { handlerRegistry: bare, mode: 'csv' })
+    ).rejects.toThrow('No handler registered for mode "csv"')
+  })
+
+  // Fallback still applies when NO mode is declared: content-type, then default.
+  it('falls through by content-type, then default, when no mode is declared', async () => {
+    const bare = createDefaultHandlerRegistry({ defaultHandler: 'html' })
+    // No declared mode, so the content-type picks the json handler.
+    const jsonMap = { schema: { subject: { s: 'url', title: 'name' } } }
+    const byContentType = await harmonizeSource('{"url":"https://a.test/","name":"Hi"}', jsonMap, {
+      handlerRegistry: bare,
+      contentType: 'application/json',
+    })
+    expect(byContentType.title).toBe('Hi')
+
+    const byDefault = await harmonizeSource('<html><title>Hi</title></html>', null, {
+      handlerRegistry: bare,
+      contentType: 'application/x-unknown-type',
+    })
+    expect(byDefault).toBeDefined()
   })
 })
 

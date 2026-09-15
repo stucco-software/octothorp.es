@@ -108,7 +108,7 @@
           "additionalProperties": false,
           "properties": {
             "registration": {
-              "description": "The registration gate the indexing process enforces. 'registered' (default): the source origin must be verified in this client's datastore — today's behavior, the verifiedOrigin check in the indexer. 'open': no gate; any URL may be indexed (this is the ONLY mode in which blocks.domains is meaningful — allow all except listed; blocks.terms is separate and applies in every mode). 'closed': nothing is indexed unless its origin appears in whitelist.domains; a non-empty whitelist.domains is required or the relay can index nothing. NOTE: 'invite' was dropped from this enum — 'closed' plus a whitelist IS invite-only, and octothorp.es's own flow (submit form -> admin email -> admin approves) is just 'registered' with a human in the loop.",
+              "description": "The registration gate the indexing process enforces. 'registered' (default): the source origin must be verified in this client's datastore — today's behavior, the verifiedOrigin check in the indexer. 'open': no gate; any URL may be indexed (this is the ONLY mode in which blocks.domains is meaningful — allow all except listed; blocks.terms is separate and applies in every mode). 'closed': STRICTLY WHITELIST-ONLY — nothing is indexed unless its origin appears in whitelist.domains, with no registration check and no endorsement fallback; a non-empty whitelist.domains is required or the relay can index nothing. The endorsement stage (access.endorsement.sources) is consulted ONLY under 'registered', and only after the registration check fails. NOTE: 'invite' was dropped from this enum — 'closed' plus a whitelist IS invite-only, and octothorp.es's own flow (submit form -> admin email -> admin approves) is just 'registered' with a human in the loop.",
               "type": "string",
               "enum": ["registered", "open", "closed"],
               "default": "registered"
@@ -154,6 +154,19 @@
                   "default": []
                 }
               }
+            },
+            "endorsement": {
+              "description": "Admit-only second chance at the indexing gate. MEANINGFUL ONLY when registration is 'registered': it is tried after the registration check FAILS, and can only admit an origin the registration check would have refused — it can never refuse one the registration check already admitted, and it is never consulted under 'open' (no gate to fail) or 'closed' (whitelist-only, by definition). An absent block resolves to `{ sources: [] }`, so every existing profile behaves exactly as it does today. Validation guidance: a non-empty sources under 'open' or 'closed' is inert and worth warning on, as is a source name with no matching injected endorser.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sources": {
+                  "description": "Ordered list of endorsement source names. Each entry names an endorser injected at construction via `createClient({ endorsers: [{ name, endorse }] })`; an injected endorser NOT named here never runs, so this list both filters and orders them. Order is significant: sources are tried in sequence and the first admit wins. `graph` is RESERVED as the name of a future built-in source (web-of-trust traversal) and should not be used for a custom endorser. An empty list — the default — disables the endorsement stage entirely. A name with no matching injected endorser is unresolvable and simply never admits.",
+                  "type": "array",
+                  "default": [],
+                  "items": { "type": "string" }
+                }
+              }
             }
           }
         }
@@ -181,23 +194,18 @@
           }
         },
         "documentRecord": {
-          "description": "Admission + typing contract for document-record predicates (#237): what non-canonical metadata this client stores on index.",
+          "description": "Admission + typing contract for document-record predicates (#237): what non-canonical metadata this client stores on index. Entries are OCTO-ONLY. Declaring one is how you add a field to the OP (octo:) namespace, so `predicate` is a bare local name and its IRI is always the octo namespace base + that name. There is no `namespace` or `iri` key; supplying one is a schema error. To use a foreign ontology, declare it in `vocabulary.namespaces` and extract it with a harmonizer — documentRecord is not a route into someone else's vocabulary.",
           "type": "array",
           "default": [],
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["predicate", "namespace", "range"],
+            "required": ["predicate", "range"],
             "properties": {
-              "predicate": { "type": "string" },
-              "namespace": {
-                "description": "Short prefix resolved through core builtins plus vocabulary.namespaces.",
-                "type": "string"
-              },
-              "iri": {
-                "description": "Explicit full predicate IRI; bypasses namespace resolution.",
+              "predicate": {
+                "description": "Bare local name in the octo namespace. Must match ^[A-Za-z][A-Za-z0-9_]*$ — no colon, slash or dot, so a prefixed name (`schema:foo`) or a full IRI cannot be smuggled in through this string.",
                 "type": "string",
-                "format": "uri"
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
               },
               "range": {
                 "type": "string",
@@ -286,7 +294,7 @@
     },
 
     "vocabulary": {
-      "description": "Namespace declarations for SPARQL and documentRecord resolution, and the identity of the OP vocabulary itself.",
+      "description": "Namespace declarations for SPARQL prefixes and harmonizer-extracted foreign vocabulary, and the identity of the OP vocabulary itself. These do NOT apply to api.documentRecord, whose predicates are always octo:.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -308,7 +316,7 @@
               "prefix": { "type": "string" },
               "iri": { "type": "string", "format": "uri" },
               "import": {
-                "description": "false (default): declare-only — the prefix resolves in queries and documentRecord entries. true: init fetches the ontology and loads its triples into a named graph (Oxigraph does no inference; imported triples serve only queries that traverse them explicitly). Import implementation may ride with #270.",
+                "description": "false (default): declare-only — the prefix resolves in queries. true: init fetches the ontology and loads its triples into a named graph (Oxigraph does no inference; imported triples serve only queries that traverse them explicitly). Import implementation may ride with #270.",
                 "type": "boolean",
                 "default": false
               }

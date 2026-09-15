@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest'
 const fakeProfile = {
   identity: { instance: 'https://example.test/' },
   api: {
-    documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+    documentRecord: [{ predicate: 'encodingFormat', range: 'literal' }],
     handlers: { dir: null, default: 'markdown' },
     harmonizers: { dir: null },
   },
@@ -47,8 +47,12 @@ describe('#217 indexing adapter reads the profile', () => {
     expect(def?.mode ?? def ?? captured.handlerRegistry.default).toBe('markdown')
   })
 
-  it('passes the effective namespace list', () => {
-    expect(captured.namespaces.map((n) => n.prefix)).toContain('schema')
+  // documentRecord predicates became octo-only, so the indexer no longer
+  // resolves anything against a namespace list and the dep was removed. The
+  // adapter must not resurrect it: namespaces still belong to the SPARQL
+  // prologue and createClient config, not to createIndexer.
+  it('does not pass a namespace list into the indexer', () => {
+    expect(captured.namespaces).toBeUndefined()
   })
 
   it('passes the profile indexing mode straight through — no translation', () => {

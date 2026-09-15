@@ -48,7 +48,7 @@ describe('authored profile schema (#217 Rev 2)', () => {
       },
       api: {
         linkTypes: [{ type: 'Item', label: 'Item', path: 'items' }],
-        documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+        documentRecord: [{ predicate: 'encodingFormat', range: 'literal' }],
         publishers: { dir: './src/lib/publishers', named: [] },
         handlers: { dir: './src/lib/handlers', default: 'html', named: [] },
         harmonizers: { dir: './src/lib/harmonizers', named: [] },
@@ -141,9 +141,41 @@ describe('authored profile schema (#217 Rev 2)', () => {
     expect(validate({ api: { harmonizers: { defaultHandler: 'html' } } })).toBe(false)
   })
 
+  // Empty and absent documentRecord are both valid: a relay that declares no
+  // leaf predicates is a normal relay, not a misconfigured one.
+  it('accepts an empty documentRecord array and an absent documentRecord key', () => {
+    expect(validate({ api: { documentRecord: [] } })).toBe(true)
+    expect(validate({ api: { linkTypes: [] } })).toBe(true)
+  })
+
   it('rejects an unknown documentRecord range', () => {
     expect(validate({
-      api: { documentRecord: [{ predicate: 'x', namespace: 'schema', range: 'blob' }] },
+      api: { documentRecord: [{ predicate: 'x', range: 'blob' }] },
+    })).toBe(false)
+  })
+
+  // 2026-09-14: documentRecord predicates are octo-only. `namespace`/`iri` are
+  // gone from the entry shape (additionalProperties: false makes an old profile
+  // carrying them a validation error), and `predicate` must be a bare local name
+  // so a prefixed name or full IRI cannot be smuggled through the string.
+  it('rejects a documentRecord entry carrying a namespace key', () => {
+    expect(validate({
+      api: { documentRecord: [{ predicate: 'x', namespace: 'schema', range: 'literal' }] },
+    })).toBe(false)
+  })
+
+  it('rejects a documentRecord entry carrying an explicit iri key', () => {
+    expect(validate({
+      api: { documentRecord: [{ predicate: 'x', iri: 'https://schema.org/x', range: 'literal' }] },
+    })).toBe(false)
+  })
+
+  it('rejects a prefixed or IRI-shaped documentRecord predicate', () => {
+    expect(validate({
+      api: { documentRecord: [{ predicate: 'schema:x', range: 'literal' }] },
+    })).toBe(false)
+    expect(validate({
+      api: { documentRecord: [{ predicate: 'https://schema.org/x', range: 'literal' }] },
     })).toBe(false)
   })
 

@@ -4,7 +4,7 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
-import { deslash } from './utils.js'
+import { deslash, harmonizerId } from './utils.js'
 import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
@@ -167,7 +167,7 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, namespaces, access: accessConfig } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig } = deps
 
   // #217: the injected access block. Normalized once here so every enforcement
   // point below sees a filled shape. Core never reads a profile — the mode and
@@ -471,6 +471,8 @@ export const createIndexer = (deps) => {
   // `schema` are written (admission allowlist — undeclared keys are dropped,
   // mirroring the read guard). `uri`-range values are stored as IRIs, everything
   // else as a string literal (the read side coerces number/timestamp/boolean).
+  // Every predicate is written under the octo namespace (octo:<predicate>);
+  // documentRecord is not a route into foreign vocabularies.
   // Idempotent per predicate (delete-then-insert). Leaf triples only — never the
   // blank-node relationship machinery (RDF-star insulation).
   const recordDocumentRecord = async (s, documentRecord, schema = documentRecordSchema) => {
@@ -479,7 +481,7 @@ export const createIndexer = (deps) => {
     for (const entry of schema) {
       const value = documentRecord[entry.predicate]
       if (value === undefined || value === null || value === '') continue
-      const iri = resolveDocumentRecordIri(entry, namespaces)
+      const iri = resolveDocumentRecordIri(entry)
       if (!iri) continue
       let object
       if (entry.range === 'uri') {
@@ -572,7 +574,9 @@ export const createIndexer = (deps) => {
 
   /**
    * Resolve a handler for the given harmonizer/contentType and produce a blobject.
-   * Resolution order: harmonizer.mode > contentType > 'html' fallback.
+   * Resolution order: declared mode > contentType > default > null.
+   * A DECLARED mode with no registered handler is an error — content-type and
+   * default fallback apply only when no mode was declared.
    * Patches @id === 'source' to the source URI before returning.
    */
   const dispatch = async (content, contentType, harmonizer, uri) => {
@@ -584,6 +588,12 @@ export const createIndexer = (deps) => {
     const mode = resolvedHarmonizer?.mode
 
     let selected = mode ? handlerRegistry?.getHandler(mode) : null
+    if (mode && !selected) {
+      const id = harmonizerId(harmonizer, resolvedHarmonizer)
+      throw new Error(
+        `No handler registered for mode "${mode}"` + (id ? ` (declared by harmonizer "${id}")` : '')
+      )
+    }
     if (!selected) selected = handlerRegistry?.getHandlerForContentType(contentType)
     if (!selected) selected = handlerRegistry?.getDefault()
     if (!selected) selected = handlerRegistry?.getHandler('null')

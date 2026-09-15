@@ -1,13 +1,14 @@
 import { getFuzzyTags } from './utils.js'
 
 /**
- * documentRecord namespace -> IRI base map (#237).
+ * documentRecord predicate resolution (#237).
  *
- * The profile declares each documentRecord predicate as `{ predicate, namespace,
- * range }` where `namespace` is a short prefix ("schema", "octo", ...). The read
- * path resolves it to a full IRI here — this is the single core-owned resolver so
- * the read query and any future write path agree on the predicate IRI. An entry
- * may carry an explicit `iri` to bypass the map entirely.
+ * documentRecord predicates live ONLY in the OP (`octo:`) namespace. An entry is
+ * `{ predicate, range }`, where `predicate` is a BARE local name, and its IRI is
+ * always OCTO_NAMESPACE + predicate. Adding a documentRecord entry IS "add a
+ * field to the octo namespace"; it is not a way to mint triples in someone
+ * else's vocabulary. Foreign ontologies are declared in the profile's
+ * `vocabulary.namespaces` and extracted by harmonizers instead.
  *
  * NOTE (RDF-star insulation): documentRecord predicates are queried DIRECTLY as
  * plain leaf triples (`?s <iri> ?value`), never through the relationship /
@@ -63,51 +64,60 @@ export const namespaceMap = (namespaces = BUILTIN_NAMESPACES) =>
   Object.fromEntries((namespaces ?? []).map((n) => [n.prefix, n.iri]))
 
 /**
- * Resolve a documentRecord declaration entry to a full predicate IRI.
- * @param {{predicate:string, namespace?:string, iri?:string}} entry
- * @param {Record<string,string>} [namespaces] - prefix -> IRI; defaults to builtins.
- * @returns {string|null} full IRI, or null when the namespace is unknown (entry
- *   is then skipped from the query — a malformed IRI is never injected).
+ * The octo namespace base, taken from the protocol builtins. documentRecord
+ * predicates always resolve against this and nothing else.
+ * @type {string}
  */
-export const resolveDocumentRecordIri = (entry, namespaces = namespaceMap()) => {
-  if (!entry || !entry.predicate) return null
-  if (entry.iri) return entry.iri
-  const effective = namespaces ?? namespaceMap()
-  const lookup = Array.isArray(effective) ? namespaceMap(effective) : effective
-  const base = lookup[entry.namespace]
-  if (!base) return null
-  return `${base}${entry.predicate}`
+export const OCTO_NAMESPACE = BUILTIN_NAMESPACES.find((n) => n.prefix === 'octo').iri
+
+/**
+ * A documentRecord `predicate` must be a bare local name: a letter followed by
+ * letters, digits or underscores. This is what stops `schema:foo`, a full IRI or
+ * a path segment from being smuggled in through the predicate string.
+ */
+export const DOCUMENT_RECORD_PREDICATE_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/
+
+/**
+ * Resolve a documentRecord declaration entry to a full predicate IRI.
+ * Always `octo:` + the bare predicate name.
+ * @param {{predicate:string}} entry
+ * @returns {string|null} full IRI, or null when the predicate is missing or is
+ *   not a bare local name (entry is then skipped — a malformed IRI is never
+ *   injected, and a prefixed/absolute predicate is never honoured).
+ */
+export const resolveDocumentRecordIri = (entry) => {
+  if (!entry || typeof entry.predicate !== 'string') return null
+  if (!DOCUMENT_RECORD_PREDICATE_PATTERN.test(entry.predicate)) return null
+  return `${OCTO_NAMESPACE}${entry.predicate}`
 }
 
 /**
  * Deterministic, SPARQL-safe binding variable name for a documentRecord entry.
  * Shared by the query builder (which SELECTs it) and the projector in
  * blobject.js (which reads it), so the two never drift.
- * @param {{predicate:string, namespace?:string}} entry
- * @returns {string} e.g. "dr_schema_encodingFormat"
+ * @param {{predicate:string}} entry
+ * @returns {string} e.g. "dr_encodingFormat"
  */
 export const documentRecordVar = (entry) =>
-  `dr_${entry.namespace ?? 'x'}_${entry.predicate}`.replace(/[^A-Za-z0-9_]/g, '_')
+  `dr_${entry.predicate}`.replace(/[^A-Za-z0-9_]/g, '_')
 
 /**
  * Build the SELECT vars and OPTIONAL leaf patterns that surface declared
  * documentRecord predicates for the result subjects. Declaration-driven: only
  * declared predicates are queried (the admission allowlist), and each is a plain
- * `?s <iri> ?var` leaf — no FILTER(isBlank(...)) path.
- * @param {Array<{predicate:string, namespace?:string, iri?:string}>} [schema=[]]
- * @param {Record<string,string>} [namespaces] - prefix -> IRI; defaults to builtins.
+ * `?s <iri> ?var` leaf — no FILTER(isBlank(...)) path. Every predicate resolves
+ * under `octo:`; see resolveDocumentRecordIri.
+ * @param {Array<{predicate:string}>} [schema=[]]
  * @returns {{selectVars:string, optionals:string}}
  */
-export const buildDocumentRecordClauses = (schema = [], namespaces = namespaceMap()) => {
+export const buildDocumentRecordClauses = (schema = []) => {
   if (!Array.isArray(schema) || schema.length === 0) {
     return { selectVars: '', optionals: '' }
   }
-  const effective = namespaces ?? namespaceMap()
-  const lookup = Array.isArray(effective) ? namespaceMap(effective) : effective
   const selectVars = []
   const optionals = []
   for (const entry of schema) {
-    const iri = resolveDocumentRecordIri(entry, lookup)
+    const iri = resolveDocumentRecordIri(entry)
     if (!iri) continue
     const v = documentRecordVar(entry)
     selectVars.push(`?${v}`)
@@ -450,7 +460,7 @@ export const createQueryBuilders = (instance, queryArray) => {
    * Builds a comprehensive SPARQL query for retrieving complete blobjects with metadata
    */
   const buildEverythingQuery = async ({
-    meta, subjects, objects, filters, documentRecordSchema, documentRecordNamespaces
+    meta, subjects, objects, filters, documentRecordSchema
     }) => {
     const subjectList = await prepEverything({
       meta, subjects, objects, filters
@@ -463,7 +473,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       }`;
     }
     const statements = getStatements(subjectList, objects, filters, meta.resultMode)
-    const dr = buildDocumentRecordClauses(documentRecordSchema, documentRecordNamespaces)
+    const dr = buildDocumentRecordClauses(documentRecordSchema)
     let noObjectHandler = ""
 
     if (objects.type === 'none') {

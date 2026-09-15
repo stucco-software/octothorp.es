@@ -2,6 +2,7 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer } from './indexer.js'
+import { harmonizerId } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
@@ -16,7 +17,7 @@ import { normalizeAccess } from './access.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
-export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap } from './queryBuilders.js'
+export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { buildMultiPass } from './multipass.js'
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
@@ -68,7 +69,9 @@ export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) =
 // Harmonization entry point: dispatch a source to the right handler and return a
 // blobject. Defaults to the HTML handler; pass `options.mode` (e.g. 'json',
 // 'blobject') or `options.contentType` to select another — mirroring the
-// indexer's dispatch precedence (mode → content-type → default → null). Callers
+// indexer's dispatch precedence (mode → content-type → default → null). A
+// DECLARED mode with no registered handler throws; content-type/default
+// fallback applies only when no mode was declared. Callers
 // may supply their own `options.handlerRegistry`; otherwise a shared default
 // registry (html/json/blobject/null, default 'html') is created lazily.
 let defaultHandlerRegistry
@@ -89,10 +92,21 @@ export const harmonizeSource = async (content, harmonizer, options = {}) => {
 
   // Mode precedence mirrors dispatch: explicit option > the resolved
   // harmonizer's declared mode (e.g. the rss harmonizer declares mode 'xml').
-  const mode = options.mode ?? resolvedHarmonizer?.mode
+  const declaredMode = options.mode ?? resolvedHarmonizer?.mode
 
-  const handler =
-    (mode ? registry.getHandler(mode) : null) ??
+  // A DECLARED mode with no registered handler is an error, not a silent
+  // fallback to the default handler. Fallback (content-type, then default)
+  // applies only when no mode was declared.
+  let handler = declaredMode ? registry.getHandler(declaredMode) : null
+  if (declaredMode && !handler) {
+    const id = options.mode ? null : harmonizerId(harmonizer, resolvedHarmonizer)
+    throw new Error(
+      `No handler registered for mode "${declaredMode}"` +
+        (id ? ` (declared by harmonizer "${id}")` : '')
+    )
+  }
+  handler =
+    handler ??
     (options.contentType ? registry.getHandlerForContentType(options.contentType) : null) ??
     registry.getDefault() ??
     registry.getHandler('null')
@@ -149,7 +163,7 @@ export const normalizeIndexingMode = (mode) => {
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
  * @param {'request'|'active'|Object} [config.indexingMode] - What TRIGGERS indexing:
  *   'request' (default) or 'active'. Orthogonal to config.access, which is the GATE.
- * @param {Array<{predicate: string, namespace: string, range: string}>} [config.documentRecordSchema] -
+ * @param {Array<{predicate: string, range: string}>} [config.documentRecordSchema] -
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
  *   which is a no-op identical to prior behavior.
@@ -158,10 +172,49 @@ export const normalizeIndexingMode = (mode) => {
  *   ('registered' | 'open' | 'closed'); `blocks.domains`/`whitelist.domains` modify it.
  *   `blocks.terms` is a separate, mode-independent write-time filter. Orthogonal to
  *   `config.indexingMode`, which says what TRIGGERS indexing rather than what gate it passes.
+ * @param {{name:string, endorse:Function}[]} [config.endorsers] - Endorsement sources
+ *   available to this client, injected by the consumer. Each needs a string `name`
+ *   (referenced by `policies.access.endorsement.sources`, which filters and orders
+ *   them) and an `endorse` function. Stored only — nothing consumes them yet; the
+ *   gate that does lands separately.
  * @param {Object} [config.profile] - A resolved profile (result of `getProfile()`). When supplied,
  *   `resolvedProfile()` projects it against what actually registered (publishers/handlers/harmonizers).
  * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api, resolvedProfile }}
  */
+/**
+ * Validate the injected endorsement sources. Construction-time and strict, unlike
+ * the survivable handler/harmonizer registration loops below: an endorser is a
+ * gate input, so a malformed or ambiguous one must not be quietly skipped into a
+ * relay that then silently never admits anyone. Duplicate names are rejected for
+ * the same reason — `endorsement.sources` addresses endorsers BY NAME, so two
+ * endorsers sharing one name makes the profile's ordered list unreadable.
+ *
+ * @param {{name:string, endorse:Function}[]} [endorsers]
+ * @returns {{name:string, endorse:Function}[]}
+ */
+const normalizeEndorsers = (endorsers) => {
+  if (endorsers == null) return []
+  if (!Array.isArray(endorsers)) {
+    throw new Error('createClient({ endorsers }) must be an array of { name, endorse } objects')
+  }
+  const seen = new Set()
+  return endorsers.map((endorser, i) => {
+    if (!endorser || typeof endorser !== 'object' || typeof endorser.name !== 'string' || !endorser.name) {
+      throw new Error(`createClient({ endorsers }): entry ${i} needs a non-empty string \`name\``)
+    }
+    if (typeof endorser.endorse !== 'function') {
+      throw new Error(`createClient({ endorsers }): endorser "${endorser.name}" needs an \`endorse\` function`)
+    }
+    if (seen.has(endorser.name)) {
+      throw new Error(
+        `createClient({ endorsers }): duplicate endorser name "${endorser.name}" — policies.access.endorsement.sources addresses endorsers by name, so names must be unique`
+      )
+    }
+    seen.add(endorser.name)
+    return endorser
+  })
+}
+
 export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
@@ -170,6 +223,7 @@ export const createClient = (config) => {
   // #217: the access gate is orthogonal to indexingMode. `access` says what gate
   // an index request must pass; `indexingMode` says what triggers indexing.
   const access = normalizeAccess(config.access)
+  const endorsers = normalizeEndorsers(config.endorsers)
 
   // Builtins (html/json/xml/blobject, frozen) + null + default come from the
   // shared builder, so there is one place to register a new core format.
@@ -392,6 +446,8 @@ export const createClient = (config) => {
     },
     harmonizer: registry,
     handler: handlerRegistry,
+    // Stored, not consumed: the endorsement gate stage lands separately.
+    endorsers,
     publisher: publisherRegistry,
     sparql,
     api,

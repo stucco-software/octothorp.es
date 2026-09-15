@@ -66,6 +66,7 @@ A failing diff names the query whose response changed. If the change is expected
 
 **Notes**
 - Golden files are target-independent: the active instance origin is normalized to `{INSTANCE}` and volatile index-time dates are dropped, so determinism rests on each page's source-declared `octo:postDate`. The same golden checks against both local and staging.
+- The capture set includes the resolved instance profile (`GET /profile.json`, golden `profile-resolved.json`) alongside the `/get` queries. It is normalized the same way — the instance origin becomes `{INSTANCE}` — so it is target-independent, and it is otherwise a verbatim capture of what the instance says about itself: identity, policies, and the advertised `api.*.available` lists for publishers, handlers and harmonizers. Adding or removing an extension, renaming a profile field, or changing a policy default therefore shows up as a smoketest diff, and re-blessing it is a deliberate act rather than a side effect.
 - The canonical URL set lives in `src/routes/debug/index-check/test-urls.yaml`. Changing the demo domain there is a one-file edit; re-bless the golden afterward.
 
 COMMIT BUMP

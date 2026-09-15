@@ -58,6 +58,17 @@ describe('createProfile — defaults filling', () => {
     expect(p.vocabulary.namespaces).toEqual([])
   })
 
+  it('resolves both an empty and an absent documentRecord to [] without warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(load({ api: { documentRecord: [] } }, withInstance).api.documentRecord).toEqual([])
+      expect(load({ api: {} }, withInstance).api.documentRecord).toEqual([])
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('defaults the two policy axes independently', () => {
     // Defaulting one axis must never imply anything about the other.
     const p = load({ policies: { indexing: { mode: 'active' } } }, withInstance)

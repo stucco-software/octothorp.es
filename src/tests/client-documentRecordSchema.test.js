@@ -32,7 +32,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
 
   it('forwards config.documentRecordSchema into the internal createIndexer call', async () => {
     const { createClient } = await import('../../packages/core/client.js')
-    const schema = [{ predicate: 'octo:type', namespace: 'octo', range: 'string' }]
+    const schema = [{ predicate: 'type', range: 'string' }]
 
     createClient({
       instance: 'http://localhost:5173/',
@@ -58,7 +58,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
 
   it('threads config.documentRecordSchema as the default for client.get reads', async () => {
     const { createClient } = await import('../../packages/core/client.js')
-    const schema = [{ predicate: 'octo:type', namespace: 'octo', range: 'string' }]
+    const schema = [{ predicate: 'type', range: 'string' }]
 
     const op = createClient({
       instance: 'http://localhost:5173/',
@@ -75,8 +75,8 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
 
   it('lets a per-call documentRecordSchema override the client-level default', async () => {
     const { createClient } = await import('../../packages/core/client.js')
-    const clientSchema = [{ predicate: 'octo:type', namespace: 'octo', range: 'string' }]
-    const callSchema = [{ predicate: 'octo:override', namespace: 'octo', range: 'string' }]
+    const clientSchema = [{ predicate: 'type', range: 'string' }]
+    const callSchema = [{ predicate: 'override', range: 'string' }]
 
     const op = createClient({
       instance: 'http://localhost:5173/',
@@ -112,7 +112,7 @@ describe('createClient documentRecordSchema forwarding (#240)', () => {
 const fakeProfile = {
   identity: { instance: 'https://example.test/' },
   api: {
-    documentRecord: [{ predicate: 'encodingFormat', namespace: 'schema', range: 'literal' }],
+    documentRecord: [{ predicate: 'encodingFormat', range: 'literal' }],
     handlers: { dir: null, default: 'html' },
     harmonizers: { dir: null },
     publishers: { dir: null },

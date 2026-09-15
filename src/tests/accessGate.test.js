@@ -19,6 +19,7 @@ describe('normalizeAccess', () => {
       registration: 'registered',
       blocks: { domains: [], terms: [] },
       whitelist: { domains: [] },
+      endorsement: { sources: [] },
     })
     expect(ACCESS_DEFAULTS.registration).toBe('registered')
   })
@@ -28,6 +29,7 @@ describe('normalizeAccess', () => {
       registration: 'registered',
       blocks: { domains: [], terms: ['someslur'] },
       whitelist: { domains: [] },
+      endorsement: { sources: [] },
     })
   })
 

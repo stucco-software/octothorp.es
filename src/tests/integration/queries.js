@@ -84,10 +84,21 @@ const buildFilters = () => ([
   { name: 'filter-daterange-posted', path: `/get/pages/posted/debug?s=${SUBJECT_HOST}&when=between-2024-01-01-and-2025-01-01` },
 ])
 
+// Instance-level shape queries: not /get results, so `raw: true` tells the
+// capture writer to keep the whole response body instead of unwrapping
+// `.actualResults`. The resolved profile is the instance's self-description
+// (#217) — capturing it means a change to profile shape, to the advertised
+// publisher/handler/harmonizer lists, or to policy defaults shows up as a diff
+// that has to be re-blessed deliberately.
+const buildProfile = () => ([
+  { name: 'profile-resolved', path: '/profile.json', raw: true },
+])
+
 export const buildQueries = (manifest, { tier = 'smoke' } = {}) => [
   ...buildMatrix({ full: tier === 'full' }),
   ...buildRss(),
   ...buildLinkTerms(),
   ...buildCompleteness(),
   ...buildFilters(),
+  ...buildProfile(),
 ]
