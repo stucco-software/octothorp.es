@@ -4,11 +4,30 @@
 
 ### Breaking
 
+- `policies.indexing.frequency` is removed. `policies.indexing.cooldown` replaces it: an integer of seconds, minimum 0, default 300, applied under every indexing mode, and wired into the indexer's `recentlyIndexed` in place of the hardcoded five minutes. `createClient({ cooldown })`.
+- `api.linkTypes[]` entries are now `{ by, subtype, objects?, label? }`; the old `{ type, path, label }` shape is a validation error. Declared types EXTEND core's builtin `by` table, and colliding with a builtin is a load-time error.
+- `api.linkTypes[].path` is removed (2026-09-16). It minted a `[what]`-slot route alias (`/get/items/posted`) that nothing used; `/get/<what>/<by>` is the only route form. The `options.subtype` override in `buildMultiPass`, which existed solely to serve that alias injection, is removed with it — a `by` word is now the only thing that sets a subtype filter. Declaring `path` is a validation error.
+- `mentioned` is no longer an alias of `linked` (#292). It is now the typed relationship `{ objects: 'notTerms', subtype: 'Mention', relationTerms: true }`, so `by=mentioned` returns only relationships written as `octo:Mention` instead of every link to a non-term object. `linked` remains the untyped superset. Existing `mentioned` queries narrow.
+- `api.publishers.named`, `api.handlers.named` and `api.harmonizers.named` are removed; the dirs plus the resolved `available` lists are the whole surface.
+- `policies.labels[]` entries are now `{ id, name, description? }`, with `id` matching `^[A-Za-z][A-Za-z0-9_]*$`.
+- `schema` is no longer a builtin namespace. The builtins are `octo`, `rdf` and `rdfs`; declare `schema` in `vocabulary.namespaces` if you want it.
+- Authoring `api.routes` is a schema error. It is a resolved-only projection fed by `createClient({ routes })`.
 - `api.documentRecord` entries are now `{ predicate, range }` and OCTO-ONLY. The `namespace` and `iri` keys are removed; because the entry schema is closed (`additionalProperties: false`), a profile still carrying either fails validation. A predicate is a bare local name (`^[A-Za-z][A-Za-z0-9_]*$`) and always resolves to the octo namespace base + that name, so `schema:foo` or a full IRI can no longer be smuggled in through the predicate string. Declaring a documentRecord entry IS "add a field to the octo namespace"; to use a foreign ontology, declare it in `vocabulary.namespaces` and extract it with a harmonizer. `buildDocumentRecordClauses(schema)` and `resolveDocumentRecordIri(entry)` no longer take a namespaces argument, and `buildEverythingQuery` no longer accepts `documentRecordNamespaces`. Binding var names change from `dr_<prefix>_<predicate>` to `dr_<predicate>`.
 
 ### Added
 
 - Exports: `OCTO_NAMESPACE`, `DOCUMENT_RECORD_PREDICATE_PATTERN`.
+- `packages/core/linkTypes.js`: `BUILTIN_LINK_TYPES`, `mergeLinkTypes`, `OBJECT_TYPES`, `DECLARED_OBJECT_TYPES`. The resolved `api.linkTypes` is the merged table, each entry tagged `source: "builtin" | "declared"`.
+- A declared link type is queryable as `/get/<what>/<by>`.
+- `rel="octo:mentions"` (#292): the default harmonizer gains a `mention` section, parallel to `bookmark` and `cite`, with `data-octothorpes` terms. The indexer's `subtypeMap` maps `mention`/`Mention` to `Mention`, so the relationship blank node is written `rdf:type octo:Mention`. A mention is an explicit author choice of rel, never inferred from link position.
+- `api.documentRecord[].type` is accepted as an input alias for `range`; the loader normalises it, and exactly one of the two is required.
+- Coherence warnings at client init (#293). `createClient` crosses the merged link-type table and `api.documentRecord` against every registered harmonizer's schema and warns (never throws) about the four ways they can fail to meet: a declared link type no harmonizer's section key resolves to (same rule as `resolveSubtype`), a declared documentRecord predicate no harmonizer's `schema.documentRecord` extracts, a SITE harmonizer writing a subtype no link type queries, and a site harmonizer extracting documentRecord keys the profile never declared. One line per kind, only when non-empty; builtin link types and builtin harmonizers are exempt. New export `checkCoherence`; the four lists are also projected onto the resolved profile as `api.coherence` (projection-only -- authoring it is a schema error). Warnings go to `createClient({ warn })`, default `console.warn`.
+- `packages/core/apiGrammar.js`: `WHAT_GROUPS`, `WHAT_VALUES`, `WHAT_GROUP_BY_VALUE`, `GET_PARAMS`, `MATCH_VALUES`; `DEFAULT_ROUTES` and `normalizeRoutes` in `resolveProfile.js`. The resolved profile gains `api.routes`, a mount-name to URL-template map whose `get` entry carries the query grammar.
+- `PREFIX rdfs:` is in the SPARQL prologue.
+
+### Changed
+
+- `packages/core/api.js` dispatches its `what` switch through `WHAT_GROUP_BY_VALUE` instead of an inline switch.
 
 ## 0.4.2
 

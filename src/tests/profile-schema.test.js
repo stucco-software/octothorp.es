@@ -38,7 +38,7 @@ describe('authored profile schema (#217 Rev 2)', () => {
       },
       policies: {
         commercial: false,
-        indexing: { mode: 'request', frequency: 'hourly' },
+        indexing: { mode: 'request', cooldown: 300 },
         access: {
           registration: 'open',
           badge: '/badge.png',
@@ -47,11 +47,11 @@ describe('authored profile schema (#217 Rev 2)', () => {
         },
       },
       api: {
-        linkTypes: [{ type: 'Item', label: 'Item', path: 'items' }],
+        linkTypes: [{ by: 'itemed', subtype: 'Item', label: 'Item' }],
         documentRecord: [{ predicate: 'encodingFormat', range: 'literal' }],
-        publishers: { dir: './src/lib/publishers', named: [] },
-        handlers: { dir: './src/lib/handlers', default: 'html', named: [] },
-        harmonizers: { dir: './src/lib/harmonizers', named: [] },
+        publishers: { dir: './src/lib/publishers' },
+        handlers: { dir: './src/lib/handlers', default: 'html' },
+        harmonizers: { dir: './src/lib/harmonizers' },
       },
       vocabulary: {
         octo: 'https://vocab.octothorp.es#',
@@ -148,6 +148,33 @@ describe('authored profile schema (#217 Rev 2)', () => {
     expect(validate({ api: { linkTypes: [] } })).toBe(true)
   })
 
+  // #217: linkTypes entries are { by, subtype } bundles. `type`/`path`-only
+  // was the pre-table shape and no longer validates.
+  it('accepts a minimal { by, subtype } link type and the optional keys', () => {
+    expect(validate({ api: { linkTypes: [{ by: 'reviewed', subtype: 'Review' }] } })).toBe(true)
+    expect(validate({
+      api: { linkTypes: [{ by: 'reviewed', subtype: 'Review', objects: 'pages', label: 'Review' }] },
+    })).toBe(true)
+  })
+
+  // 2026-09-16: `path` (the [what]-slot route alias) is gone. It was never used
+  // by any profile, and /get/<what>/<by> is the only route form.
+  it('rejects the removed `path` key', () => {
+    expect(validate({ api: { linkTypes: [{ by: 'reviewed', subtype: 'Review', path: 'reviews' }] } })).toBe(false)
+  })
+
+  it('rejects a link type missing by or subtype, or using the old `type` key', () => {
+    expect(validate({ api: { linkTypes: [{ subtype: 'Review' }] } })).toBe(false)
+    expect(validate({ api: { linkTypes: [{ by: 'reviewed' }] } })).toBe(false)
+    expect(validate({ api: { linkTypes: [{ type: 'Review', path: 'reviews' }] } })).toBe(false)
+  })
+
+  it('rejects a malformed by, a non-bare subtype, and an unknown objects value', () => {
+    expect(validate({ api: { linkTypes: [{ by: 'Reviewed', subtype: 'Review' }] } })).toBe(false)
+    expect(validate({ api: { linkTypes: [{ by: 'reviewed', subtype: 'octo:Review' }] } })).toBe(false)
+    expect(validate({ api: { linkTypes: [{ by: 'reviewed', subtype: 'Review', objects: 'all' }] } })).toBe(false)
+  })
+
   it('rejects an unknown documentRecord range', () => {
     expect(validate({
       api: { documentRecord: [{ predicate: 'x', range: 'blob' }] },
@@ -206,5 +233,64 @@ describe('committed octothorpes.json contract', () => {
     }
     walk(committed)
     expect(keys.some((k) => /key|secret|token|password|credential/i.test(k))).toBe(false)
+  })
+})
+
+// 2026-09-15: `named` was dropped from all three extension blocks. With
+// additionalProperties:false a profile still carrying it now fails validation,
+// which is the point — the key was always inert and advertised otherwise.
+describe('api.*.named is gone (2026-09-15)', () => {
+  for (const block of ['publishers', 'handlers', 'harmonizers']) {
+    it(`rejects api.${block}.named`, () => {
+      expect(validate({ api: { [block]: { named: [] } } })).toBe(false)
+      expect(validate({ api: { [block]: { named: [{ name: 'x', url: 'https://x.test/' }] } } })).toBe(false)
+    })
+  }
+})
+
+// documentRecord entries declare their value type as `range`; the schema knows
+// only that key. `type` is an alias normalised away by the LOADER before
+// validation, so the schema itself must reject it — see profileLoader.test.js
+// for the alias behaviour.
+describe('api.documentRecord range/type alias (schema half)', () => {
+  it('accepts `range`', () => {
+    expect(validate({ api: { documentRecord: [{ predicate: 'wordCount', range: 'number' }] } })).toBe(true)
+  })
+
+  it('rejects a raw `type` — the loader normalises it before the schema sees it', () => {
+    expect(validate({ api: { documentRecord: [{ predicate: 'wordCount', type: 'number' }] } })).toBe(false)
+  })
+
+  it('rejects a missing range', () => {
+    expect(validate({ api: { documentRecord: [{ predicate: 'wordCount' }] } })).toBe(false)
+  })
+})
+
+describe('policies.labels item shape (2026-09-15)', () => {
+  const labels = (items) => validate({ policies: { labels: items } })
+
+  it('accepts an empty list and a well-formed label', () => {
+    expect(labels([])).toBe(true)
+    expect(labels([{ id: 'nsfw', name: 'Not safe for work' }])).toBe(true)
+    expect(labels([{ id: 'ai_generated', name: 'AI generated', description: 'Machine-authored text.' }])).toBe(true)
+  })
+
+  it('requires both id and name', () => {
+    expect(labels([{ id: 'nsfw' }])).toBe(false)
+    expect(labels([{ name: 'Not safe for work' }])).toBe(false)
+  })
+
+  it('rejects unknown keys on a label', () => {
+    expect(labels([{ id: 'nsfw', name: 'NSFW', colour: 'red' }])).toBe(false)
+  })
+
+  it('holds the id to the documentRecord predicate pattern', () => {
+    for (const id of ['skos:nsfw', 'not safe', '1st', 'a-b', 'a.b', '']) {
+      expect(labels([{ id, name: 'x' }])).toBe(false)
+    }
+  })
+
+  it('rejects a bare string label', () => {
+    expect(labels(['nsfw'])).toBe(false)
   })
 })

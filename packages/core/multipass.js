@@ -1,4 +1,5 @@
 import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } from './utils.js'
+import { BUILTIN_LINK_TYPES, OBJECT_TYPES, findLinkType } from './linkTypes.js'
 
 /**
  * Builds a MultiPass configuration from plain parameters.
@@ -6,6 +7,9 @@ import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } fr
  * @param {string} what - Result type ('everything', 'pages', 'thorpes', 'domains', etc.)
  * @param {string} by - Query filter ('thorped', 'linked', 'backlinked', 'posted', etc.)
  * @param {Object} options - Query options (s, o, notS, notO, match, limit, offset, when, etc.)
+ *   `options.linkTypes` is the merged link-type table (mergeLinkTypes result).
+ *   Omitted, it falls back to the builtins alone, so a bare buildMultiPass call
+ *   behaves exactly as it did before profile-declared link types existed.
  * @param {string} instance - The OP instance URL
  * @returns {Object} MultiPass configuration object
  */
@@ -36,81 +40,45 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   let subjectMode = "exact"
   let objectMode = "exact"
 
-  // Set objectType and clean object inputs
-  switch (matchByParams) {
-    case "thorped":
-    case "octothorped":
-    case "tagged":
-    case "termed":
-      objectType = "termsOnly"
-      o = cleanInputs(objects)
-      notO = cleanInputs(notObjects)
-      break
-    case "linked":
-    case "mentioned":
-      o = cleanInputs(objects)
-      notO = cleanInputs(notObjects)
-      objectType = "notTerms"
-      break
-    case "backlinked":
-      subtype = "Backlink"
-      o = cleanInputs(objects)
-      notO = cleanInputs(notObjects)
+  // Set objectType and clean object inputs.
+  //
+  // This was a hardwired switch until the link-type table became data
+  // (#217): every arm is now one row of BUILTIN_LINK_TYPES, and a
+  // profile-declared link type is an additional row read by the identical
+  // code path. `by` values the table does not know still throw.
+  const table = options.linkTypes ?? BUILTIN_LINK_TYPES
+  const linkType = findLinkType(table, matchByParams)
+  if (!linkType) {
+    throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
+  }
+
+  subtype = linkType.subtype ?? ""
+  objectType = OBJECT_TYPES[linkType.objects]
+
+  if (linkType.subjects === 'byParent') {
+    // Webring membership: the subject side is resolved through a parent
+    // rather than matched, so it bypasses the `match` handling below
+    // entirely and `what` is allowed to narrow the object type.
+    subjectMode = "byParent"
+    s = cleanInputs(subjects, "exact")
+    notS = cleanInputs(notSubjects)
+    if (resultParams === "pages") {
       objectType = "pagesOnly"
-      break
-    case "cited":
-      subtype = "Cite"
-      o = cleanInputs(objects)
-      notO = cleanInputs(notObjects)
-      objectType = "notTerms"
-      break
-    case "bookmarked":
-      subtype = "Bookmark"
-      o = cleanInputs(objects)
-      notO = cleanInputs(notObjects)
-      objectType = "notTerms"
-      break
-    case "posted":
-    case "all":
-      objectType = "none"
-      break
-    case "in-webring":
-    case "members":
-    case "member-of":
-      subjectMode = "byParent"
-      s = cleanInputs(subjects, "exact")
-      notS = cleanInputs(notSubjects)
-      if (resultParams === "pages"){
-        objectType = "pagesOnly"
-      }
-      if (areUrlsFuzzy(objects) === true) {
-        objectMode = "fuzzy"
-      }
-      else {
-        objectMode = "exact"
-      }
-      o = cleanInputs(objects)
-      notO = cleanInputs(notObjects)
-      break
-    default:
-      throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
+    }
+    objectMode = areUrlsFuzzy(objects) === true ? "fuzzy" : "exact"
   }
 
-  // C9 (#236): a profile-declared relationship subtype reaches buildMultiPass as
-  // an explicit `subtype` option, injected by the route layer for the
-  // first-class path /get/<declared-path>/<by> (e.g. /get/items/posted maps to
-  // subtype "Item"). It overrides the by-derived subtype (Backlink/Cite/…) and,
-  // when the `by` axis emits no object constraint (posted/all -> objectType
-  // "none"), promotes objectType to "all" so the everything query filters BY the
-  // subtype relationship instead of unioning in relationship-less pages.
-  if (options.subtype) {
-    subtype = options.subtype
-    if (objectType === "none") objectType = "all"
+  // `objects: 'none'` means the by-axis carries no object constraint at all,
+  // so a supplied ?o= is deliberately ignored rather than cleaned in.
+  if (linkType.objects !== 'none') {
+    o = cleanInputs(objects)
+    notO = cleanInputs(notObjects)
   }
 
-  // Parse rt (relationship terms) -- only valid on link-type [by] values
-  const linkTypes = ['linked', 'mentioned', 'backlinked', 'cited', 'bookmarked']
-  if (options.rt && linkTypes.includes(matchByParams)) {
+  // Parse rt (relationship terms) -- only valid on [by] values whose link type
+  // says so. Declared link types always qualify: they are typed relationships,
+  // and a typed relationship is the blank node the terms hang off.
+  if (options.rt && linkType.relationTerms) {
     relationTerms = options.rt.split(',').map(t => t.trim())
   }
 

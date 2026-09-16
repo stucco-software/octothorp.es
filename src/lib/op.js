@@ -29,9 +29,24 @@ export const op = createClient({
   // The profile spelling and the core spelling of indexingMode are identical,
   // so this is the identity function, not a mapping (Task 17).
   indexingMode: profile.policies.indexing.mode,
+  cooldown: profile.policies.indexing.cooldown,
   access: profile.policies.access,
   // Was missing entirely (#217 gap audit): without this, programmatic op.get()
   // silently lost documentRecord projection.
   documentRecordSchema: profile.api.documentRecord,
   namespaces: mergeNamespaces(profile.vocabulary.namespaces),
+  // Where THIS adapter mounted things. Core owns the query grammar (`what`,
+  // `by`, `as`, the accepted params) but cannot see SvelteKit's route tree, so
+  // the mount points come from here and resolveProfile composes the two into
+  // `api.routes`. Every template below is a real route under src/routes; debug
+  // and human-facing pages are deliberately absent.
+  routes: {
+    get: '/get/{what}/{by}/{as}',
+    index: '/index',
+    profile: '/profile.json',
+    terms: '/~/{term}',
+    domains: '/domains',
+    rss: '/rss',
+    badge: '/badge',
+  },
 })

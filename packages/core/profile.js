@@ -1,4 +1,5 @@
 import Ajv from 'ajv'
+import { mergeLinkTypes } from './linkTypes.js'
 import { normalizeInstance } from './resolveProfile.js'
 
 // #217 Rev 2 — OP Client Profile loader. Framework-agnostic: takes the parsed
@@ -28,6 +29,43 @@ const assertNoSecrets = (node, path = '') => {
       assertNoSecrets(v, fieldPath)
     }
   }
+}
+
+/**
+ * Normalise the `type` alias on api.documentRecord entries to the canonical
+ * `range`, BEFORE schema validation — the schema knows only `range`.
+ *
+ * Exactly one of the two must be present on an entry: both is ambiguous and
+ * neither is undeclared, so both are load-time errors with an explicit message
+ * rather than a generic "must have required property 'range'" from ajv.
+ *
+ * Returns a copy; the caller's object is never mutated.
+ *
+ * @param {Object} profile
+ * @returns {Object}
+ */
+const normalizeDocumentRecordRange = (profile) => {
+  const entries = profile?.api?.documentRecord
+  if (!Array.isArray(entries)) return profile
+  const normalized = entries.map((entry, i) => {
+    if (!isPlainObject(entry)) return entry
+    const hasRange = entry.range !== undefined
+    const hasType = entry.type !== undefined
+    if (hasRange && hasType) {
+      throw new Error(
+        `Profile api.documentRecord[${i}] declares both \`range\` and \`type\` — they are the same field (\`type\` is an alias for \`range\`); declare exactly one`
+      )
+    }
+    if (!hasRange && !hasType) {
+      throw new Error(
+        `Profile api.documentRecord[${i}] declares neither \`range\` nor its alias \`type\` — every documentRecord entry needs exactly one`
+      )
+    }
+    if (!hasType) return entry
+    const { type, ...rest } = entry
+    return { ...rest, range: type }
+  })
+  return { ...profile, api: { ...profile.api, documentRecord: normalized } }
 }
 
 const validateAgainstSchema = (profile, schema) => {
@@ -70,7 +108,7 @@ export const PROFILE_DEFAULTS = Object.freeze({
     commercial: false,
     labels: [],
     // WHAT TRIGGERS indexing. Orthogonal to access.registration below.
-    indexing: { mode: 'request', frequency: null },
+    indexing: { mode: 'request', cooldown: 300 },
     // WHAT GATE an index request must pass. 'registered' is today's behavior
     // (the verifiedOrigin check in indexer.js), so it is the safe default.
     // Two blocklists, two enforcement points. blocks.domains is the ORIGIN
@@ -95,9 +133,9 @@ export const PROFILE_DEFAULTS = Object.freeze({
     documentRecord: [],
     // Three sibling extension points. `default` is a handler MODE and belongs
     // to handlers; harmonizers reference handlers via their `mode` field.
-    publishers: { dir: null, named: [] },
-    handlers: { dir: null, default: 'html', named: [] },
-    harmonizers: { dir: null, named: [] },
+    publishers: { dir: null },
+    handlers: { dir: null, default: 'html' },
+    harmonizers: { dir: null },
   },
   vocabulary: { octo: OCTO_VOCABULARY_IRI, namespaces: [] },
   federation: {},
@@ -197,9 +235,19 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   // "secret-shaped key" message keeps firing even if a future schema revision
   // loosens additionalProperties.
   assertNoSecrets(profile)
-  validateAgainstSchema(profile, schema)
+  // `type` is an accepted alias for `range`; normalise before validation so the
+  // schema only ever sees the canonical key.
+  const authored = normalizeDocumentRecordRange(profile)
+  validateAgainstSchema(authored, schema)
 
-  const resolved = mergeDefaults(PROFILE_DEFAULTS, profile)
+  const resolved = mergeDefaults(PROFILE_DEFAULTS, authored)
+
+  // #217: link types are merged against core's builtin `by` table. Doing it
+  // here — not only at createClient — means a collision ("cited" is a builtin)
+  // or a malformed entry fails at the authoring boundary, with the profile in
+  // hand, rather than at first query. The merged table itself is rebuilt by the
+  // client; this call is a validation gate, so the result is discarded.
+  mergeLinkTypes(resolved.api?.linkTypes)
 
   // Deploy-level override wins. Empty string is treated as absent so an unset
   // Docker/Railway variable never clobbers the authored value.

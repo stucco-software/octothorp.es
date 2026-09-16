@@ -25,7 +25,7 @@
     "commercial": false,
     "indexing": {
       "mode": "request",
-      "frequency": "hourly"
+      "cooldown": 300
     },
     "access": {
       "registration": "registered",

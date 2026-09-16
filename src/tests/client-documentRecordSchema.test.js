@@ -173,7 +173,7 @@ describe('#217 op.js builds createClient config from the profile', () => {
   })
 
   it('passes the effective namespaces', () => {
-    expect(captured.namespaces.map((n) => n.prefix)).toContain('schema')
+    expect(captured.namespaces.map((n) => n.prefix)).toContain('rdfs')
   })
 })
 

@@ -29,6 +29,8 @@ const subtypeMap = {
   cite: 'Cite',
   citation: 'Cite',
   Cite: 'Cite',
+  mention: 'Mention',
+  Mention: 'Mention',
   button: 'Button',
   Button: 'Button',
 }
@@ -164,10 +166,15 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {string} deps.instance
  * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
  * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
+ * @param {number} [deps.cooldown=300] - Re-index cooldown in seconds; 0 disables it
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown } = deps
+
+  // #217: re-index cooldown in SECONDS, injected from
+  // profile.policies.indexing.cooldown. 0 disables the wait.
+  const cooldownSeconds = Number.isFinite(cooldown) ? cooldown : 300
 
   // #217: the injected access block. Normalized once here so every enforcement
   // point below sees a filled shape. Core never reads a profile — the mode and
@@ -175,7 +182,6 @@ export const createIndexer = (deps) => {
   const access = normalizeAccess(accessConfig)
 
   const p = 'octo:octothorpes'
-  const indexCooldown = 300000 // 5min
 
   ////////// helpers //////////
 
@@ -218,6 +224,7 @@ export const createIndexer = (deps) => {
   ////////// cooldown //////////
 
   const recentlyIndexed = async (s) => {
+    if (cooldownSeconds === 0) return false
     let now = Date.now()
     let r = await queryArray(`
       select distinct ?t {
@@ -231,7 +238,7 @@ export const createIndexer = (deps) => {
     if (mostRecent === 0) {
       return false
     }
-    return now - indexCooldown < mostRecent
+    return now - cooldownSeconds * 1000 < mostRecent
   }
 
   ////////// existence checks //////////

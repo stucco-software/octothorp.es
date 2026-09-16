@@ -975,3 +975,60 @@ Verified: `csvHandler`, `harmonizer`, `handlerRegistry`, `indexer`, `indexing`, 
 Memex is at a stopping point, so `src/tests/c14MemexRoundtrip.test.js` and its fixture vault `src/tests/fixtures/memex/` are deleted. Nothing in `src/` or `packages/` referenced them; `buildTargetMap` in the markdown handler and `src/tests/markdownWikilinks.test.js` (35 tests, passing) are untouched and remain the coverage for wikilink resolution. Two forward-looking docs that cited the test in the present tense — the batch-indexing R5 recipe and the documentation-recommendations verified-artifacts note — now say it was removed 2026-09-14. Historical release-note entries are left as written.
 
 **Files affected:** `src/tests/c14MemexRoundtrip.test.js` (deleted), `src/tests/fixtures/memex/**` (deleted, 5 fixtures), `docs/plans/point7/180-batch-indexing-mvp.md`, `docs/plans/point7/release notes/documentation-recommendations.md`.
+
+## Profile review 2026-09-15, seven breaking profile changes before the merge (#217)
+
+A last pass over the profile contract before `profile-consumption` merges. All seven are breaking and were taken deliberately now rather than in a patch release, since the profile is the public v0.7 contract.
+
+**1. `policies.indexing.cooldown` replaces `frequency`.** The old string `frequency` is gone. `cooldown` is an integer of seconds (minimum 0, default 300, `0` disables) and applies under every indexing mode: the floor on re-indexing a page under `request`, the crawler's re-check interval under `active`. It is wired into core's `recentlyIndexed`, replacing the hardcoded five minutes, and reaches it as `createClient({ cooldown })`.
+
+**2. `api.linkTypes[]` is `{ by, subtype, objects?, label?, path? }`.** Was `{ type, path, label }`. Declared link types now EXTEND core's builtin `by` table rather than living beside it: new `packages/core/linkTypes.js` holds `BUILTIN_LINK_TYPES` and `mergeLinkTypes`, and a declared `by` colliding with a builtin is a load-time error. MultiPass reads the merged table, so a declared type takes the identical code path to `cited` or `bookmarked`. The resolved `api.linkTypes` is the merged list with each entry tagged `source: builtin | declared`. Both URL forms resolve: `/get/<what>/<declared-by>` is canonical and the optional `path` alias answers in the `what` slot.
+
+**3. `api.documentRecord[].type` is an input alias for `range`.** The loader normalises `type` to `range` before validation; exactly one of the two is required, and the resolved profile always carries `range`.
+
+**4. `api.{publishers,handlers,harmonizers}.named` removed.** The `dir` pointer plus the resolved `available` list is the whole surface.
+
+**5. `policies.labels[]` is `{ id, name, description? }`.** `id` is a bare local name, pattern `^[A-Za-z][A-Za-z0-9_]*$`, the same pattern `api.linkTypes[].subtype` and `api.documentRecord[].predicate` use. This is the minimum shape another client can match on.
+
+**6. Builtin namespaces are `octo`, `rdf`, `rdfs`.** `schema` is demoted to declare-if-wanted, following `foaf`. `rdfs` earns its place because the vocabulary document uses `rdfs:subClassOf` / `rdfs:label`, so `PREFIX rdfs:` joins the SPARQL prologue. The generated vocabulary document with RDFS descriptions is follow-up **#291**.
+
+**7. New `api.routes` projection.** New `packages/core/apiGrammar.js` holds the query grammar (`WHAT_GROUPS`, `WHAT_VALUES`, `WHAT_GROUP_BY_VALUE`, `GET_PARAMS`, `MATCH_VALUES`); `DEFAULT_ROUTES` and `normalizeRoutes` live in `resolveProfile.js`. An adapter passes its mount table as `createClient({ routes })`, defaulting to the SvelteKit relay's shape. The resolved profile publishes a mount-name to URL-template map whose `get` entry also carries `what`/`by`/`as`/`params`/`match`, so a consumer can form queries against a relay it has never talked to. Authoring `api.routes` is a schema error, core cannot introspect an HTTP framework. `api.js`'s `what` switch is now driven by `WHAT_GROUP_BY_VALUE`.
+
+**Files affected:** `packages/core/linkTypes.js` (new), `packages/core/apiGrammar.js` (new), `packages/core/profile.schema.json`, `packages/core/profile.js`, `packages/core/resolveProfile.js`, `packages/core/queryBuilders.js`, `packages/core/api.js`, `packages/core/indexer.js`, `packages/core/client.js`, `packages/core/CHANGELOG.md`, `octothorpes.json`, `src/lib/op.js`, plus the profile test files.
+
+## Profile documentation drafts brought in line with the review (#217)
+
+`docs/drafts/profile/profile.md` and `docs/drafts/profile/profile-reference.md` were edited piecemeal by several passes during the review; this is the consistency sweep. The reference's merged-link-type note had been dropped into the middle of the `api` table, splitting it in two, and the same table's closing line still listed `linkTypes` among the fields passed through to the resolved profile unchanged, it is merged with the builtins, which the note two paragraphs above says. `api.linkTypes` also advertised ad-hoc `?st=` as working (it is #200, unbuilt) and described `label` as feeding the generated vocabulary document (#291, unbuilt). The worked example in `profile.md` was run through `createProfile` against the real schema with an injected `neighbours` endorser and a stubbed `./blocklists/terms.json`: it validates and loads with zero coherence warnings.
+
+**Files affected:** `docs/drafts/profile/profile-reference.md`.
+
+## `mentioned` becomes `octo:Mention` (#292) and `path` is dropped from link types
+
+Two changes to `api.linkTypes`, both breaking, both taken now for the same reason as the 2026-09-15 review batch: the profile is the v0.7 public contract.
+
+**`mentioned` is its own subtype.** It used to be the same table row as `linked` (`objects: notTerms`, no subtype), so the two words returned identical result sets. It is now `{ objects: 'notTerms', subtype: 'Mention', relationTerms: true }`, and `linked` stays the untyped superset. Existing `by=mentioned` queries narrow.
+
+The write side had to exist or the query would return nothing, so the default harmonizer gains a `mention` section selecting `[rel~='octo:mentions']` with `data-octothorpes` terms, exactly parallel to `bookmark` and `cite`, and the indexer's `subtypeMap` maps `mention`/`Mention` to `Mention`. The relationship blank node is then written `rdf:type octo:Mention` by `handleMention`. A mention is an explicit author choice of `rel`, never inferred from link position. The HTML handler needed nothing: sections become `{ type: key, uri }` generically. Known wart, still out of scope: the plain-link section is keyed `link`, so untyped links store as `octo:Link`; `linked` deliberately does not filter on it.
+
+**`path` is removed.** It minted a `[what]`-slot route alias (`/get/items/posted`), no profile ever declared one, and `/get/<what>/<by>` is now the only route form. Declaring `path` is a validation error. The route-layer alias rewrite in `src/routes/get/[what]/[by]/[[as]]/load.js` is gone, and with it the `options.subtype` override in `buildMultiPass` — that block existed solely to serve the route's injection and had no other caller, so a `by` word is now the only thing that sets a subtype filter. The `getStatements` guard that admits subtype-only queries stays: it is what makes `/get/everything/<declared-by>` valid with no `s` or `o`.
+
+**Files affected:** `packages/core/linkTypes.js`, `packages/core/harmonizers.js`, `packages/core/indexer.js`, `packages/core/multipass.js`, `packages/core/profile.schema.json`, `packages/core/CHANGELOG.md`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, `.claude/skills/octothorpes/api-reference.md`, `src/tests/integration/golden/smoke/profile-resolved.json`, plus `linkTypes`, `subtypePaths`, `profile-schema`, `harmonizer`, `indexing` and `converters` tests and the `multipass-parity` fixture.
+
+## Coherence warnings between the profile and its harmonizers (#293)
+
+`api.linkTypes` and `api.documentRecord` are declarations; a harmonizer is the thing that actually writes the subtype or extracts the key. They meet on a bare name and, until now, nothing checked that they met at all -- a declared link type nobody writes is a valid query that always returns zero rows, and a declared documentRecord predicate nobody extracts is simply never stored. Both were silent.
+
+`createClient` now runs one pass at init, after harmonizer discovery and `mergeLinkTypes`, and warns in four directions:
+
+- **declared -> harmonizer.** A declared link type whose `subtype` no registered harmonizer section key resolves to, using the indexer's own `resolveSubtype` (imported, not reimplemented, so the capitalisation rule and the alias map cannot drift). Section keys are a schema's top-level keys other than `subject`, `documentRecord` and `hashtag` -- `hashtag` writes terms, not relationships.
+- **declared -> harmonizer, documentRecord.** An `api.documentRecord[].predicate` no harmonizer's `schema.documentRecord` has a key for.
+- **harmonizer -> declared.** A site harmonizer writing a subtype no link type queries, pointing at `api.linkTypes` as the fix. `link`, `button`, `endorse` and `hashtag` are exempt by name: `link` is the untyped-link storage type behind the unfiltered `linked`, and the other two are handled outside the `by` table.
+- **harmonizer -> declared, documentRecord.** A site harmonizer extracting `documentRecord` keys the profile never declared, which the indexer drops at write time.
+
+Builtin link types are exempt in the first direction and builtin harmonizers in the last two: core's own `by` words and core's own `standardSite` documentRecord keys are not a site's misconfiguration, and warning about them on every boot is exactly the noise this check exists to avoid. The whole check is advisory -- it warns, never throws, emits one line per kind and only when the list is non-empty. A blobject POSTed straight to `/index` can legitimately carry a documentRecord no harmonizer ever touched, so an unmatched predicate is a smell rather than an error.
+
+The four lists are also projected onto the resolved profile as `api.coherence` (`{ uncapturedLinkTypes, uncapturedDocumentRecord, unqueriedSubtypes, undeclaredDocumentRecord }`), for a `/profile` page that wants to render them. Like `api.routes` it is projection-only: `api` is a closed schema, so an authored `api.coherence` is a validation error, and `resolveProfile()` called without a client omits the key entirely.
+
+Note for this repo: `octothorpes.json` declares `richContent` and no harmonizer extracts it (it arrives by direct blobject POST), so a relay boot now prints one documentRecord advisory. That warning is correct.
+
+**Files affected:** `packages/core/client.js` (new `checkCoherence`), `packages/core/resolveProfile.js`, `packages/core/CHANGELOG.md`, `src/tests/harmonizerCoherence.test.js` (new), `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, plus `smoke.js` and `op.js` in the companion `op-test-site` repo.

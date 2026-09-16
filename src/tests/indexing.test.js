@@ -915,6 +915,12 @@ describe('Indexing Business Logic', () => {
       expect(resolveSubtype('Cite')).toBe('Cite')
     })
 
+    // #292: mention is its own subtype now, not an alias of a plain link.
+    it('should resolve mention subtype correctly', () => {
+      expect(resolveSubtype('mention')).toBe('Mention')
+      expect(resolveSubtype('Mention')).toBe('Mention')
+    })
+
     it('should resolve button to Button', () => {
       expect(resolveSubtype('button')).toBe('Button')
       expect(resolveSubtype('Button')).toBe('Button')

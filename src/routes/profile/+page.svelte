@@ -59,7 +59,7 @@
 <ul>
   {#if policies.commercial !== undefined}<li><strong>Commercial activity:</strong> {policies.commercial ? 'yes' : 'no'}</li>{/if}
   {#if indexing.mode}<li><strong>Indexing is triggered by:</strong> {indexing.mode}</li>{/if}
-  {#if indexing.frequency}<li><strong>Indexing frequency:</strong> {indexing.frequency}</li>{/if}
+  {#if indexing.cooldown !== undefined}<li><strong>Re-index cooldown:</strong> {indexing.cooldown === 0 ? 'none' : `${indexing.cooldown}s`}</li>{/if}
   {#if access.registration}<li><strong>Index requests must pass:</strong> {access.registration}</li>{/if}
   {#if access.badge}<li><strong>Badge:</strong> <a href={access.badge}>{access.badge}</a></li>{/if}
 </ul>
@@ -90,13 +90,51 @@
   </ul>
 {/if}
 
-{#if api.linkTypes?.length || api.documentRecord?.length || api.publishers?.available?.length || api.handlers || api.harmonizers?.available?.length}
+{#if api.routes || api.linkTypes?.length || api.documentRecord?.length || api.publishers?.available?.length || api.handlers || api.harmonizers?.available?.length}
   <h2>API</h2>
+  {#if api.routes}
+    <h3>Routes</h3>
+    <p>
+      Where this client serves each endpoint, and — for <code>/get</code> — every word
+      and query param a request may use. This block is a projection: core supplies the
+      query grammar, the adapter supplies the mount points, and the two are composed at
+      init. It is never authored in a profile.
+    </p>
+    <ul>
+      {#each Object.entries(api.routes) as [mount, route]}
+        <li>
+          <strong>{mount}</strong> &mdash; <code>{route.template}</code>
+          {#if route.what || route.by || route.as || route.params}
+            <ul>
+              {#if route.what}<li><code>what</code>: {route.what.join(', ')}</li>{/if}
+              {#if route.by}<li><code>by</code>: {route.by.join(', ')}</li>{/if}
+              {#if route.as}<li><code>as</code>: {route.as.join(', ')}</li>{/if}
+              {#if route.params}<li>params: {route.params.map((x) => '?' + x).join(', ')}</li>{/if}
+              {#if route.match}<li><code>?match=</code>: {route.match.join(', ')}</li>{/if}
+            </ul>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
   {#if api.linkTypes?.length}
     <h3>Link types</h3>
+    <p>
+      The <code>by</code> words this client answers to. Each is a bundle: a query word, the
+      relationship subtype it filters on, and what may sit on the object side.
+      Builtins ship with core; declared ones come from this client's profile and are
+      written by a harmonizer that emits the same subtype.
+    </p>
     <ul>
       {#each api.linkTypes as lt}
-        <li>{lt}</li>
+        <li>
+          <code>/get/everything/{lt.by}</code>
+          {#if lt.subtype}&mdash; <code>octo:{lt.subtype}</code>{/if}
+          {#if lt.label} ({lt.label}){/if}
+          &mdash; objects: <code>{lt.objects}</code>
+          {#if lt.relationTerms}, supports <code>?rt=</code>{/if}
+          <em>({lt.source})</em>
+        </li>
       {/each}
     </ul>
   {/if}

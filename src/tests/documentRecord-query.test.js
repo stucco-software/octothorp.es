@@ -120,13 +120,15 @@ describe('C5 buildEverythingQuery surfaces declared predicates', () => {
 })
 
 describe('#217 profile-driven namespaces', () => {
-  it('ships octo, rdf and schema as builtins — and not foaf', () => {
-    expect(BUILTIN_NAMESPACES.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'schema'])
+  it('ships octo, rdf and rdfs as builtins — and not foaf or schema', () => {
+    expect(BUILTIN_NAMESPACES.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs'])
   })
 
-  it('drops the unused foaf PREFIX from the injected SPARQL prologue', () => {
+  it('drops the unused foaf and schema PREFIXes from the injected SPARQL prologue', () => {
     expect(corePrefixes).not.toMatch(/foaf/)
+    expect(corePrefixes).not.toMatch(/PREFIX schema:/)
     expect(corePrefixes).toMatch(/PREFIX octo:/)
+    expect(corePrefixes).toMatch(/PREFIX rdfs:/)
   })
 
   it('tags builtin vs declared', () => {
@@ -140,14 +142,14 @@ describe('#217 profile-driven namespaces', () => {
   })
 
   it('a declared namespace overrides a builtin of the same prefix', () => {
-    const merged = mergeNamespaces([{ prefix: 'schema', iri: 'https://fork.test/schema/' }])
-    const schema = merged.filter((n) => n.prefix === 'schema')
-    expect(schema).toHaveLength(1)
-    expect(schema[0].iri).toBe('https://fork.test/schema/')
-    expect(schema[0].source).toBe('declared')
+    const merged = mergeNamespaces([{ prefix: 'rdfs', iri: 'https://fork.test/rdf-schema#' }])
+    const rdfs = merged.filter((n) => n.prefix === 'rdfs')
+    expect(rdfs).toHaveLength(1)
+    expect(rdfs[0].iri).toBe('https://fork.test/rdf-schema#')
+    expect(rdfs[0].source).toBe('declared')
   })
 
   it('mergeNamespaces() with no argument is just the builtins', () => {
-    expect(mergeNamespaces().map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'schema'])
+    expect(mergeNamespaces().map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs'])
   })
 })

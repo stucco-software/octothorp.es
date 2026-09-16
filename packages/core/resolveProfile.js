@@ -1,4 +1,83 @@
 import { mergeNamespaces } from './queryBuilders.js'
+import { mergeLinkTypes } from './linkTypes.js'
+import { WHAT_VALUES, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'
+
+/**
+ * Mount points for the SvelteKit relay (octothorp.es), used when an adapter
+ * passes no `routes` table of its own. It is a living shape rather than an
+ * invented one: every template below is a route that exists in src/routes.
+ *
+ * A route table is NOT authored in octothorpes.json — core cannot introspect an
+ * HTTP framework, so only the adapter knows where it mounted things. It is
+ * passed in code to createClient({ routes }), the same way publishers are.
+ * `api.routes` in an authored profile is a schema error.
+ *
+ * `{...}` placeholders are the route's variable segments: `{what}`/`{by}`/`{as}`
+ * take the grammar values advertised alongside the template, `{term}` a bare
+ * octothorpe term name.
+ * @type {Record<string,string>}
+ */
+export const DEFAULT_ROUTES = {
+  get: '/get/{what}/{by}/{as}',
+  index: '/index',
+  profile: '/profile.json',
+  terms: '/~/{term}',
+  domains: '/domains',
+  rss: '/rss',
+  badge: '/badge',
+}
+
+/**
+ * Project `api.routes`: the adapter's mount table crossed with core's query
+ * grammar. Grammar arrays hang off the `get` mount only — it is the one route
+ * whose shape core has anything to say about; the others are bare templates.
+ *
+ * @param {Record<string,string>} routes
+ * @param {import('./linkTypes.js').LinkType[]} linkTypes - the MERGED table, so
+ *   `by` advertises declared link types alongside the builtins.
+ * @param {string[]} publisherNames - what actually registered; these are `as`.
+ * @returns {Record<string, {template:string, what?:string[], by?:string[], as?:string[], params?:string[], match?:string[]}>}
+ */
+const projectRoutes = (routes, linkTypes, publisherNames) =>
+  Object.fromEntries(
+    Object.entries(routes).map(([mount, template]) => [
+      mount,
+      mount === 'get'
+        ? {
+            template,
+            // Ordered by their source: `what` in grammar-group order, `by` as
+            // builtins-then-declared. Only the unordered sources get sorted.
+            what: [...WHAT_VALUES],
+            by: linkTypes.map((lt) => lt.by),
+            as: [...new Set(publisherNames)].sort(),
+            params: [...GET_PARAMS],
+            match: [...MATCH_VALUES],
+          }
+        : { template },
+    ])
+  )
+
+/**
+ * Validate an adapter-supplied route table. Strict, like the endorser check in
+ * createClient: a malformed template silently dropped would leave a consumer
+ * confidently forming URLs against a mount that does not exist.
+ * @param {Record<string,string>} [routes]
+ * @returns {Record<string,string>}
+ */
+export const normalizeRoutes = (routes) => {
+  if (routes == null) return { ...DEFAULT_ROUTES }
+  if (typeof routes !== 'object' || Array.isArray(routes)) {
+    throw new Error('createClient({ routes }) must be an object of { mount: urlTemplate } strings')
+  }
+  for (const [mount, template] of Object.entries(routes)) {
+    if (typeof template !== 'string' || !template) {
+      throw new Error(
+        `createClient({ routes }): "${mount}" must be a non-empty URL template string (got ${JSON.stringify(template)})`
+      )
+    }
+  }
+  return { ...routes }
+}
 
 /**
  * Join a term-URI prefix and a term name. `identity.terms` is a usable prefix —
@@ -73,6 +152,18 @@ const expandFeeds = (feeds, { instance, terms }) =>
  * @param {string[]} [config.publisherNames=[]] - builtin + discovered publisher names.
  * @param {string[]} [config.handlerNames=[]] - registered handler modes (builtin + discovered).
  * @param {string[]} [config.harmonizerNames=[]] - registered harmonizer names.
+ * @param {Array} [config.linkTypes] - the merged link-type table the client built at
+ *   init. Omitted, it is recomputed from the authored profile — resolveProfile
+ *   stays pure and callable on a profile no client ever saw.
+ * @param {Object} [config.coherence] - the #293 coherence report the client computed
+ *   at init ({ uncapturedLinkTypes, uncapturedDocumentRecord, unqueriedSubtypes,
+ *   undeclaredDocumentRecord }). PROJECTION ONLY — never authored; `api` is a
+ *   closed schema, so an authored `api.coherence` is a schema error. Omitted,
+ *   the key is absent from the resolved profile.
+ * @param {Record<string,string>} [config.routes] - the adapter's mount table
+ *   ({ get, index, profile, ... } -> URL template). Omitted, the SvelteKit
+ *   relay's DEFAULT_ROUTES stand in, so a client that passes nothing still
+ *   advertises a coherent shape.
  * @returns {Object} see docs/plans/point7/profile-drafts/profile.resolved.draft.json
  */
 export const resolveProfile = ({
@@ -80,6 +171,9 @@ export const resolveProfile = ({
   publisherNames = [],
   handlerNames = [],
   harmonizerNames = [],
+  linkTypes,
+  routes,
+  coherence,
 } = {}) => {
   // Normalize here as well as in the loader: this function is pure and may be
   // called on a profile the loader never touched.
@@ -106,6 +200,10 @@ export const resolveProfile = ({
     ? absolutize(profile.identity.rules, instance)
     : null
 
+  // Merged once: both `api.linkTypes` and the `by` axis of `api.routes.get`
+  // read it, and they must agree.
+  const mergedLinkTypes = linkTypes ?? mergeLinkTypes(profile.api.linkTypes)
+
   return {
     identity: {
       ...profile.identity,
@@ -125,8 +223,15 @@ export const resolveProfile = ({
       },
     },
     api: {
-      linkTypes: profile.api.linkTypes,
+      // The MERGED table, not just the authored half: what a consumer wants to
+      // know is which `by` words this client answers to, and the builtins are
+      // most of them. Same `source` convention as vocabulary.namespaces.
+      linkTypes: mergedLinkTypes,
       documentRecord: profile.api.documentRecord,
+      // PROJECTION ONLY, like `routes` below: what the client observed when it
+      // crossed the declared table against the harmonizers that actually
+      // registered (#293). Absent when no client computed one.
+      ...(coherence ? { coherence } : {}),
       // Directory pointers are authoring detail, not public data. What the
       // world gets is the list of names that actually resolved at init.
       publishers: { available: [...new Set(publisherNames)].sort() },
@@ -137,6 +242,15 @@ export const resolveProfile = ({
         available: [...new Set(handlerNames)],
       },
       harmonizers: { available: [...new Set(harmonizerNames)] },
+      // PROJECTION ONLY — never authored. Core owns the query grammar, the
+      // adapter owns the mount points; `routes` is the two of them composed, so
+      // a consumer can form every query this client answers without reading
+      // core's source or guessing at a URL shape.
+      routes: projectRoutes(
+        routes ?? DEFAULT_ROUTES,
+        mergedLinkTypes,
+        publisherNames
+      ),
     },
     vocabulary: {
       octo: profile.vocabulary.octo,

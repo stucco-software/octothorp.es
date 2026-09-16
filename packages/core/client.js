@@ -1,7 +1,7 @@
 import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
-import { createIndexer } from './indexer.js'
+import { createIndexer, resolveSubtype } from './indexer.js'
 import { harmonizerId } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
@@ -12,14 +12,17 @@ import xmlHandler from './handlers/xml/handler.js'
 import calendarHandler from './handlers/calendar/handler.js'
 import markdownHandler from './handlers/markdown/handler.js'
 import { publish } from './publish.js'
-import { resolveProfile } from './resolveProfile.js'
+import { resolveProfile, normalizeRoutes } from './resolveProfile.js'
 import { normalizeAccess } from './access.js'
+import { mergeLinkTypes } from './linkTypes.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
 export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
+export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'
 export { buildMultiPass } from './multipass.js'
+export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes, findLinkType } from './linkTypes.js'
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
 export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
@@ -39,7 +42,7 @@ export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { scaffoldProfile } from './scaffold.js'
-export { resolveProfile, expandTermUri, absolutize, normalizeInstance } from './resolveProfile.js'
+export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
 export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer } from './discover.js'
 export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate } from './access.js'
 
@@ -163,6 +166,9 @@ export const normalizeIndexingMode = (mode) => {
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
  * @param {'request'|'active'|Object} [config.indexingMode] - What TRIGGERS indexing:
  *   'request' (default) or 'active'. Orthogonal to config.access, which is the GATE.
+ * @param {number} [config.cooldown=300] - Re-index cooldown in SECONDS, forwarded to the
+ *   internal indexer's `recentlyIndexed` check. Applies under every indexing mode; 0 disables
+ *   the wait so every request re-indexes. Mirrors profile.policies.indexing.cooldown.
  * @param {Array<{predicate: string, range: string}>} [config.documentRecordSchema] -
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
@@ -177,6 +183,12 @@ export const normalizeIndexingMode = (mode) => {
  *   (referenced by `policies.access.endorsement.sources`, which filters and orders
  *   them) and an `endorse` function. Stored only — nothing consumes them yet; the
  *   gate that does lands separately.
+ * @param {Record<string,string>} [config.routes] - This adapter's mount table:
+ *   { get, index, profile, ... } -> URL template, e.g. { get: '/get/{what}/{by}/{as}' }.
+ *   Core cannot introspect an HTTP framework, so only the adapter knows where it
+ *   served things; this is what turns the query grammar into advertisable URLs in
+ *   `resolvedProfile().api.routes`. Passed in code, never authored in
+ *   octothorpes.json. Defaults to DEFAULT_ROUTES (the SvelteKit relay's shape).
  * @param {Object} [config.profile] - A resolved profile (result of `getProfile()`). When supplied,
  *   `resolvedProfile()` projects it against what actually registered (publishers/handlers/harmonizers).
  * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api, resolvedProfile }}
@@ -215,10 +227,143 @@ const normalizeEndorsers = (endorsers) => {
   })
 }
 
+/**
+ * #293: harmonizer/profile coherence, checked once at client init.
+ *
+ * Link types and documentRecord predicates are DATA in the profile; the markup
+ * that produces them lives in a harmonizer. They meet on a name and nothing
+ * enforces that they meet at all. A declared link type no harmonizer writes is
+ * a valid query that always returns nothing; a declared documentRecord
+ * predicate no harmonizer extracts is never written. Both are silent today.
+ *
+ * This is a GENTLE check: it warns, never throws, one line per kind, and only
+ * when there is something to say. It is advisory — a blobject POSTed directly
+ * to /index can carry a documentRecord no harmonizer ever extracted, so an
+ * unmatched predicate is a smell, not an error.
+ *
+ * Section keys of a harmonizer schema are its top-level keys other than:
+ *   - `subject`        - subject metadata, not a relationship
+ *   - `documentRecord` - the other axis, checked separately below
+ *   - `hashtag`        - writes TERMS, not typed relationships
+ *
+ * @param {Object} args
+ * @param {import('./linkTypes.js').LinkType[]} args.linkTypes - the MERGED table.
+ * @param {Array<{predicate:string}>} [args.documentRecord] - api.documentRecord.
+ * @param {Record<string,Object>} args.harmonizers - every REGISTERED harmonizer, by name.
+ * @param {Set<string>} args.builtinHarmonizerNames - names core shipped.
+ * @param {Function} args.warn
+ * @returns {{uncapturedLinkTypes:Array, uncapturedDocumentRecord:string[], unqueriedSubtypes:Array, undeclaredDocumentRecord:Array}}
+ */
+export const checkCoherence = ({
+  linkTypes = [],
+  documentRecord = [],
+  harmonizers = {},
+  builtinHarmonizerNames = new Set(),
+  warn = console.warn,
+} = {}) => {
+  const SKIP_SECTIONS = new Set(['subject', 'documentRecord', 'hashtag'])
+
+  // Section keys whose subtype is core's business rather than a link type's.
+  // `link` is the UNTYPED-link storage type (octo:Link) — `/get/.../linked` is
+  // the untyped superset and carries no subtype filter, so nothing declares it.
+  // `button` and `endorse` are the webring/endorsement paths, handled outside
+  // the `by` table entirely. `hashtag` writes terms and is skipped above.
+  const REVERSE_EXEMPT = new Set(['link', 'button', 'endorse', 'hashtag'])
+
+  const sectionKeys = (harmonizer) =>
+    Object.keys(harmonizer?.schema ?? {}).filter((k) => !SKIP_SECTIONS.has(k))
+
+  const entries = Object.entries(harmonizers)
+
+  // Every subtype ANY registered harmonizer can write, builtins included.
+  const writtenSubtypes = new Set()
+  for (const [, h] of entries) {
+    for (const key of sectionKeys(h)) writtenSubtypes.add(resolveSubtype(key))
+  }
+
+  // Every documentRecord key ANY registered harmonizer extracts.
+  const extractedDocumentRecord = new Set()
+  for (const [, h] of entries) {
+    for (const k of Object.keys(h?.schema?.documentRecord ?? {})) extractedDocumentRecord.add(k)
+  }
+
+  // (a) declared link types with no harmonizer section that writes their subtype.
+  // Builtins are exempt: core's own `by` words are not an author's mistake.
+  const uncapturedLinkTypes = linkTypes.filter(
+    (lt) => lt.source === 'declared' && lt.subtype && !writtenSubtypes.has(resolveSubtype(lt.subtype))
+  )
+  if (uncapturedLinkTypes.length) {
+    warn(
+      `[profile] custom link types found (${uncapturedLinkTypes
+        .map((lt) => `${lt.by} -> octo:${resolveSubtype(lt.subtype)}`)
+        .join(', ')}); these must be captured by a custom harmonizer before OP will record them`
+    )
+  }
+
+  // (b) declared documentRecord predicates no harmonizer extracts.
+  const uncapturedDocumentRecord = (documentRecord ?? [])
+    .map((d) => d?.predicate)
+    .filter((p) => typeof p === 'string' && !extractedDocumentRecord.has(p))
+  if (uncapturedDocumentRecord.length) {
+    warn(
+      `[profile] custom documentRecord predicates found (${uncapturedDocumentRecord.join(', ')}); these must be extracted by a custom harmonizer before OP will record them`
+    )
+  }
+
+  // Reverse directions are scoped to SITE harmonizers. A builtin writing a
+  // subtype or documentRecord key the local profile does not declare is core's
+  // own shape, not a local misconfiguration — warning about it on every boot is
+  // exactly the noise this check exists to avoid.
+  const declaredSubtypes = new Set(
+    linkTypes.filter((lt) => lt.subtype).map((lt) => resolveSubtype(lt.subtype))
+  )
+  const declaredDocumentRecord = new Set((documentRecord ?? []).map((d) => d?.predicate))
+  const siteEntries = entries.filter(([name]) => !builtinHarmonizerNames.has(name))
+
+  const unqueriedSubtypes = []
+  const undeclaredDocumentRecord = []
+
+  for (const [name, h] of siteEntries) {
+    // (a') writes a subtype no link type queries.
+    const orphanSubtypes = sectionKeys(h)
+      .filter((k) => !REVERSE_EXEMPT.has(k))
+      .map((k) => resolveSubtype(k))
+      .filter((st) => !declaredSubtypes.has(st))
+    for (const subtype of [...new Set(orphanSubtypes)]) {
+      unqueriedSubtypes.push({ harmonizer: name, subtype })
+      warn(
+        `[profile] harmonizer "${name}" writes relationship subtype octo:${subtype} that no link type queries; declare it in api.linkTypes to make it reachable`
+      )
+    }
+
+    // (b') extracts documentRecord keys the profile never declared, so the
+    // indexer drops them at write time.
+    const orphanKeys = Object.keys(h?.schema?.documentRecord ?? {}).filter(
+      (k) => !declaredDocumentRecord.has(k)
+    )
+    if (orphanKeys.length) {
+      undeclaredDocumentRecord.push({ harmonizer: name, keys: orphanKeys })
+      warn(
+        `[profile] harmonizer "${name}" extracts documentRecord keys (${orphanKeys.join(', ')}) not declared in api.documentRecord; they are dropped at write time`
+      )
+    }
+  }
+
+  return {
+    uncapturedLinkTypes,
+    uncapturedDocumentRecord,
+    unqueriedSubtypes,
+    undeclaredDocumentRecord,
+  }
+}
+
 export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance)
+  // Snapshot before config.harmonizers register: everything here is core's own,
+  // which #293's reverse checks exempt.
+  const builtinHarmonizerNames = new Set(Object.keys(registry.list()))
   const policy = normalizeIndexingMode(config.indexingMode)
   // #217: the access gate is orthogonal to indexingMode. `access` says what gate
   // an index request must pass; `indexingMode` says what triggers indexing.
@@ -282,10 +427,32 @@ export const createClient = (config) => {
     getHarmonizer: registry.getHarmonizer,
     documentRecordSchema: config.documentRecordSchema,
     access,
+    cooldown: config.cooldown ?? 300,
   })
+
+  // #217: the `by` axis is a table, not a switch. Merge the profile's declared
+  // link types over the builtins ONCE at init — a collision with a builtin is a
+  // load-time error here, not a surprise at query time.
+  const linkTypes = mergeLinkTypes(config.profile?.api?.linkTypes ?? config.linkTypes)
+
+  // #293: gentle coherence check, once, after harmonizer discovery and the
+  // link-type merge. Advisory only — see checkCoherence.
+  const coherence = checkCoherence({
+    linkTypes,
+    documentRecord: config.profile?.api?.documentRecord ?? config.documentRecordSchema,
+    harmonizers: registry.list(),
+    builtinHarmonizerNames,
+    warn: config.warn ?? console.warn,
+  })
+
+  // The adapter's mount table. Validated at construction time (strict, like
+  // endorsers) because a bad template is a lie told to every consumer that
+  // reads this client's profile, not a locally-recoverable registration miss.
+  const routes = normalizeRoutes(config.routes)
 
   const api = createApi({
     instance: config.instance,
+    linkTypes,
     queryArray: sparql.queryArray,
     queryBoolean: sparql.queryBoolean,
     insert: sparql.insert,
@@ -347,6 +514,9 @@ export const createClient = (config) => {
         publisherNames: publisherRegistry.listPublishers(),
         handlerNames: handlerRegistry.listHandlers(),
         harmonizerNames: registry.listHarmonizers?.() ?? [],
+        linkTypes,
+        routes,
+        coherence,
       })
     : null
 

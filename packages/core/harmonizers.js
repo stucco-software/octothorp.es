@@ -176,6 +176,18 @@ export const createHarmonizerRegistry = (instance) => {
                   }
                 ]
               },
+              "mention": {
+                "s": "source",
+                "o": [
+                  {
+                    "selector": `[rel~='octo:mentions']:not([href*='${instance}~/'])`,
+                    "attribute": "href",
+                    "terms": {
+                      "attribute": "data-octothorpes"
+                    }
+                  }
+                ]
+              },
               "button": {
                 "s": "source",
                 "o": [

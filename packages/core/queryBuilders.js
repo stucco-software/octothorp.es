@@ -20,11 +20,17 @@ import { getFuzzyTags } from './utils.js'
  * everything else is declared in the profile's vocabulary.namespaces (#217).
  * foaf was audited as unused in the #217 gap audit and demoted to
  * declare-if-you-want-it — it is no longer a builtin or a SPARQL prologue PREFIX.
+ * schema was demoted the same way: documentRecord predicates are octo-only, so
+ * nothing in the protocol needs schema.org — declare it in
+ * vocabulary.namespaces if you want it. rdfs replaced it in the builtin set,
+ * because the generated vocabulary document uses rdfs:subClassOf/label.
+ *
+ * This list and the SPARQL prologue in ld/prefixes.js must stay in lockstep.
  */
 export const BUILTIN_NAMESPACES = Object.freeze([
   Object.freeze({ prefix: 'octo', iri: 'https://vocab.octothorp.es#', import: false, source: 'builtin' }),
   Object.freeze({ prefix: 'rdf', iri: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', import: false, source: 'builtin' }),
-  Object.freeze({ prefix: 'schema', iri: 'https://schema.org/', import: false, source: 'builtin' }),
+  Object.freeze({ prefix: 'rdfs', iri: 'http://www.w3.org/2000/01/rdf-schema#', import: false, source: 'builtin' }),
 ])
 
 /**
@@ -352,7 +358,8 @@ export const createQueryBuilders = (instance, queryArray) => {
   function getStatements(subjects, objects, filters, resultMode) {
     const hasSubjects = subjects.include.length > 0 || subjects.exclude.length > 0
     const hasObjects = objects.include.length > 0 || objects.exclude.length > 0
-    // C9 (#236): a declared-subtype path (e.g. /get/items/posted) constrains the
+    // C9 (#236): a subtype-only query (the `by` word of a declared link type,
+    // e.g. /get/everything/reviewed, or its /get/<path>/posted alias) constrains the
     // result set by the relationship subtype alone, with no subject/object. The
     // subtype FILTER EXISTS is itself a bounding constraint, so admit it as one
     // (mirrors the relationTerms allowance) rather than rejecting as unbounded.

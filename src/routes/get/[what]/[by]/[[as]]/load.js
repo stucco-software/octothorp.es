@@ -9,28 +9,16 @@ import { mergeNamespaces } from 'octothorpes'
 // as JSON. `as` is a route param only — a query-string `?as=` is never read.
 //
 // Profile-driven surface (the route layer is where the profile shapes the API):
-//   C9 (#236): a `what` matching a declared relationshipSubtypes[].path is a
-//     first-class subtype path — rewritten to a subtype-filtered blobject query.
-//     Undeclared `what` values pass through unchanged (unknown ones still error
-//     in core exactly as before; ad-hoc ?st= querying is #200, not here).
 //   C7 (#237): the declared documentRecord schema is injected so the blobject
 //     read surface projects declared predicates. Core stays framework-agnostic —
 //     the profile reaches it as an injected value, never read by core itself.
 export async function load({ params, url, fetch }) {
-  let { what, by, as } = params
+  const { what, by, as } = params
   const options = getQueryOptions(url)
   const pubDefs = { utils: { fetch }, link: url.href }
 
   const profile = getProfile()
-  const { linkTypes, documentRecord } = profile.api
-
-  // #236, renamed in #217: a `what` matching a declared linkTypes[].path is a
-  // first-class link-type path — rewritten to a subtype-filtered blobject query.
-  const linkType = linkTypes.find((lt) => lt.path === what)
-  if (linkType) {
-    options.subtype = linkType.type
-    what = 'everything'
-  }
+  const { documentRecord } = profile.api
 
   // #237, moved to api in #217: hand the declared documentRecord schema and the
   // effective namespace list to the blobject read path. Core stays

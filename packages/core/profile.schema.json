@@ -81,9 +81,29 @@
           "default": false
         },
         "labels": {
-          "description": "Content labels. Reserved — rides on #192 via #270. Shape TBD there.",
+          "description": "Content labels this client advertises (#192, lands via #270). Each entry is a declaration, not an application: it says \"this word exists here and means this\", while attaching a label to a statement is per-statement metadata written at index time. A bare string is deliberately NOT accepted — an unexplained label is not interoperable.",
           "type": "array",
-          "default": []
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "description": "Stable machine name for the label — the token another client matches on. Same bare-name pattern as api.linkTypes[].subtype and api.documentRecord[].predicate: no colon, slash or dot, so a prefixed name or a full IRI cannot be smuggled in.",
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              },
+              "name": {
+                "description": "Human-readable label name, shown in UI.",
+                "type": "string"
+              },
+              "description": {
+                "description": "What this label means on this client. Optional but strongly encouraged: it is the only thing that makes a label legible to a person deciding whether to trust it.",
+                "type": "string"
+              }
+            }
+          }
         },
         "indexing": {
           "description": "WHAT TRIGGERS indexing. Orthogonal to policies.access.registration, which governs WHAT GATE an index request must pass. All six combinations are valid.",
@@ -96,9 +116,11 @@
               "enum": ["request", "active"],
               "default": "request"
             },
-            "frequency": {
-              "description": "Re-index cadence when mode is 'active'. Inert under 'request'.",
-              "type": "string"
+            "cooldown": {
+              "description": "Re-index cooldown in SECONDS. Applies in EVERY indexing mode: under 'request' it is the floor on re-indexing a page that was just indexed, under 'active' it is the crawler's re-check interval. 0 disables the wait entirely, so every request re-indexes. Replaces the old string `frequency`, and replaces the hardcoded five minutes in core's recentlyIndexed; reaches core as createClient({ cooldown }).",
+              "type": "integer",
+              "minimum": 0,
+              "default": 300
             }
           }
         },
@@ -179,17 +201,34 @@
       "additionalProperties": false,
       "properties": {
         "linkTypes": {
-          "description": "Declared first-class link types (formerly relationshipSubtypes, #236). Each mints a dedicated /get/<path>/<by> route; label feeds the generated vocabulary document. Undeclared types still work ad-hoc via ?st= (#200).",
+          "description": "Declared first-class link types (formerly relationshipSubtypes, #236). Each EXTENDS core's builtin `by` table: declaring { by: \"reviewed\", subtype: \"Review\" } makes /get/everything/reviewed a real query on this client, filtered to relationships typed octo:Review. The profile declares the QUERY word and the subtype; a harmonizer declares the markup that writes that subtype; the two meet on the subtype name. Builtin `by` words (thorped, linked, backlinked, cited, bookmarked, mentioned, posted, in-webring, ...) cannot be redeclared — a collision is a load-time error, the same posture as a duplicate endorser graph. Undeclared subtypes still work ad-hoc via ?st= (#200).",
           "type": "array",
           "default": [],
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["type", "path"],
+            "required": ["by", "subtype"],
             "properties": {
-              "type": { "type": "string" },
-              "label": { "type": "string" },
-              "path": { "type": "string" }
+              "by": {
+                "description": "The query word occupying the [by] route slot: /get/<what>/<by>. A bare lowercase word; must not collide with a builtin. This is the ONLY route form a declared link type mints — the old `path` alias in the [what] slot was removed 2026-09-16 as unused.",
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "subtype": {
+                "description": "Bare octo local name, written on the relationship as `rdf:type octo:<subtype>` and used as the query's subtype filter. Same pattern as api.documentRecord[].predicate — no colon, slash or dot, so a prefixed name or a full IRI cannot be smuggled in. This is the name a harmonizer must emit for the declaration to match anything. Replaces the old `type` key.",
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              },
+              "objects": {
+                "description": "What may appear on the object side of the query. Defaults to notTerms (any non-term resource), which is what a typed link normally points at. `relationTerms` is NOT declarable: a declared link type is a typed relationship, which is exactly the blank node ?rt= hangs off, so ?rt= always applies.",
+                "type": "string",
+                "enum": ["terms", "notTerms", "pages", "none"],
+                "default": "notTerms"
+              },
+              "label": {
+                "description": "Human label; feeds the generated vocabulary document.",
+                "type": "string"
+              }
             }
           }
         },
@@ -208,6 +247,7 @@
                 "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
               },
               "range": {
+                "description": "The value type the predicate takes, named `range` because it maps to rdfs:range. `literal` is stored and returned as a string, `uri` is stored as an IRI and skipped with a warning if it does not parse, `number` is coerced on read, `timestamp` is coerced to ISO-8601 on read. `type` is accepted as an input alias and normalised to `range` by the loader; exactly one of the two must be present.",
                 "type": "string",
                 "enum": ["literal", "uri", "number", "timestamp"]
               }
@@ -221,19 +261,6 @@
             "dir": {
               "description": "Directory of site publishers. Init walks it and registers what it finds; discovered names appear in the resolved profile, never here.",
               "type": "string"
-            },
-            "named": {
-              "description": "Reserved: remote/additional publishers declared by reference ({ name, url }). Unioned with dir discovery at resolve time.",
-              "type": "array",
-              "default": [],
-              "items": {
-                "type": "object",
-                "required": ["name", "url"],
-                "properties": {
-                  "name": { "type": "string" },
-                  "url": { "type": "string", "format": "uri" }
-                }
-              }
             }
           }
         },
@@ -250,19 +277,6 @@
               "description": "Default handler MODE when dispatch can't decide (explicit mode -> content-type -> this). Lives here, not under harmonizers: 'html' is a handler mode, not a harmonizer id — that category error is what this split fixes.",
               "type": "string",
               "default": "html"
-            },
-            "named": {
-              "description": "Reserved: remote/additional handlers by reference, unioned at resolve time.",
-              "type": "array",
-              "default": [],
-              "items": {
-                "type": "object",
-                "required": ["name", "url"],
-                "properties": {
-                  "name": { "type": "string" },
-                  "url": { "type": "string", "format": "uri" }
-                }
-              }
             }
           }
         },
@@ -274,19 +288,6 @@
             "dir": {
               "description": "Directory of site harmonizer definitions (.json), read and validated at init. Different loader from handlers.dir — these are data, not modules.",
               "type": "string"
-            },
-            "named": {
-              "description": "Reserved: remote harmonizers by reference, unioned at resolve time.",
-              "type": "array",
-              "default": [],
-              "items": {
-                "type": "object",
-                "required": ["name", "url"],
-                "properties": {
-                  "name": { "type": "string" },
-                  "url": { "type": "string", "format": "uri" }
-                }
-              }
             }
           }
         }
@@ -305,7 +306,7 @@
           "default": "https://vocab.octothorp.es#"
         },
         "namespaces": {
-          "description": "External namespaces this client operates with. Replaces core's hardcoded namespace map as the extension point; core still ships protocol builtins (octo, rdf, schema — foaf was audited as unused and demoted to declare-if-you-want-it).",
+          "description": "External namespaces this client operates with. Replaces core's hardcoded namespace map as the extension point; core still ships protocol builtins (octo, rdf, rdfs — schema and foaf were both audited as unused by the protocol and demoted to declare-if-you-want-it).",
           "type": "array",
           "default": [],
           "items": {

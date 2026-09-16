@@ -354,6 +354,26 @@ describe('External Harmonizer Support', () => {
       expect(bookmark.terms).toBeUndefined()
     })
 
+    // #292: `mention` is a first-class typed link, parallel to bookmark/cite.
+    // An author opts in with rel="octo:mentions"; nothing is inferred.
+    it('should extract a mention from an octo:mentions link', async () => {
+      const htmlWithMention = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:mentions" href="https://example.org/x" data-octothorpes="a,b">Someone</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithMention)
+
+      const mention = result.octothorpes.find(o => o.type === 'mention')
+      expect(mention).toBeDefined()
+      expect(mention.uri).toBe('https://example.org/x')
+      expect(mention.terms).toEqual(['a', 'b'])
+    })
+
     it('should extract terms from citation links', async () => {
       const htmlWithCite = `
         <!DOCTYPE html>

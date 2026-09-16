@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from 'octothorpes'
+import { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI, resolveProfile } from 'octothorpes'
 
 // #217 Rev 2 loader. Framework-agnostic: schema, profile object and env are all
 // injected. This suite NEVER reads the committed octothorpes.json — it owns its
@@ -51,10 +51,12 @@ describe('createProfile — defaults filling', () => {
     expect(p.policies.access.whitelist).toEqual({ domains: [] })
     expect(p.api.linkTypes).toEqual([])
     expect(p.api.documentRecord).toEqual([])
-    expect(p.api.publishers.named).toEqual([])
+    expect(p.api.publishers.dir).toBeNull()
     expect(p.api.handlers.default).toBe('html')
-    expect(p.api.handlers.named).toEqual([])
-    expect(p.api.harmonizers.named).toEqual([])
+    // `named` was dropped 2026-09-15 — it is not a default any more.
+    expect(p.api.publishers.named).toBeUndefined()
+    expect(p.api.handlers.named).toBeUndefined()
+    expect(p.api.harmonizers.named).toBeUndefined()
     expect(p.vocabulary.namespaces).toEqual([])
   })
 
@@ -297,5 +299,113 @@ describe('createProfile — access-gate coherence warnings', () => {
       schema,
       warn: () => {},
     }).getProfile()).not.toThrow()
+  })
+})
+
+// 2026-09-15 — `type` is an accepted alias for `range` on documentRecord
+// entries. The loader normalises it BEFORE schema validation, so the schema
+// only ever sees `range` and the resolved profile always carries `range`.
+describe('createProfile — documentRecord range/type alias', () => {
+  const withRecord = (entry) => ({ api: { documentRecord: [entry] } })
+
+  it('accepts `range` and passes it through', () => {
+    const p = load(withRecord({ predicate: 'wordCount', range: 'number' }), withInstance)
+    expect(p.api.documentRecord).toEqual([{ predicate: 'wordCount', range: 'number' }])
+  })
+
+  it('accepts `type` and normalises it to `range`', () => {
+    const p = load(withRecord({ predicate: 'wordCount', type: 'number' }), withInstance)
+    expect(p.api.documentRecord).toEqual([{ predicate: 'wordCount', range: 'number' }])
+    expect(p.api.documentRecord[0].type).toBeUndefined()
+  })
+
+  it('validates the aliased value against the range enum', () => {
+    expect(() => load(withRecord({ predicate: 'wordCount', type: 'boolean' }), withInstance)).toThrow(
+      /schema validation/
+    )
+  })
+
+  it('rejects declaring both, by name, before ajv gets a chance', () => {
+    expect(() =>
+      load(withRecord({ predicate: 'wordCount', range: 'number', type: 'number' }), withInstance)
+    ).toThrow(/declares both `range` and `type`/)
+  })
+
+  it('rejects declaring neither', () => {
+    expect(() => load(withRecord({ predicate: 'wordCount' }), withInstance)).toThrow(
+      /declares neither `range` nor its alias `type`/
+    )
+  })
+
+  it('names the offending index', () => {
+    expect(() =>
+      load(
+        { api: { documentRecord: [{ predicate: 'ok', range: 'literal' }, { predicate: 'bad' }] } },
+        withInstance
+      )
+    ).toThrow(/documentRecord\[1\]/)
+  })
+
+  it('does not mutate the authored object', () => {
+    const authored = withRecord({ predicate: 'wordCount', type: 'number' })
+    load(authored, withInstance)
+    expect(authored.api.documentRecord[0]).toEqual({ predicate: 'wordCount', type: 'number' })
+  })
+})
+
+// 2026-09-15 — api.*.named dropped from schema AND defaults.
+describe('createProfile — api.*.named is gone', () => {
+  it('throws on a profile still declaring it', () => {
+    expect(() => load({ api: { publishers: { dir: './p', named: [] } } }, withInstance)).toThrow(
+      /schema validation/
+    )
+  })
+})
+
+// 2026-09-15 — policies.labels has a real item shape and is passed through.
+describe('createProfile — policies.labels', () => {
+  it('defaults to []', () => {
+    expect(load({}, withInstance).policies.labels).toEqual([])
+  })
+
+  it('passes a declared list through unchanged', () => {
+    const labels = [
+      { id: 'nsfw', name: 'Not safe for work' },
+      { id: 'ai_generated', name: 'AI generated', description: 'Machine-authored text.' },
+    ]
+    expect(load({ policies: { labels } }, withInstance).policies.labels).toEqual(labels)
+  })
+
+  it('rejects a malformed label', () => {
+    expect(() => load({ policies: { labels: [{ id: 'nsfw' }] } }, withInstance)).toThrow(/schema validation/)
+    expect(() => load({ policies: { labels: [{ id: 'not ok', name: 'x' }] } }, withInstance)).toThrow(
+      /schema validation/
+    )
+    expect(() => load({ policies: { labels: ['nsfw'] } }, withInstance)).toThrow(/schema validation/)
+  })
+})
+
+// 2026-09-15 — the builtin namespace set is octo/rdf/rdfs. `schema` was demoted
+// to declare-if-you-want-it alongside foaf; nothing in the protocol needs it
+// now that documentRecord predicates are octo-only.
+describe('resolved vocabulary.namespaces builtins', () => {
+  it('is octo, rdf and rdfs when nothing is declared', () => {
+    const resolved = resolveProfile({ profile: load({}, withInstance) })
+    expect(resolved.vocabulary.namespaces.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs'])
+    expect(resolved.vocabulary.namespaces.every((n) => n.source === 'builtin')).toBe(true)
+  })
+
+  it('appends declared namespaces to the builtins', () => {
+    const resolved = resolveProfile({ profile: load(fixture(), {}) })
+    expect(resolved.vocabulary.namespaces.map((n) => n.prefix)).toEqual(['octo', 'rdf', 'rdfs', 'skos'])
+    expect(resolved.vocabulary.namespaces.find((n) => n.prefix === 'skos').source).toBe('declared')
+  })
+
+  it('takes schema only when declared', () => {
+    const resolved = resolveProfile({
+      profile: load({ vocabulary: { namespaces: [{ prefix: 'schema', iri: 'https://schema.org/' }] } }, withInstance),
+    })
+    const schema = resolved.vocabulary.namespaces.find((n) => n.prefix === 'schema')
+    expect(schema).toEqual({ prefix: 'schema', iri: 'https://schema.org/', import: false, source: 'declared' })
   })
 })
