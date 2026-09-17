@@ -1080,3 +1080,21 @@ Transport mapping lives in one place: `src/lib/queryErrorResponse.js` turns a `Q
 Verified locally: all five negative smoketest cases now pass (400 / 400 / 400 / 400 / 404) and the publisher sweep is still 5/5 200s with correct content types.
 
 **Files affected:** `packages/core/errors.js` (new), `packages/core/api.js`, `packages/core/multipass.js`, `packages/core/queryBuilders.js`, `packages/core/client.js`, `packages/core/CHANGELOG.md`, `src/lib/queryErrorResponse.js` (new), `src/routes/get/[what]/[by]/[[as]]/+server.js` (removed: `src/routes/debug/[what]/[by]/`), `src/tests/getRouteErrors.test.js` (new), `src/tests/apiRoutes.test.js`, `src/tests/linkTypes.test.js`, `src/tests/converters.test.js`.
+
+## api-smoketest reports become durable, body-capturing snapshots (#295)
+
+The api-smoketest's report stopped being scratch output. The URL set only moves when OP moves, so what every URL returned *before* an API change is worth keeping in version control.
+
+**Bodies are captured.** Each row now carries `body`, normalized by exactly the same code path the indexing smoketest normalizes its goldens with — `normalize` / `normalizeRss` plus a new shared `normOptsFor(instanceOrigin, scopeHost)` in `src/tests/integration/normalize.js`, which `scripts/smoketest.js` now also calls instead of building the options object inline. Volatile dates drop, the instance origin becomes `{INSTANCE}`, arrays sort stably. JSON bodies are stored parsed; xml/ics as strings (ICS `DTSTAMP` and publisher-generated `createdAt` are stamped `{DATE}`, since they churn every run). For `/debug` rows `multiPass` and `actualResults` are kept but the `query` string is **dropped**: SPARQL text churns with every builder tweak and is not API surface.
+
+**Tracked location.** Reports land in `src/tests/integration/api-snapshots/<host>/<ISO timestamp>.json` with a per-host `latest.json` copy; `tmp/` is gone from the defaults. A partial `--section` run never claims `latest.json`. `--report=<path>` still overrides. `src/tests/integration/captured/` stays gitignored; the new snapshot directory is not.
+
+**Diff compares bodies.** `--diff` adds a compact per-row body comparison on top of status/envelope/result/latency: added, removed and changed top-level keys for objects; count delta plus the first differing `@id`/`uri` for result arrays; changed/unchanged for strings. Body differences are **information, never failure** — the run still exits non-zero only on new errors, because the indexing smoketest is the golden gate. `npm run api-smoketest:diff` now defaults to the target host's own `latest.json` instead of a hardcoded `tmp/` path.
+
+**Meta.** `--label=<text>`, plus target, timestamp, this repo's short git HEAD, whether the target advertised `api.routes`, and the `--cap` value (result arrays can be capped per row).
+
+**Baselines captured.** The earlier status-only run is preserved as `api-snapshots/next.octothorp.es/2026-09-16-pre-merge-baseline-status-only.json` (`meta.bodies: false`; the diff tolerates a side with no bodies). A full pre-merge baseline **with** bodies was captured against staging on 2026-09-17 — 67 rows, 332 KB, well under the cap threshold — and a second read-only run diffed against it with **0 changes**, confirming the normalization is run-to-run stable. Staging's 4 negative-sweep 5xx rows are expected: it is still pre-merge and does not yet carry the 4xx query-error work.
+
+The vitest wrapper is unaffected and writes nothing: it calls `runApiSmoketest()` in-process; only the CLI writes reports.
+
+**Files affected:** `scripts/api-smoketest.js`, `scripts/smoketest.js`, `src/tests/integration/normalize.js`, `package.json`, `README.md`, `src/tests/integration/api-snapshots/` (new, tracked).

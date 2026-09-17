@@ -20,7 +20,7 @@
     "smoketest:update": "node scripts/smoketest.js --update",
     "smoketest:update:full": "node scripts/smoketest.js --update --full",
     "api-smoketest": "node scripts/api-smoketest.js",
-    "api-smoketest:diff": "node scripts/api-smoketest.js --diff=tmp/api-smoketest/baseline.json"
+    "api-smoketest:diff": "node scripts/api-smoketest.js --diff"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",

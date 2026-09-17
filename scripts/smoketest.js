@@ -6,7 +6,7 @@ import { join } from 'path'
 import { createSparqlClient, deleteOrigin } from 'octothorpes'
 import { loadManifest } from '../src/tests/integration/manifest.js'
 import { buildQueries } from '../src/tests/integration/queries.js'
-import { normalize, normalizeRss } from '../src/tests/integration/normalize.js'
+import { normalize, normalizeRss, normOptsFor } from '../src/tests/integration/normalize.js'
 import { preflight as checkTarget } from '../src/tests/integration/preflight.js'
 
 const instance = (process.env.instance || '').replace(/\/$/, '')
@@ -29,7 +29,7 @@ const host = new URL(manifest.origin).host
 // normalize() options shared by every capture and probe in this script.
 // scopeHost nulls enrichment on link targets outside the origin under test, so
 // fixtures never assert on database state the smoketest does not seed (#258).
-const normOpts = { instanceOrigin: instance, scopeHost: host }
+const normOpts = normOptsFor(instance, host)
 
 // --- preflight ---
 

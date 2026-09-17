@@ -71,7 +71,7 @@ A failing diff names the query whose response changed. If the change is expected
 
 ### API smoke test
 
-`npm run api-smoketest` is the read-only sibling. It never wipes, re-indexes or writes anything, so it is safe against **any** target including production — the only thing it writes is a JSON report under `tmp/api-smoketest/`. Where the indexing smoke test asserts *content* (captured vs golden), this one asserts *API surface*: HTTP status, content-type, envelope shape and latency.
+`npm run api-smoketest` is the read-only sibling. It never wipes, re-indexes or writes to the target, so it is safe against **any** target including production — the only thing it writes is a local JSON report. Where the indexing smoke test asserts *content* (captured vs golden), this one asserts *API surface*: HTTP status, content-type, envelope shape and latency.
 
 ```
 ❯ npm run api-smoketest                                   # .env target
@@ -79,7 +79,7 @@ A failing diff names the query whose response changed. If the change is expected
 ❯ node scripts/api-smoketest.js --section=negative --budget=5000
 ```
 
-Flags: `--instance=<url>` (overrides `.env`; the same self-identity preflight the indexing smoke test runs still applies), `--report=<path>`, `--budget=<ms>` (latency flag threshold, default 2000), `--section=<name[,name]>`, `--diff=<path>` to compare against a saved report.
+Flags: `--instance=<url>` (overrides `.env`; the same self-identity preflight the indexing smoke test runs still applies), `--report=<path>`, `--budget=<ms>` (latency flag threshold, default 2000), `--section=<name[,name]>`, `--cap=<n>` (cap result arrays per row), `--label=<text>` (recorded in the report's `meta`), `--diff[=<path>]` to compare against a saved report.
 
 Five sections, each row classified `ok` / `empty` / `error` / `slow`:
 
@@ -91,9 +91,15 @@ Five sections, each row classified `ok` / `empty` / `error` / `slow`:
 | `match` | every match mode, plus `limit`/`offset` pages asserted disjoint |
 | `publishers` | one request per `api.publishers.available` entry, asserting content-type and that the body parses |
 
-The script exits non-zero on any error or 5xx. `--diff` exits non-zero only on **new** errors, so a target that was already broken does not turn every comparison red; `npm run api-smoketest:diff` compares against `tmp/api-smoketest/baseline.json`.
+#### Reports are durable snapshots
 
-`npx vitest run src/tests/integration/api-smoketest.test.js` runs the same sweep in-process against the `.env` instance and auto-skips when the target is down.
+Each row records the **response body**, normalized exactly the way the indexing smoke test normalizes its goldens (same `normalize` / `normalizeRss` / `normOptsFor` from `src/tests/integration/normalize.js`): volatile dates dropped, the instance origin replaced with `{INSTANCE}`, arrays stably sorted. JSON bodies are stored parsed, xml/ics as strings. For `/debug` rows the `multiPass` and `actualResults` are kept but the `query` string is **dropped** — SPARQL text churns with every builder tweak and is not API surface.
+
+The URL set only moves when OP moves, so "what did this URL return before the change" is worth keeping in version control. Reports therefore land in the tracked directory `src/tests/integration/api-snapshots/<host>/<ISO timestamp>.json`, with a `latest.json` copy per host (a partial `--section` run never claims `latest.json`). `--report=<path>` still overrides and suppresses the `latest.json` copy. `meta` records the target, timestamp, `--label`, this repo's short git HEAD, whether the target advertised `api.routes`, and the `cap`.
+
+`--diff` compares status, envelope, result class, latency-budget crossings, **and** bodies — per row: added/removed/changed top-level keys for objects, count delta plus the first differing `@id`/`uri` for result arrays, changed/unchanged for strings. Body differences are **information, never failure**: the script exits non-zero on any error or 5xx, and `--diff` exits non-zero only on **new** errors. The indexing smoke test remains the golden gate. `npm run api-smoketest:diff` defaults to the target host's own `latest.json`.
+
+`npx vitest run src/tests/integration/api-smoketest.test.js` runs the same sweep in-process against the `.env` instance and auto-skips when the target is down. It calls `runApiSmoketest()` directly and writes **no** snapshot — only the CLI writes reports.
 
 The interactive precursor, `/debug/api-check`, is still there: it runs the same matrix in a browser with a SPARQL-query toggle per row.
 
