@@ -121,7 +121,7 @@ describe('buildMultiPass parity with the pre-table switch', () => {
   })
 
   it('still rejects an unknown by', () => {
-    expect(() => buildMultiPass('everything', 'frobnicated', {}, instance)).toThrow(/match by/)
+    expect(() => buildMultiPass('everything', 'frobnicated', {}, instance)).toThrow(/unknown by/)
   })
 })
 
@@ -190,7 +190,7 @@ describe('a declared link type is queryable as a by word', () => {
   })
 
   it('is unknown to a client that did not declare it', () => {
-    expect(() => buildMultiPass('everything', 'cited2', {}, instance)).toThrow(/match by/)
+    expect(() => buildMultiPass('everything', 'cited2', {}, instance)).toThrow(/unknown by/)
   })
 })
 

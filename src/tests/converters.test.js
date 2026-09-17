@@ -331,7 +331,7 @@ describe('buildMultiPass', () => {
   it('should reject +thorped modifier (removed)', () => {
     expect(() => {
       buildMultiPass('pages', 'bookmarked+thorped', { o: 'gadgets' }, instance)
-    }).toThrow(/Invalid/)
+    }).toThrow(/unknown by/)
   })
 
   it('should handle posted/all with no objects', () => {

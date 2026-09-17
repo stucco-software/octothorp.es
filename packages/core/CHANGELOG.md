@@ -4,6 +4,8 @@
 
 ### Breaking
 
+- Query validation errors are now short, specific, and typed. The four long messages are replaced: `Invalid route.` -> `unknown what: <what>`, `Invalid "match by" route...` -> `unknown by: <by>`, `Invalid match type...` -> `unknown match: <match>`, `Must provide at least subjects, objects, or relationship terms` -> `query needs s, o, or rt`. Anything matching on the old strings breaks.
+- `client.get({ as })` with a name that matches no registered publisher now throws `unknown publisher: <as>` (status 404) instead of silently falling back to the plain JSON envelope. `as` absent is unchanged.
 - `policies.indexing.frequency` is removed. `policies.indexing.cooldown` replaces it: an integer of seconds, minimum 0, default 300, applied under every indexing mode, and wired into the indexer's `recentlyIndexed` in place of the hardcoded five minutes. `createClient({ cooldown })`.
 - `api.linkTypes[]` entries are now `{ by, subtype, objects?, label? }`; the old `{ type, path, label }` shape is a validation error. Declared types EXTEND core's builtin `by` table, and colliding with a builtin is a load-time error.
 - `api.linkTypes[].path` is removed (2026-09-16). It minted a `[what]`-slot route alias (`/get/items/posted`) that nothing used; `/get/<what>/<by>` is the only route form. The `options.subtype` override in `buildMultiPass`, which existed solely to serve that alias injection, is removed with it — a `by` word is now the only thing that sets a subtype filter. Declaring `path` is a validation error.
@@ -15,6 +17,8 @@
 - `api.documentRecord` entries are now `{ predicate, range }` and OCTO-ONLY. The `namespace` and `iri` keys are removed; because the entry schema is closed (`additionalProperties: false`), a profile still carrying either fails validation. A predicate is a bare local name (`^[A-Za-z][A-Za-z0-9_]*$`) and always resolves to the octo namespace base + that name, so `schema:foo` or a full IRI can no longer be smuggled in through the predicate string. Declaring a documentRecord entry IS "add a field to the octo namespace"; to use a foreign ontology, declare it in `vocabulary.namespaces` and extract it with a harmonizer. `buildDocumentRecordClauses(schema)` and `resolveDocumentRecordIri(entry)` no longer take a namespaces argument, and `buildEverythingQuery` no longer accepts `documentRecordNamespaces`. Binding var names change from `dr_<prefix>_<predicate>` to `dr_<predicate>`.
 
 ### Added
+
+- `packages/core/errors.js`: `QueryError` (a caller error carrying an HTTP `status`, default 400) and `isQueryError`, both re-exported from the package root. Core throws it for bad route words, bad match modes, unbounded queries and unknown publishers; a transport maps it to a 4xx with the message as the whole body.
 
 - Exports: `OCTO_NAMESPACE`, `DOCUMENT_RECORD_PREDICATE_PATTERN`.
 - `packages/core/linkTypes.js`: `BUILTIN_LINK_TYPES`, `mergeLinkTypes`, `OBJECT_TYPES`, `DECLARED_OBJECT_TYPES`. The resolved `api.linkTypes` is the merged table, each entry tagged `source: "builtin" | "declared"`.

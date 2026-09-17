@@ -3,6 +3,7 @@ import { getBlobjectFromResponse, createEnrichBlobjectTargets } from './blobject
 import { createQueryBuilders } from './queryBuilders.js'
 import { parseBindings } from './utils.js'
 import { WHAT_GROUP_BY_VALUE } from './apiGrammar.js'
+import { QueryError } from './errors.js'
 
 /**
  * Creates the OP API service layer.
@@ -50,7 +51,7 @@ export const createApi = (config) => {
           query = builders.buildDomainQuery(multiPass)
           break
         default:
-          throw new Error('Invalid route.')
+          throw new QueryError(`unknown what: ${what}`)
       }
       return { multiPass, query }
     }
@@ -100,7 +101,7 @@ export const createApi = (config) => {
         break
       }
       default:
-        throw new Error('Invalid route.')
+        throw new QueryError(`unknown what: ${what}`)
     }
 
     if (as === 'debug') {

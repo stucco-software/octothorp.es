@@ -1,4 +1,5 @@
 import { getFuzzyTags } from './utils.js'
+import { QueryError } from './errors.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -364,7 +365,7 @@ export const createQueryBuilders = (instance, queryArray) => {
     // subtype FILTER EXISTS is itself a bounding constraint, so admit it as one
     // (mirrors the relationTerms allowance) rather than rejecting as unbounded.
     if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0) && !filters.subtype) {
-      throw new Error('Must provide at least subjects, objects, or relationship terms');
+      throw new QueryError('query needs s, o, or rt');
     }
 
     const subjectStatement = buildSubjectStatement(subjects)

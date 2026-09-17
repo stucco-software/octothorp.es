@@ -4,6 +4,7 @@ import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer, resolveSubtype } from './indexer.js'
 import { harmonizerId } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
+import { QueryError } from './errors.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
 import jsonHandler from './handlers/json/handler.js'
@@ -37,6 +38,7 @@ export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators 
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
+export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
@@ -541,6 +543,13 @@ export const createClient = (config) => {
     }
 
     const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
+
+    // An `as` that names no registered publisher is a caller error, not a cue to
+    // fall back to the plain envelope — silently ignoring it made a typo'd feed
+    // URL look like a working (JSON) endpoint. `as` absent is still the envelope.
+    if (asFormat && !publisher) {
+      throw new QueryError(`unknown publisher: ${asFormat}`, { status: 404 })
+    }
 
     const raw = await api.get(what, by, options)
 

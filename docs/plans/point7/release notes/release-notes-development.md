@@ -1032,3 +1032,51 @@ The four lists are also projected onto the resolved profile as `api.coherence` (
 Note for this repo: `octothorpes.json` declares `richContent` and no harmonizer extracts it (it arrives by direct blobject POST), so a relay boot now prints one documentRecord advisory. That warning is correct.
 
 **Files affected:** `packages/core/client.js` (new `checkCoherence`), `packages/core/resolveProfile.js`, `packages/core/CHANGELOG.md`, `src/tests/harmonizerCoherence.test.js` (new), `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, plus `smoke.js` and `op.js` in the companion `op-test-site` repo.
+
+## `npm run api-smoketest`: assert the API surface, not the indexed content (#295)
+
+The existing smoke test is an indexing test: wipe, re-index devdemo, capture `/get` results, diff against goldens. It exercises the read path only as a side effect, compares `actualResults` only, and covers four `what`s by seven `by`s. It says nothing about error paths, match modes, pagination, publishers other than rss, or whether the grammar the relay advertises in `/profile.json` is the grammar it actually accepts.
+
+`scripts/api-smoketest.js` is the read-only sibling. It never wipes, re-indexes or writes to the target — the only thing it writes is a local JSON report — so it is safe to point at production. Every request yields a row `{ section, name, url, status, contentType, envelope, ms, result, note }` classified `ok` / `empty` / `error` / `slow`, the classification ported from the `/debug/api-check` page's client script with `slow` added on top: the `/get` planner blowup is a known regression class, so a 200 over the latency budget is a finding rather than a pass. Five sections:
+
+- **shared** — the exact URL set `buildQueries(manifest, { tier: 'smoke' })` produces, asserted for status and envelope only.
+- **grammar** — every `what` x `by` and every `as` the target advertises in `api.routes`, so the advertised and the accepted grammar cannot disagree silently, plus a drift guard asserting every `by` in `matrix.js` appears in `api.routes.get.by`. A target predating the projection (pre-merge staging) has no `api.routes`; the sweep falls back to the local matrix and prints one line saying so rather than failing.
+- **negative** — unknown `by`, unknown `what`, bad `match`, `everything/posted` with no `s`/`o`/`rt`, unknown `as`. Each must be a 4xx with a non-empty body.
+- **match** — all seven match modes on `pages/thorped`, plus `limit=5` against `limit=5&offset=5` asserted disjoint by `@id`.
+- **publishers** — one request per `api.publishers.available` entry, asserting content-type per format and that the body parses.
+
+Flags: `--instance=`, `--report=`, `--budget=` (default 2000ms), `--section=`, `--diff=<saved report>`. A bare run exits non-zero on any error or 5xx; `--diff` exits non-zero only on **new** errors, so a target already known-broken does not make every comparison red. The runner is exported, so `src/tests/integration/api-smoketest.test.js` runs the same sweep in-process against the `.env` instance and auto-skips when the target is down, mirroring `smoketest.test.js`.
+
+The self-identity preflight — the check that keeps a run from silently targeting the wrong instance — was extracted from `scripts/smoketest.js` to `src/tests/integration/preflight.js` and is now imported by both. It takes an `abort` callback rather than calling `process.exit` itself, and `requireSparql: false` for the read-only path. `/debug/api-check` is unchanged and kept as the interactive view.
+
+**Findings from the first local run** (server behaviour, not script bugs; not fixed here):
+
+1. Every negative case returns **500 `{"message":"Internal Error"}`**, not a 4xx. `src/routes/get/[what]/[by]/[[as]]/+server.js` calls `load()` with no try/catch, so any core validation error becomes a SvelteKit 500 with the message swallowed. Unknown `by`, unknown `what`, bad `match` and the unbounded `everything/posted` all land here.
+2. **Unknown `as` returns 200.** `/get/everything/posted/nosuchpublisher` silently falls through to the default JSON envelope instead of rejecting the publisher name.
+3. **Every match mode on `pages/thorped` takes ~10–11s**, including `exact`. This is the known planner blowup, now measured per-mode rather than anecdotally.
+4. The plain (non-`debug`) `/get` envelope is `{ results: [...] }`, not a bare array, and its rows key on `uri`, not `@id`; only `/debug`'s `actualResults` rows carry `@id`. The script accepts both shapes and records which one it saw.
+
+**Staging baseline** (`next.octothorp.es`, pre-merge, `tmp/api-smoketest/baseline-next-pre-merge.json`): 67 requests, 48 ok, 14 empty, 0 slow, 5 error, 4 5xx. The same five negative cases fail the same way, confirming findings 1 and 2 are not local. Two differences worth recording: staging advertises no `api.routes` (the projection is unmerged), so the grammar sweep fell back to the local matrix and covered 28 combinations instead of 154 — `mentioned` is therefore untested there, and the first post-merge run is what will exercise it. And **staging shows no planner blowup at all**: its worst request was 1437ms against ~11s locally for the same query, so finding 3 is either local-store-specific or dataset-size-specific rather than a property of the query.
+
+**Files affected:** `scripts/api-smoketest.js` (new), `src/tests/integration/preflight.js` (new), `src/tests/integration/api-smoketest.test.js` (new), `scripts/smoketest.js`, `package.json`, `README.md`.
+
+## `/get` validation errors are 4xx with a short message (#295 findings 1 and 2)
+
+The api-smoketest's first two findings are fixed. Both came from the same place: core threw plain `Error`s that nothing mapped, so every malformed query was a SvelteKit 500 `{"message":"Internal Error"}` with the actual reason swallowed.
+
+Core now throws a typed error. `packages/core/errors.js` adds `QueryError extends Error` — a caller error carrying an HTTP `status` (default 400) — plus `isQueryError`, which also admits any error with a numeric `status`. Both are re-exported from the package root. The four throw sites are retyped and their messages shortened to the whole of the response body, with the old hint text dropped:
+
+- `Invalid route.` → `unknown what: <what>` (`api.js`, both switch defaults)
+- `Invalid "match by" route. You must specify a valid link, parent, or term type"` → `unknown by: <by>` (`multipass.js`)
+- `Invalid match type. Either omit or use one of the following: ...` → `unknown match: <match>` (`multipass.js`)
+- `Must provide at least subjects, objects, or relationship terms` → `query needs s, o, or rt` (`queryBuilders.js`)
+
+The `getStatements` guard itself is untouched — a subtype-only query (`pages/cited` with no `s`/`o`) is still admitted.
+
+Finding 2, unknown `as`: `client.get()` looked up the publisher, got `null`, and fell through to the plain JSON envelope, so a typo'd feed URL looked like a working endpoint. It now throws `unknown publisher: <as>` with status 404 when `as` is present and names nothing registered. `as` absent is unchanged, and `debug`/`multipass` still short-circuit before the lookup.
+
+Transport mapping lives in one place: `src/lib/queryErrorResponse.js` turns a `QueryError` into `{"error": "<message>"}` at its status with JSON + CORS headers, and **rethrows anything else** so a genuine bug is still a 500. `/get/[what]/[by]/[[as]]/+server.js` wraps its `load()` in it. The legacy `/debug/[what]/[by]` route (a pre-core, non-executing duplicate of `/get/.../debug`) was deleted 2026-09-17 rather than retyped.
+
+Verified locally: all five negative smoketest cases now pass (400 / 400 / 400 / 400 / 404) and the publisher sweep is still 5/5 200s with correct content types.
+
+**Files affected:** `packages/core/errors.js` (new), `packages/core/api.js`, `packages/core/multipass.js`, `packages/core/queryBuilders.js`, `packages/core/client.js`, `packages/core/CHANGELOG.md`, `src/lib/queryErrorResponse.js` (new), `src/routes/get/[what]/[by]/[[as]]/+server.js` (removed: `src/routes/debug/[what]/[by]/`), `src/tests/getRouteErrors.test.js` (new), `src/tests/apiRoutes.test.js`, `src/tests/linkTypes.test.js`, `src/tests/converters.test.js`.

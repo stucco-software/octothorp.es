@@ -1,5 +1,6 @@
 import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } from './utils.js'
 import { BUILTIN_LINK_TYPES, OBJECT_TYPES, findLinkType } from './linkTypes.js'
+import { QueryError } from './errors.js'
 
 /**
  * Builds a MultiPass configuration from plain parameters.
@@ -49,7 +50,7 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   const table = options.linkTypes ?? BUILTIN_LINK_TYPES
   const linkType = findLinkType(table, matchByParams)
   if (!linkType) {
-    throw new Error(`Invalid "match by" route. You must specify a valid link, parent, or term type"`);
+    throw new QueryError(`unknown by: ${matchByParams}`);
   }
 
   subtype = linkType.subtype ?? ""
@@ -145,7 +146,7 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
         objectMode = "all"
         break;
       default:
-        throw new Error(`Invalid match type. Either omit or use one of the following: fuzzy, fuzzy-s OR fuzzy-subject, fuzzy-o OR fuzzy-object, or exact`)
+        throw new QueryError(`unknown match: ${matchFilterParam}`)
     }
   }
 

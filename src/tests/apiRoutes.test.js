@@ -101,7 +101,7 @@ describe('WHAT_VALUES is the same source api.js switches on', () => {
 
   it('advertises exactly the `what` words api.get() accepts', async () => {
     // Stubbed SPARQL: every builder path returns an empty result set, so this
-    // probes ADMISSION ('Invalid route.' or not), never query content.
+    // probes ADMISSION ('unknown what: ...' or not), never query content.
     const empty = async () => ({ results: { bindings: [] } })
     const api = createApi({
       instance: 'https://example.test/',
@@ -118,7 +118,7 @@ describe('WHAT_VALUES is the same source api.js switches on', () => {
         await api.get(what, 'posted', { s: 'https://example.test/page' })
         return true
       } catch (e) {
-        if (e.message === 'Invalid route.') return false
+        if (e.message.startsWith('unknown what:')) return false
         throw e
       }
     }
