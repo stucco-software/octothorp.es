@@ -29,11 +29,9 @@ const probeUri = `${base}/debug/${probeName}`
 const probeMarkdown = `---
 title: C242 Probe Record
 indexPolicy: index
+richContent: "<p>C242 rich body</p>"
 encodingFormat: text/markdown
-contentUrl: https://cdn.example.org/assets/c242-probe.bin
 contentSize: 24601
-dateCreated: "2024-03-14"
-sha256: c242c242c242c242c242c242c242c242c242c242c242c242c242c242c242c2
 addedBy: c242-integration-test
 layout: should-be-dropped
 ---
@@ -81,7 +79,7 @@ describe('#242 — live /index route persists documentRecord', () => {
     }
   })
 
-  it('persists declared documentRecord fields, typed, undeclared frontmatter dropped', { timeout: 30000 }, async () => {
+  it('persists declared documentRecord fields; undeclared frontmatter dropped', { timeout: 30000 }, async () => {
     if (!live) { console.warn('[#242] dev server / SPARQL down — skipping'); return }
 
     // A local (non-URL) harmonizer id that isn't a registered schema: the
@@ -94,6 +92,20 @@ describe('#242 — live /index route persists documentRecord', () => {
     )
     expect(indexRes.ok).toBe(true)
 
+    // /index returns before propagation finishes. Poll the store for the
+    // declared leaf until it settles rather than asserting on the first read.
+    const settled = await (async () => {
+      for (let i = 0; i < 30; i++) {
+        const has = await queryBoolean(
+          `ask { <${probeUri}> <https://vocab.octothorp.es#richContent> ?o }`
+        )
+        if (has) return true
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      return false
+    })()
+    expect(settled).toBe(true)
+
     const readRes = await fetch(
       `${base}/get/everything/posted/debug?s=${encodeURIComponent(probeUri)}&match=exact`
     )
@@ -105,14 +117,15 @@ describe('#242 — live /index route persists documentRecord', () => {
     const dr = page.documentRecord
     expect(dr).toBeDefined()
 
-    expect(dr.contentSize).toBe(24601)
-    expect(typeof dr.contentSize).toBe('number')
-    expect(dr.dateCreated).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
-    expect(dr.encodingFormat).toBe('text/markdown')
-    expect(dr.contentUrl).toBe('https://cdn.example.org/assets/c242-probe.bin')
-    expect(dr.sha256).toBe('c242c242c242c242c242c242c242c242c242c242c242c242c242c242c242c2')
-    // undeclared frontmatter never reaches the read surface (addedBy was
-    // removed from the profile's documentRecord declaration, #279)
+    // richContent is the only entry the repo profile declares, so it is the
+    // only frontmatter key that survives the write + read round trip.
+    expect(dr.richContent).toBe('<p>C242 rich body</p>')
+    expect(dr).toEqual({ richContent: '<p>C242 rich body</p>' })
+    // Undeclared frontmatter never reaches the read surface — it is dropped at
+    // write time by the schema-gated recordDocumentRecord, and would not be
+    // SELECTed on read even if it had been stored.
+    expect(dr.encodingFormat).toBeUndefined()
+    expect(dr.contentSize).toBeUndefined()
     expect(dr.addedBy).toBeUndefined()
     expect(dr.layout).toBeUndefined()
   })

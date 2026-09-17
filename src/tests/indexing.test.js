@@ -393,6 +393,45 @@ describe('Indexing Business Logic', () => {
     })
   })
 
+  describe('recordDocumentRecord octo-only resolution (2026-09-14 decision)', () => {
+    // documentRecord predicates live ONLY in the octo namespace. A profile may
+    // declare skos in vocabulary.namespaces, but that never affects how a
+    // documentRecord entry resolves on the write side: `prefLabel` is written as
+    // octo:prefLabel regardless of what namespaces the indexer was built with.
+    it('writes the predicate under octo: even when a foreign namespace is declared', async () => {
+      mockQuery.mockResolvedValue({})
+      const declaredIndexer = createIndexer({
+        insert: mockInsert,
+        query: mockQuery,
+        queryBoolean: mockQueryBoolean,
+        queryArray: mockQueryArray,
+        instance,
+        handlerRegistry: makeHandlerRegistry(),
+        namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
+      })
+      const schema = [{ predicate: 'prefLabel', range: 'literal' }]
+      await declaredIndexer.recordDocumentRecord('https://example.com/page', { prefLabel: 'Example' }, schema)
+      expect(mockQuery).toHaveBeenCalledTimes(1)
+      expect(mockQuery.mock.calls[0][0]).toContain('https://vocab.octothorp.es#prefLabel')
+      expect(mockQuery.mock.calls[0][0]).not.toContain('skos/core#prefLabel')
+    })
+
+    it('writes the same IRI with no namespaces configured at all', async () => {
+      mockQuery.mockResolvedValue({})
+      const schema = [{ predicate: 'prefLabel', range: 'literal' }]
+      await indexer.recordDocumentRecord('https://example.com/page', { prefLabel: 'Example' }, schema)
+      expect(mockQuery).toHaveBeenCalledTimes(1)
+      expect(mockQuery.mock.calls[0][0]).toContain('https://vocab.octothorp.es#prefLabel')
+    })
+
+    it('skips an entry whose predicate is not a bare local name', async () => {
+      mockQuery.mockResolvedValue({})
+      const schema = [{ predicate: 'skos:prefLabel', range: 'literal' }]
+      await indexer.recordDocumentRecord('https://example.com/page', { 'skos:prefLabel': 'Example' }, schema)
+      expect(mockQuery).not.toHaveBeenCalled()
+    })
+  })
+
   describe('getAllMentioningUrls', () => {
     it('should return URLs from SPARQL bindings', async () => {
       mockQueryArray.mockResolvedValue({
@@ -874,6 +913,12 @@ describe('Indexing Business Logic', () => {
     it('should resolve cite subtype correctly', () => {
       expect(resolveSubtype('cite')).toBe('Cite')
       expect(resolveSubtype('Cite')).toBe('Cite')
+    })
+
+    // #292: mention is its own subtype now, not an alias of a plain link.
+    it('should resolve mention subtype correctly', () => {
+      expect(resolveSubtype('mention')).toBe('Mention')
+      expect(resolveSubtype('Mention')).toBe('Mention')
     })
 
     it('should resolve button to Button', () => {

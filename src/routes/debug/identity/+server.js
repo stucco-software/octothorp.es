@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit'
-import { instance, server_name } from '$lib/config.js'
+import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 
 /**
  * Reports the origin this instance believes itself to be.
@@ -16,6 +17,6 @@ import { instance, server_name } from '$lib/config.js'
 export function GET() {
   return json({
     instance: instance ?? null,
-    serverName: server_name ?? null,
+    serverName: getProfile().identity.name ?? null,
   })
 }

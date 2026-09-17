@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit'
-import { instance, server_name } from '$lib/config.js'
+import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'
 
@@ -93,7 +94,7 @@ export async function POST({ request }) {
   try {
     await handler(uri, harmonizer, uri, {
       instance,
-      serverName: server_name,
+      serverName: getProfile().identity.name,
       queryBoolean
     })
     return new Response(JSON.stringify({ status: 'success', uri }), {

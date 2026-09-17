@@ -1,8 +1,10 @@
 import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
-import { createIndexer } from './indexer.js'
+import { createIndexer, resolveSubtype } from './indexer.js'
+import { harmonizerId } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
+import { QueryError } from './errors.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 import htmlHandler from './handlers/html/handler.js'
 import jsonHandler from './handlers/json/handler.js'
@@ -11,12 +13,17 @@ import xmlHandler from './handlers/xml/handler.js'
 import calendarHandler from './handlers/calendar/handler.js'
 import markdownHandler from './handlers/markdown/handler.js'
 import { publish } from './publish.js'
+import { resolveProfile, normalizeRoutes } from './resolveProfile.js'
+import { normalizeAccess } from './access.js'
+import { mergeLinkTypes } from './linkTypes.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
-export { createQueryBuilders, documentRecordNamespaces, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses } from './queryBuilders.js'
+export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
+export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'
 export { buildMultiPass } from './multipass.js'
+export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes, findLinkType } from './linkTypes.js'
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
 export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
@@ -31,10 +38,15 @@ export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators 
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
 export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
+export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
-export { createProfile, credentialEnvKey } from './profile.js'
+export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
+export { scaffoldProfile } from './scaffold.js'
+export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
+export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer } from './discover.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
@@ -62,7 +74,9 @@ export const createDefaultHandlerRegistry = ({ defaultHandler = 'html' } = {}) =
 // Harmonization entry point: dispatch a source to the right handler and return a
 // blobject. Defaults to the HTML handler; pass `options.mode` (e.g. 'json',
 // 'blobject') or `options.contentType` to select another — mirroring the
-// indexer's dispatch precedence (mode → content-type → default → null). Callers
+// indexer's dispatch precedence (mode → content-type → default → null). A
+// DECLARED mode with no registered handler throws; content-type/default
+// fallback applies only when no mode was declared. Callers
 // may supply their own `options.handlerRegistry`; otherwise a shared default
 // registry (html/json/blobject/null, default 'html') is created lazily.
 let defaultHandlerRegistry
@@ -83,10 +97,21 @@ export const harmonizeSource = async (content, harmonizer, options = {}) => {
 
   // Mode precedence mirrors dispatch: explicit option > the resolved
   // harmonizer's declared mode (e.g. the rss harmonizer declares mode 'xml').
-  const mode = options.mode ?? resolvedHarmonizer?.mode
+  const declaredMode = options.mode ?? resolvedHarmonizer?.mode
 
-  const handler =
-    (mode ? registry.getHandler(mode) : null) ??
+  // A DECLARED mode with no registered handler is an error, not a silent
+  // fallback to the default handler. Fallback (content-type, then default)
+  // applies only when no mode was declared.
+  let handler = declaredMode ? registry.getHandler(declaredMode) : null
+  if (declaredMode && !handler) {
+    const id = options.mode ? null : harmonizerId(harmonizer, resolvedHarmonizer)
+    throw new Error(
+      `No handler registered for mode "${declaredMode}"` +
+        (id ? ` (declared by harmonizer "${id}")` : '')
+    )
+  }
+  handler =
+    handler ??
     (options.contentType ? registry.getHandlerForContentType(options.contentType) : null) ??
     registry.getDefault() ??
     registry.getHandler('null')
@@ -105,12 +130,34 @@ const normalizeSparqlConfig = (sparql) => {
   }
 }
 
-const normalizeIndexPolicy = (policy) => {
-  if (!policy || policy === 'registered') return { mode: 'registered' }
-  if (policy === 'pull') return { mode: 'pull' }
-  if (policy === 'active') return { mode: 'active' }
-  if (typeof policy === 'object') return policy  // custom/stubbed
-  throw new Error(`Unknown indexPolicy: ${policy}`)
+/**
+ * Normalize the client-level INDEXING MODE — what TRIGGERS indexing.
+ *   'request' (default): index only when asked via /index
+ *   'active':            this client crawls/re-indexes on its own schedule
+ * A custom object is passed through untouched (escape hatch for stubs/experiments).
+ *
+ * These are the same two spellings as the profile's policies.indexing.mode, so
+ * the profile -> core hop is the identity function (#217).
+ *
+ * Renamed from `indexPolicy` because that name collided with
+ * `blobject.indexPolicy`, the per-page opt-in marker harmonizers extract from
+ * markup — an unrelated thing that is NOT affected by this rename.
+ *
+ * Two former values are gone:
+ *   'pull'       — audited dead in #217; no code path ever read mode: 'pull'.
+ *   'registered' — that concept is the ACCESS GATE now
+ *                  (policies.access.registration, see access.js). It is a
+ *                  different axis: gate vs trigger. All six combinations of
+ *                  the two are valid.
+ *
+ * @param {'request'|'active'|Object} [mode]
+ * @returns {{mode: string}|Object}
+ */
+export const normalizeIndexingMode = (mode) => {
+  if (!mode || mode === 'request') return { mode: 'request' }
+  if (mode === 'active') return { mode: 'active' }
+  if (typeof mode === 'object') return mode // custom/stubbed
+  throw new Error(`Unknown indexingMode: ${mode} (expected 'request', 'active', or a custom object)`)
 }
 
 /**
@@ -119,27 +166,243 @@ const normalizeIndexPolicy = (policy) => {
  * @param {string} config.instance - OP instance URL (with trailing slash)
  * @param {Object} config.sparql - Explicit sparql config ({ endpoint, user, password })
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
- * @param {string|Object} [config.indexPolicy] - 'registered' (default), 'pull', 'active', or custom object
- * @param {Array<{predicate: string, namespace: string, range: string}>} [config.documentRecordSchema] -
+ * @param {'request'|'active'|Object} [config.indexingMode] - What TRIGGERS indexing:
+ *   'request' (default) or 'active'. Orthogonal to config.access, which is the GATE.
+ * @param {number} [config.cooldown=300] - Re-index cooldown in SECONDS, forwarded to the
+ *   internal indexer's `recentlyIndexed` check. Applies under every indexing mode; 0 disables
+ *   the wait so every request re-indexes. Mirrors profile.policies.indexing.cooldown.
+ * @param {Array<{predicate: string, range: string}>} [config.documentRecordSchema] -
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
  *   which is a no-op identical to prior behavior.
- * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api }}
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}}} [config.access] -
+ *   The #217 access block. `registration` is the gate an index request must pass
+ *   ('registered' | 'open' | 'closed'); `blocks.domains`/`whitelist.domains` modify it.
+ *   `blocks.terms` is a separate, mode-independent write-time filter. Orthogonal to
+ *   `config.indexingMode`, which says what TRIGGERS indexing rather than what gate it passes.
+ * @param {{name:string, endorse:Function}[]} [config.endorsers] - Endorsement sources
+ *   available to this client, injected by the consumer. Each needs a string `name`
+ *   (referenced by `policies.access.endorsement.sources`, which filters and orders
+ *   them) and an `endorse` function. Stored only — nothing consumes them yet; the
+ *   gate that does lands separately.
+ * @param {Record<string,string>} [config.routes] - This adapter's mount table:
+ *   { get, index, profile, ... } -> URL template, e.g. { get: '/get/{what}/{by}/{as}' }.
+ *   Core cannot introspect an HTTP framework, so only the adapter knows where it
+ *   served things; this is what turns the query grammar into advertisable URLs in
+ *   `resolvedProfile().api.routes`. Passed in code, never authored in
+ *   octothorpes.json. Defaults to DEFAULT_ROUTES (the SvelteKit relay's shape).
+ * @param {Object} [config.profile] - A resolved profile (result of `getProfile()`). When supplied,
+ *   `resolvedProfile()` projects it against what actually registered (publishers/handlers/harmonizers).
+ * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api, resolvedProfile }}
  */
+/**
+ * Validate the injected endorsement sources. Construction-time and strict, unlike
+ * the survivable handler/harmonizer registration loops below: an endorser is a
+ * gate input, so a malformed or ambiguous one must not be quietly skipped into a
+ * relay that then silently never admits anyone. Duplicate names are rejected for
+ * the same reason — `endorsement.sources` addresses endorsers BY NAME, so two
+ * endorsers sharing one name makes the profile's ordered list unreadable.
+ *
+ * @param {{name:string, endorse:Function}[]} [endorsers]
+ * @returns {{name:string, endorse:Function}[]}
+ */
+const normalizeEndorsers = (endorsers) => {
+  if (endorsers == null) return []
+  if (!Array.isArray(endorsers)) {
+    throw new Error('createClient({ endorsers }) must be an array of { name, endorse } objects')
+  }
+  const seen = new Set()
+  return endorsers.map((endorser, i) => {
+    if (!endorser || typeof endorser !== 'object' || typeof endorser.name !== 'string' || !endorser.name) {
+      throw new Error(`createClient({ endorsers }): entry ${i} needs a non-empty string \`name\``)
+    }
+    if (typeof endorser.endorse !== 'function') {
+      throw new Error(`createClient({ endorsers }): endorser "${endorser.name}" needs an \`endorse\` function`)
+    }
+    if (seen.has(endorser.name)) {
+      throw new Error(
+        `createClient({ endorsers }): duplicate endorser name "${endorser.name}" — policies.access.endorsement.sources addresses endorsers by name, so names must be unique`
+      )
+    }
+    seen.add(endorser.name)
+    return endorser
+  })
+}
+
+/**
+ * #293: harmonizer/profile coherence, checked once at client init.
+ *
+ * Link types and documentRecord predicates are DATA in the profile; the markup
+ * that produces them lives in a harmonizer. They meet on a name and nothing
+ * enforces that they meet at all. A declared link type no harmonizer writes is
+ * a valid query that always returns nothing; a declared documentRecord
+ * predicate no harmonizer extracts is never written. Both are silent today.
+ *
+ * This is a GENTLE check: it warns, never throws, one line per kind, and only
+ * when there is something to say. It is advisory — a blobject POSTed directly
+ * to /index can carry a documentRecord no harmonizer ever extracted, so an
+ * unmatched predicate is a smell, not an error.
+ *
+ * Section keys of a harmonizer schema are its top-level keys other than:
+ *   - `subject`        - subject metadata, not a relationship
+ *   - `documentRecord` - the other axis, checked separately below
+ *   - `hashtag`        - writes TERMS, not typed relationships
+ *
+ * @param {Object} args
+ * @param {import('./linkTypes.js').LinkType[]} args.linkTypes - the MERGED table.
+ * @param {Array<{predicate:string}>} [args.documentRecord] - api.documentRecord.
+ * @param {Record<string,Object>} args.harmonizers - every REGISTERED harmonizer, by name.
+ * @param {Set<string>} args.builtinHarmonizerNames - names core shipped.
+ * @param {Function} args.warn
+ * @returns {{uncapturedLinkTypes:Array, uncapturedDocumentRecord:string[], unqueriedSubtypes:Array, undeclaredDocumentRecord:Array}}
+ */
+export const checkCoherence = ({
+  linkTypes = [],
+  documentRecord = [],
+  harmonizers = {},
+  builtinHarmonizerNames = new Set(),
+  warn = console.warn,
+} = {}) => {
+  const SKIP_SECTIONS = new Set(['subject', 'documentRecord', 'hashtag'])
+
+  // Section keys whose subtype is core's business rather than a link type's.
+  // `link` is the UNTYPED-link storage type (octo:Link) — `/get/.../linked` is
+  // the untyped superset and carries no subtype filter, so nothing declares it.
+  // `button` and `endorse` are the webring/endorsement paths, handled outside
+  // the `by` table entirely. `hashtag` writes terms and is skipped above.
+  const REVERSE_EXEMPT = new Set(['link', 'button', 'endorse', 'hashtag'])
+
+  const sectionKeys = (harmonizer) =>
+    Object.keys(harmonizer?.schema ?? {}).filter((k) => !SKIP_SECTIONS.has(k))
+
+  const entries = Object.entries(harmonizers)
+
+  // Every subtype ANY registered harmonizer can write, builtins included.
+  const writtenSubtypes = new Set()
+  for (const [, h] of entries) {
+    for (const key of sectionKeys(h)) writtenSubtypes.add(resolveSubtype(key))
+  }
+
+  // Every documentRecord key ANY registered harmonizer extracts.
+  const extractedDocumentRecord = new Set()
+  for (const [, h] of entries) {
+    for (const k of Object.keys(h?.schema?.documentRecord ?? {})) extractedDocumentRecord.add(k)
+  }
+
+  // (a) declared link types with no harmonizer section that writes their subtype.
+  // Builtins are exempt: core's own `by` words are not an author's mistake.
+  const uncapturedLinkTypes = linkTypes.filter(
+    (lt) => lt.source === 'declared' && lt.subtype && !writtenSubtypes.has(resolveSubtype(lt.subtype))
+  )
+  if (uncapturedLinkTypes.length) {
+    warn(
+      `[profile] custom link types found (${uncapturedLinkTypes
+        .map((lt) => `${lt.by} -> octo:${resolveSubtype(lt.subtype)}`)
+        .join(', ')}); these must be captured by a custom harmonizer before OP will record them`
+    )
+  }
+
+  // (b) declared documentRecord predicates no harmonizer extracts.
+  const uncapturedDocumentRecord = (documentRecord ?? [])
+    .map((d) => d?.predicate)
+    .filter((p) => typeof p === 'string' && !extractedDocumentRecord.has(p))
+  if (uncapturedDocumentRecord.length) {
+    warn(
+      `[profile] custom documentRecord predicates found (${uncapturedDocumentRecord.join(', ')}); these must be extracted by a custom harmonizer before OP will record them`
+    )
+  }
+
+  // Reverse directions are scoped to SITE harmonizers. A builtin writing a
+  // subtype or documentRecord key the local profile does not declare is core's
+  // own shape, not a local misconfiguration — warning about it on every boot is
+  // exactly the noise this check exists to avoid.
+  const declaredSubtypes = new Set(
+    linkTypes.filter((lt) => lt.subtype).map((lt) => resolveSubtype(lt.subtype))
+  )
+  const declaredDocumentRecord = new Set((documentRecord ?? []).map((d) => d?.predicate))
+  const siteEntries = entries.filter(([name]) => !builtinHarmonizerNames.has(name))
+
+  const unqueriedSubtypes = []
+  const undeclaredDocumentRecord = []
+
+  for (const [name, h] of siteEntries) {
+    // (a') writes a subtype no link type queries.
+    const orphanSubtypes = sectionKeys(h)
+      .filter((k) => !REVERSE_EXEMPT.has(k))
+      .map((k) => resolveSubtype(k))
+      .filter((st) => !declaredSubtypes.has(st))
+    for (const subtype of [...new Set(orphanSubtypes)]) {
+      unqueriedSubtypes.push({ harmonizer: name, subtype })
+      warn(
+        `[profile] harmonizer "${name}" writes relationship subtype octo:${subtype} that no link type queries; declare it in api.linkTypes to make it reachable`
+      )
+    }
+
+    // (b') extracts documentRecord keys the profile never declared, so the
+    // indexer drops them at write time.
+    const orphanKeys = Object.keys(h?.schema?.documentRecord ?? {}).filter(
+      (k) => !declaredDocumentRecord.has(k)
+    )
+    if (orphanKeys.length) {
+      undeclaredDocumentRecord.push({ harmonizer: name, keys: orphanKeys })
+      warn(
+        `[profile] harmonizer "${name}" extracts documentRecord keys (${orphanKeys.join(', ')}) not declared in api.documentRecord; they are dropped at write time`
+      )
+    }
+  }
+
+  return {
+    uncapturedLinkTypes,
+    uncapturedDocumentRecord,
+    unqueriedSubtypes,
+    undeclaredDocumentRecord,
+  }
+}
+
 export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance)
-  const policy = normalizeIndexPolicy(config.indexPolicy)
+  // Snapshot before config.harmonizers register: everything here is core's own,
+  // which #293's reverse checks exempt.
+  const builtinHarmonizerNames = new Set(Object.keys(registry.list()))
+  const policy = normalizeIndexingMode(config.indexingMode)
+  // #217: the access gate is orthogonal to indexingMode. `access` says what gate
+  // an index request must pass; `indexingMode` says what triggers indexing.
+  const access = normalizeAccess(config.access)
+  const endorsers = normalizeEndorsers(config.endorsers)
 
   // Builtins (html/json/xml/blobject, frozen) + null + default come from the
   // shared builder, so there is one place to register a new core format.
   // Consumer-supplied handlers layer on top as non-builtins.
   const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: config.defaultHandler })
 
+  // #217 wave 5: bulk registration is survivable, mirroring the publishers
+  // loop below — a site handler declaring a builtin mode (html/json/xml/...)
+  // must not crash createClient at construction time. warn and skip it so
+  // every other handler still registers.
   if (config.handlers) {
     for (const [mode, handler] of Object.entries(config.handlers)) {
-      handlerRegistry.register(mode, handler)
+      try {
+        handlerRegistry.register(mode, handler)
+      } catch (e) {
+        const warn = config.warn ?? console.warn
+        warn(`[handlers] "${mode}" failed to register and was skipped: ${e.message}`)
+      }
+    }
+  }
+
+  // #217 wave 5: bulk registration is survivable, mirroring config.handlers
+  // above — a site harmonizer collision (same name as a core local) must not
+  // crash createClient at construction time. warn and skip it.
+  if (config.harmonizers) {
+    for (const [name, harmonizer] of Object.entries(config.harmonizers)) {
+      try {
+        registry.register(name, harmonizer)
+      } catch (e) {
+        const warn = config.warn ?? console.warn
+        warn(`[harmonizers] "${name}" failed to register and was skipped: ${e.message}`)
+      }
     }
   }
 
@@ -165,10 +428,33 @@ export const createClient = (config) => {
     handlerRegistry,
     getHarmonizer: registry.getHarmonizer,
     documentRecordSchema: config.documentRecordSchema,
+    access,
+    cooldown: config.cooldown ?? 300,
   })
+
+  // #217: the `by` axis is a table, not a switch. Merge the profile's declared
+  // link types over the builtins ONCE at init — a collision with a builtin is a
+  // load-time error here, not a surprise at query time.
+  const linkTypes = mergeLinkTypes(config.profile?.api?.linkTypes ?? config.linkTypes)
+
+  // #293: gentle coherence check, once, after harmonizer discovery and the
+  // link-type merge. Advisory only — see checkCoherence.
+  const coherence = checkCoherence({
+    linkTypes,
+    documentRecord: config.profile?.api?.documentRecord ?? config.documentRecordSchema,
+    harmonizers: registry.list(),
+    builtinHarmonizerNames,
+    warn: config.warn ?? console.warn,
+  })
+
+  // The adapter's mount table. Validated at construction time (strict, like
+  // endorsers) because a bad template is a lie told to every consumer that
+  // reads this client's profile, not a locally-recoverable registration miss.
+  const routes = normalizeRoutes(config.routes)
 
   const api = createApi({
     instance: config.instance,
+    linkTypes,
     queryArray: sparql.queryArray,
     queryBoolean: sparql.queryBoolean,
     insert: sparql.insert,
@@ -206,10 +492,41 @@ export const createClient = (config) => {
 
   const publisherRegistry = createPublisherRegistry()
 
+  // #217 wave 3: bulk registration is survivable. register() stays strict for
+  // direct programmatic use, but a single bad entry here (a builtin name
+  // collision, a malformed module) must not take down the whole client — warn
+  // and skip it so every other publisher still registers.
   if (config.publishers) {
     for (const [name, publisher] of Object.entries(config.publishers)) {
-      publisherRegistry.register(name, publisher)
+      try {
+        publisherRegistry.register(name, publisher)
+      } catch (e) {
+        const warn = config.warn ?? console.warn
+        warn(`[publishers] "${name}" failed to register and was skipped: ${e.message}`)
+      }
     }
+  }
+
+  // #217: the resolved profile is computed once at init from what actually
+  // registered, then handed back by a pure getter. Publishing it is the client
+  // owner's choice — mounting at /profile is convention, not requirement.
+  const resolved = config.profile
+    ? resolveProfile({
+        profile: config.profile,
+        publisherNames: publisherRegistry.listPublishers(),
+        handlerNames: handlerRegistry.listHandlers(),
+        harmonizerNames: registry.listHarmonizers?.() ?? [],
+        linkTypes,
+        routes,
+        coherence,
+      })
+    : null
+
+  const resolvedProfile = () => {
+    if (!resolved) {
+      throw new Error('resolvedProfile() requires createClient({ profile }) — no profile was supplied')
+    }
+    return resolved
   }
 
   const get = async ({ what, by, as: asFormat, debug: debugFlag, pubDefs = {}, ...rest } = {}) => {
@@ -218,6 +535,7 @@ export const createClient = (config) => {
     const options = {
       ...rest,
       documentRecordSchema: rest.documentRecordSchema ?? config.documentRecordSchema,
+      namespaces: rest.namespaces ?? config.namespaces,
     }
 
     if (asFormat === 'debug' || asFormat === 'multipass') {
@@ -225,6 +543,13 @@ export const createClient = (config) => {
     }
 
     const publisher = asFormat ? publisherRegistry.getPublisher(asFormat) : null
+
+    // An `as` that names no registered publisher is a caller error, not a cue to
+    // fall back to the plain envelope — silently ignoring it made a typo'd feed
+    // URL look like a working (JSON) endpoint. `as` absent is still the envelope.
+    if (asFormat && !publisher) {
+      throw new QueryError(`unknown publisher: ${asFormat}`, { status: 404 })
+    }
 
     const raw = await api.get(what, by, options)
 
@@ -300,8 +625,11 @@ export const createClient = (config) => {
     },
     harmonizer: registry,
     handler: handlerRegistry,
+    // Stored, not consumed: the endorsement gate stage lands separately.
+    endorsers,
     publisher: publisherRegistry,
     sparql,
     api,
+    resolvedProfile,
   }
 }

@@ -1,0 +1,17 @@
+{
+  "//": "Site-level demo harmonizer (#217 wave 5, #273). HARMONIZER ONLY — no new handler, because HTML parsing already exists; mode 'html' reuses it. Octothorpes every anchor on the page. NOISY BY DESIGN: nav, footer and boilerplate links all become statements. That is accepted for a demo and is itself informative about what a permissive selector costs — keep test and smoketest fixture pages small and curated. VERIFIED (task 23): packages/core/handlers/html/handler.js does NOT resolve href attributes against a base URL — it reads them verbatim via getAttribute, and there is no options.source plumbing for this. Extracted anchor values are therefore page-relative, not absolutized. Accepted as-is rather than modifying the shared html handler for a demo harmonizer; source pages using this harmonizer should prefer absolute hrefs where the relationship matters. SCHEMA NOTE: the anchor list is under top-level 'hashtag' (not 'subject.octothorpes') because the html handler's subject-branch is single-valued per prop (getObjectVals().find(firstValue)) and reserves the 'octothorpes' output field for its own final assembly step — a subject.octothorpes rule is silently overwritten. 'hashtag' is the one typed key the handler passes through into blob.octothorpes as raw strings (see keywords harmonizer in packages/core/harmonizers.js for the same pattern); any other typed key name would wrap values as {type, uri} objects instead.",
+  "id": "harmonizer/anchors",
+  "type": "harmonizer",
+  "title": "Anchor Harmonizer",
+  "mode": "html",
+  "schema": {
+    "subject": {
+      "s": "source",
+      "title": [{ "selector": "title", "attribute": "textContent" }]
+    },
+    "hashtag": {
+      "s": "source",
+      "o": [{ "selector": "a[href]", "attribute": "href" }]
+    }
+  }
+}

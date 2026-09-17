@@ -2,6 +2,38 @@
 
 **59 files changed, ~5,660 additions, ~300 deletions** across 6 tracked issues and several untracked improvements.
 
+## Profile consumption: `octothorpes.json` becomes the source of truth -- #217
+
+An instance's identity, policies, and API surface now live in one declarative file, `octothorpes.json`, instead of being split across `.env` and ad hoc config. Every route that used to read `server_name`, `badge_image`, `admin_email`, or `default_handler` from `src/lib/config.js` now reads the equivalent field off `getProfile()`. `.env` is down to secrets (`sparql_*`, `smtp_*`, `robot_email`) plus the `instance` deploy-level override.
+
+**Authored vs. resolved.** `octothorpes.json` is what a site operator writes -- inline arrays, or paths to JSON files for blocklists. `getProfile()` returns the *resolved* profile: paths expanded to arrays, defaults filled in, schema-validated. Nothing downstream of `getProfile()` should ever see a path where an array is expected.
+
+**Shape change.** The old flat shape (`relay`, `name`, `vocabulary.*`, `externalAccounts`, `defaultHarmonizer`, `namedPublishers`, `registrationPolicy`, `indexingMode`) is replaced by a nested `identity` / `policies` / `api` shape:
+
+| old | new |
+|---|---|
+| `relay` | `identity.instance` |
+| `name` | `identity.name` |
+| `vocabulary.relationshipSubtypes` | `api.linkTypes` |
+| `vocabulary.documentRecord` | `api.documentRecord` |
+| `externalAccounts` | `identity.contact` |
+| `defaultHarmonizer` | `api.handlers.default` |
+| `namedPublishers` | derived (`api.publishers.available`) |
+| `registrationPolicy` | `policies.access.registration` (**redefined**: the indexing gate, not a signup policy) |
+| `indexingMode` | `policies.indexing.mode` |
+
+**Breaking semantics** -- these are not mechanical renames:
+- `policies.access.registration` enum is now `registered` (default) | `open` | `closed`. **`invite` is removed** -- use `closed` + `whitelist.domains`.
+- `policies.access.blocks` is no longer a flat array. It is `{ domains, terms }`, and `policies.access.whitelist` is `{ domains }`. Each sub-key accepts either an inline array of strings or a **path to a JSON file** containing one, expanded at load time; the resolved profile always shows the expanded array. `blocks.domains` is the origin gate list (`open` mode only); **`blocks.terms` is a write-time statement filter that applies in every mode**, is not retroactive (#271), and has no read-time counterpart.
+- `policies.indexing.mode` enum is now `request` | `active`. **`on-request` is spelled `request`.**
+- `createClient({ indexPolicy })` is now `createClient({ indexingMode })`, values `request` | `active`. **`pull` and `registered` are removed** from that enum. `blobject.indexPolicy` (page markup opt-in) is unaffected.
+- `api.handlers` is a new sibling of `api.harmonizers`; `api.harmonizers.defaultHandler` moved to `api.handlers.default`.
+- The `foaf` prefix is removed; nothing in the shipped vocabulary used it.
+
+**`.env` migration:** delete `server_name`, `badge_image`, `admin_email`, `default_handler` from any deployed `.env` -- they're read from `octothorpes.json` now and are ignored if still set. `.env.example` documents the remaining secrets-plus-`instance` shape.
+
+Affected files: `src/lib/config.js`, `src/lib/profile.js`, `src/lib/emails/alertAdmin.js`, `src/routes/load.js`, `src/routes/index/+server.js`, `src/routes/indexwrapper/+server.js`, `src/routes/badge/+server.js`, `src/routes/register/+page.server.js`, `src/routes/report/+page.server.js`, `src/routes/debug/identity/+server.js`, `src/routes/debug/rolodex/+server.js`, `.env.example`, `octothorpes.json`, `packages/core/profile.js`, `packages/core/resolveProfile.js`, `packages/core/profile.schema.json`.
+
 ## lewk CSS foundation pilot
 
 Adopted the local **lewk** editorial CSS framework as OP's styling foundation while preserving OP's visual identity. This is a foundation swap, not a redesign: only the visible "frame" of the site (Header, Nav, Footer, layout shell) gets refactored to use lewk primitives; per-component and per-route styles inherit the new tokens via a compatibility shim.
@@ -889,6 +921,183 @@ Four small changes merged as one branch (`cleanup-235-279-269`), all endpoint-in
 
 **Files affected:** `packages/core/client.js` (renamed), `packages/core/indexer.js`, `packages/core/blobject.js`, `packages/core/queryBuilders.js`, `packages/core/profile.js`, `octothorpes.json` (renamed), `src/lib/profile.js`, `scripts/core-test.js`, 15 test files.
 
+## #217 wave 5 — discovered handlers and harmonizers reach the resolved profile, plus demos
+
+Closes #273's "add an example demo handler/harmonizer" item. Tasks 19–23 built the extension points (`api.handlers.dir` / `api.harmonizers.dir` discovery, `static/handlers/` + `static/harmonizers/` as the built-path adapters, the `csv` handler, and the `csv` / `anchors` demo harmonizers); this task is the coverage pass confirming the wiring reaches `op.resolvedProfile()` and `/profile.json` end to end, and that a failed discovery is skip-and-warn rather than fatal.
+
+`src/lib/op.js` already passed `handlers: siteHandlers` and `harmonizers: siteHarmonizers` into `createClient` (Task 19/20 wiring) — verified as a no-op for this task rather than re-added. `createClient` registers both registries before computing the resolved projection (Task 12), so `packages/core/resolveProfile.js`'s existing `handlerNames`/`harmonizerNames` → `api.handlers.available` / `api.harmonizers.available` projection needed no changes either; this task is test coverage confirming that wiring, not new plumbing.
+
+New assertions: `src/tests/profileEndpoints.test.js` gained a describe block confirming `/profile.json` lists the `csv` demo handler and both `csv`/`anchors` demo harmonizers among `available`, that none of those names leak into the authored `octothorpes.json` (which only ever declares `api.handlers.dir` / `api.harmonizers.dir`), and that a handler present in `skippedHandlers` (from `$lib/handlers/index.js`'s discovery-time skip list) never appears in the projection. `src/tests/resolveProfile.test.js` gained a direct unit assertion that `handlerNames`/`harmonizerNames` reach `api.handlers.available` / `api.harmonizers.available` unmodified apart from de-duplication (Set-based, insertion order preserved).
+
+**Deferred to deploy (per Task 13/24 ruling):** the smoketest targets the deployed instance, which does not run this branch, so no fixtures or golden recapture happened here. TODO at deploy time:
+- add the CSV demo fixture (`octothorpes`/`bookmarks` columns plus one deliberately unrecognized column) and the small curated anchors-harmonizer HTML fixture to the smoketest corpus, indexed via `/index`;
+- run `npm run smoketest` and review the diff deliberately — expected churn is `api.handlers`/`api.harmonizers` gaining `csv`/`anchors`/`html` in the `/profile.json` golden, plus the two new demo-capture goldens;
+- this closes the remaining half of #273 (smoketest coverage for the demos).
+
+Full suite: 1356 passed, 6 pre-existing failures (confirmed unrelated via `git stash` re-run) — all four failing files (`c14MemexRoundtrip`, `documentRecordProjection`, `indexRouteDocumentRecord`, `integration`) require a live local dev server and fail identically with this branch's changes reverted; see `project_integration_test_cycle_staging` / `project_integration_tests_live_server_hmr` memory notes.
+
+**Files affected:** `src/tests/profileEndpoints.test.js`, `src/tests/resolveProfile.test.js`.
+
+## #217 task 25 — the CSV handler reads its column map from the harmonizer
+
+Closes the loop that Tasks 21–24 deliberately left open: `static/handlers/csv.js` now reads its column-to-field map from the discovered harmonizer's `schema.subject` instead of hardcoding it, so editing `static/harmonizers/csv.json` changes what gets extracted with no code change. `harmonize(content, schema)`'s second argument is now load-bearing for this handler; a null/absent definition still falls back to the built-in `DEFAULT_SUBJECT` map (identical to the shipped `csv.json`), so content-type dispatch (`text/csv` with no harmonizer named) is unaffected. Field classification (which OP fields are lists vs. scalars) stays the handler's; the harmonizer only says which column feeds which field. Smoketest recapture skipped per standing ruling — the deployed target does not carry this branch.
+
+**Files affected:** `static/handlers/csv.js`, `static/harmonizers/csv.json`, `src/tests/csvHandler.test.js`.
+
+## identity.instance is normalized at the loader; identity.terms absolutizes against it
+
+A bare-origin `instance` (`https://next.octothorp.es`, no trailing slash) silently produced malformed URIs everywhere core interpolates it — `createQueryBuilders`' `` `${instance}~/` `` thorpePath most consequentially, but also the harmonizer registry and the indexer's base. The results are syntactically valid IRIs, so SPARQL returns zero rows instead of erroring, and the misconfiguration presents as missing data. Found while testing op-test-site against next's datastore: `everything/thorped?o=octothorpes` returned `[]` where the live route returned a result.
+
+`normalizeInstance()` (new, `packages/core/resolveProfile.js`) appends the trailing slash. It is applied in the LOADER, at `packages/core/profile.js`'s single choke point immediately after the `env.instance` deploy override — that is what feeds `createClient`, so one call covers queryBuilders, the registry and the indexer alike. `resolveProfile` normalizes as well, since it is pure and may be handed a profile no loader touched; normalizing only there would have made `/profile.json` correct while the graph stayed wrong.
+
+`identity.terms` now joins `feeds` and `images` in the absolutize pass, so a relative prefix follows a deploy-level instance override. This required a schema change: `terms` was `format: "uri"`, which rejected `"~/"` at load time and made the absolutize path unreachable in practice — it is `uri-reference` now. `instance` stays `format: "uri"`; it must be absolute. An ABSOLUTE `terms` passes through untouched even when its origin differs from `instance` — deliberate, leaving room for a federation case that points terms elsewhere, and the reason a profile can still publish a terms prefix that disagrees with its instance. Absent `terms` stays absent rather than becoming `null`, so consumers rendering the identity card keep skipping it.
+
+An undeclared `identity.terms` now defaults to `instance + '~/'` at the loader — absolute, matching the convention and the derivation `octothorpes new` already scaffolded via `deriveTerms()`. `PROFILE_DEFAULTS` left it `null`, so hand-authored profiles never picked up the convention that the scaffolder applied. It derives from the NORMALIZED instance and after the env override, so a bare-origin deploy override yields one slash and the right host. An authored value always wins, including a divergent origin.
+
+`resolveProfile` derives the same default rather than assuming a loader ran, which makes `feeds.thorpes` expansion unconditional: the emitted profile always assembles full thorpe URLs from instance + terms + the declared names (`https://x.test/~/cats`). `expandFeeds`' old "no prefix declared, pass the names through" branch is gone — there is no longer a reachable case with no prefix. An empty `thorpes` array drops the slot instead of publishing `[]`, and an undeclared `feeds` still emits `{}`.
+
+Full suite: 1410 passed, 0 failed.
+
+**Files affected:** `packages/core/resolveProfile.js`, `packages/core/profile.js`, `packages/core/client.js` (re-export), `packages/core/profile.schema.json`, `src/tests/resolveProfile.test.js`.
+
+## A declared handler mode with no registered handler is an error
+
+Dispatch precedence stays explicit mode → content-type → default → null, but the fallback steps now apply ONLY when no mode was declared. If a harmonizer definition (or an explicit `mode`/`as` option) names a mode and `getHandler(mode)` returns null, dispatch throws `No handler registered for mode "<mode>" (declared by harmonizer "<id>")` instead of quietly handing the content to the HTML handler. The HTML handler is not a universal decoder: silently decoding CSV or markdown as HTML produced empty blobjects that read as missing data rather than misconfiguration. Both dispatch sites are covered — `harmonizeSource` (`packages/core/client.js`) and the indexer's `dispatch` (`packages/core/indexer.js`) — sharing a new `harmonizerId()` label helper in `packages/core/utils.js` (utils, not client, because client imports indexer and the reverse would be circular). The harmonizer-clause is omitted when the mode came from an option rather than a definition. Behaviour with no declared mode is unchanged, including `as=default` (the default harmonizer declares `mode: html`, always registered) and unknown harmonizer ids, which fail resolution, declare nothing, and still fall through by content-type.
+
+Relatedly, the HTML handler's required-`attribute` check is unconditional again — the `elements.length > 0` hedge added earlier today existed to let CSV-shaped rules fall through this handler harmlessly, which is exactly the silent behaviour being removed.
+
+Verified: `csvHandler`, `harmonizer`, `handlerRegistry`, `indexer`, `indexing`, `handlerDiscovery`, `harmonizerDiscovery`, `anchorHarmonizer`, `calendarHandler`, `calendarHarmonizer`, `markdownHandler`, `xmlHandler`, `core`, `exports` — 374 passed, 0 failed.
+
+**Files affected:** `packages/core/client.js`, `packages/core/indexer.js`, `packages/core/utils.js`, `packages/core/handlers/html/handler.js`, `src/tests/csvHandler.test.js`, `.claude/skills/octothorpes/handlers.md`.
+
+## C14 Memex round-trip test removed
+
+Memex is at a stopping point, so `src/tests/c14MemexRoundtrip.test.js` and its fixture vault `src/tests/fixtures/memex/` are deleted. Nothing in `src/` or `packages/` referenced them; `buildTargetMap` in the markdown handler and `src/tests/markdownWikilinks.test.js` (35 tests, passing) are untouched and remain the coverage for wikilink resolution. Two forward-looking docs that cited the test in the present tense — the batch-indexing R5 recipe and the documentation-recommendations verified-artifacts note — now say it was removed 2026-09-14. Historical release-note entries are left as written.
+
+**Files affected:** `src/tests/c14MemexRoundtrip.test.js` (deleted), `src/tests/fixtures/memex/**` (deleted, 5 fixtures), `docs/plans/point7/180-batch-indexing-mvp.md`, `docs/plans/point7/release notes/documentation-recommendations.md`.
+
+## Profile review 2026-09-15, seven breaking profile changes before the merge (#217)
+
+A last pass over the profile contract before `profile-consumption` merges. All seven are breaking and were taken deliberately now rather than in a patch release, since the profile is the public v0.7 contract.
+
+**1. `policies.indexing.cooldown` replaces `frequency`.** The old string `frequency` is gone. `cooldown` is an integer of seconds (minimum 0, default 300, `0` disables) and applies under every indexing mode: the floor on re-indexing a page under `request`, the crawler's re-check interval under `active`. It is wired into core's `recentlyIndexed`, replacing the hardcoded five minutes, and reaches it as `createClient({ cooldown })`.
+
+**2. `api.linkTypes[]` is `{ by, subtype, objects?, label?, path? }`.** Was `{ type, path, label }`. Declared link types now EXTEND core's builtin `by` table rather than living beside it: new `packages/core/linkTypes.js` holds `BUILTIN_LINK_TYPES` and `mergeLinkTypes`, and a declared `by` colliding with a builtin is a load-time error. MultiPass reads the merged table, so a declared type takes the identical code path to `cited` or `bookmarked`. The resolved `api.linkTypes` is the merged list with each entry tagged `source: builtin | declared`. Both URL forms resolve: `/get/<what>/<declared-by>` is canonical and the optional `path` alias answers in the `what` slot.
+
+**3. `api.documentRecord[].type` is an input alias for `range`.** The loader normalises `type` to `range` before validation; exactly one of the two is required, and the resolved profile always carries `range`.
+
+**4. `api.{publishers,handlers,harmonizers}.named` removed.** The `dir` pointer plus the resolved `available` list is the whole surface.
+
+**5. `policies.labels[]` is `{ id, name, description? }`.** `id` is a bare local name, pattern `^[A-Za-z][A-Za-z0-9_]*$`, the same pattern `api.linkTypes[].subtype` and `api.documentRecord[].predicate` use. This is the minimum shape another client can match on.
+
+**6. Builtin namespaces are `octo`, `rdf`, `rdfs`.** `schema` is demoted to declare-if-wanted, following `foaf`. `rdfs` earns its place because the vocabulary document uses `rdfs:subClassOf` / `rdfs:label`, so `PREFIX rdfs:` joins the SPARQL prologue. The generated vocabulary document with RDFS descriptions is follow-up **#291**.
+
+**7. New `api.routes` projection.** New `packages/core/apiGrammar.js` holds the query grammar (`WHAT_GROUPS`, `WHAT_VALUES`, `WHAT_GROUP_BY_VALUE`, `GET_PARAMS`, `MATCH_VALUES`); `DEFAULT_ROUTES` and `normalizeRoutes` live in `resolveProfile.js`. An adapter passes its mount table as `createClient({ routes })`, defaulting to the SvelteKit relay's shape. The resolved profile publishes a mount-name to URL-template map whose `get` entry also carries `what`/`by`/`as`/`params`/`match`, so a consumer can form queries against a relay it has never talked to. Authoring `api.routes` is a schema error, core cannot introspect an HTTP framework. `api.js`'s `what` switch is now driven by `WHAT_GROUP_BY_VALUE`.
+
+**Files affected:** `packages/core/linkTypes.js` (new), `packages/core/apiGrammar.js` (new), `packages/core/profile.schema.json`, `packages/core/profile.js`, `packages/core/resolveProfile.js`, `packages/core/queryBuilders.js`, `packages/core/api.js`, `packages/core/indexer.js`, `packages/core/client.js`, `packages/core/CHANGELOG.md`, `octothorpes.json`, `src/lib/op.js`, plus the profile test files.
+
+## Profile documentation drafts brought in line with the review (#217)
+
+`docs/drafts/profile/profile.md` and `docs/drafts/profile/profile-reference.md` were edited piecemeal by several passes during the review; this is the consistency sweep. The reference's merged-link-type note had been dropped into the middle of the `api` table, splitting it in two, and the same table's closing line still listed `linkTypes` among the fields passed through to the resolved profile unchanged, it is merged with the builtins, which the note two paragraphs above says. `api.linkTypes` also advertised ad-hoc `?st=` as working (it is #200, unbuilt) and described `label` as feeding the generated vocabulary document (#291, unbuilt). The worked example in `profile.md` was run through `createProfile` against the real schema with an injected `neighbours` endorser and a stubbed `./blocklists/terms.json`: it validates and loads with zero coherence warnings.
+
+**Files affected:** `docs/drafts/profile/profile-reference.md`.
+
+## `mentioned` becomes `octo:Mention` (#292) and `path` is dropped from link types
+
+Two changes to `api.linkTypes`, both breaking, both taken now for the same reason as the 2026-09-15 review batch: the profile is the v0.7 public contract.
+
+**`mentioned` is its own subtype.** It used to be the same table row as `linked` (`objects: notTerms`, no subtype), so the two words returned identical result sets. It is now `{ objects: 'notTerms', subtype: 'Mention', relationTerms: true }`, and `linked` stays the untyped superset. Existing `by=mentioned` queries narrow.
+
+The write side had to exist or the query would return nothing, so the default harmonizer gains a `mention` section selecting `[rel~='octo:mentions']` with `data-octothorpes` terms, exactly parallel to `bookmark` and `cite`, and the indexer's `subtypeMap` maps `mention`/`Mention` to `Mention`. The relationship blank node is then written `rdf:type octo:Mention` by `handleMention`. A mention is an explicit author choice of `rel`, never inferred from link position. The HTML handler needed nothing: sections become `{ type: key, uri }` generically. Known wart, still out of scope: the plain-link section is keyed `link`, so untyped links store as `octo:Link`; `linked` deliberately does not filter on it.
+
+**`path` is removed.** It minted a `[what]`-slot route alias (`/get/items/posted`), no profile ever declared one, and `/get/<what>/<by>` is now the only route form. Declaring `path` is a validation error. The route-layer alias rewrite in `src/routes/get/[what]/[by]/[[as]]/load.js` is gone, and with it the `options.subtype` override in `buildMultiPass` — that block existed solely to serve the route's injection and had no other caller, so a `by` word is now the only thing that sets a subtype filter. The `getStatements` guard that admits subtype-only queries stays: it is what makes `/get/everything/<declared-by>` valid with no `s` or `o`.
+
+**Files affected:** `packages/core/linkTypes.js`, `packages/core/harmonizers.js`, `packages/core/indexer.js`, `packages/core/multipass.js`, `packages/core/profile.schema.json`, `packages/core/CHANGELOG.md`, `src/routes/get/[what]/[by]/[[as]]/load.js`, `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, `.claude/skills/octothorpes/api-reference.md`, `src/tests/integration/golden/smoke/profile-resolved.json`, plus `linkTypes`, `subtypePaths`, `profile-schema`, `harmonizer`, `indexing` and `converters` tests and the `multipass-parity` fixture.
+
+## Coherence warnings between the profile and its harmonizers (#293)
+
+`api.linkTypes` and `api.documentRecord` are declarations; a harmonizer is the thing that actually writes the subtype or extracts the key. They meet on a bare name and, until now, nothing checked that they met at all -- a declared link type nobody writes is a valid query that always returns zero rows, and a declared documentRecord predicate nobody extracts is simply never stored. Both were silent.
+
+`createClient` now runs one pass at init, after harmonizer discovery and `mergeLinkTypes`, and warns in four directions:
+
+- **declared -> harmonizer.** A declared link type whose `subtype` no registered harmonizer section key resolves to, using the indexer's own `resolveSubtype` (imported, not reimplemented, so the capitalisation rule and the alias map cannot drift). Section keys are a schema's top-level keys other than `subject`, `documentRecord` and `hashtag` -- `hashtag` writes terms, not relationships.
+- **declared -> harmonizer, documentRecord.** An `api.documentRecord[].predicate` no harmonizer's `schema.documentRecord` has a key for.
+- **harmonizer -> declared.** A site harmonizer writing a subtype no link type queries, pointing at `api.linkTypes` as the fix. `link`, `button`, `endorse` and `hashtag` are exempt by name: `link` is the untyped-link storage type behind the unfiltered `linked`, and the other two are handled outside the `by` table.
+- **harmonizer -> declared, documentRecord.** A site harmonizer extracting `documentRecord` keys the profile never declared, which the indexer drops at write time.
+
+Builtin link types are exempt in the first direction and builtin harmonizers in the last two: core's own `by` words and core's own `standardSite` documentRecord keys are not a site's misconfiguration, and warning about them on every boot is exactly the noise this check exists to avoid. The whole check is advisory -- it warns, never throws, emits one line per kind and only when the list is non-empty. A blobject POSTed straight to `/index` can legitimately carry a documentRecord no harmonizer ever touched, so an unmatched predicate is a smell rather than an error.
+
+The four lists are also projected onto the resolved profile as `api.coherence` (`{ uncapturedLinkTypes, uncapturedDocumentRecord, unqueriedSubtypes, undeclaredDocumentRecord }`), for a `/profile` page that wants to render them. Like `api.routes` it is projection-only: `api` is a closed schema, so an authored `api.coherence` is a validation error, and `resolveProfile()` called without a client omits the key entirely.
+
+Note for this repo: `octothorpes.json` declares `richContent` and no harmonizer extracts it (it arrives by direct blobject POST), so a relay boot now prints one documentRecord advisory. That warning is correct.
+
+**Files affected:** `packages/core/client.js` (new `checkCoherence`), `packages/core/resolveProfile.js`, `packages/core/CHANGELOG.md`, `src/tests/harmonizerCoherence.test.js` (new), `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, plus `smoke.js` and `op.js` in the companion `op-test-site` repo.
+
+## `npm run api-smoketest`: assert the API surface, not the indexed content (#295)
+
+The existing smoke test is an indexing test: wipe, re-index devdemo, capture `/get` results, diff against goldens. It exercises the read path only as a side effect, compares `actualResults` only, and covers four `what`s by seven `by`s. It says nothing about error paths, match modes, pagination, publishers other than rss, or whether the grammar the relay advertises in `/profile.json` is the grammar it actually accepts.
+
+`scripts/api-smoketest.js` is the read-only sibling. It never wipes, re-indexes or writes to the target — the only thing it writes is a local JSON report — so it is safe to point at production. Every request yields a row `{ section, name, url, status, contentType, envelope, ms, result, note }` classified `ok` / `empty` / `error` / `slow`, the classification ported from the `/debug/api-check` page's client script with `slow` added on top: the `/get` planner blowup is a known regression class, so a 200 over the latency budget is a finding rather than a pass. Five sections:
+
+- **shared** — the exact URL set `buildQueries(manifest, { tier: 'smoke' })` produces, asserted for status and envelope only.
+- **grammar** — every `what` x `by` and every `as` the target advertises in `api.routes`, so the advertised and the accepted grammar cannot disagree silently, plus a drift guard asserting every `by` in `matrix.js` appears in `api.routes.get.by`. A target predating the projection (pre-merge staging) has no `api.routes`; the sweep falls back to the local matrix and prints one line saying so rather than failing.
+- **negative** — unknown `by`, unknown `what`, bad `match`, `everything/posted` with no `s`/`o`/`rt`, unknown `as`. Each must be a 4xx with a non-empty body.
+- **match** — all seven match modes on `pages/thorped`, plus `limit=5` against `limit=5&offset=5` asserted disjoint by `@id`.
+- **publishers** — one request per `api.publishers.available` entry, asserting content-type per format and that the body parses.
+
+Flags: `--instance=`, `--report=`, `--budget=` (default 2000ms), `--section=`, `--diff=<saved report>`. A bare run exits non-zero on any error or 5xx; `--diff` exits non-zero only on **new** errors, so a target already known-broken does not make every comparison red. The runner is exported, so `src/tests/integration/api-smoketest.test.js` runs the same sweep in-process against the `.env` instance and auto-skips when the target is down, mirroring `smoketest.test.js`.
+
+The self-identity preflight — the check that keeps a run from silently targeting the wrong instance — was extracted from `scripts/smoketest.js` to `src/tests/integration/preflight.js` and is now imported by both. It takes an `abort` callback rather than calling `process.exit` itself, and `requireSparql: false` for the read-only path. `/debug/api-check` is unchanged and kept as the interactive view.
+
+**Findings from the first local run** (server behaviour, not script bugs; not fixed here):
+
+1. Every negative case returns **500 `{"message":"Internal Error"}`**, not a 4xx. `src/routes/get/[what]/[by]/[[as]]/+server.js` calls `load()` with no try/catch, so any core validation error becomes a SvelteKit 500 with the message swallowed. Unknown `by`, unknown `what`, bad `match` and the unbounded `everything/posted` all land here.
+2. **Unknown `as` returns 200.** `/get/everything/posted/nosuchpublisher` silently falls through to the default JSON envelope instead of rejecting the publisher name.
+3. **Every match mode on `pages/thorped` takes ~10–11s**, including `exact`. This is the known planner blowup, now measured per-mode rather than anecdotally.
+4. The plain (non-`debug`) `/get` envelope is `{ results: [...] }`, not a bare array, and its rows key on `uri`, not `@id`; only `/debug`'s `actualResults` rows carry `@id`. The script accepts both shapes and records which one it saw.
+
+**Staging baseline** (`next.octothorp.es`, pre-merge, `tmp/api-smoketest/baseline-next-pre-merge.json`): 67 requests, 48 ok, 14 empty, 0 slow, 5 error, 4 5xx. The same five negative cases fail the same way, confirming findings 1 and 2 are not local. Two differences worth recording: staging advertises no `api.routes` (the projection is unmerged), so the grammar sweep fell back to the local matrix and covered 28 combinations instead of 154 — `mentioned` is therefore untested there, and the first post-merge run is what will exercise it. And **staging shows no planner blowup at all**: its worst request was 1437ms against ~11s locally for the same query, so finding 3 is either local-store-specific or dataset-size-specific rather than a property of the query.
+
+**Files affected:** `scripts/api-smoketest.js` (new), `src/tests/integration/preflight.js` (new), `src/tests/integration/api-smoketest.test.js` (new), `scripts/smoketest.js`, `package.json`, `README.md`.
+
+## `/get` validation errors are 4xx with a short message (#295 findings 1 and 2)
+
+The api-smoketest's first two findings are fixed. Both came from the same place: core threw plain `Error`s that nothing mapped, so every malformed query was a SvelteKit 500 `{"message":"Internal Error"}` with the actual reason swallowed.
+
+Core now throws a typed error. `packages/core/errors.js` adds `QueryError extends Error` — a caller error carrying an HTTP `status` (default 400) — plus `isQueryError`, which also admits any error with a numeric `status`. Both are re-exported from the package root. The four throw sites are retyped and their messages shortened to the whole of the response body, with the old hint text dropped:
+
+- `Invalid route.` → `unknown what: <what>` (`api.js`, both switch defaults)
+- `Invalid "match by" route. You must specify a valid link, parent, or term type"` → `unknown by: <by>` (`multipass.js`)
+- `Invalid match type. Either omit or use one of the following: ...` → `unknown match: <match>` (`multipass.js`)
+- `Must provide at least subjects, objects, or relationship terms` → `query needs s, o, or rt` (`queryBuilders.js`)
+
+The `getStatements` guard itself is untouched — a subtype-only query (`pages/cited` with no `s`/`o`) is still admitted.
+
+Finding 2, unknown `as`: `client.get()` looked up the publisher, got `null`, and fell through to the plain JSON envelope, so a typo'd feed URL looked like a working endpoint. It now throws `unknown publisher: <as>` with status 404 when `as` is present and names nothing registered. `as` absent is unchanged, and `debug`/`multipass` still short-circuit before the lookup.
+
+Transport mapping lives in one place: `src/lib/queryErrorResponse.js` turns a `QueryError` into `{"error": "<message>"}` at its status with JSON + CORS headers, and **rethrows anything else** so a genuine bug is still a 500. `/get/[what]/[by]/[[as]]/+server.js` wraps its `load()` in it. The legacy `/debug/[what]/[by]` route (a pre-core, non-executing duplicate of `/get/.../debug`) was deleted 2026-09-17 rather than retyped.
+
+Verified locally: all five negative smoketest cases now pass (400 / 400 / 400 / 400 / 404) and the publisher sweep is still 5/5 200s with correct content types.
+
+**Files affected:** `packages/core/errors.js` (new), `packages/core/api.js`, `packages/core/multipass.js`, `packages/core/queryBuilders.js`, `packages/core/client.js`, `packages/core/CHANGELOG.md`, `src/lib/queryErrorResponse.js` (new), `src/routes/get/[what]/[by]/[[as]]/+server.js` (removed: `src/routes/debug/[what]/[by]/`), `src/tests/getRouteErrors.test.js` (new), `src/tests/apiRoutes.test.js`, `src/tests/linkTypes.test.js`, `src/tests/converters.test.js`.
+
+## api-smoketest reports become durable, body-capturing snapshots (#295)
+
+The api-smoketest's report stopped being scratch output. The URL set only moves when OP moves, so what every URL returned *before* an API change is worth keeping in version control.
+
+**Bodies are captured.** Each row now carries `body`, normalized by exactly the same code path the indexing smoketest normalizes its goldens with — `normalize` / `normalizeRss` plus a new shared `normOptsFor(instanceOrigin, scopeHost)` in `src/tests/integration/normalize.js`, which `scripts/smoketest.js` now also calls instead of building the options object inline. Volatile dates drop, the instance origin becomes `{INSTANCE}`, arrays sort stably. JSON bodies are stored parsed; xml/ics as strings (ICS `DTSTAMP` and publisher-generated `createdAt` are stamped `{DATE}`, since they churn every run). For `/debug` rows `multiPass` and `actualResults` are kept but the `query` string is **dropped**: SPARQL text churns with every builder tweak and is not API surface.
+
+**Tracked location.** Reports land in `src/tests/integration/api-snapshots/<host>/<ISO timestamp>.json` with a per-host `latest.json` copy; `tmp/` is gone from the defaults. A partial `--section` run never claims `latest.json`. `--report=<path>` still overrides. `src/tests/integration/captured/` stays gitignored; the new snapshot directory is not.
+
+**Diff compares bodies.** `--diff` adds a compact per-row body comparison on top of status/envelope/result/latency: added, removed and changed top-level keys for objects; count delta plus the first differing `@id`/`uri` for result arrays; changed/unchanged for strings. Body differences are **information, never failure** — the run still exits non-zero only on new errors, because the indexing smoketest is the golden gate. `npm run api-smoketest:diff` now defaults to the target host's own `latest.json` instead of a hardcoded `tmp/` path.
+
+**Meta.** `--label=<text>`, plus target, timestamp, this repo's short git HEAD, whether the target advertised `api.routes`, and the `--cap` value (result arrays can be capped per row).
+
+**Baselines captured.** The earlier status-only run is preserved as `api-snapshots/next.octothorp.es/2026-09-16-pre-merge-baseline-status-only.json` (`meta.bodies: false`; the diff tolerates a side with no bodies). A full pre-merge baseline **with** bodies was captured against staging on 2026-09-17 — 67 rows, 332 KB, well under the cap threshold — and a second read-only run diffed against it with **0 changes**, confirming the normalization is run-to-run stable. Staging's 4 negative-sweep 5xx rows are expected: it is still pre-merge and does not yet carry the 4xx query-error work.
+
+The vitest wrapper is unaffected and writes nothing: it calls `runApiSmoketest()` in-process; only the CLI writes reports.
+
+**Files affected:** `scripts/api-smoketest.js`, `scripts/smoketest.js`, `src/tests/integration/normalize.js`, `package.json`, `README.md`, `src/tests/integration/api-snapshots/` (new, tracked).
 ## `/get` phase-1 query: required pattern stranded below the OPTIONAL stack (#282)
 
 The long-standing ~10-12s `/get` slowdown was a single misplaced line in `buildSimpleQuery`. `?s rdf:type ?pageType .` — a **required** triple pattern — was emitted after four `OPTIONAL` blocks. Oxigraph 0.4+ will not hoist a required pattern above a `LeftJoin`, so it left-joined the whole OPTIONAL stack against an unconstrained intermediate. Moved into the required block: after `?s ?o ?date .` in the objects branch, after `?s octo:created ?date .` in the `objects: none` branch.

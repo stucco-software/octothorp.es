@@ -22,7 +22,7 @@ The name of the folder is the name you'll put in the URL. A folder called `zines
 
 ## resolver.json
 
-The resolver says which OP fields become which of your fields. Nothing about your output format goes in here -- just the mapping.
+The resolver maps what comes out of OP to other data formats. It doesn't actually do the conversion -- it's what the renderer will use to do that.
 
 ```json
 {

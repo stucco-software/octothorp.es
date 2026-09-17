@@ -1,56 +1,120 @@
 import { getFuzzyTags } from './utils.js'
+import { QueryError } from './errors.js'
 
 /**
- * documentRecord namespace -> IRI base map (#237).
+ * documentRecord predicate resolution (#237).
  *
- * The profile declares each documentRecord predicate as `{ predicate, namespace,
- * range }` where `namespace` is a short prefix ("schema", "octo", ...). The read
- * path resolves it to a full IRI here — this is the single core-owned resolver so
- * the read query and any future write path agree on the predicate IRI. An entry
- * may carry an explicit `iri` to bypass the map entirely.
+ * documentRecord predicates live ONLY in the OP (`octo:`) namespace. An entry is
+ * `{ predicate, range }`, where `predicate` is a BARE local name, and its IRI is
+ * always OCTO_NAMESPACE + predicate. Adding a documentRecord entry IS "add a
+ * field to the octo namespace"; it is not a way to mint triples in someone
+ * else's vocabulary. Foreign ontologies are declared in the profile's
+ * `vocabulary.namespaces` and extracted by harmonizers instead.
  *
  * NOTE (RDF-star insulation): documentRecord predicates are queried DIRECTLY as
  * plain leaf triples (`?s <iri> ?value`), never through the relationship /
  * blank-node machinery. This keeps the feature orthogonal to the RDF-star
  * migration.
  */
-export const documentRecordNamespaces = {
-  schema: 'https://schema.org/',
-  octo: 'https://vocab.octothorp.es#',
-  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-  foaf: 'http://xmlns.com/foaf/0.1/',
+/**
+ * Protocol builtins. Core ships only the namespaces the protocol itself needs;
+ * everything else is declared in the profile's vocabulary.namespaces (#217).
+ * foaf was audited as unused in the #217 gap audit and demoted to
+ * declare-if-you-want-it — it is no longer a builtin or a SPARQL prologue PREFIX.
+ * schema was demoted the same way: documentRecord predicates are octo-only, so
+ * nothing in the protocol needs schema.org — declare it in
+ * vocabulary.namespaces if you want it. rdfs replaced it in the builtin set,
+ * because the generated vocabulary document uses rdfs:subClassOf/label.
+ *
+ * This list and the SPARQL prologue in ld/prefixes.js must stay in lockstep.
+ */
+export const BUILTIN_NAMESPACES = Object.freeze([
+  Object.freeze({ prefix: 'octo', iri: 'https://vocab.octothorp.es#', import: false, source: 'builtin' }),
+  Object.freeze({ prefix: 'rdf', iri: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', import: false, source: 'builtin' }),
+  Object.freeze({ prefix: 'rdfs', iri: 'http://www.w3.org/2000/01/rdf-schema#', import: false, source: 'builtin' }),
+])
+
+/**
+ * Merge profile-declared namespaces over the protocol builtins.
+ * A declared prefix shadows a builtin of the same name (forking a namespace is
+ * deliberate and identity-affecting, same caveat as vocabulary.octo).
+ *
+ * NOTE (#217, deferred to #270): `import: true` is validated and carried
+ * through here, but loading the ontology's triples into a named graph is NOT
+ * implemented in v0.7. Both values resolve identically today — import is
+ * DECLARE-ONLY. Do not add fetch/load behavior here; it belongs in the init
+ * step alongside #270's graph-model work.
+ *
+ * @param {Array<{prefix:string, iri:string, import?:boolean}>} [declared=[]]
+ * @returns {Array<{prefix:string, iri:string, import:boolean, source:'builtin'|'declared'}>}
+ */
+export const mergeNamespaces = (declared = []) => {
+  const tagged = (declared ?? []).map((ns) => ({
+    prefix: ns.prefix,
+    iri: ns.iri,
+    import: ns.import ?? false,
+    source: 'declared',
+  }))
+  const shadowed = new Set(tagged.map((n) => n.prefix))
+  return [
+    ...BUILTIN_NAMESPACES.filter((n) => !shadowed.has(n.prefix)).map((n) => ({ ...n })),
+    ...tagged,
+  ]
 }
 
 /**
+ * Flatten a namespace list to a prefix -> IRI lookup.
+ * @param {Array<{prefix:string, iri:string}>} [namespaces]
+ * @returns {Record<string,string>}
+ */
+export const namespaceMap = (namespaces = BUILTIN_NAMESPACES) =>
+  Object.fromEntries((namespaces ?? []).map((n) => [n.prefix, n.iri]))
+
+/**
+ * The octo namespace base, taken from the protocol builtins. documentRecord
+ * predicates always resolve against this and nothing else.
+ * @type {string}
+ */
+export const OCTO_NAMESPACE = BUILTIN_NAMESPACES.find((n) => n.prefix === 'octo').iri
+
+/**
+ * A documentRecord `predicate` must be a bare local name: a letter followed by
+ * letters, digits or underscores. This is what stops `schema:foo`, a full IRI or
+ * a path segment from being smuggled in through the predicate string.
+ */
+export const DOCUMENT_RECORD_PREDICATE_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/
+
+/**
  * Resolve a documentRecord declaration entry to a full predicate IRI.
- * @param {{predicate:string, namespace?:string, iri?:string}} entry
- * @returns {string|null} full IRI, or null when the namespace is unknown (entry
- *   is then skipped from the query — a malformed IRI is never injected).
+ * Always `octo:` + the bare predicate name.
+ * @param {{predicate:string}} entry
+ * @returns {string|null} full IRI, or null when the predicate is missing or is
+ *   not a bare local name (entry is then skipped — a malformed IRI is never
+ *   injected, and a prefixed/absolute predicate is never honoured).
  */
 export const resolveDocumentRecordIri = (entry) => {
-  if (!entry || !entry.predicate) return null
-  if (entry.iri) return entry.iri
-  const base = documentRecordNamespaces[entry.namespace]
-  if (!base) return null
-  return `${base}${entry.predicate}`
+  if (!entry || typeof entry.predicate !== 'string') return null
+  if (!DOCUMENT_RECORD_PREDICATE_PATTERN.test(entry.predicate)) return null
+  return `${OCTO_NAMESPACE}${entry.predicate}`
 }
 
 /**
  * Deterministic, SPARQL-safe binding variable name for a documentRecord entry.
  * Shared by the query builder (which SELECTs it) and the projector in
  * blobject.js (which reads it), so the two never drift.
- * @param {{predicate:string, namespace?:string}} entry
- * @returns {string} e.g. "dr_schema_encodingFormat"
+ * @param {{predicate:string}} entry
+ * @returns {string} e.g. "dr_encodingFormat"
  */
 export const documentRecordVar = (entry) =>
-  `dr_${entry.namespace ?? 'x'}_${entry.predicate}`.replace(/[^A-Za-z0-9_]/g, '_')
+  `dr_${entry.predicate}`.replace(/[^A-Za-z0-9_]/g, '_')
 
 /**
  * Build the SELECT vars and OPTIONAL leaf patterns that surface declared
  * documentRecord predicates for the result subjects. Declaration-driven: only
  * declared predicates are queried (the admission allowlist), and each is a plain
- * `?s <iri> ?var` leaf — no FILTER(isBlank(...)) path.
- * @param {Array<{predicate:string, namespace?:string, iri?:string}>} [schema=[]]
+ * `?s <iri> ?var` leaf — no FILTER(isBlank(...)) path. Every predicate resolves
+ * under `octo:`; see resolveDocumentRecordIri.
+ * @param {Array<{predicate:string}>} [schema=[]]
  * @returns {{selectVars:string, optionals:string}}
  */
 export const buildDocumentRecordClauses = (schema = []) => {
@@ -295,12 +359,13 @@ export const createQueryBuilders = (instance, queryArray) => {
   function getStatements(subjects, objects, filters, resultMode) {
     const hasSubjects = subjects.include.length > 0 || subjects.exclude.length > 0
     const hasObjects = objects.include.length > 0 || objects.exclude.length > 0
-    // C9 (#236): a declared-subtype path (e.g. /get/items/posted) constrains the
+    // C9 (#236): a subtype-only query (the `by` word of a declared link type,
+    // e.g. /get/everything/reviewed, or its /get/<path>/posted alias) constrains the
     // result set by the relationship subtype alone, with no subject/object. The
     // subtype FILTER EXISTS is itself a bounding constraint, so admit it as one
     // (mirrors the relationTerms allowance) rather than rejecting as unbounded.
     if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0) && !filters.subtype) {
-      throw new Error('Must provide at least subjects, objects, or relationship terms');
+      throw new QueryError('query needs s, o, or rt');
     }
 
     const subjectStatement = buildSubjectStatement(subjects)

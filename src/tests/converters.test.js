@@ -54,13 +54,16 @@ describe('getMultiPassFromParams', () => {
       expect(multiPass.filters.relationTerms).toContain('tools')
     })
 
-    it('should parse rt for mentioned (no subtype)', () => {
+    // #292: `mentioned` is the typed relationship octo:Mention now, not a
+    // second spelling of `linked`. ?rt= still applies — it is a typed
+    // relationship, which is exactly the blank node terms hang off.
+    it('should parse rt for mentioned (Mention subtype)', () => {
       const params = { what: 'pages', by: 'mentioned' }
       const url = new URL('http://localhost:5173/get/pages/mentioned?rt=tools')
 
       const multiPass = getMultiPassFromParams(params, url)
 
-      expect(multiPass.filters.subtype).toBe('')
+      expect(multiPass.filters.subtype).toBe('Mention')
       expect(multiPass.filters.relationTerms).toContain('tools')
     })
 
@@ -328,7 +331,7 @@ describe('buildMultiPass', () => {
   it('should reject +thorped modifier (removed)', () => {
     expect(() => {
       buildMultiPass('pages', 'bookmarked+thorped', { o: 'gadgets' }, instance)
-    }).toThrow(/Invalid/)
+    }).toThrow(/unknown by/)
   })
 
   it('should handle posted/all with no objects', () => {

@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { getBlobjectFromResponse, coerceDocumentRecordValue } from '../../packages/core/blobject.js'
 
+// Octo-only declaration shape (2026-09-14): { predicate, range }.
 const SCHEMA = [
-  { predicate: 'encodingFormat', namespace: 'schema', range: 'literal' },
-  { predicate: 'contentUrl', namespace: 'schema', range: 'uri' },
-  { predicate: 'contentSize', namespace: 'schema', range: 'number' },
-  { predicate: 'dateCreated', namespace: 'schema', range: 'timestamp' },
-  { predicate: 'active', namespace: 'schema', range: 'boolean' },
-  { predicate: 'addedBy', namespace: 'memex', iri: 'https://vocab.octothorp.es/memex#addedBy', range: 'literal' },
+  { predicate: 'encodingFormat', range: 'literal' },
+  { predicate: 'contentUrl', range: 'uri' },
+  { predicate: 'contentSize', range: 'number' },
+  { predicate: 'dateCreated', range: 'timestamp' },
+  { predicate: 'active', range: 'boolean' },
+  { predicate: 'addedBy', range: 'literal' },
 ]
 
 // Build a minimal blobject-shaped binding row with documentRecord vars.
@@ -60,12 +61,12 @@ describe('C6 getBlobjectFromResponse - documentRecord projection', () => {
       results: {
         bindings: [
           row('https://ex.com/a', {
-            dr_schema_encodingFormat: 'image/jpeg',
-            dr_schema_contentUrl: 'https://ex.com/IMG.jpeg',
-            dr_schema_contentSize: '20481',
-            dr_schema_dateCreated: '1700000000000',
-            dr_schema_active: 'true',
-            dr_memex_addedBy: 'memex-1',
+            dr_encodingFormat: 'image/jpeg',
+            dr_contentUrl: 'https://ex.com/IMG.jpeg',
+            dr_contentSize: '20481',
+            dr_dateCreated: '1700000000000',
+            dr_active: 'true',
+            dr_addedBy: 'memex-1',
           }),
         ],
       },
@@ -84,7 +85,7 @@ describe('C6 getBlobjectFromResponse - documentRecord projection', () => {
   it('omits declared-but-absent predicates (no null keys)', async () => {
     const response = {
       results: {
-        bindings: [row('https://ex.com/a', { dr_schema_encodingFormat: 'text/plain' })],
+        bindings: [row('https://ex.com/a', { dr_encodingFormat: 'text/plain' })],
       },
     }
     const [blob] = await getBlobjectFromResponse(response, undefined, SCHEMA)
@@ -97,7 +98,7 @@ describe('C6 getBlobjectFromResponse - documentRecord projection', () => {
       results: {
         bindings: [
           row('https://ex.com/a', {
-            dr_schema_encodingFormat: 'text/plain',
+            dr_encodingFormat: 'text/plain',
             dr_evil_password: 'hunter2', // undeclared: never looped, never surfaced
           }),
         ],
@@ -110,7 +111,7 @@ describe('C6 getBlobjectFromResponse - documentRecord projection', () => {
 
   it('non-numeric literal declared as number -> key dropped', async () => {
     const response = {
-      results: { bindings: [row('https://ex.com/a', { dr_schema_contentSize: 'lots' })] },
+      results: { bindings: [row('https://ex.com/a', { dr_contentSize: 'lots' })] },
     }
     const [blob] = await getBlobjectFromResponse(response, undefined, SCHEMA)
     expect(blob.documentRecord).toBeUndefined()
@@ -118,7 +119,7 @@ describe('C6 getBlobjectFromResponse - documentRecord projection', () => {
 
   it('empty schema -> no documentRecord key (zero regression)', async () => {
     const response = {
-      results: { bindings: [row('https://ex.com/a', { dr_schema_encodingFormat: 'x' })] },
+      results: { bindings: [row('https://ex.com/a', { dr_encodingFormat: 'x' })] },
     }
     const [blob] = await getBlobjectFromResponse(response, undefined, [])
     expect('documentRecord' in blob).toBe(false)
@@ -134,8 +135,8 @@ describe('C6 getBlobjectFromResponse - documentRecord projection', () => {
     const response = {
       results: {
         bindings: [
-          row('https://ex.com/a', { dr_memex_addedBy: 'alice' }),
-          row('https://ex.com/b', { dr_memex_addedBy: 'bob' }),
+          row('https://ex.com/a', { dr_addedBy: 'alice' }),
+          row('https://ex.com/b', { dr_addedBy: 'bob' }),
         ],
       },
     }

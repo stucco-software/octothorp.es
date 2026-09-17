@@ -265,6 +265,32 @@ describe('External Harmonizer Support', () => {
       // This pattern has nested quantifiers that could cause backtracking
       expect(catastrophicPattern).toMatch(/(\(.+\)\+|\(.+\)\*){2,}/)
     })
+
+    it('should throw an informative error when a rule is missing "attribute"', async () => {
+      const testSchema = {
+        subject: { s: 'source' },
+        test: {
+          o: [{ selector: 'h1' }]
+        }
+      }
+
+      await expect(harmonizeSource(sampleHTML, testSchema)).rejects.toThrow(
+        /Harmonizer rule for selector "h1" is missing required "attribute"/
+      )
+    })
+
+    it('should throw an informative error when a matched element has no such attribute', async () => {
+      const testSchema = {
+        subject: { s: 'source' },
+        test: {
+          o: [{ selector: 'h1', attribute: 'data-does-not-exist' }]
+        }
+      }
+
+      await expect(harmonizeSource(sampleHTML, testSchema)).rejects.toThrow(
+        /Harmonizer rule "h1" -> "data-does-not-exist": matched element has no such attribute/
+      )
+    })
   })
 
   describe('Harmonizer Parameter Flow', () => {
@@ -326,6 +352,26 @@ describe('External Harmonizer Support', () => {
       expect(bookmark).toBeDefined()
       expect(bookmark.uri).toBe('https://example.com/page')
       expect(bookmark.terms).toBeUndefined()
+    })
+
+    // #292: `mention` is a first-class typed link, parallel to bookmark/cite.
+    // An author opts in with rel="octo:mentions"; nothing is inferred.
+    it('should extract a mention from an octo:mentions link', async () => {
+      const htmlWithMention = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:mentions" href="https://example.org/x" data-octothorpes="a,b">Someone</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithMention)
+
+      const mention = result.octothorpes.find(o => o.type === 'mention')
+      expect(mention).toBeDefined()
+      expect(mention.uri).toBe('https://example.org/x')
+      expect(mention.terms).toEqual(['a', 'b'])
     })
 
     it('should extract terms from citation links', async () => {

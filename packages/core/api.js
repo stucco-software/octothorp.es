@@ -2,6 +2,8 @@ import { buildMultiPass } from './multipass.js'
 import { getBlobjectFromResponse, createEnrichBlobjectTargets } from './blobject.js'
 import { createQueryBuilders } from './queryBuilders.js'
 import { parseBindings } from './utils.js'
+import { WHAT_GROUP_BY_VALUE } from './apiGrammar.js'
+import { QueryError } from './errors.js'
 
 /**
  * Creates the OP API service layer.
@@ -11,10 +13,12 @@ import { parseBindings } from './utils.js'
  * @param {Function} config.queryBoolean - SPARQL ASK query function
  * @param {Function} config.insert - SPARQL INSERT function
  * @param {Function} config.query - SPARQL UPDATE function
+ * @param {Array} [config.linkTypes] - merged link-type table (mergeLinkTypes result).
+ *   Omitted, buildMultiPass falls back to the builtins.
  * @returns {Object} API with get() and fast.*
  */
 export const createApi = (config) => {
-  const { instance, queryArray, queryBoolean, insert, query: sparqlQuery } = config
+  const { instance, queryArray, queryBoolean, insert, query: sparqlQuery, linkTypes } = config
   const builders = createQueryBuilders(instance, queryArray)
   const enrichBlobjectTargets = createEnrichBlobjectTargets(queryArray)
 
@@ -27,34 +31,27 @@ export const createApi = (config) => {
    * @returns {Object} Query results
    */
   const get = async (what, by, options = {}) => {
-    const multiPass = buildMultiPass(what, by, options, instance)
+    const multiPass = buildMultiPass(what, by, { ...options, linkTypes: options.linkTypes ?? linkTypes }, instance)
     const as = options.as
 
     // Early return for multipass endpoint
     if (as === 'multipass') {
       let query = ''
-      switch (what) {
-        case 'pages':
-        case 'links':
-        case 'backlinks':
+      switch (WHAT_GROUP_BY_VALUE[what]) {
+        case 'simple':
           query = builders.buildSimpleQuery(multiPass)
           break
         case 'everything':
-        case 'blobjects':
-        case 'whatever':
           query = await builders.buildEverythingQuery({ ...multiPass, documentRecordSchema: options.documentRecordSchema })
           break
         case 'thorpes':
-        case 'octothorpes':
-        case 'tags':
-        case 'terms':
           query = builders.buildThorpeQuery(multiPass)
           break
         case 'domains':
           query = builders.buildDomainQuery(multiPass)
           break
         default:
-          throw new Error('Invalid route.')
+          throw new QueryError(`unknown what: ${what}`)
       }
       return { multiPass, query }
     }
@@ -62,10 +59,11 @@ export const createApi = (config) => {
     let query = ''
     let actualResults = ''
 
-    switch (what) {
-      case 'pages':
-      case 'links':
-      case 'backlinks': {
+    // The accepted `what` words are WHAT_GROUPS (apiGrammar.js), not a list
+    // restated here — that shared source is what keeps the resolved profile's
+    // api.routes.get.what honest about which words this switch actually admits.
+    switch (WHAT_GROUP_BY_VALUE[what]) {
+      case 'simple': {
         query = builders.buildSimpleQuery(multiPass)
         const sr = await queryArray(query)
         actualResults = parseBindings(sr.results.bindings)
@@ -78,9 +76,7 @@ export const createApi = (config) => {
         }
         break
       }
-      case 'everything':
-      case 'blobjects':
-      case 'whatever': {
+      case 'everything': {
         // C7 (#237): the profile's documentRecord schema is injected by the
         // route/adapter layer as options.documentRecordSchema (core never reads
         // the profile itself). Undefined when no profile is wired -> projection
@@ -92,10 +88,7 @@ export const createApi = (config) => {
         actualResults = await enrichBlobjectTargets(actualResults)
         break
       }
-      case 'thorpes':
-      case 'octothorpes':
-      case 'tags':
-      case 'terms': {
+      case 'thorpes': {
         query = builders.buildThorpeQuery(multiPass)
         const tr = await queryArray(query)
         actualResults = parseBindings(tr.results.bindings, 'terms')
@@ -108,7 +101,7 @@ export const createApi = (config) => {
         break
       }
       default:
-        throw new Error('Invalid route.')
+        throw new QueryError(`unknown what: ${what}`)
     }
 
     if (as === 'debug') {

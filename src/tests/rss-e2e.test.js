@@ -45,7 +45,7 @@ describe('end-to-end: RSS feed via indexSource', () => {
     const client = createClient({
       instance: 'http://localhost:5173/',
       sparql: { sparql_endpoint: 'http://0.0.0.0:7878' },
-      indexPolicy: 'active',
+      indexingMode: 'active',
     })
 
     const result = await client.indexSource('https://e2e.example.com/feed', {

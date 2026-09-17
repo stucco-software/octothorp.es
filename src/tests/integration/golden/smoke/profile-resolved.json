@@ -1,0 +1,320 @@
+{
+  "identity": {
+    "instance": "{INSTANCE}/",
+    "name": "Octothorpes",
+    "description": "The Octothorpes Protocol relay and reference client.",
+    "terms": "{INSTANCE}/~/",
+    "rules": "{INSTANCE}/terms",
+    "feeds": {
+      "thorpes": [
+        "{INSTANCE}/~/cats",
+        "{INSTANCE}/~/octothorpe-news"
+      ],
+      "multipass": "https://octothorp.es/news-and-favs.json"
+    },
+    "images": {
+      "favicon": "{INSTANCE}/favicon.ico",
+      "avatar": "{INSTANCE}/avatar.png"
+    },
+    "contact": {
+      "email": "admin@octothorp.es",
+      "bluesky": "@octothorp.es"
+    }
+  },
+  "policies": {
+    "commercial": false,
+    "labels": [],
+    "indexing": {
+      "mode": "request",
+      "cooldown": 300
+    },
+    "access": {
+      "registration": "registered",
+      "badge": "{INSTANCE}/badge.png",
+      "blocks": {
+        "domains": [
+          "example.com"
+        ],
+        "terms": []
+      },
+      "whitelist": {
+        "domains": []
+      },
+      "endorsement": {
+        "sources": []
+      }
+    }
+  },
+  "api": {
+    "linkTypes": [
+      {
+        "by": "all",
+        "objects": "none",
+        "subtype": null,
+        "relationTerms": false,
+        "source": "builtin"
+      },
+      {
+        "by": "backlinked",
+        "objects": "pages",
+        "subtype": "Backlink",
+        "relationTerms": true,
+        "source": "builtin"
+      },
+      {
+        "by": "bookmarked",
+        "objects": "notTerms",
+        "subtype": "Bookmark",
+        "relationTerms": true,
+        "source": "builtin"
+      },
+      {
+        "by": "cited",
+        "objects": "notTerms",
+        "subtype": "Cite",
+        "relationTerms": true,
+        "source": "builtin"
+      },
+      {
+        "by": "in-webring",
+        "objects": "all",
+        "subtype": null,
+        "relationTerms": false,
+        "subjects": "byParent",
+        "source": "builtin"
+      },
+      {
+        "by": "linked",
+        "objects": "notTerms",
+        "subtype": null,
+        "relationTerms": true,
+        "source": "builtin"
+      },
+      {
+        "by": "member-of",
+        "objects": "all",
+        "subtype": null,
+        "relationTerms": false,
+        "subjects": "byParent",
+        "source": "builtin"
+      },
+      {
+        "by": "members",
+        "objects": "all",
+        "subtype": null,
+        "relationTerms": false,
+        "subjects": "byParent",
+        "source": "builtin"
+      },
+      {
+        "by": "mentioned",
+        "objects": "notTerms",
+        "subtype": "Mention",
+        "relationTerms": true,
+        "source": "builtin"
+      },
+      {
+        "by": "octothorped",
+        "objects": "terms",
+        "subtype": null,
+        "relationTerms": false,
+        "source": "builtin"
+      },
+      {
+        "by": "posted",
+        "objects": "none",
+        "subtype": null,
+        "relationTerms": false,
+        "source": "builtin"
+      },
+      {
+        "by": "tagged",
+        "objects": "terms",
+        "subtype": null,
+        "relationTerms": false,
+        "source": "builtin"
+      },
+      {
+        "by": "termed",
+        "objects": "terms",
+        "subtype": null,
+        "relationTerms": false,
+        "source": "builtin"
+      },
+      {
+        "by": "thorped",
+        "objects": "terms",
+        "subtype": null,
+        "relationTerms": false,
+        "source": "builtin"
+      }
+    ],
+    "documentRecord": [
+      {
+        "predicate": "richContent",
+        "range": "literal"
+      }
+    ],
+    "coherence": {
+      "uncapturedLinkTypes": [],
+      "uncapturedDocumentRecord": [
+        "richContent"
+      ],
+      "unqueriedSubtypes": [],
+      "undeclaredDocumentRecord": []
+    },
+    "publishers": {
+      "available": [
+        "bluesky",
+        "ics",
+        "rss",
+        "rss2",
+        "standardSiteDocument"
+      ]
+    },
+    "handlers": {
+      "default": "html",
+      "available": [
+        "blobject",
+        "calendar",
+        "html",
+        "json",
+        "markdown",
+        "null",
+        "xml"
+      ]
+    },
+    "harmonizers": {
+      "available": [
+        "anchors",
+        "csv",
+        "default",
+        "ghost",
+        "keywords",
+        "openGraph",
+        "rss",
+        "schema-org",
+        "standardSite",
+        "vevent"
+      ]
+    },
+    "routes": {
+      "get": {
+        "template": "/get/{what}/{by}/{as}",
+        "what": [
+          "backlinks",
+          "blobjects",
+          "domains",
+          "everything",
+          "links",
+          "octothorpes",
+          "pages",
+          "tags",
+          "terms",
+          "thorpes",
+          "whatever"
+        ],
+        "by": [
+          "all",
+          "backlinked",
+          "bookmarked",
+          "cited",
+          "in-webring",
+          "linked",
+          "member-of",
+          "members",
+          "mentioned",
+          "octothorped",
+          "posted",
+          "tagged",
+          "termed",
+          "thorped"
+        ],
+        "as": [
+          "bluesky",
+          "ics",
+          "rss",
+          "rss2",
+          "standardSiteDocument"
+        ],
+        "params": [
+          "created",
+          "feedauthor",
+          "feeddescription",
+          "feedimage",
+          "feedtitle",
+          "indexed",
+          "limit",
+          "match",
+          "not-o",
+          "not-s",
+          "o",
+          "offset",
+          "rt",
+          "s",
+          "when"
+        ],
+        "match": [
+          "all",
+          "exact",
+          "fuzzy",
+          "fuzzy-o",
+          "fuzzy-object",
+          "fuzzy-s",
+          "fuzzy-subject",
+          "very-fuzzy",
+          "very-fuzzy-o",
+          "very-fuzzy-object"
+        ]
+      },
+      "index": {
+        "template": "/index"
+      },
+      "profile": {
+        "template": "/profile.json"
+      },
+      "terms": {
+        "template": "/~/{term}"
+      },
+      "domains": {
+        "template": "/domains"
+      },
+      "rss": {
+        "template": "/rss"
+      },
+      "badge": {
+        "template": "/badge"
+      }
+    }
+  },
+  "vocabulary": {
+    "octo": "https://vocab.octothorp.es#",
+    "namespaces": [
+      {
+        "prefix": "octo",
+        "iri": "https://vocab.octothorp.es#",
+        "import": false,
+        "source": "builtin"
+      },
+      {
+        "prefix": "rdf",
+        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "import": false,
+        "source": "builtin"
+      },
+      {
+        "prefix": "rdfs",
+        "iri": "http://www.w3.org/2000/01/rdf-schema#",
+        "import": false,
+        "source": "builtin"
+      },
+      {
+        "prefix": "skos",
+        "iri": "http://www.w3.org/2004/02/skos/core#",
+        "import": true,
+        "source": "declared"
+      }
+    ]
+  },
+  "federation": {}
+}

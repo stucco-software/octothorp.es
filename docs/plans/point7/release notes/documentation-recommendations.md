@@ -130,7 +130,7 @@ Short entries; the JSON endpoint is the machine-readable contract. Link back to 
 
 ## Writing Recommendations (specific to this material)
 
-- **Write from the verified artifacts, not from memory.** Every claim has a passing test or demo transcript behind it (`src/tests/c14MemexRoundtrip.test.js`, `memex2:demo/DEMO.md`). Paste real observed output; shared examples between docs and tests turn drift into a test failure.
+- **Write from the verified artifacts, not from memory.** Every claim has a passing test or demo transcript behind it (the markdown handler suite, `memex2:demo/DEMO.md`; the C14 round-trip test was removed 2026-09-14 when memex reached a stopping point). Paste real observed output; shared examples between docs and tests turn drift into a test failure.
 - **Document the failure modes as first-class content.** This epic's design is opinionated about failure: undeclared → dropped, unresolved → warning-not-edge, malformed number → omitted key. Reference readers need the sad path more than the happy path.
 - **One vault, everywhere.** Reuse a single small example vault (the memex2 demo's redwoods vault is good) across the markdown page, API examples, and package docs — same doc names, same URIs.
 - **Version-gate every page:** "requires octothorpes ≥ 0.3.5 / relay on the 0.7 line" badge, since docs serve users on older relays.

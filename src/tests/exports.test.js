@@ -27,12 +27,25 @@ describe('octothorpes package exports', () => {
     'createPublisherRegistry',
     'createHandlerRegistry', 'createDefaultHandlerRegistry', 'nullHandler',
     // C2 profile loader (#216)
-    'createProfile', 'credentialEnvKey',
+    'createProfile',
   ]
 
   it('should export all expected functions', () => {
     for (const name of expected) {
       expect(core[name], `missing export: ${name}`).toBeDefined()
     }
+  })
+})
+
+describe('#217 profile surface', () => {
+  it('exports the profile loader and its constants', () => {
+    expect(typeof core.createProfile).toBe('function')
+    expect(typeof core.PROFILE_DEFAULTS).toBe('object')
+    expect(core.OCTO_VOCABULARY_IRI).toBe('https://vocab.octothorp.es#')
+  })
+
+  it('no longer exports the dead credential helpers', () => {
+    expect(core.credentialEnvKey).toBeUndefined()
+    expect(core.getAccountCredentials).toBeUndefined()
   })
 })

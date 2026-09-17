@@ -27,21 +27,22 @@ Multiple aliases map to the same result mode:
 
 ### Subtype Paths (#236)
 
-A relay's `profile.json` can declare `vocabulary.relationshipSubtypes[]` as `{ type, label, path }` (e.g. `{ type: "Item", label: "is an item in", path: "items" }`). Each declared `path` becomes a first-class `[what]` value: `/get/items/posted` is intercepted by the route (`src/routes/get/[what]/[by]/[[as]]/load.js`) before dispatch — it sets `options.subtype = "Item"` and rewrites `what` to `everything`, so it resolves as a normal blobject query constrained by `FILTER EXISTS { … rdf:type <octo:Item> }`. Undeclared `what` values pass through unchanged and error in core as before.
+A relay's `profile.json` can declare `api.linkTypes[]` as `{ by, subtype, objects?, label? }` (e.g. `{ by: "itemed", subtype: "Item", label: "is an item in" }`). Each declared entry EXTENDS core's builtin `by` table (`packages/core/linkTypes.js`, `mergeLinkTypes`), so `/get/everything/itemed` resolves as a normal blobject query constrained by `FILTER EXISTS { … rdf:type <octo:Item> }`. `/get/<what>/<by>` is the only route form; the old `path` alias in the `[what]` slot was removed 2026-09-16.
 
 `getStatements` (`packages/core/queryBuilders.js`) admits a query with **no** subject and **no** object as long as `filters.subtype` is set — the subtype filter alone is a bounding constraint.
 
-`GET /profile` and `GET /profile.json` render/serve the current declarations; each subtype also gets a rendered example link (`/get/<path>/thorped`) on the `/profile` HTML page.
+`GET /profile` and `GET /profile.json` render/serve the current declarations; the `/profile` HTML page lists every merged link type as `/get/everything/<by>`.
 
 ## [by] -- Query Filter
 
 | Aliases | Object type | Notes |
 |---------|-------------|-------|
 | `thorped`, `octothorped`, `tagged`, `termed` | `termsOnly` | Pages tagged with terms |
-| `linked`, `mentioned` | `notTerms` | Pages linking to other pages |
+| `linked` | `notTerms` | Pages linking to other pages (untyped superset) |
 | `backlinked` | `pagesOnly` | Validated bidirectional links (subtype: Backlink) |
 | `cited` | `notTerms` | Citation subtype |
 | `bookmarked` | `notTerms` | Bookmark subtype |
+| `mentioned` | `notTerms` | Mention subtype (`rel="octo:mentions"`); narrowed from an alias of `linked` in #292 |
 | `posted`, `all` | `none` | All indexed pages (no object filter) |
 | `in-webring`, `members`, `member-of` | varies | Webring queries; forces subject mode to `byParent` |
 

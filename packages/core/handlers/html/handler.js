@@ -19,11 +19,18 @@ const extractValues = async (content, rule) => {
   const dom = new JSDOM(content, { contentType: "text/html" })
   let tempContainer = dom.window.document
   const elements = [...tempContainer.querySelectorAll(selector)]
+  // Every rule must name an attribute to extract.
+  if (!attribute || typeof attribute !== 'string') {
+    throw new Error(`Harmonizer rule for selector "${selector}" is missing required "attribute" (e.g. "textContent", "href", "content")`)
+  }
   const values = elements
     .map((element) => {
       let value = element[attribute]
       if (value === undefined || value === null) {
         value = element.getAttribute(attribute)
+      }
+      if (value === undefined || value === null) {
+        throw new Error(`Harmonizer rule "${selector}" -> "${attribute}": matched element has no such attribute`)
       }
       value = removeTrailingSlash(value)
 

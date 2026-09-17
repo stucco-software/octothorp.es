@@ -176,6 +176,18 @@ export const createHarmonizerRegistry = (instance) => {
                   }
                 ]
               },
+              "mention": {
+                "s": "source",
+                "o": [
+                  {
+                    "selector": `[rel~='octo:mentions']:not([href*='${instance}~/'])`,
+                    "attribute": "href",
+                    "terms": {
+                      "attribute": "data-octothorpes"
+                    }
+                  }
+                ]
+              },
               "button": {
                 "s": "source",
                 "o": [
@@ -350,5 +362,7 @@ export const createHarmonizerRegistry = (instance) => {
     )
   }
 
-  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode }
+  const listHarmonizers = () => Object.keys(localHarmonizers)
+
+  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode, listHarmonizers }
 }

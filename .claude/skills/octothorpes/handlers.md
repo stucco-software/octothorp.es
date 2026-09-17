@@ -33,6 +33,8 @@ The indexer selects a handler in this fixed order (`indexer.js`):
 3. **Default** — `getDefault()` (set via `setDefault`, usually `'html'`).
 4. **Null** — `getHandler('null')`, the last-resort fallback returning an empty blobject.
 
+Steps 2–4 apply **only when no mode was declared**: if a harmonizer definition or an explicit `mode`/`as` option declares a mode and `getHandler(mode)` returns null, dispatch throws `No handler registered for mode "<mode>"` rather than silently falling back to the default handler.
+
 So a handler with `contentTypes: []` (like `blobject`) is only ever reached by **explicit mode**, never by content-type.
 
 ## Registry API

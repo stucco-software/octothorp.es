@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
-import { instance, server_name } from '$lib/config.js'
+import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
 import { parseUri } from 'octothorpes'
@@ -26,7 +27,7 @@ const mapErrorToStatus = (message) => {
 
 const config = () => ({
   instance,
-  serverName: server_name,
+  serverName: getProfile().identity.name,
   queryBoolean
 })
 

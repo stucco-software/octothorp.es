@@ -4,7 +4,8 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
-import { deslash } from './utils.js'
+import { deslash, harmonizerId } from './utils.js'
+import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
 import { verifiedOrigin } from './origin.js'
@@ -28,6 +29,8 @@ const subtypeMap = {
   cite: 'Cite',
   citation: 'Cite',
   Cite: 'Cite',
+  mention: 'Mention',
+  Mention: 'Mention',
   button: 'Button',
   Button: 'Button',
 }
@@ -163,13 +166,22 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {string} deps.instance
  * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
  * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
+ * @param {number} [deps.cooldown=300] - Re-index cooldown in seconds; 0 disables it
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown } = deps
+
+  // #217: re-index cooldown in SECONDS, injected from
+  // profile.policies.indexing.cooldown. 0 disables the wait.
+  const cooldownSeconds = Number.isFinite(cooldown) ? cooldown : 300
+
+  // #217: the injected access block. Normalized once here so every enforcement
+  // point below sees a filled shape. Core never reads a profile — the mode and
+  // the lists arrive as config.
+  const access = normalizeAccess(accessConfig)
 
   const p = 'octo:octothorpes'
-  const indexCooldown = 300000 // 5min
 
   ////////// helpers //////////
 
@@ -212,6 +224,7 @@ export const createIndexer = (deps) => {
   ////////// cooldown //////////
 
   const recentlyIndexed = async (s) => {
+    if (cooldownSeconds === 0) return false
     let now = Date.now()
     let r = await queryArray(`
       select distinct ?t {
@@ -225,7 +238,7 @@ export const createIndexer = (deps) => {
     if (mostRecent === 0) {
       return false
     }
-    return now - indexCooldown < mostRecent
+    return now - cooldownSeconds * 1000 < mostRecent
   }
 
   ////////// existence checks //////////
@@ -465,6 +478,8 @@ export const createIndexer = (deps) => {
   // `schema` are written (admission allowlist — undeclared keys are dropped,
   // mirroring the read guard). `uri`-range values are stored as IRIs, everything
   // else as a string literal (the read side coerces number/timestamp/boolean).
+  // Every predicate is written under the octo namespace (octo:<predicate>);
+  // documentRecord is not a route into foreign vocabularies.
   // Idempotent per predicate (delete-then-insert). Leaf triples only — never the
   // blank-node relationship machinery (RDF-star insulation).
   const recordDocumentRecord = async (s, documentRecord, schema = documentRecordSchema) => {
@@ -566,7 +581,9 @@ export const createIndexer = (deps) => {
 
   /**
    * Resolve a handler for the given harmonizer/contentType and produce a blobject.
-   * Resolution order: harmonizer.mode > contentType > 'html' fallback.
+   * Resolution order: declared mode > contentType > default > null.
+   * A DECLARED mode with no registered handler is an error — content-type and
+   * default fallback apply only when no mode was declared.
    * Patches @id === 'source' to the source URI before returning.
    */
   const dispatch = async (content, contentType, harmonizer, uri) => {
@@ -578,6 +595,12 @@ export const createIndexer = (deps) => {
     const mode = resolvedHarmonizer?.mode
 
     let selected = mode ? handlerRegistry?.getHandler(mode) : null
+    if (mode && !selected) {
+      const id = harmonizerId(harmonizer, resolvedHarmonizer)
+      throw new Error(
+        `No handler registered for mode "${mode}"` + (id ? ` (declared by harmonizer "${id}")` : '')
+      )
+    }
     if (!selected) selected = handlerRegistry?.getHandlerForContentType(contentType)
     if (!selected) selected = handlerRegistry?.getDefault()
     if (!selected) selected = handlerRegistry?.getHandler('null')
@@ -712,7 +735,7 @@ export const createIndexer = (deps) => {
     await processDomains(newDomains, s)
   }
 
-  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride } = {}) => {
+  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
@@ -740,7 +763,27 @@ export const createIndexer = (deps) => {
       seen.add(key)
       return true
     })
-    for (const octothorpe of uniqueOctothorpes) {
+    // Term blocklist (#217). SECOND enforcement point, and deliberately NOT
+    // gated on the registration mode: a relay refuses a blocked term under
+    // 'registered', 'open' and 'closed' alike.
+    //
+    // Statement-level, not page-level: the offending octothorpe is dropped and
+    // the rest of the page indexes normally. The page is never rejected
+    // wholesale and the submitter gets no error for it.
+    //
+    // NOT retroactive — statements already written about a newly-blocked term
+    // stay in the graph; removing them is epic #271. There is no read-time
+    // counterpart either; this is write-time only.
+    const blockedTerms = (accessOverride ?? access).blocks?.terms ?? []
+    const termNameOf = (o) => (typeof o === 'string' ? o : (o?.type === 'hashtag' ? o.uri : null))
+    const admittedOctothorpes = uniqueOctothorpes.filter((o) => {
+      const name = termNameOf(o)
+      if (name === null || !termBlocked(name, blockedTerms)) return true
+      console.warn(`[index] term "${name}" is blocked by this server; statement dropped`)
+      return false
+    })
+
+    for (const octothorpe of admittedOctothorpes) {
       if (typeof octothorpe === 'string') {
         await handleThorpe(s, octothorpe, { instance: base })
         continue
@@ -753,7 +796,11 @@ export const createIndexer = (deps) => {
         friends.endorsed.push(octoURI)
       } else {
         friends.linked.push(octoURI)
-        const terms = octothorpe.terms || []
+        const terms = (octothorpe.terms || []).filter((t) => {
+          if (!termBlocked(t, blockedTerms)) return true
+          console.warn(`[index] term "${t}" is blocked by this server; statement dropped`)
+          return false
+        })
         await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base })
       }
     }
@@ -780,7 +827,11 @@ export const createIndexer = (deps) => {
       policyMode,
       policyCheck,
       feedApproved,
+      // Per-call override of the client-level access block, mirroring how
+      // verifyOrigin is overridden today.
+      access: accessOverride,
     } = config
+    const effectiveAccess = accessOverride ? normalizeAccess(accessOverride) : access
     const base = inst || instance
     const callerContext = { policyMode, policyCheck, feedApproved }
 
@@ -833,14 +884,21 @@ export const createIndexer = (deps) => {
       }
     }
 
-    // 5. Origin verification
-    const verify = verifyOrigin || ((origin) => verifiedOrigin(origin, {
-      queryBoolean: configQueryBoolean || queryBoolean
-    }))
-    const isVerified = await verify(parsed.origin)
-    if (!isVerified) {
-      throw new Error('Origin is not registered with this server.')
-    }
+    // 5. Access gate (#217). registration decides WHICH check runs:
+    //    'registered' -> datastore verification (verifyOrigin dep, injectable)
+    //    'open'       -> no verification; blocks.domains applies
+    //    'closed'     -> whitelist.domains only
+    // Independent of policyMode/indexingMode, which decides what TRIGGERS
+    // indexing rather than what gate it must pass. An injected verifyOrigin
+    // (the badge route's `async () => true`) still wins inside 'registered' —
+    // it IS the verification function, not a bypass of the gate.
+    const verifyRegistered = () =>
+      (verifyOrigin || ((origin) => verifiedOrigin(origin, {
+        queryBoolean: configQueryBoolean || queryBoolean
+      })))(parsed.origin)
+
+    const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered)
+    if (denial) throw new Error(denial)
 
     // 6. Rate limiting
     if (!checkIndexingRateLimit(parsed.origin)) {
@@ -889,7 +947,7 @@ export const createIndexer = (deps) => {
     // 9. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
     const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized)
-    await ingestBlobject(blobject, { instance: base })
+    await ingestBlobject(blobject, { instance: base, access: effectiveAccess })
   }
 
   return {

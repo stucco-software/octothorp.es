@@ -87,3 +87,17 @@ export const normalize = (value, opts = {}) => {
 
   return walk(value)
 }
+
+/**
+ * The normalize() options every capture in this repo uses, so the indexing
+ * smoketest's goldens and the api-smoketest's durable snapshots are canonicalized
+ * identically. scopeHost nulls enrichment on link targets outside the origin
+ * under test (#258).
+ *
+ * @param {string} instanceOrigin - target origin, trailing slash tolerated
+ * @param {string} scopeHost - host of the origin under test
+ */
+export const normOptsFor = (instanceOrigin, scopeHost) => ({
+  instanceOrigin: (instanceOrigin || '').replace(/\/$/, ''),
+  scopeHost,
+})

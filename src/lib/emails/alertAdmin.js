@@ -1,11 +1,12 @@
 import { send } from '$lib/mail/send.js'
-import { instance, admin_email } from '$lib/config.js'
+import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 
 const alertAdmin = async ({s, o}) => {
   let success
   try {
     let success = await send({
-      to: admin_email,
+      to: getProfile().identity.contact.email,
       subject: `New Octothorpe on ${instance}`,
       html: `
         <p>

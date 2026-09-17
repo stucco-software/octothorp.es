@@ -29,8 +29,11 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
     } catch { live = false }
     if (!live) return
     await cleanup()
-    // Two pages sharing a term; only the first carries declared documentRecord
-    // predicates (schema.encodingFormat/contentSize).
+    // Two pages sharing a term; only the first carries the declared
+    // documentRecord predicate (octo:richContent — the only entry the repo's
+    // own octothorpes.json declares). It ALSO carries an undeclared octo leaf
+    // (octo:contentSize) to pin the admission allowlist: undeclared predicates
+    // are stored but never projected.
     await insert(`
       <${term}> rdf:type <octo:Term> .
       <${term}> octo:created 1700000000000 .
@@ -40,8 +43,8 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
       <${withDR}> octo:title "C7 with documentRecord" .
       <${withDR}> octo:octothorpes <${term}> .
       <${withDR}> <${term}> 1700000000000 .
-      <${withDR}> <https://schema.org/encodingFormat> "text/markdown" .
-      <${withDR}> <https://schema.org/contentSize> 42 .
+      <${withDR}> <https://vocab.octothorp.es#richContent> "<p>C7 rich body</p>" .
+      <${withDR}> <https://vocab.octothorp.es#contentSize> 42 .
 
       <${withoutDR}> rdf:type <octo:Page> .
       <${withoutDR}> octo:created 1700000000000 .
@@ -53,17 +56,17 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
 
   afterAll(async () => { if (live) await cleanup() })
 
-  it('projects declared predicates onto blobject.documentRecord, typed by range', { timeout: 30000 }, async () => {
+  it('projects declared predicates onto blobject.documentRecord; undeclared ones are not projected', { timeout: 30000 }, async () => {
     if (!live) { console.warn('[C7] dev server down — skipping'); return }
     const res = await fetch(`${base}/get/everything/thorped/debug?o=__c7term__`)
     expect(res.ok).toBe(true)
     const out = await res.json()
     const blob = out.actualResults.find(r => r['@id'] === withDR)
     expect(blob).toBeTruthy()
-    expect(blob.documentRecord).toEqual({
-      encodingFormat: 'text/markdown',
-      contentSize: 42, // typed number, not the string "42"
-    })
+    // richContent is the profile's only declared entry (range: literal).
+    expect(blob.documentRecord).toEqual({ richContent: '<p>C7 rich body</p>' })
+    // octo:contentSize is stored on the subject but undeclared -> not projected.
+    expect(blob.documentRecord.contentSize).toBeUndefined()
   })
 
   it('omits documentRecord on pages with no declared predicates', { timeout: 30000 }, async () => {

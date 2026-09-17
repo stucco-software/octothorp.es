@@ -2,7 +2,7 @@ import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { find } from '$lib/ld/find'
 import { countWebrings } from 'octothorpes'
 import { instance } from '$lib/config.js'
-import { server_name } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 
 export async function load(req) {
   // get all the relevant thorpes
@@ -40,7 +40,7 @@ export async function load(req) {
   }
   return {
     instance,
-    server_name,
+    server_name: getProfile().identity.name,
     thorpes,
     domains,
     assertions,

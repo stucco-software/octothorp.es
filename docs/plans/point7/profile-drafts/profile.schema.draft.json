@@ -161,17 +161,35 @@
       "additionalProperties": false,
       "properties": {
         "linkTypes": {
-          "description": "Declared first-class link types (formerly relationshipSubtypes, #236). Each mints a dedicated /get/<path>/<by> route; label feeds the generated vocabulary document. Undeclared types still work ad-hoc via ?st= (#200).",
+          "description": "Declared first-class link types (formerly relationshipSubtypes, #236). Each EXTENDS core's builtin `by` table: declaring { by: \"reviewed\", subtype: \"Review\" } makes /get/everything/reviewed a real query on this client, filtered to relationships typed octo:Review. The profile declares the QUERY word and the subtype; a harmonizer declares the markup that writes that subtype; the two meet on the subtype name. Builtin `by` words (thorped, linked, backlinked, cited, bookmarked, posted, in-webring, ...) cannot be redeclared — a collision is a load-time error, the same posture as a duplicate endorser graph. Undeclared subtypes still work ad-hoc via ?st= (#200).",
           "type": "array",
           "default": [],
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["type", "path"],
+            "required": ["by", "subtype"],
             "properties": {
-              "type": { "type": "string" },
+              "by": {
+                "description": "The query word occupying the [by] route slot: /get/<what>/<by>. A bare lowercase word; must not collide with a builtin.",
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "subtype": {
+                "description": "Bare octo local name, written on the relationship as `rdf:type octo:<subtype>` and used as the query's subtype filter. Same pattern as api.documentRecord[].predicate — no colon, slash or dot, so a prefixed name or a full IRI cannot be smuggled in. This is the name a harmonizer must emit for the declaration to match anything. Replaces the old `type` key.",
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+              },
+              "objects": {
+                "description": "What may appear on the object side of the query. Defaults to notTerms (any non-term resource), which is what a typed link normally points at. `relationTerms` is NOT declarable: a declared link type is a typed relationship, which is exactly the blank node ?rt= hangs off, so ?rt= always applies.",
+                "type": "string",
+                "enum": ["terms", "notTerms", "pages", "none"],
+                "default": "notTerms"
+              },
               "label": { "type": "string" },
-              "path": { "type": "string" }
+              "path": {
+                "description": "Client route alias occupying the [what] slot: /get/<path>/<by> (e.g. path 'items' gives /get/items/posted). A convenience alias only — the canonical form is the `by` route. Defaults to `by`.",
+                "type": "string"
+              }
             }
           }
         },

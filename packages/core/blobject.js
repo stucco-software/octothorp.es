@@ -55,14 +55,15 @@ export const coerceDocumentRecordValue = (raw, range) => {
  * @param {Object|null} [filters.dateRange=null] - Date range filter object
  * @param {number} [filters.dateRange.after] - Unix timestamp for earliest date
  * @param {number} [filters.dateRange.before] - Unix timestamp for latest date
- * @param {Array<{predicate:string, namespace?:string, range:string, iri?:string}>} [documentRecordSchema=[]]
+ * @param {Array<{predicate:string, range:string}>} [documentRecordSchema=[]]
  *   Declared documentRecord predicates (#237). Each present-in-storage entry is
  *   projected into `blobject.documentRecord`, typed by `range`. Declared-but-absent
  *   keys are omitted; undeclared predicates are never looped (the admission
  *   allowlist / #166 abuse guard). Empty/absent -> no `documentRecord` key
  *   (behaviour identical to before this feature). `documentRecord` is a LEAF and
  *   is never fed to link/backlink traversal. C7 wires this param from the
- *   profile's `vocabulary.documentRecord`.
+ *   profile's `api.documentRecord`. Entries are octo-only: `predicate` is a bare
+ *   local name resolved as `octo:<predicate>`.
  * @returns {Promise<Array>} Array of processed blobjects with metadata
  */
 export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null }, documentRecordSchema = []) => {

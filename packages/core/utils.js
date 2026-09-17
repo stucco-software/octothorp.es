@@ -719,3 +719,12 @@ export async function countWebrings(queryArray) {
     return 0
   }
 }
+
+// Best-effort label for the harmonizer that declared a handler mode, used in
+// "no handler registered for mode" dispatch errors.
+export const harmonizerId = (harmonizer, resolved) =>
+  (typeof harmonizer === 'string' ? harmonizer : null) ??
+  resolved?.id ??
+  resolved?.['@id'] ??
+  resolved?.title ??
+  null
