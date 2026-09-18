@@ -3,6 +3,17 @@ import { createClientEndorsed } from '$lib/endorsers/clientEndorsed.js'
 import { loadProfileFrom } from '$lib/profile.js'
 import { createIndexer } from '../../packages/core/indexer.js'
 
+// Wrap the real jsdom so we can prove the endorser constructs zero JSDOMs when
+// it is handed a pre-parsed document (see src/tests/htmlHandlerParse.test.js).
+vi.mock('jsdom', async (importOriginal) => {
+  const actual = await importOriginal()
+  const JSDOM = vi.fn((...args) => new actual.JSDOM(...args))
+  JSDOM.prototype = actual.JSDOM.prototype
+  return { ...actual, JSDOM }
+})
+
+const { JSDOM } = await import('jsdom')
+
 // §2c of docs/plans/weeks/2026-09-14-week.md: the `client-endorsed` endorser is an
 // ADAPTER concern (core never discovers endorsers), so it lives in src/lib and
 // is injected via createClient({ endorsers }). The real marker string is a
@@ -37,6 +48,31 @@ describe('createClientEndorsed: marker detection', () => {
     expect(await endorse({ origin: 'https://a.test', blobject: null, content: undefined })).not.toBe(true)
     expect(await endorse({ origin: 'https://a.test', blobject: null, content: '' })).not.toBe(true)
     expect(await endorse({ origin: 'https://a.test', blobject: { '@id': 'x' }, content: 42 })).not.toBe(true)
+  })
+})
+
+describe('createClientEndorsed: a pre-parsed document', () => {
+  const { endorse } = createClientEndorsed({ marker: MARKER })
+  const docFor = (body) => new JSDOM(page(body), { contentType: 'text/html' }).window.document
+
+  it('admits from the document without constructing a JSDOM', async () => {
+    const document = docFor(`<meta content='${MARKER}'>`)
+    JSDOM.mockClear()
+    expect(await endorse({ origin: 'https://a.test', blobject: null, content: '', document })).toBe(true)
+    expect(JSDOM).not.toHaveBeenCalled()
+  })
+
+  it('declines from the document without constructing a JSDOM', async () => {
+    const document = docFor('<meta name="x" content="y">')
+    JSDOM.mockClear()
+    expect(await endorse({ origin: 'https://a.test', blobject: null, content: page(`<meta content='${MARKER}'>`), document })).not.toBe(true)
+    expect(JSDOM).not.toHaveBeenCalled()
+  })
+
+  it('falls back to parsing content when no document is supplied', async () => {
+    JSDOM.mockClear()
+    expect(await endorse({ origin: 'https://a.test', blobject: null, content: page(`<meta content='${MARKER}'>`) })).toBe(true)
+    expect(JSDOM).toHaveBeenCalledOnce()
   })
 })
 

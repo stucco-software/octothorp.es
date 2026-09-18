@@ -161,7 +161,7 @@ export const resolveEndorsers = (sources = [], endorsers = []) => {
  * @param {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}, endorsement?:{sources:string[]}}} access
  * @param {() => Promise<boolean>} verifyRegistered - datastore verification,
  *   consulted ONLY in 'registered' mode.
- * @param {{endorsers?:{name:string,endorse:Function}[], blobject?:object|null, content?:string, contentType?:string}} [endorsement]
+ * @param {{endorsers?:{name:string,endorse:Function}[], blobject?:object|null, content?:string, contentType?:string, document?:object|null}} [endorsement]
  *   Stage 4 input, optional. Omitted — or with no endorsers, or with an empty
  *   access.endorsement.sources — the stage is off and this function behaves
  *   exactly as it did before it existed.
@@ -212,6 +212,10 @@ export const checkAccessGate = async (origin, access, verifyRegistered, endorsem
         blobject: endorsement?.blobject ?? null,
         content: endorsement?.content,
         contentType: endorsement?.contentType,
+        // The already-parsed Document for HTML pages, so an endorser never
+        // parses the page a second time. Null for non-HTML (and for callers
+        // that do not parse at all) — endorsers fall back to `content`.
+        document: endorsement?.document ?? null,
       })
       if (verdict === true) return null
     } catch (err) {

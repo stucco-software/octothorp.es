@@ -267,7 +267,7 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
     expect(endorse).not.toHaveBeenCalled()
   })
 
-  it('hands the endorser exactly { origin, blobject, content, contentType }', async () => {
+  it('hands the endorser exactly { origin, blobject, content, contentType, document }', async () => {
     const endorse = vi.fn(async () => true)
     const blobject = { '@id': 'https://args.test/page' }
     await checkAccessGate('https://args.test', registered(['x']), verifyFalse, {
@@ -281,7 +281,31 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
       blobject,
       content: '<meta content="bear">',
       contentType: 'text/html',
+      document: null,
     })
+  })
+
+  it('threads a supplied document through to the endorser', async () => {
+    const endorse = vi.fn(async () => true)
+    const document = { querySelectorAll: () => [] }
+    await checkAccessGate('https://doc.test', registered(['x']), verifyFalse, {
+      endorsers: [{ name: 'x', endorse }],
+      blobject: null,
+      content: '<meta content="bear">',
+      contentType: 'text/html',
+      document,
+    })
+    expect(endorse.mock.calls[0][0].document).toBe(document)
+  })
+
+  it('passes document: null when the caller supplies none', async () => {
+    const endorse = vi.fn(async () => true)
+    await checkAccessGate('https://nodoc.test', registered(['x']), verifyFalse, {
+      endorsers: [{ name: 'x', endorse }],
+      content: 'plain text',
+      contentType: 'text/plain',
+    })
+    expect(endorse.mock.calls[0][0].document).toBe(null)
   })
 
   it('is off when the endorsement argument is omitted entirely', async () => {

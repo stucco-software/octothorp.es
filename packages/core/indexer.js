@@ -980,6 +980,7 @@ export const createIndexer = (deps) => {
       blobject: policyBlobject ?? null,
       content,
       contentType,
+      document: source.document ?? null,
     })
     if (denial) throw new Error(denial)
 
