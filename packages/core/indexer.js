@@ -126,15 +126,36 @@ export const isURL = (term) => {
  * @param {Object} args
  * @param {Object} [args.blobject] - The harmonized blobject (may be null if caller short-circuits).
  * @param {Object} [args.callerContext] - { policyMode, policyCheck, feedApproved }
- * @returns {{ optedIn: boolean, harmonizer: string|null }}
+ * @returns {{ optedIn: boolean, harmonizer: string|null, refused: string|null }}
  */
+const REFUSING_ROBOTS_TOKENS = new Set(['noindex', 'nofollow', 'none'])
+
 export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
-  // Caller-context overrides
+  const b = blobject || {}
+
+  // 1. The page's own refusal, evaluated before anything else.
+  // Robots directives only bind CRAWLER-initiated requests — the active policy
+  // mode without a policy check. An owner-initiated request (a site asking this
+  // relay to index its own page) is not crawling, so its robots meta, which
+  // addresses search engines, is ignored entirely.
   if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
-    return { optedIn: true, harmonizer: null }
+    const metas = Array.isArray(b.robots) ? b.robots : (typeof b.robots === 'string' ? [b.robots] : [])
+    for (const meta of metas) {
+      if (typeof meta !== 'string') continue
+      const tokens = meta.split(/[\s,]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
+      const hit = tokens.find(t => REFUSING_ROBOTS_TOKENS.has(t))
+      if (hit) {
+        return { optedIn: false, harmonizer: null, refused: `robots ${hit}` }
+      }
+    }
+  }
+
+  // 2. Caller-context overrides
+  if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
+    return { optedIn: true, harmonizer: null, refused: null }
   }
   if (callerContext.feedApproved === true) {
-    return { optedIn: true, harmonizer: null }
+    return { optedIn: true, harmonizer: null, refused: null }
   }
 
   // Per-blobject fallback (current behavior)
@@ -144,12 +165,11 @@ export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
   //   - <link rel="preload" href="..."> pointing at this instance
   // Any truthy value means the page has opted in, unless explicitly "no-index".
   // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup.
-  const b = blobject || {}
   const hasPolicy = !!(b.indexPolicy) && b.indexPolicy !== 'no-index'
   const hasOctothorpes = Array.isArray(b.octothorpes) && b.octothorpes.length > 0
   const optedIn = hasPolicy || hasOctothorpes
   const harmonizer = b.indexHarmonizer || null
-  return { optedIn: !!optedIn, harmonizer }
+  return { optedIn: !!optedIn, harmonizer, refused: null }
 }
 
 export const checkIndexingPolicy = (harmed, instance) => {
@@ -889,43 +909,53 @@ export const createIndexer = (deps) => {
     // request; the handler's parsed document is cached on it.
     const source = { content, contentType, document: null }
 
-    // 4. The page's own refusal. A robots meta declaring BOTH noindex and
-    // nofollow vetoes indexing outright. This sits ahead of policy resolution,
-    // the access gate and endorsement on purpose: it is not a policy this relay
-    // applies but the page's own statement, so no opt-in, registration or
-    // endorsement may override it. A denial, never a warning.
-    if (await robotsForbidsIndexing(content, contentType)) {
+    // 5. Policy resolution.
+    // The probe now runs on EVERY path, including the caller-context opted-in
+    // ones (active mode, feed approval): the page's own directives can only be
+    // read from a harmonized blobject, so they have to be extracted before any
+    // decision. It costs no extra parse — the document is cached on `source`.
+    //
+    // For remote (URL) harmonizers, probe as 'default' — an attacker-supplied
+    // schema must not influence opt-in. Local harmonizer IDs are run as-is so
+    // their extracted octothorpes can satisfy implicit opt-in.
+    const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
+      ? 'default'
+      : harmonizer
+    // Kept in the outer scope so the access gate below can hand it to the
+    // endorsers, and so step 10 can ingest it directly.
+    const policyBlobject = await dispatch(source, policyHarmonizer, parsed.normalized)
+    if (!policyBlobject) {
+      throw new Error('Harmonization failed — could not extract page metadata.')
+    }
+
+    let harmonizerDeclaredOnPage = false
+    const policy = resolveIndexPolicy({ blobject: policyBlobject, callerContext })
+
+    // The page's own refusal. It sits ahead of the opt-in check, the access
+    // gate and endorsement on purpose: it is not a policy this relay applies
+    // but the page's own statement, so no opt-in, registration or endorsement
+    // may override it. A denial, never a warning.
+    if (policy.refused) {
+      throw new Error(`Page forbids indexing (${policy.refused}).`)
+    }
+
+    // The legacy both-flags veto from ./robots.js, retained until it is deleted
+    // (task 5 of the single-parse plan) so owner-initiated requests keep their
+    // current behaviour. Pre-filtered on a cheap substring test for a robots
+    // meta so it costs no second parse on the overwhelming majority of pages;
+    // the filter can only be wider than the veto itself, so the verdict is
+    // unchanged.
+    const mayDeclareRobots = typeof content === 'string' && /name\s*=\s*["']?robots/i.test(content)
+    if (mayDeclareRobots && await robotsForbidsIndexing(content, contentType)) {
       throw new Error('Page forbids indexing (robots noindex, nofollow).')
     }
 
-    // 5. Policy resolution.
-    // If caller context grants opt-in, skip page-level harmonization entirely.
-    // Otherwise dispatch through the registry to extract policy markers.
-    let policy = resolveIndexPolicy({ callerContext })
-    let harmonizerDeclaredOnPage = false
-    // Kept in the outer scope so the access gate below can hand it to the
-    // endorsers. Stays null on the opted-in path, where no probe runs.
-    let policyBlobject = null
-
     if (!policy.optedIn) {
-      // For remote (URL) harmonizers, use 'default' for the policy probe — an
-      // attacker-supplied schema must not influence opt-in. Local harmonizer
-      // IDs are run as-is so their extracted octothorpes can satisfy implicit opt-in.
-      const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
-        ? 'default'
-        : harmonizer
-      policyBlobject = await dispatch(source, policyHarmonizer, parsed.normalized)
-      if (!policyBlobject) {
-        throw new Error('Harmonization failed — could not extract page metadata.')
-      }
-      policy = resolveIndexPolicy({ blobject: policyBlobject, callerContext })
-      if (!policy.optedIn) {
-        throw new Error('Page has not opted in to indexing.')
-      }
-      harmonizerDeclaredOnPage = !!policy.harmonizer
-      if (policy.harmonizer) {
-        harmonizer = policy.harmonizer
-      }
+      throw new Error('Page has not opted in to indexing.')
+    }
+    harmonizerDeclaredOnPage = !!policy.harmonizer
+    if (policy.harmonizer) {
+      harmonizer = policy.harmonizer
     }
 
     // 6. Access gate (#217). registration decides WHICH check runs:
@@ -999,7 +1029,14 @@ export const createIndexer = (deps) => {
 
     // 10. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
-    const blobject = await dispatch(source, harmonizer, parsed.normalized)
+    // Reuse the probe's blobject when the effective harmonizer is identical to
+    // the one the probe ran — true unless the page declared its own harmonizer
+    // or a remote URL harmonizer was swapped for 'default' in the probe. In the
+    // common case this removes the second harmonize entirely; otherwise we
+    // re-harmonize against the same cached document, so still no re-parse.
+    const blobject = harmonizer === policyHarmonizer
+      ? policyBlobject
+      : await dispatch(source, harmonizer, parsed.normalized)
     await ingestBlobject(blobject, { instance: base, access: effectiveAccess })
   }
 

@@ -1127,7 +1127,9 @@ describe('Indexing Business Logic', () => {
         headers: new Headers({ 'content-type': 'text/html' }),
       })
 
-      // Policy-phase harmonize: keywords harmonizer extracts terms into octothorpes
+      // Policy-phase harmonize: keywords harmonizer extracts terms into
+      // octothorpes. Only ONE harmonize runs now — the probe's blobject is
+      // reused for ingest because the effective harmonizer did not change.
       mockHarmonizeSource
         .mockResolvedValueOnce({
           '@id': 'source',
@@ -1137,13 +1139,6 @@ describe('Indexing Business Logic', () => {
           type: null,
           indexPolicy: '',
           indexHarmonizer: '',
-        })
-        .mockResolvedValueOnce({
-          '@id': 'source',
-          title: 'Test',
-          description: null,
-          octothorpes: ['foo', 'bar'],
-          type: null,
         })
 
       mockQuery.mockResolvedValue({})
@@ -1168,7 +1163,7 @@ describe('Indexing Business Logic', () => {
       }
       global.fetch = vi.fn().mockResolvedValue(mockResponse)
 
-      // First call: policy-probe dispatch; second call: final ingest dispatch
+      // A single probe dispatch, whose blobject is reused for ingest.
       mockHarmonizeSource
         .mockResolvedValueOnce({
           '@id': 'source',
@@ -1178,13 +1173,6 @@ describe('Indexing Business Logic', () => {
           type: null,
           indexPolicy: 'index',
           indexHarmonizer: '',
-        })
-        .mockResolvedValueOnce({
-          '@id': 'source',
-          title: 'Test',
-          description: null,
-          octothorpes: [],
-          type: null,
         })
 
       mockQuery.mockResolvedValue({})

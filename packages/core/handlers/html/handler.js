@@ -65,6 +65,31 @@ const isBlankValue = (v) => {
   return typeof s !== 'string' || s.trim() === ''
 }
 
+// Subject properties collected as an ARRAY of every match rather than the
+// single first non-empty value. `robots` is array-valued because a page may
+// carry more than one robots meta and index policy must see all of them.
+const SUBJECT_ARRAY_PROPS = new Set(['robots'])
+
+// Index policy must never be caller-controlled. `mergeSchemas` replaces whole
+// top-level keys, so a caller harmonizer that declares its own `subject` (the
+// shipped `openGraph` one does) silently drops these rules. They are re-applied
+// from the default schema AFTER the merge so every harmonize, whatever the
+// requested harmonizer, reads the same policy markers.
+const FORCED_POLICY_PROPS = ['indexPolicy', 'indexHarmonizer', 'robots']
+
+const forcePolicyRules = (schema, defaultSchema) => {
+  const defaultSubject = defaultSchema?.subject ?? {}
+  const forced = {}
+  for (const prop of FORCED_POLICY_PROPS) {
+    if (defaultSubject[prop] !== undefined) forced[prop] = defaultSubject[prop]
+  }
+  if (Object.keys(forced).length === 0) return schema
+  return {
+    ...schema,
+    subject: { s: 'source', ...(schema.subject ?? {}), ...forced }
+  }
+}
+
 const setNestedProperty = (obj, keyPath, value) => {
   const keys = keyPath.split(".")
   let current = obj
@@ -123,6 +148,8 @@ export default {
     } else {
       schema = d.schema
     }
+
+    schema = forcePolicyRules(schema, d.schema)
 
     let output = {}
     let typedOutput = {}
@@ -188,7 +215,10 @@ export default {
           let values = []
           if (prop != "s") {
             values = await getObjectVals(val)
-            if (key == "subject") {
+            if (key == "subject" && SUBJECT_ARRAY_PROPS.has(prop)) {
+              // Array-valued subject prop: keep every match, in document order.
+              setNestedProperty(output, prop, values.filter(v => typeof v === 'string' ? v.trim() !== '' : v !== null && v !== undefined))
+            } else if (key == "subject") {
               // Subject scalars are single-valued; schema lists selectors as ordered fallbacks
               const firstValue = values.find(v => {
                 if (v === null || v === undefined) return false
