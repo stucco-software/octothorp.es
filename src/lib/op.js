@@ -8,7 +8,7 @@ import { getProfile } from '$lib/profile.js'
 import { publishers } from '$lib/publishers'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
 import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
-import { createBearMarker } from '$lib/endorsers/bearMarker.js'
+import { createBearMarker, BEAR_MARKER_NAME } from '$lib/endorsers/bearMarker.js'
 
 const profile = getProfile()
 
@@ -17,7 +17,7 @@ const profile = getProfile()
 // The missing-marker warning, however, is a real alarm ONLY when this deploy
 // actually names the source: octothorp.es leaves `bear_marker` unset on
 // purpose, and must not log a false alarm on every boot.
-const bearMarkerNamed = (profile.policies.access.endorsement?.sources ?? []).includes('bear-marker')
+const bearMarkerNamed = (profile.policies.access.endorsement?.sources ?? []).includes(BEAR_MARKER_NAME)
 const bearMarker = createBearMarker({
   marker: bear_marker,
   warn: bearMarkerNamed ? console.warn : () => {},

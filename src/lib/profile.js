@@ -4,6 +4,7 @@ import { createProfile } from 'octothorpes'
 import { env } from '$env/dynamic/private'
 import profileData from '../../octothorpes.json'
 import profileSchema from '../../packages/core/profile.schema.json'
+import { BEAR_MARKER_NAME } from '$lib/endorsers/bearMarker.js'
 
 // Thin SvelteKit adapter (mirrors src/lib/indexing.js): injects the repo-root
 // octothorpes.json, the schema, and $env. `env.instance` is the deploy-level
@@ -11,6 +12,13 @@ import profileSchema from '../../packages/core/profile.schema.json'
 // No profile logic here; see packages/core/profile.js.
 
 const readFile = (path) => readFileSync(resolve(process.cwd(), path), 'utf8')
+
+// The endorser NAMES this adapter injects into createClient (see src/lib/op.js).
+// Passed to createProfile purely so its unresolvable-source coherence warning
+// fires for a genuinely misspelled `endorsement.sources` entry and stays quiet
+// for one we really do inject. Only the pure endorser modules are imported here
+// — op.js imports this file, so importing op.js back would be circular.
+const injectedEndorsers = [BEAR_MARKER_NAME]
 
 /**
  * Build a profile accessor from an authored profile object.
@@ -26,6 +34,7 @@ const accessorFor = (authoredWithSchema) => {
     // blocks.terms, whitelist.domains). Same pattern as the fs injection the
     // Wave 3 directory discovery uses — core never imports fs.
     readFile,
+    endorsers: injectedEndorsers,
   })
 }
 

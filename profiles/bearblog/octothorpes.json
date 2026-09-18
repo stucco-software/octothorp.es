@@ -7,10 +7,6 @@
     "description": "Octothorpes relay for Bear Blog sites.",
     "terms": "/~/",
     "rules": "/terms",
-    "feeds": {
-      "thorpes": ["octothorpe-news", "cats"],
-      "multipass": "https://octothorp.es/news-and-favs.json"
-    },
     "images": {
       "favicon": "/favicon.ico",
       "avatar": "/avatar.png"

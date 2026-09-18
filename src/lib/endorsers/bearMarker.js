@@ -10,6 +10,11 @@
 // from .env by src/lib/op.js — this module takes it as an argument and never
 // imports $env, which is also what keeps it unit-testable.
 
+// The source name, exported as a constant so the profile adapter can declare
+// which endorsers it injects without importing op.js (which would be circular:
+// op.js imports profile.js).
+export const BEAR_MARKER_NAME = 'bear-marker'
+
 /**
  * @param {{ marker?: string, warn?: (...args:any[]) => void }} [options]
  * @returns {{ name: 'bear-marker', endorse: (input: { origin?: string, blobject?: object|null, content?: string, contentType?: string }) => Promise<boolean> }}
@@ -54,5 +59,5 @@ export const createBearMarker = ({ marker, warn = console.warn } = {}) => {
     return marked
   }
 
-  return { name: 'bear-marker', endorse }
+  return { name: BEAR_MARKER_NAME, endorse }
 }

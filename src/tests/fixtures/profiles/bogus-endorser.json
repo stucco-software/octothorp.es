@@ -1,0 +1,14 @@
+{
+  "identity": {
+    "instance": "http://localhost:5173/",
+    "name": "OP Test Profile (bogus endorsement source)"
+  },
+  "policies": {
+    "access": {
+      "registration": "registered",
+      "endorsement": {
+        "sources": ["bear-marker-typo"]
+      }
+    }
+  }
+}

@@ -162,6 +162,29 @@ describe('the Bear Blog profile', () => {
     expect(() => new URL(bear.identity.instance)).not.toThrow()
   })
 
+  it('loads without an unresolvable-source warning (the adapter declares what it injects)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    loadProfileFrom('profiles/bearblog/octothorpes.json').getProfile()
+    const unresolved = warn.mock.calls.filter((c) => String(c[0]).includes('no matching injected endorser'))
+    warn.mockRestore()
+    expect(unresolved).toEqual([])
+  })
+
+  it('still warns for a source no injected endorser answers to', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    loadProfileFrom('src/tests/fixtures/profiles/bogus-endorser.json').getProfile()
+    const unresolved = warn.mock.calls.filter((c) => String(c[0]).includes('no matching injected endorser'))
+    warn.mockRestore()
+    expect(unresolved).toHaveLength(1)
+    expect(String(unresolved[0][0])).toContain('bear-marker-typo')
+  })
+
+  it('does not advertise octothorp.es feeds as its own', () => {
+    // The profile authors no feeds at all; the loader's default leaves an empty
+    // slot rather than octothorp.es' own octothorpe-news/cats/multipass.
+    expect(bear.identity.feeds).toEqual({})
+  })
+
   it('leaves octothorp.es own profile untouched', () => {
     const own = loadProfileFrom('octothorpes.json').getProfile()
     expect(own.policies.access.endorsement.sources).toEqual([])
