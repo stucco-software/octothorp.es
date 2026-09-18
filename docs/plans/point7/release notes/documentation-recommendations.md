@@ -90,14 +90,11 @@ Added 2026-07-09. Covers the client profile, documentRecord, subtype paths, the 
 The load-bearing new idea: *the profile declares what your client is all about, and the API surface follows.* Outline:
 
 - What `profile.json` is and where it lives (repo root, committed, never secrets)
-  - **Superseded 2026-09-17:** the file is `octothorpes.json`, not `profile.json`. `/profile.json` is the served resolved projection.
 - Field walkthrough grounded in octothorp.es's own live profile — link to the real `/profile.json` rather than inventing an example
 - The `vocabulary` section as the star: `relationshipSubtypes` (declare it → get `/get/<path>/<by>`) and `documentRecord` (declare it → predicates persist and project, typed)
-  - **Superseded 2026-09-17:** both moved under `api`. `vocabulary.relationshipSubtypes` is `api.linkTypes`, entries shaped `{ by, subtype, objects?, label? }`, and a declared entry EXTENDS core's builtin `by` table rather than minting a `[what]`-slot alias. `/get/<path>/<by>` subtype paths and `/get/items/posted` no longer exist; `/get/<what>/<by>` is the only route form, where `by` may be builtin or declared. `vocabulary.documentRecord` is `api.documentRecord`, entries shaped `{ predicate, range }` and octo-only (`type` is accepted as an input alias for `range`; `namespace` and `iri` are schema errors).
 - **Explain why declaration matters:** undeclared predicates are *dropped* — the admission allowlist is the abuse guard, and that's a feature, not a limitation. Say so explicitly.
 - Credentials: point-of-use from env (`BLUESKY_APP_PASSWORD` convention), never in the file. One sentence on why: a committed file must be safe to publish.
 - What's inert: several fields (`indexingMode`, `registrationPolicy`, …) are declared-but-not-yet-wired (Rev 2, #217). **Label them honestly** — documented fields that do nothing, without a note saying so, erode docs trust fastest.
-  - **Superseded 2026-09-17:** those two field names are stale and both are wired. The real fields are `policies.indexing.mode` / `policies.indexing.cooldown` and `policies.access.registration`. The honest inert list today is: `policies.labels` (declared and validated, not yet applied to statements), `federation` (reserved, declaring it is a no-op), and `policies.access.endorsement.sources` (declared and validated; the gate stage lands next).
 
 ### Indexing Markdown
 **Suggested location:** new page under `/harmonizers/` or indexing docs
@@ -123,10 +120,10 @@ The npm story changed materially at 0.3.5:
 ## Existing Documentation to Update
 
 ### `/op-api/` -- `documentRecord` on blobjects
-The field, plus the range→JS-type table: `literal`/`uri` → string, `number` → JS number, `timestamp` → ISO string, `boolean` → boolean. **Superseded 2026-09-17:** `boolean` is not a valid `range` in the schema -- the enum is `literal` | `uri` | `number` | `timestamp` -- so drop the boolean row and the malformed-boolean failure case from that table. **Failure behavior is exactly what reference readers come for — don't bury it:** malformed number/boolean → key omitted; malformed timestamp → raw string passthrough; declared-but-absent → key omitted (no nulls); stored-but-undeclared → dropped.
+The field, plus the range→JS-type table: `literal`/`uri` → string, `number` → JS number, `timestamp` → ISO string, `boolean` → boolean. **Failure behavior is exactly what reference readers come for — don't bury it:** malformed number/boolean → key omitted; malformed timestamp → raw string passthrough; declared-but-absent → key omitted (no nulls); stored-but-undeclared → dropped.
 
 ### `/op-api/` -- Subtype paths
-**Superseded 2026-09-17:** subtype paths are gone. `api.linkTypes[].path` was removed as unused, so there is no `/get/items/posted`; a declared link type is queried as `/get/<what>/<by>` with its declared `by` word. Document the `by` axis instead of a `what` alias. The `by`-axis caveat below still holds.
+
 
 `/get/items/posted` as the worked example. Declared vs undeclared behavior (undeclared `what` values fall through unchanged). **The `by`-axis caveat:** `thorped` filters objects to Terms, so use `posted` or a link-type `by` for page-valued subtypes — this bit the implementing agents and will bite users.
 
@@ -231,3 +228,13 @@ Both already carry docs-site front matter (`layout`, `permalink`, `eleventyNavig
 - The `graph` endorsement source (reserved built-in name).
 - `api.coherence` semantics beyond "a warning list".
 - The CLI scaffolder (#294).
+
+# Superseded by the 2026-09-17 profile review
+
+Corrections to the Epic #240 section above. That section is kept as written for history; treat these as overriding it.
+
+- **The Client Profile:** the file is `octothorpes.json`, not `profile.json`. `/profile.json` is the served resolved projection.
+- **The Client Profile:** both moved under `api`. `vocabulary.relationshipSubtypes` is `api.linkTypes`, entries shaped `{ by, subtype, objects?, label? }`, and a declared entry EXTENDS core's builtin `by` table rather than minting a `[what]`-slot alias. `/get/<path>/<by>` subtype paths and `/get/items/posted` no longer exist; `/get/<what>/<by>` is the only route form, where `by` may be builtin or declared. `vocabulary.documentRecord` is `api.documentRecord`, entries shaped `{ predicate, range }` and octo-only (`type` is accepted as an input alias for `range`; `namespace` and `iri` are schema errors).
+- **The Client Profile:** those two field names are stale and both are wired. The real fields are `policies.indexing.mode` / `policies.indexing.cooldown` and `policies.access.registration`. The honest inert list today is: `policies.labels` (declared and validated, not yet applied to statements), `federation` (reserved, declaring it is a no-op), and `policies.access.endorsement.sources` (declared and validated; the gate stage lands next).
+- **`/op-api/` -- `documentRecord` on blobjects:** `boolean` is not a valid `range` in the schema -- the enum is `literal` | `uri` | `number` | `timestamp` -- so drop the boolean row and the malformed-boolean failure case from that table.
+- **`/op-api/` -- Subtype paths:** subtype paths are gone. `api.linkTypes[].path` was removed as unused, so there is no `/get/items/posted`; a declared link type is queried as `/get/<what>/<by>` with its declared `by` word. Document the `by` axis instead of a `what` alias. The `by`-axis caveat below still holds.
