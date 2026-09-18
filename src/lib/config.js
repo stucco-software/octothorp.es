@@ -15,7 +15,7 @@ export const {
   smtp_user,
   smtp_password,
   robot_email,
-  // Secret: the private page marker the bear-marker endorsement source looks
-  // for. Unset on deploys that do not name that source in their profile.
-  bear_marker,
+  // Secret: the private page marker the client-endorsed endorsement source looks
+  // for (Bear Blog's private marker, on the Bear relay deploy). Unset on deploys that do not name that source in their profile.
+  endorsement_marker,
 } = env;

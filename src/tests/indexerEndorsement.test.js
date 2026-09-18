@@ -15,7 +15,7 @@ const instance = 'http://localhost:5173/'
 
 // The distinctive string only ever exists in the RAW body: no blobject field
 // carries it, which is the whole reason `content` is part of the contract.
-const MARKER = "<meta content='bear-marker-9f3c'>"
+const MARKER = "<meta content='client-endorsed-9f3c'>"
 const pageUri = 'https://bear-endorsed.test/page'
 
 const stubRegistry = (harmonize) => ({
@@ -67,10 +67,10 @@ describe('indexer: injected endorsers reach the gate', () => {
   }
 
   it('admits an unregistered origin whose fetched page carries the marker', async () => {
-    const endorse = vi.fn(({ content }) => content.includes('bear-marker-9f3c'))
+    const endorse = vi.fn(({ content }) => content.includes('client-endorsed-9f3c'))
     const indexer = makeIndexer({
-      sources: ['bear-marker'],
-      endorsers: [{ name: 'bear-marker', endorse }],
+      sources: ['client-endorsed'],
+      endorsers: [{ name: 'client-endorsed', endorse }],
     })
 
     await indexer.handler(pageUri, 'default', null, config)
@@ -90,7 +90,7 @@ describe('indexer: injected endorsers reach the gate', () => {
     const endorse = vi.fn(() => true)
     const indexer = makeIndexer({
       sources: [],
-      endorsers: [{ name: 'bear-marker', endorse }],
+      endorsers: [{ name: 'client-endorsed', endorse }],
     })
 
     await expect(indexer.handler(pageUri, 'default', null, config))
@@ -102,12 +102,12 @@ describe('indexer: injected endorsers reach the gate', () => {
     const endorse = vi.fn(() => true)
     const indexer = makeIndexer({
       sources: [],
-      endorsers: [{ name: 'bear-marker', endorse }],
+      endorsers: [{ name: 'client-endorsed', endorse }],
     })
 
     await indexer.handler(pageUri, 'default', null, {
       ...config,
-      access: { registration: 'registered', endorsement: { sources: ['bear-marker'] } },
+      access: { registration: 'registered', endorsement: { sources: ['client-endorsed'] } },
     })
     expect(endorse).toHaveBeenCalledOnce()
   })

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createBearMarker } from '$lib/endorsers/bearMarker.js'
+import { createClientEndorsed } from '$lib/endorsers/clientEndorsed.js'
 import { loadProfileFrom } from '$lib/profile.js'
 import { createIndexer } from '../../packages/core/indexer.js'
 
-// §2c of docs/plans/weeks/2026-09-14-week.md: the `bear-marker` endorser is an
+// §2c of docs/plans/weeks/2026-09-14-week.md: the `client-endorsed` endorser is an
 // ADAPTER concern (core never discovers endorsers), so it lives in src/lib and
 // is injected via createClient({ endorsers }). The real marker string is a
 // secret read from .env — tests use a made-up one.
@@ -12,11 +12,11 @@ const MARKER = 'test-marker-xyz'
 
 const page = (body) => `<html><head>${body}</head><body>hi</body></html>`
 
-describe('createBearMarker: marker detection', () => {
-  const { name, endorse } = createBearMarker({ marker: MARKER })
+describe('createClientEndorsed: marker detection', () => {
+  const { name, endorse } = createClientEndorsed({ marker: MARKER })
 
-  it('is named bear-marker', () => {
-    expect(name).toBe('bear-marker')
+  it('is named client-endorsed', () => {
+    expect(name).toBe('client-endorsed')
   })
 
   it('admits a page carrying a bare marker meta', async () => {
@@ -40,8 +40,8 @@ describe('createBearMarker: marker detection', () => {
   })
 })
 
-describe('createBearMarker: robots veto (ported from main verifiyContent)', () => {
-  const { endorse } = createBearMarker({ marker: MARKER })
+describe('createClientEndorsed: robots veto (ported from main verifiyContent)', () => {
+  const { endorse } = createClientEndorsed({ marker: MARKER })
 
   it('vetoes a marked page whose robots meta has both noindex and nofollow', async () => {
     const content = page(`<meta content='${MARKER}'><meta name="robots" content="noindex, nofollow">`)
@@ -64,10 +64,10 @@ describe('createBearMarker: robots veto (ported from main verifiyContent)', () =
   })
 })
 
-describe('createBearMarker: missing marker', () => {
+describe('createClientEndorsed: missing marker', () => {
   it('warns once at construction and always declines', async () => {
     const warn = vi.fn()
-    const { endorse } = createBearMarker({ marker: '', warn })
+    const { endorse } = createClientEndorsed({ marker: '', warn })
     expect(warn).toHaveBeenCalledOnce()
 
     expect(await endorse({ origin: 'https://a.test', blobject: null, content: page(`<meta content='${MARKER}'>`) })).not.toBe(true)
@@ -77,13 +77,13 @@ describe('createBearMarker: missing marker', () => {
 
   it('warns once for an undefined marker too', async () => {
     const warn = vi.fn()
-    const { endorse } = createBearMarker({ warn })
+    const { endorse } = createClientEndorsed({ warn })
     expect(warn).toHaveBeenCalledOnce()
     expect(await endorse({ origin: 'https://a.test', blobject: null, content: page('<meta content="undefined">') })).not.toBe(true)
   })
 })
 
-describe('bear-marker through the core gate', () => {
+describe('client-endorsed through the core gate', () => {
   const mockInsert = vi.fn()
   const mockQuery = vi.fn()
   const mockQueryBoolean = vi.fn()
@@ -112,8 +112,8 @@ describe('bear-marker through the core gate', () => {
       indexPolicy: 'index',
       octothorpes: ['cats'],
     }))),
-    access: { registration: 'registered', endorsement: { sources: ['bear-marker'] } },
-    endorsers: [createBearMarker({ marker: MARKER })],
+    access: { registration: 'registered', endorsement: { sources: ['client-endorsed'] } },
+    endorsers: [createClientEndorsed({ marker: MARKER })],
   })
 
   const config = {
@@ -152,9 +152,9 @@ describe('bear-marker through the core gate', () => {
 describe('the Bear Blog profile', () => {
   const bear = loadProfileFrom('profiles/bearblog/octothorpes.json').getProfile()
 
-  it('turns the endorsement stage on with the bear-marker source', () => {
+  it('turns the endorsement stage on with the client-endorsed source', () => {
     expect(bear.policies.access.registration).toBe('registered')
-    expect(bear.policies.access.endorsement.sources).toEqual(['bear-marker'])
+    expect(bear.policies.access.endorsement.sources).toEqual(['client-endorsed'])
   })
 
   it('carries its own identity', () => {
@@ -176,7 +176,7 @@ describe('the Bear Blog profile', () => {
     const unresolved = warn.mock.calls.filter((c) => String(c[0]).includes('no matching injected endorser'))
     warn.mockRestore()
     expect(unresolved).toHaveLength(1)
-    expect(String(unresolved[0][0])).toContain('bear-marker-typo')
+    expect(String(unresolved[0][0])).toContain('client-endorsed-typo')
   })
 
   it('does not advertise octothorp.es feeds as its own', () => {
@@ -204,7 +204,7 @@ describe('src/lib/op.js wiring', () => {
     }
     vi.doMock('$lib/profile.js', () => ({ getProfile: () => profile }))
     const config = await vi.importActual('$lib/config.js')
-    vi.doMock('$lib/config.js', () => ({ ...config, bear_marker: marker }))
+    vi.doMock('$lib/config.js', () => ({ ...config, endorsement_marker: marker }))
     const captured = {}
     vi.doMock('octothorpes', async (orig) => {
       const actual = await orig()
@@ -218,32 +218,32 @@ describe('src/lib/op.js wiring', () => {
     })
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await import('$lib/op.js')
-    const bearWarnings = warn.mock.calls.filter((c) => String(c[0]).includes('bear-marker endorser'))
+    const endorserWarnings = warn.mock.calls.filter((c) => String(c[0]).includes('client-endorsed endorser'))
     warn.mockRestore()
     vi.doUnmock('$lib/profile.js')
     vi.doUnmock('$lib/config.js')
     vi.doUnmock('octothorpes')
     vi.resetModules()
-    return { captured, bearWarnings }
+    return { captured, endorserWarnings }
   }
 
-  it('injects the bear-marker endorser unconditionally', async () => {
+  it('injects the client-endorsed endorser unconditionally', async () => {
     const { captured } = await loadOp({ sources: [], marker: undefined })
-    expect(captured.endorsers.map((e) => e.name)).toEqual(['bear-marker'])
+    expect(captured.endorsers.map((e) => e.name)).toEqual(['client-endorsed'])
   })
 
   it('stays quiet when the marker is unset and the profile does not name the source', async () => {
-    const { bearWarnings } = await loadOp({ sources: [], marker: undefined })
-    expect(bearWarnings).toEqual([])
+    const { endorserWarnings } = await loadOp({ sources: [], marker: undefined })
+    expect(endorserWarnings).toEqual([])
   })
 
   it('warns when the profile names the source but the marker is unset', async () => {
-    const { bearWarnings } = await loadOp({ sources: ['bear-marker'], marker: undefined })
-    expect(bearWarnings).toHaveLength(1)
+    const { endorserWarnings } = await loadOp({ sources: ['client-endorsed'], marker: undefined })
+    expect(endorserWarnings).toHaveLength(1)
   })
 
   it('stays quiet when the source is named and the marker is configured', async () => {
-    const { bearWarnings } = await loadOp({ sources: ['bear-marker'], marker: MARKER })
-    expect(bearWarnings).toEqual([])
+    const { endorserWarnings } = await loadOp({ sources: ['client-endorsed'], marker: MARKER })
+    expect(endorserWarnings).toEqual([])
   })
 })

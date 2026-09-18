@@ -4,7 +4,7 @@ import { createProfile } from 'octothorpes'
 import { env } from '$env/dynamic/private'
 import profileData from '../../octothorpes.json'
 import profileSchema from '../../packages/core/profile.schema.json'
-import { BEAR_MARKER_NAME } from '$lib/endorsers/bearMarker.js'
+import { CLIENT_ENDORSED_NAME } from '$lib/endorsers/clientEndorsed.js'
 
 // Thin SvelteKit adapter (mirrors src/lib/indexing.js): injects the repo-root
 // octothorpes.json, the schema, and $env. `env.instance` is the deploy-level
@@ -18,7 +18,7 @@ const readFile = (path) => readFileSync(resolve(process.cwd(), path), 'utf8')
 // fires for a genuinely misspelled `endorsement.sources` entry and stays quiet
 // for one we really do inject. Only the pure endorser modules are imported here
 // — op.js imports this file, so importing op.js back would be circular.
-const injectedEndorsers = [BEAR_MARKER_NAME]
+const injectedEndorsers = [CLIENT_ENDORSED_NAME]
 
 /**
  * Build a profile accessor from an authored profile object.

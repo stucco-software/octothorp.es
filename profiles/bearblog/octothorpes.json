@@ -34,7 +34,7 @@
         "domains": []
       },
       "endorsement": {
-        "sources": ["bear-marker"]
+        "sources": ["client-endorsed"]
       }
     }
   },

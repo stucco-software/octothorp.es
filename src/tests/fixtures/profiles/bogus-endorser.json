@@ -7,7 +7,7 @@
     "access": {
       "registration": "registered",
       "endorsement": {
-        "sources": ["bear-marker-typo"]
+        "sources": ["client-endorsed-typo"]
       }
     }
   }

@@ -189,8 +189,8 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
   it('admits an unregistered origin when a named endorser returns true', async () => {
     const endorse = vi.fn(async () => true)
     const reason = await checkAccessGate(
-      'https://endorsed.test', registered(['bear-marker']), verifyFalse,
-      endorsement([{ name: 'bear-marker', endorse }])
+      'https://endorsed.test', registered(['client-endorsed']), verifyFalse,
+      endorsement([{ name: 'client-endorsed', endorse }])
     )
     expect(reason).toBeNull()
     expect(endorse).toHaveBeenCalledOnce()
@@ -200,7 +200,7 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
     const endorse = vi.fn(async () => true)
     const reason = await checkAccessGate(
       'https://unnamed.test', registered([]), verifyFalse,
-      endorsement([{ name: 'bear-marker', endorse }])
+      endorsement([{ name: 'client-endorsed', endorse }])
     )
     expect(reason).toMatch(/not registered/i)
     expect(endorse).not.toHaveBeenCalled()
@@ -246,8 +246,8 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
   it('does not reach the endorsers when the origin is already registered', async () => {
     const endorse = vi.fn(async () => true)
     const reason = await checkAccessGate(
-      'https://known.test', registered(['bear-marker']), verifyTrue,
-      endorsement([{ name: 'bear-marker', endorse }])
+      'https://known.test', registered(['client-endorsed']), verifyTrue,
+      endorsement([{ name: 'client-endorsed', endorse }])
     )
     expect(reason).toBeNull()
     expect(endorse).not.toHaveBeenCalled()
@@ -255,12 +255,12 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
 
   it("open and closed never consult endorsers, even with sources set", async () => {
     const endorse = vi.fn(async () => true)
-    const endorsers = [{ name: 'bear-marker', endorse }]
+    const endorsers = [{ name: 'client-endorsed', endorse }]
 
-    const open = normalizeAccess({ registration: 'open', endorsement: { sources: ['bear-marker'] } })
+    const open = normalizeAccess({ registration: 'open', endorsement: { sources: ['client-endorsed'] } })
     expect(await checkAccessGate('https://anyone.test', open, verifyFalse, endorsement(endorsers))).toBeNull()
 
-    const closed = normalizeAccess({ registration: 'closed', endorsement: { sources: ['bear-marker'] } })
+    const closed = normalizeAccess({ registration: 'closed', endorsement: { sources: ['client-endorsed'] } })
     expect(await checkAccessGate('https://anyone.test', closed, verifyFalse, endorsement(endorsers)))
       .toMatch(/whitelist/i)
 
@@ -285,7 +285,7 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
   })
 
   it('is off when the endorsement argument is omitted entirely', async () => {
-    expect(await checkAccessGate('https://none.test', registered(['bear-marker']), verifyFalse))
+    expect(await checkAccessGate('https://none.test', registered(['client-endorsed']), verifyFalse))
       .toMatch(/not registered/i)
   })
 })
