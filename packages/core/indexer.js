@@ -9,7 +9,6 @@ import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
 import { verifiedOrigin } from './origin.js'
-import { robotsForbidsIndexing } from './robots.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -133,12 +132,17 @@ const REFUSING_ROBOTS_TOKENS = new Set(['noindex', 'nofollow', 'none'])
 export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
   const b = blobject || {}
 
+  // A crawler-initiated request: this relay went looking for the page, rather
+  // than the page's owner asking for it. Both the robots refusal and the
+  // active-mode opt-in override key off it.
+  const crawlerInitiated = callerContext.policyMode === 'active' && !callerContext.policyCheck
+
   // 1. The page's own refusal, evaluated before anything else.
   // Robots directives only bind CRAWLER-initiated requests — the active policy
   // mode without a policy check. An owner-initiated request (a site asking this
   // relay to index its own page) is not crawling, so its robots meta, which
   // addresses search engines, is ignored entirely.
-  if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
+  if (crawlerInitiated) {
     const metas = Array.isArray(b.robots) ? b.robots : (typeof b.robots === 'string' ? [b.robots] : [])
     for (const meta of metas) {
       if (typeof meta !== 'string') continue
@@ -150,8 +154,11 @@ export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
     }
   }
 
-  // 2. Caller-context overrides
-  if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
+  // 2. Caller-context overrides.
+  // A crawler indexes without opt-in, but `octo-policy no-index` is an explicit
+  // opt-OUT rather than a missing opt-in, so it binds here too.
+  if (crawlerInitiated) {
+    if (b.indexPolicy === 'no-index') return { optedIn: false, harmonizer: null, refused: null }
     return { optedIn: true, harmonizer: null, refused: null }
   }
   if (callerContext.feedApproved === true) {
@@ -867,8 +874,8 @@ export const createIndexer = (deps) => {
     const {
       instance: inst,
       // serverName identifies this relay (from config.js). No longer consumed by
-      // verifiedOrigin (the old per-service content check was removed; the
-      // robots veto now lives in ./robots.js, run above); threaded
+      // verifiedOrigin (the old per-service content check was removed; robots
+      // directives are resolved by resolveIndexPolicy below); threaded
       // through for the future index-policy work — see #221.
       serverName,
       queryBoolean: configQueryBoolean,
@@ -909,7 +916,7 @@ export const createIndexer = (deps) => {
     // request; the handler's parsed document is cached on it.
     const source = { content, contentType, document: null }
 
-    // 5. Policy resolution.
+    // 4. Policy resolution.
     // The probe now runs on EVERY path, including the caller-context opted-in
     // ones (active mode, feed approval): the page's own directives can only be
     // read from a harmonized blobject, so they have to be extracted before any
@@ -922,7 +929,7 @@ export const createIndexer = (deps) => {
       ? 'default'
       : harmonizer
     // Kept in the outer scope so the access gate below can hand it to the
-    // endorsers, and so step 10 can ingest it directly.
+    // endorsers, and so step 9 can ingest it directly.
     const policyBlobject = await dispatch(source, policyHarmonizer, parsed.normalized)
     if (!policyBlobject) {
       throw new Error('Harmonization failed — could not extract page metadata.')
@@ -939,17 +946,6 @@ export const createIndexer = (deps) => {
       throw new Error(`Page forbids indexing (${policy.refused}).`)
     }
 
-    // The legacy both-flags veto from ./robots.js, retained until it is deleted
-    // (task 5 of the single-parse plan) so owner-initiated requests keep their
-    // current behaviour. Pre-filtered on a cheap substring test for a robots
-    // meta so it costs no second parse on the overwhelming majority of pages;
-    // the filter can only be wider than the veto itself, so the verdict is
-    // unchanged.
-    const mayDeclareRobots = typeof content === 'string' && /name\s*=\s*["']?robots/i.test(content)
-    if (mayDeclareRobots && await robotsForbidsIndexing(content, contentType)) {
-      throw new Error('Page forbids indexing (robots noindex, nofollow).')
-    }
-
     if (!policy.optedIn) {
       throw new Error('Page has not opted in to indexing.')
     }
@@ -958,7 +954,7 @@ export const createIndexer = (deps) => {
       harmonizer = policy.harmonizer
     }
 
-    // 6. Access gate (#217). registration decides WHICH check runs:
+    // 5. Access gate (#217). registration decides WHICH check runs:
     //    'registered' -> datastore verification (verifyOrigin dep, injectable)
     //    'open'       -> no verification; blocks.domains applies
     //    'closed'     -> whitelist.domains only
@@ -984,12 +980,12 @@ export const createIndexer = (deps) => {
     })
     if (denial) throw new Error(denial)
 
-    // 7. Rate limiting
+    // 6. Rate limiting
     if (!checkIndexingRateLimit(parsed.origin)) {
       throw new Error('Rate limit exceeded. Please try again later.')
     }
 
-    // 8. Harmonizer validation
+    // 7. Harmonizer validation
     // Page-declared harmonizers are always trusted (page owner controls their markup).
     // For request-supplied harmonizers:
     //   - With confirmed external origin header: run isHarmonizerAllowed (same-origin or whitelisted)
@@ -1020,7 +1016,7 @@ export const createIndexer = (deps) => {
       }
     }
 
-    // 9. Cooldown
+    // 8. Cooldown
     let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
     if (isRecentlyIndexed) {
       const w = new Error('This page has been recently indexed.')
@@ -1028,7 +1024,7 @@ export const createIndexer = (deps) => {
       throw w
     }
 
-    // 10. Final dispatch and ingest
+    // 9. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
     // Reuse the probe's blobject when the effective harmonizer is identical to
     // the one the probe ran — true unless the page declared its own harmonizer

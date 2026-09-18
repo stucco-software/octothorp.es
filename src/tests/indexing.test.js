@@ -1151,6 +1151,9 @@ describe('Indexing Business Logic', () => {
 
       // Policy-phase harmonize should have used the requested harmonizer
       expect(mockHarmonizeSource.mock.calls[0][1]).toBe('keywords')
+      // ...and it is the ONLY harmonize: the probe's blobject is reused for
+      // ingest because the effective harmonizer did not change.
+      expect(mockHarmonizeSource).toHaveBeenCalledTimes(1)
     })
 
     it('should proceed when page has meta octo-policy=index', async () => {
@@ -1184,7 +1187,8 @@ describe('Indexing Business Logic', () => {
       })
 
       expect(mockVerifyOrigin).toHaveBeenCalled()
-      expect(mockHarmonizeSource).toHaveBeenCalled()
+      // A single probe dispatch, reused for ingest.
+      expect(mockHarmonizeSource).toHaveBeenCalledTimes(1)
     })
 
     it('should override harmonizer when page declares one', async () => {

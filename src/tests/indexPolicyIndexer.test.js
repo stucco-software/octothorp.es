@@ -18,6 +18,7 @@ const { JSDOM } = await import('jsdom')
 const { createIndexer } = await import('../../packages/core/indexer.js')
 const { createHandlerRegistry } = await import('../../packages/core/handlerRegistry.js')
 const htmlHandler = (await import('../../packages/core/handlers/html/handler.js')).default
+const markdownHandler = (await import('../../packages/core/handlers/markdown/handler.js')).default
 
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
@@ -28,6 +29,7 @@ const instance = 'http://localhost:5173/'
 const makeIndexer = () => {
   const reg = createHandlerRegistry()
   reg.register('html', htmlHandler)
+  reg.register('markdown', markdownHandler)
   reg.setDefault('html')
   return createIndexer({
     insert: mockInsert,
@@ -96,6 +98,37 @@ describe('indexer: robots refusal on the active crawler path', () => {
     await indexer.handler(freshUri(), 'default', null, { ...baseConfig, policyMode: 'active' })
     expect(mockInsert).toHaveBeenCalled()
   })
+
+  it('ignores a per-agent meta such as googlebot', async () => {
+    // Only `<meta name="robots">` addresses every agent; a googlebot-specific
+    // directive says nothing about this relay.
+    servePage(page({ extra: '<meta name="googlebot" content="noindex, nofollow">' }))
+    const indexer = makeIndexer()
+    await indexer.handler(freshUri(), 'default', null, { ...baseConfig, policyMode: 'active' })
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
+  it('does not refuse a non-HTML body that merely contains the robots meta text', async () => {
+    // The markdown handler never extracts a `robots` field, so the literal text
+    // cannot become a directive. An unknown harmonizer id is used so dispatch
+    // falls through to the content type instead of forcing html mode — see
+    // src/tests/indexRouteDocumentRecord.test.js.
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => '# Notes\n\n<meta name="robots" content="noindex, nofollow">\n\n#cats\n',
+      headers: { get: () => 'text/markdown' },
+    })
+    const indexer = makeIndexer()
+    await indexer.handler(freshUri(), 'not-a-harmonizer', null, { ...baseConfig, policyMode: 'active' })
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
+  it("refuses an octo-policy no-index page as not opted in", async () => {
+    servePage(page({ policy: 'no-index' }))
+    const indexer = makeIndexer()
+    await expect(indexer.handler(freshUri(), 'default', null, { ...baseConfig, policyMode: 'active' }))
+      .rejects.toThrow('Page has not opted in to indexing.')
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
 })
 
 describe('indexer: the request path ignores robots', () => {
@@ -105,10 +138,13 @@ describe('indexer: the request path ignores robots', () => {
     mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
   })
 
-  // TODO (task 5 of the single-parse plan): once packages/core/robots.js and its
-  // both-flags veto are deleted, change this to `noindex, nofollow`. Today the
-  // legacy check still fires ahead of policy resolution when BOTH flags are
-  // present, so a single directive is used here.
+  it('indexes an opted-in page that declares noindex, nofollow', async () => {
+    servePage(page({ robots: 'noindex, nofollow', policy: 'index' }))
+    const indexer = makeIndexer()
+    await indexer.handler(freshUri(), 'default', null, { ...baseConfig, policyMode: 'request' })
+    expect(mockInsert).toHaveBeenCalled()
+  })
+
   it('indexes an opted-in page that declares noindex', async () => {
     servePage(page({ robots: 'noindex', policy: 'index' }))
     const indexer = makeIndexer()
@@ -121,6 +157,14 @@ describe('indexer: the request path ignores robots', () => {
     const indexer = makeIndexer()
     await indexer.handler(freshUri(), 'default', null, { ...baseConfig, policyMode: 'request' })
     expect(mockInsert).toHaveBeenCalled()
+  })
+
+  it("refuses an octo-policy no-index page as not opted in", async () => {
+    servePage(page({ policy: 'no-index' }))
+    const indexer = makeIndexer()
+    await expect(indexer.handler(freshUri(), 'default', null, { ...baseConfig, policyMode: 'request' }))
+      .rejects.toThrow('Page has not opted in to indexing.')
+    expect(mockInsert).not.toHaveBeenCalled()
   })
 })
 

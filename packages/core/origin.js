@@ -37,7 +37,7 @@ export const verifiedOrigin = async (origin, { queryBoolean }) => {
   //
   // The old per-service content checks are no longer here. The Bear Blog meta
   // tag became an injected endorser (src/lib/endorsers/clientEndorsed.js), and
-  // the robots nofollow/noindex veto lives in ./robots.js, run by the indexer
+  // robots directives are resolved by resolveIndexPolicy in ./indexer.js,
   // before any gate.
   // TKTK verify web trusted domain
   // let webbed = await verifyWebOfTrust(origin)

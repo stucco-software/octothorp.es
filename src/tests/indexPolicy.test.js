@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { resolveIndexPolicy, checkIndexingPolicy } from '../../packages/core/indexer.js'
 
-// Robots directives now resolve inside resolveIndexPolicy (replacing the old
-// packages/core/robots.js module). They bind CRAWLER-initiated requests only:
+// Robots directives resolve inside resolveIndexPolicy, which is the only place
+// they are read. They bind CRAWLER-initiated requests only:
 // policyMode 'active' without a policyCheck. Owner-initiated requests ignore
 // them, because a robots meta addresses search engines, not a relay the site
 // itself asked to index the page.
@@ -44,6 +44,38 @@ describe('resolveIndexPolicy: robots refusal (crawler-initiated)', () => {
   it('matches whole tokens only', () => {
     expect(resolveIndexPolicy({ blobject: { robots: ['noindexing', 'unnoindex'] }, callerContext: crawler }).refused)
       .toBe(null)
+  })
+
+  it('refuses noindex and nofollow together, reporting the first token', () => {
+    const r = resolveIndexPolicy({ blobject: { robots: ['noindex, nofollow'] }, callerContext: crawler })
+    expect(r.refused).toBe('robots noindex')
+    expect(r.optedIn).toBe(false)
+  })
+
+  it('is case-insensitive across a whole directive list', () => {
+    expect(resolveIndexPolicy({ blobject: { robots: ['NOINDEX,NOFOLLOW'] }, callerContext: crawler }).refused)
+      .toBe('robots noindex')
+  })
+
+  it('refuses when a later meta of several carries the directive', () => {
+    expect(resolveIndexPolicy({
+      blobject: { robots: ['index', 'follow', 'nofollow'] },
+      callerContext: crawler,
+    }).refused).toBe('robots nofollow')
+  })
+
+  it('tolerates a meta with no content attribute (empty string)', () => {
+    // The harmonizer yields '' for `<meta name="robots">`; no tokens, no refusal.
+    expect(resolveIndexPolicy({ blobject: { robots: [''] }, callerContext: crawler }).refused).toBe(null)
+  })
+
+  it('accepts a bare string as well as an array', () => {
+    expect(resolveIndexPolicy({ blobject: { robots: 'noindex' }, callerContext: crawler }).refused)
+      .toBe('robots noindex')
+  })
+
+  it('ignores non-string entries', () => {
+    expect(resolveIndexPolicy({ blobject: { robots: [null, 42, {}] }, callerContext: crawler }).refused).toBe(null)
   })
 
   it('tolerates a missing robots field', () => {
@@ -95,10 +127,22 @@ describe('resolveIndexPolicy: owner-initiated requests ignore robots', () => {
 })
 
 describe("resolveIndexPolicy: octo-policy 'no-index'", () => {
+  it('takes second place to a robots refusal on the crawler path', () => {
+    // Robots win the ordering: the refusal is reported, not the bare opt-out.
+    const r = resolveIndexPolicy({
+      blobject: { indexPolicy: 'no-index', robots: ['noindex'] },
+      callerContext: crawler,
+    })
+    expect(r.refused).toBe('robots noindex')
+    expect(r.optedIn).toBe(false)
+  })
+
   it('is not opted in, crawler-initiated', () => {
-    // Crawler-initiated grants opt-in by caller context, so no-index is moot
-    // there; what must not happen is a refusal.
-    expect(resolveIndexPolicy({ blobject: { indexPolicy: 'no-index' }, callerContext: crawler }).refused).toBe(null)
+    // A crawler indexes without opt-in, but no-index is an explicit opt-OUT,
+    // so it binds. Not a refusal — the page is simply not opted in.
+    const r = resolveIndexPolicy({ blobject: { indexPolicy: 'no-index' }, callerContext: crawler })
+    expect(r.optedIn).toBe(false)
+    expect(r.refused).toBe(null)
   })
 
   it('is not opted in, owner-initiated', () => {

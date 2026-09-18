@@ -76,10 +76,10 @@ describe('createClientEndorsed: a pre-parsed document', () => {
   })
 })
 
-// The robots veto is no longer this endorser's business: core refuses a page
-// declaring both noindex and nofollow before any endorser runs. See
-// src/tests/robots.test.js for its unit cases; the integration case below
-// proves it still bites on the marker path.
+// Robots directives are no longer this endorser's business: they are resolved
+// by resolveIndexPolicy, which refuses CRAWLER-initiated requests only and runs
+// before any endorser. See src/tests/indexPolicy.test.js for the unit cases; the
+// integration cases below prove the ordering on the marker path.
 
 describe('createClientEndorsed: missing marker', () => {
   it('warns once at construction and always declines', async () => {
@@ -107,6 +107,9 @@ describe('client-endorsed through the core gate', () => {
   const mockQueryArray = vi.fn()
   const instance = 'http://localhost:5173/'
   const pageUri = 'https://bear-endorsed.test/page'
+  // A separate origin: the indexer keeps a per-origin re-index cooldown and rate
+  // limiter across cases in a file.
+  const crawlerUri = 'https://bear-crawled.test/page'
 
   const stubRegistry = (harmonize) => ({
     getHandler: (mode) => mode === 'html'
@@ -159,10 +162,36 @@ describe('client-endorsed through the core gate', () => {
     expect(mockInsert.mock.calls.map((c) => c[0]).join('\n')).toContain('~/cats')
   })
 
-  it('denies a marked page that declares robots noindex and nofollow', async () => {
+  it('admits a marked page that declares robots noindex and nofollow, in request mode', async () => {
+    // The owner asked for this index, so the page's robots meta — addressed to
+    // search engines — does not bind. The marker still carries the gate.
     serve(`<meta content='${MARKER}'><meta name="robots" content="noindex, nofollow">`)
-    await expect(makeIndexer().handler(pageUri, 'default', null, config))
-      .rejects.toThrow(/forbids indexing/i)
+    await makeIndexer().handler(pageUri, 'default', null, config)
+    expect(mockInsert.mock.calls.map((c) => c[0]).join('\n')).toContain('~/cats')
+  })
+
+  it('denies the same page crawler-initiated, before the endorser is consulted', async () => {
+    const endorse = vi.fn(async () => true)
+    const indexer = createIndexer({
+      insert: mockInsert,
+      query: mockQuery,
+      queryBoolean: mockQueryBoolean,
+      queryArray: mockQueryArray,
+      instance,
+      handlerRegistry: stubRegistry(vi.fn(async () => ({
+        '@id': crawlerUri,
+        title: 'Bear post',
+        indexPolicy: 'index',
+        octothorpes: ['cats'],
+        robots: ['noindex, nofollow'],
+      }))),
+      access: { registration: 'registered', endorsement: { sources: ['client-endorsed'] } },
+      endorsers: [{ name: 'client-endorsed', endorse }],
+    })
+    serve(`<meta content='${MARKER}'><meta name="robots" content="noindex, nofollow">`)
+    await expect(indexer.handler(crawlerUri, 'default', null, { ...config, policyMode: 'active' }))
+      .rejects.toThrow('Page forbids indexing (robots noindex).')
+    expect(endorse).not.toHaveBeenCalled()
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
