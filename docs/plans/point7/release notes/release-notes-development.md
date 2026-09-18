@@ -34,6 +34,8 @@ An instance's identity, policies, and API surface now live in one declarative fi
 
 Affected files: `src/lib/config.js`, `src/lib/profile.js`, `src/lib/emails/alertAdmin.js`, `src/routes/load.js`, `src/routes/index/+server.js`, `src/routes/indexwrapper/+server.js`, `src/routes/badge/+server.js`, `src/routes/register/+page.server.js`, `src/routes/report/+page.server.js`, `src/routes/debug/identity/+server.js`, `src/routes/debug/rolodex/+server.js`, `.env.example`, `octothorpes.json`, `packages/core/profile.js`, `packages/core/resolveProfile.js`, `packages/core/profile.schema.json`.
 
+**Superseded 2026-09-17.** The 2026-09-15 profile review changed several fields described above, and this entry is left as written rather than rewritten. `policies.indexing.frequency` is gone, replaced by `policies.indexing.cooldown` (integer seconds). `api.publishers.named`, `api.handlers.named` and `api.harmonizers.named` are gone; the dirs plus the resolved `available` lists are the whole surface. `api.linkTypes` entries are `{ by, subtype, objects?, label? }` -- the `type` and `path` keys are validation errors, and `path` took the `/get/<path>/<by>` subtype routes with it. `api.documentRecord` entries are `{ predicate, range }` and octo-only. The mapping table's `vocabulary.documentRecord` -> `api.documentRecord` and `vocabulary.relationshipSubtypes` -> `api.linkTypes` rows still hold as renames, but the target shapes have moved. See "Profile review 2026-09-15" below for the current state.
+
 ## lewk CSS foundation pilot
 
 Adopted the local **lewk** editorial CSS framework as OP's styling foundation while preserving OP's visual identity. This is a foundation swap, not a redesign: only the visible "frame" of the site (Header, Nav, Footer, layout shell) gets refactored to use lewk primitives; per-component and per-route styles inherit the new tokens via a compatibility shim.
@@ -1129,3 +1131,22 @@ This corrects the diagnosis in the #282 issue body, which attributed the slowdow
 **Not addressed here:** `prepEverything` still runs a full second query and discards everything but `?s`; phase-1 remains unbounded for `resultMode: 'blobjects'` (`getStatements` suppresses LIMIT/OFFSET there); a stray `console.log(subjectResults)` at `queryBuilders.js:434` serialises the whole phase-1 binding array to stdout on every `everything` request; and `ghcr.io/oxigraph/oxigraph:latest` is unpinned in `octothorpes-suite/docker-compose.yml` and `docs/railway-deploy.md`, which is what let prod and local diverge silently.
 
 **Files affected:** `packages/core/queryBuilders.js`, `src/tests/queryPatternOrdering.test.js` (new, 12 tests).
+
+## profile-consumption merged to development; first post-merge api-smoketest (2026-09-17)
+
+PR #297 merged the `profile-consumption` branch into `development` (`5c8a952`), landing the profile review, the `octo:mentions` retyping, the `api.routes` projection, coherence warnings, 4xx query errors and the api-smoketest in one cutover.
+
+**First post-merge staging run.** `next.octothorp.es`, read-only, bodies captured: **201 requests, 148 ok, 53 empty, 0 error, 0 5xx, 0 slow.** The grammar sweep is now driven by the target's own `api.routes` rather than the local `matrix.js` fallback, covering 159 rows against the 28 the pre-merge run managed, so `mentioned` and the rest of the advertised `by` axis are exercised for the first time.
+
+Diffed against the pre-merge baseline (`api-snapshots/next.octothorp.es/`):
+
+- **134 rows appeared** -- almost entirely the grammar sweep expanding once `api.routes` was there to drive it.
+- **5 negatives flipped from failure to correct rejection**: the four validation cases 500 -> 400, and unknown `as` 200 -> 404.
+- **The profile body reshaped**, as expected: `api.routes` and `api.coherence` appear, `named` lists are gone, `linkTypes` is the merged table with `source`.
+- **Zero body changes on any `/get` row.** The retyping, the error work and the projection changed the API's *surface*, not its *answers*, which is the result the snapshot was captured to prove.
+
+The legacy `/debug/[what]/[by]` route deletion is already recorded in the 4xx entry above and is not repeated here.
+
+**Also in this merge window.** The draft profile docs were patched (`d3ef1ac`) to document the `Mention` subtype, the builtin link-type table and `policies.labels`, and to drop the stale `path` key. Issue **#298** was filed for the unpinned `ghcr.io/oxigraph/oxigraph:latest` image that let production and local dev diverge silently (the root of the #282 diagnosis). Sections 0 and 1 of the week plan were ticked (`afafe67`).
+
+**Files affected:** `docs/plans/weeks/2026-09-14-week.md`, `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, `src/tests/integration/api-snapshots/next.octothorp.es/` (post-merge snapshot + `latest.json`).
