@@ -7,6 +7,7 @@ import {
   originWhitelisted,
   termBlocked,
   checkAccessGate,
+  resolveEndorsers,
 } from 'octothorpes'
 
 // #217 wave 4a: policies.access.registration is the INDEXING gate. This suite
@@ -141,6 +142,151 @@ describe('checkAccessGate', () => {
     const access = normalizeAccess({ registration: 'open', blocks: { terms: ['someslur'] } })
     // A term blocklist says nothing about which ORIGINS may be indexed.
     expect(await checkAccessGate('https://someslur.test', access, verifyTrue)).toBeNull()
+  })
+})
+
+// #217 wave 4 stage 4: endorsement is an admit-only second chance, tried only
+// after the 'registered' check fails. Endorsers are INJECTED (createClient
+// ({ endorsers })) and NAMED by access.endorsement.sources, which both filters
+// and orders them.
+
+describe('resolveEndorsers', () => {
+  const a = { name: 'a', endorse: () => true }
+  const b = { name: 'b', endorse: () => true }
+
+  it('filters the injected endorsers down to the named sources', () => {
+    expect(resolveEndorsers(['a'], [a, b])).toEqual([a])
+  })
+
+  it('orders by sources, not by injection order', () => {
+    expect(resolveEndorsers(['b', 'a'], [a, b])).toEqual([b, a])
+  })
+
+  it('skips a source naming no injected endorser', () => {
+    expect(resolveEndorsers(['nope', 'a'], [a, b])).toEqual([a])
+  })
+
+  it('returns nothing for empty sources or no endorsers', () => {
+    expect(resolveEndorsers([], [a, b])).toEqual([])
+    expect(resolveEndorsers(['a'], [])).toEqual([])
+    expect(resolveEndorsers()).toEqual([])
+  })
+})
+
+describe('checkAccessGate — endorsement (stage 4)', () => {
+  const verifyTrue = async () => true
+  const verifyFalse = async () => false
+  const registered = (sources) => normalizeAccess({ registration: 'registered', endorsement: { sources } })
+
+  const endorsement = (endorsers, extra = {}) => ({
+    endorsers,
+    blobject: null,
+    content: '<html></html>',
+    contentType: 'text/html',
+    ...extra,
+  })
+
+  it('admits an unregistered origin when a named endorser returns true', async () => {
+    const endorse = vi.fn(async () => true)
+    const reason = await checkAccessGate(
+      'https://endorsed.test', registered(['bear-marker']), verifyFalse,
+      endorsement([{ name: 'bear-marker', endorse }])
+    )
+    expect(reason).toBeNull()
+    expect(endorse).toHaveBeenCalledOnce()
+  })
+
+  it('never runs an injected endorser that sources does not name', async () => {
+    const endorse = vi.fn(async () => true)
+    const reason = await checkAccessGate(
+      'https://unnamed.test', registered([]), verifyFalse,
+      endorsement([{ name: 'bear-marker', endorse }])
+    )
+    expect(reason).toMatch(/not registered/i)
+    expect(endorse).not.toHaveBeenCalled()
+  })
+
+  it('tries sources in sources order and short-circuits on the first true', async () => {
+    const calls = []
+    const a = { name: 'a', endorse: vi.fn(() => { calls.push('a'); return true }) }
+    const b = { name: 'b', endorse: vi.fn(() => { calls.push('b'); return true }) }
+    const reason = await checkAccessGate(
+      'https://ordered.test', registered(['b', 'a']), verifyFalse, endorsement([a, b])
+    )
+    expect(reason).toBeNull()
+    expect(calls).toEqual(['b'])
+    expect(a.endorse).not.toHaveBeenCalled()
+  })
+
+  it('treats anything but true as declining', async () => {
+    for (const value of [false, undefined, null, 'yes', 1, {}]) {
+      const reason = await checkAccessGate(
+        'https://truthy.test', registered(['x']), verifyFalse,
+        endorsement([{ name: 'x', endorse: async () => value }])
+      )
+      expect(reason).toMatch(/not registered/i)
+    }
+  })
+
+  it('catches a throwing endorser, warns with its name, and declines', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const reason = await checkAccessGate(
+      'https://boom.test', registered(['exploder', 'ok']), verifyFalse,
+      endorsement([
+        { name: 'exploder', endorse: () => { throw new Error('kaboom') } },
+        { name: 'ok', endorse: () => true },
+      ])
+    )
+    // The throw declines; the NEXT source still gets its turn.
+    expect(reason).toBeNull()
+    expect(warn.mock.calls.flat().join(' ')).toContain('exploder')
+    warn.mockRestore()
+  })
+
+  it('does not reach the endorsers when the origin is already registered', async () => {
+    const endorse = vi.fn(async () => true)
+    const reason = await checkAccessGate(
+      'https://known.test', registered(['bear-marker']), verifyTrue,
+      endorsement([{ name: 'bear-marker', endorse }])
+    )
+    expect(reason).toBeNull()
+    expect(endorse).not.toHaveBeenCalled()
+  })
+
+  it("open and closed never consult endorsers, even with sources set", async () => {
+    const endorse = vi.fn(async () => true)
+    const endorsers = [{ name: 'bear-marker', endorse }]
+
+    const open = normalizeAccess({ registration: 'open', endorsement: { sources: ['bear-marker'] } })
+    expect(await checkAccessGate('https://anyone.test', open, verifyFalse, endorsement(endorsers))).toBeNull()
+
+    const closed = normalizeAccess({ registration: 'closed', endorsement: { sources: ['bear-marker'] } })
+    expect(await checkAccessGate('https://anyone.test', closed, verifyFalse, endorsement(endorsers)))
+      .toMatch(/whitelist/i)
+
+    expect(endorse).not.toHaveBeenCalled()
+  })
+
+  it('hands the endorser exactly { origin, blobject, content, contentType }', async () => {
+    const endorse = vi.fn(async () => true)
+    const blobject = { '@id': 'https://args.test/page' }
+    await checkAccessGate('https://args.test', registered(['x']), verifyFalse, {
+      endorsers: [{ name: 'x', endorse }],
+      blobject,
+      content: '<meta content="bear">',
+      contentType: 'text/html',
+    })
+    expect(endorse).toHaveBeenCalledWith({
+      origin: 'https://args.test',
+      blobject,
+      content: '<meta content="bear">',
+      contentType: 'text/html',
+    })
+  })
+
+  it('is off when the endorsement argument is omitted entirely', async () => {
+    expect(await checkAccessGate('https://none.test', registered(['bear-marker']), verifyFalse))
+      .toMatch(/not registered/i)
   })
 })
 

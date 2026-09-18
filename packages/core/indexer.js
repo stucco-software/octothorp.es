@@ -167,10 +167,14 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
  * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
  * @param {number} [deps.cooldown=300] - Re-index cooldown in seconds; 0 disables it
+ * @param {{name:string, endorse:Function}[]} [deps.endorsers] - #217 stage 4:
+ *   the endorsers injected via createClient({ endorsers }). Which of them run
+ *   (and in what order) is decided by access.endorsement.sources, not by this
+ *   array; an empty sources list leaves the stage off.
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers } = deps
 
   // #217: re-index cooldown in SECONDS, injected from
   // profile.policies.indexing.cooldown. 0 disables the wait.
@@ -180,6 +184,10 @@ export const createIndexer = (deps) => {
   // point below sees a filled shape. Core never reads a profile — the mode and
   // the lists arrive as config.
   const access = normalizeAccess(accessConfig)
+
+  // #217 stage 4: injected endorsers, held as-is. They are inert until an
+  // access block's endorsement.sources names them (see checkAccessGate).
+  const injectedEndorsers = endorsers ?? []
 
   const p = 'octo:octothorpes'
 
@@ -862,6 +870,9 @@ export const createIndexer = (deps) => {
     // Otherwise dispatch through the registry to extract policy markers.
     let policy = resolveIndexPolicy({ callerContext })
     let harmonizerDeclaredOnPage = false
+    // Kept in the outer scope so the access gate below can hand it to the
+    // endorsers. Stays null on the opted-in path, where no probe runs.
+    let policyBlobject = null
 
     if (!policy.optedIn) {
       // For remote (URL) harmonizers, use 'default' for the policy probe — an
@@ -870,7 +881,7 @@ export const createIndexer = (deps) => {
       const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
         ? 'default'
         : harmonizer
-      const policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized)
+      policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized)
       if (!policyBlobject) {
         throw new Error('Harmonization failed — could not extract page metadata.')
       }
@@ -897,7 +908,16 @@ export const createIndexer = (deps) => {
         queryBoolean: configQueryBoolean || queryBoolean
       })))(parsed.origin)
 
-    const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered)
+    // Stage 4 input: the endorsers this client injected, plus the page we
+    // already fetched. The gate itself decides whether any of it is consulted
+    // — a per-call config.access override's endorsement.sources applies here
+    // because effectiveAccess is what is passed in.
+    const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered, {
+      endorsers: injectedEndorsers,
+      blobject: policyBlobject ?? null,
+      content,
+      contentType,
+    })
     if (denial) throw new Error(denial)
 
     // 6. Rate limiting
