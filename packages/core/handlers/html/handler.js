@@ -9,16 +9,21 @@ function removeTrailingSlash(url) {
   return url.replace(/\/+$/g, '');
 }
 
-const extractValues = async (content, rule) => {
+// Parse the HTML once and hand the resulting document to every selector rule.
+// Constructing a JSDOM per rule made one `harmonize` against the default schema
+// cost 27 parses of the same page.
+export const parse = async (content) => {
+  const { JSDOM } = await import('jsdom')
+  return new JSDOM(content, { contentType: "text/html" }).window.document
+}
+
+const extractValues = async (document, rule) => {
   if (rule === undefined || rule === null) return []
   if (typeof rule === "string") {
     return [rule]
   }
   const { selector, attribute, postProcess, terms } = rule
-  const { JSDOM } = await import('jsdom')
-  const dom = new JSDOM(content, { contentType: "text/html" })
-  let tempContainer = dom.window.document
-  const elements = [...tempContainer.querySelectorAll(selector)]
+  const elements = [...document.querySelectorAll(selector)]
   // Every rule must name an attribute to extract.
   if (!attribute || typeof attribute !== 'string') {
     throw new Error(`Harmonizer rule for selector "${selector}" is missing required "attribute" (e.g. "textContent", "href", "content")`)
@@ -80,7 +85,23 @@ export default {
     name: 'HTML Handler',
     description: 'Extracts metadata from HTML using CSS selectors via JSDOM',
   },
-  harmonize: async function harmonize(content, harmonizerSchema, options = {}) {
+  parse,
+  harmonize: async function harmonize(source, harmonizerSchema, options = {}) {
+    // Accept a raw HTML string or a source object `{ content, contentType,
+    // document }`. Either way the page is parsed at most once per call, and a
+    // mutable source object caches the document for later callers.
+    let document
+    if (typeof source === 'string') {
+      document = await parse(source)
+    } else if (source && typeof source === 'object') {
+      document = source.document ?? await parse(source.content)
+      if (!source.document) {
+        try { source.document = document } catch { /* frozen source: no cache */ }
+      }
+    } else {
+      throw new Error('HTML handler requires HTML content or a source object')
+    }
+
     const getHarmonizer = options.getHarmonizer ?? createHarmonizerRegistry(options.instance ?? '').getHarmonizer
     let schema = {}
     const d = await getHarmonizer("default")
@@ -109,7 +130,7 @@ export default {
     async function getObjectVals(obj) {
       const oValues = []
       for (const rule of obj) {
-        let values = await extractValues(content, rule)
+        let values = await extractValues(document, rule)
         if (rule.filterResults) {
           values = filterValues(values, rule.filterResults)
         }
@@ -154,7 +175,7 @@ export default {
       typedOutput[key] = []
       const s = schema[key].s
       const o = schema[key].o
-      const sValues = await extractValues(content, s)
+      const sValues = await extractValues(document, s)
 
       if (key === "subject" || key === "documentRecord") {
         if (key === "subject") {
