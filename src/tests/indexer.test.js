@@ -384,7 +384,7 @@ describe('createIndexer dispatch', () => {
       instance, handlerRegistry: registry,
     })
 
-    const blobject = await indexer.dispatch('{"x":1}', 'text/html', { mode: 'json' }, 'https://e.com/p')
+    const blobject = await indexer.dispatch({ content: '{"x":1}', contentType: 'text/html', document: null }, { mode: 'json' }, 'https://e.com/p')
     expect(harmonize).toHaveBeenCalled()
     expect(blobject['@id']).toBe('https://e.com/p')
   })
@@ -400,7 +400,7 @@ describe('createIndexer dispatch', () => {
       instance, handlerRegistry: registry,
     })
 
-    await indexer.dispatch('<html></html>', 'text/html', 'default', 'https://e.com/p')
+    await indexer.dispatch({ content: '<html></html>', contentType: 'text/html', document: null }, 'default', 'https://e.com/p')
     expect(harmonize).toHaveBeenCalled()
   })
 
@@ -416,7 +416,7 @@ describe('createIndexer dispatch', () => {
       instance, handlerRegistry: registry,
     })
 
-    await indexer.dispatch('<weird/>', 'application/unknown', 'default', 'https://e.com/p')
+    await indexer.dispatch({ content: '<weird/>', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
     expect(harmonize).toHaveBeenCalled()
   })
 
@@ -429,7 +429,7 @@ describe('createIndexer dispatch', () => {
     })
 
     await expect(
-      indexer.dispatch('x', 'application/unknown', 'default', 'https://e.com/p')
+      indexer.dispatch({ content: 'x', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
     ).rejects.toThrow(/no handler/i)
   })
 
@@ -444,7 +444,7 @@ describe('createIndexer dispatch', () => {
       instance, handlerRegistry: registry,
     })
 
-    const blob = await indexer.dispatch('<x/>', 'text/html', 'default', 'https://e.com/p')
+    const blob = await indexer.dispatch({ content: '<x/>', contentType: 'text/html', document: null }, 'default', 'https://e.com/p')
     expect(blob['@id']).toBe('https://e.com/p')
   })
 
@@ -459,7 +459,7 @@ describe('createIndexer dispatch', () => {
       instance, handlerRegistry: registry,
     })
 
-    const blob = await indexer.dispatch('<x/>', 'text/html', 'default', 'https://e.com/p')
+    const blob = await indexer.dispatch({ content: '<x/>', contentType: 'text/html', document: null }, 'default', 'https://e.com/p')
     expect(blob['@id']).toBe('https://other.com/x')
   })
 })
@@ -483,7 +483,7 @@ describe('dispatch default handler', () => {
       queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
-    await indexer.dispatch('{}', 'application/unknown', 'default', 'https://e.com/p')
+    await indexer.dispatch({ content: '{}', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
     expect(harmonize).toHaveBeenCalled()
   })
 
@@ -495,9 +495,21 @@ describe('dispatch default handler', () => {
       queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
-    const result = await indexer.dispatch('anything', 'application/unknown', 'default', 'https://e.com/p')
+    const result = await indexer.dispatch({ content: 'anything', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
     expect(nullHarmonize).toHaveBeenCalled()
     expect(result.octothorpes).toEqual([])
+  })
+
+  it('rejects a bare string source', async () => {
+    const registry = makeRegistry({ null: { mode: 'null', contentTypes: [], harmonize: vi.fn() } }, null)
+    const indexer = createIndexer({
+      insert: mockInsert, query: mockQuery,
+      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      instance, handlerRegistry: registry,
+    })
+    await expect(
+      indexer.dispatch('<html>hi</html>', 'default', 'https://e.com/p')
+    ).rejects.toThrow(/source object/i)
   })
 
   it('throws when neither default nor null handler is registered', async () => {
@@ -508,7 +520,7 @@ describe('dispatch default handler', () => {
       instance, handlerRegistry: registry,
     })
     await expect(
-      indexer.dispatch('x', 'application/unknown', 'default', 'https://e.com/p')
+      indexer.dispatch({ content: 'x', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
     ).rejects.toThrow(/no handler/i)
   })
 })

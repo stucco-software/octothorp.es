@@ -589,13 +589,21 @@ export const createIndexer = (deps) => {
   ////////// dispatch //////////
 
   /**
-   * Resolve a handler for the given harmonizer/contentType and produce a blobject.
+   * Resolve a handler for the given harmonizer/source contentType and produce a blobject.
    * Resolution order: declared mode > contentType > default > null.
    * A DECLARED mode with no registered handler is an error — content-type and
    * default fallback apply only when no mode was declared.
    * Patches @id === 'source' to the source URI before returning.
    */
-  const dispatch = async (content, contentType, harmonizer, uri) => {
+  const dispatch = async (source, harmonizer, uri) => {
+    // `source` is the single fetched-content object `{ content, contentType,
+    // document }`. There is no string form: the object is the parse cache, and
+    // a bare string would silently defeat it.
+    if (!source || typeof source !== 'object' || typeof source.content !== 'string') {
+      throw new Error('dispatch() requires a source object { content, contentType, document }, not a string')
+    }
+    const { content, contentType } = source
+
     // Resolve the harmonizer schema if it's a string name and a lookup is wired in.
     const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
       ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
@@ -617,7 +625,18 @@ export const createIndexer = (deps) => {
       throw new Error(`No handler available for contentType="${contentType}" mode="${mode || ''}"`)
     }
 
-    const blobject = await selected.harmonize(content, resolvedHarmonizer, { instance })
+    // Handlers that declare `parse` work on a parsed tree: parse once, cache it
+    // on the source object, and hand them the source. Everything else keeps
+    // receiving the raw string exactly as before.
+    let payload = content
+    if (typeof selected.parse === 'function') {
+      if (source.document === null || source.document === undefined) {
+        source.document = await selected.parse(content, contentType)
+      }
+      payload = source
+    }
+
+    const blobject = await selected.harmonize(payload, resolvedHarmonizer, { instance })
     if (blobject && blobject['@id'] === 'source') blobject['@id'] = uri
     return blobject
   }
@@ -866,6 +885,9 @@ export const createIndexer = (deps) => {
     })
     const content = await response.text()
     const contentType = response.headers.get('content-type') || 'text/html'
+    // One object carries the fetched page through every harmonization in this
+    // request; the handler's parsed document is cached on it.
+    const source = { content, contentType, document: null }
 
     // 4. The page's own refusal. A robots meta declaring BOTH noindex and
     // nofollow vetoes indexing outright. This sits ahead of policy resolution,
@@ -892,7 +914,7 @@ export const createIndexer = (deps) => {
       const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
         ? 'default'
         : harmonizer
-      policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized)
+      policyBlobject = await dispatch(source, policyHarmonizer, parsed.normalized)
       if (!policyBlobject) {
         throw new Error('Harmonization failed — could not extract page metadata.')
       }
@@ -977,7 +999,7 @@ export const createIndexer = (deps) => {
 
     // 10. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
-    const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized)
+    const blobject = await dispatch(source, harmonizer, parsed.normalized)
     await ingestBlobject(blobject, { instance: base, access: effectiveAccess })
   }
 
