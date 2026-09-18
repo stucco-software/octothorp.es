@@ -33,9 +33,13 @@ export const createClientEndorsed = ({ marker, warn = console.warn } = {}) => {
   }
 
   /**
-   * Admit iff some <meta> carries `content` EXACTLY equal to the marker and no
-   * robots meta vetoes the page. `blobject` is ignored on purpose: the marker
-   * only ever exists in the raw body, and the blobject may be null.
+   * Admit iff some <meta> carries `content` EXACTLY equal to the marker.
+   * `blobject` is ignored on purpose: the marker only ever exists in the raw
+   * body, and the blobject may be null.
+   *
+   * No robots check here: core refuses a page declaring both noindex and
+   * nofollow (packages/core/robots.js) before any endorser runs, so the veto
+   * applies to every index request rather than only to this source.
    */
   const endorse = async ({ content } = {}) => {
     if (!configured) return false
@@ -45,21 +49,7 @@ export const createClientEndorsed = ({ marker, warn = console.warn } = {}) => {
     const dom = new JSDOM(content, { contentType: 'text/html' })
     const metas = [...dom.window.document.getElementsByTagName('meta')]
 
-    let marked = false
-    for (const meta of metas) {
-      const value = meta.getAttribute('content')
-      if (value === marker) marked = true
-
-      // The robots veto, ported from main's verifiyContent: BOTH nofollow and
-      // noindex veto the page. Either one alone is fine — plenty of Bear blogs
-      // set nofollow on its own and still want to be indexed here.
-      if (meta.getAttribute('name')?.toLowerCase() === 'robots') {
-        const robots = (value ?? '').toLowerCase()
-        if (robots.includes('nofollow') && robots.includes('noindex')) return false
-      }
-    }
-
-    return marked
+    return metas.some((meta) => meta.getAttribute('content') === marker)
   }
 
   return { name: CLIENT_ENDORSED_NAME, endorse }

@@ -9,6 +9,7 @@ import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
 import { verifiedOrigin } from './origin.js'
+import { robotsForbidsIndexing } from './robots.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -827,7 +828,8 @@ export const createIndexer = (deps) => {
     const {
       instance: inst,
       // serverName identifies this relay (from config.js). No longer consumed by
-      // verifiedOrigin (the old Bear Blog content check was removed); threaded
+      // verifiedOrigin (the old per-service content check was removed; the
+      // robots veto now lives in ./robots.js, run above); threaded
       // through for the future index-policy work — see #221.
       serverName,
       queryBoolean: configQueryBoolean,
@@ -865,7 +867,16 @@ export const createIndexer = (deps) => {
     const content = await response.text()
     const contentType = response.headers.get('content-type') || 'text/html'
 
-    // 4. Policy resolution.
+    // 4. The page's own refusal. A robots meta declaring BOTH noindex and
+    // nofollow vetoes indexing outright. This sits ahead of policy resolution,
+    // the access gate and endorsement on purpose: it is not a policy this relay
+    // applies but the page's own statement, so no opt-in, registration or
+    // endorsement may override it. A denial, never a warning.
+    if (await robotsForbidsIndexing(content, contentType)) {
+      throw new Error('Page forbids indexing (robots noindex, nofollow).')
+    }
+
+    // 5. Policy resolution.
     // If caller context grants opt-in, skip page-level harmonization entirely.
     // Otherwise dispatch through the registry to extract policy markers.
     let policy = resolveIndexPolicy({ callerContext })
@@ -895,7 +906,7 @@ export const createIndexer = (deps) => {
       }
     }
 
-    // 5. Access gate (#217). registration decides WHICH check runs:
+    // 6. Access gate (#217). registration decides WHICH check runs:
     //    'registered' -> datastore verification (verifyOrigin dep, injectable)
     //    'open'       -> no verification; blocks.domains applies
     //    'closed'     -> whitelist.domains only
@@ -920,12 +931,12 @@ export const createIndexer = (deps) => {
     })
     if (denial) throw new Error(denial)
 
-    // 6. Rate limiting
+    // 7. Rate limiting
     if (!checkIndexingRateLimit(parsed.origin)) {
       throw new Error('Rate limit exceeded. Please try again later.')
     }
 
-    // 7. Harmonizer validation
+    // 8. Harmonizer validation
     // Page-declared harmonizers are always trusted (page owner controls their markup).
     // For request-supplied harmonizers:
     //   - With confirmed external origin header: run isHarmonizerAllowed (same-origin or whitelisted)
@@ -956,7 +967,7 @@ export const createIndexer = (deps) => {
       }
     }
 
-    // 8. Cooldown
+    // 9. Cooldown
     let isRecentlyIndexed = await recentlyIndexed(parsed.normalized)
     if (isRecentlyIndexed) {
       const w = new Error('This page has been recently indexed.')
@@ -964,7 +975,7 @@ export const createIndexer = (deps) => {
       throw w
     }
 
-    // 9. Final dispatch and ingest
+    // 10. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
     const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized)
     await ingestBlobject(blobject, { instance: base, access: effectiveAccess })

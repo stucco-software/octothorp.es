@@ -40,29 +40,10 @@ describe('createClientEndorsed: marker detection', () => {
   })
 })
 
-describe('createClientEndorsed: robots veto (ported from main verifiyContent)', () => {
-  const { endorse } = createClientEndorsed({ marker: MARKER })
-
-  it('vetoes a marked page whose robots meta has both noindex and nofollow', async () => {
-    const content = page(`<meta content='${MARKER}'><meta name="robots" content="noindex, nofollow">`)
-    expect(await endorse({ origin: 'https://a.test', blobject: null, content })).toBe(false)
-  })
-
-  it('vetoes case-insensitively', async () => {
-    const content = page(`<meta content='${MARKER}'><meta name="ROBOTS" content="NoIndex, NoFollow">`)
-    expect(await endorse({ origin: 'https://a.test', blobject: null, content })).toBe(false)
-  })
-
-  it('still admits a marked page with nofollow alone', async () => {
-    const content = page(`<meta content='${MARKER}'><meta name="robots" content="nofollow">`)
-    expect(await endorse({ origin: 'https://a.test', blobject: null, content })).toBe(true)
-  })
-
-  it('still admits a marked page with noindex alone', async () => {
-    const content = page(`<meta content='${MARKER}'><meta name="robots" content="noindex">`)
-    expect(await endorse({ origin: 'https://a.test', blobject: null, content })).toBe(true)
-  })
-})
+// The robots veto is no longer this endorser's business: core refuses a page
+// declaring both noindex and nofollow before any endorser runs. See
+// src/tests/robots.test.js for its unit cases; the integration case below
+// proves it still bites on the marker path.
 
 describe('createClientEndorsed: missing marker', () => {
   it('warns once at construction and always declines', async () => {
@@ -140,6 +121,13 @@ describe('client-endorsed through the core gate', () => {
     serve(`<meta content='${MARKER}'>`)
     await makeIndexer().handler(pageUri, 'default', null, config)
     expect(mockInsert.mock.calls.map((c) => c[0]).join('\n')).toContain('~/cats')
+  })
+
+  it('denies a marked page that declares robots noindex and nofollow', async () => {
+    serve(`<meta content='${MARKER}'><meta name="robots" content="noindex, nofollow">`)
+    await expect(makeIndexer().handler(pageUri, 'default', null, config))
+      .rejects.toThrow(/forbids indexing/i)
+    expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('denies the same origin when the marker is absent', async () => {
