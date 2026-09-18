@@ -145,6 +145,31 @@ describe("resolveIndexPolicy: octo-policy 'no-index'", () => {
     expect(r.refused).toBe(null)
   })
 
+  it('binds feed approval in request mode', () => {
+    const r = resolveIndexPolicy({
+      blobject: { indexPolicy: 'no-index' },
+      callerContext: { policyMode: 'request', feedApproved: true },
+    })
+    expect(r.optedIn).toBe(false)
+    expect(r.refused).toBe(null)
+  })
+
+  it('binds feed approval in active mode', () => {
+    const r = resolveIndexPolicy({
+      blobject: { indexPolicy: 'no-index' },
+      callerContext: { policyMode: 'active', feedApproved: true },
+    })
+    expect(r.optedIn).toBe(false)
+    expect(r.refused).toBe(null)
+  })
+
+  it('leaves feed approval alone when the page declares no octo-policy', () => {
+    expect(resolveIndexPolicy({
+      blobject: { title: 'no markers at all' },
+      callerContext: { policyMode: 'request', feedApproved: true },
+    }).optedIn).toBe(true)
+  })
+
   it('is not opted in, owner-initiated', () => {
     const r = resolveIndexPolicy({ blobject: { indexPolicy: 'no-index' }, callerContext: { policyMode: 'request' } })
     expect(r.optedIn).toBe(false)

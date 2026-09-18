@@ -166,6 +166,15 @@ describe('indexer: the request path ignores robots', () => {
       .rejects.toThrow('Page has not opted in to indexing.')
     expect(mockInsert).not.toHaveBeenCalled()
   })
+
+  it("refuses an octo-policy no-index page even when the feed is approved", async () => {
+    servePage(page({ policy: 'no-index' }))
+    const indexer = makeIndexer()
+    await expect(indexer.handler(freshUri(), 'default', null, {
+      ...baseConfig, policyMode: 'request', feedApproved: true,
+    })).rejects.toThrow('Page has not opted in to indexing.')
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
 })
 
 describe('indexer: the forced policy block survives a caller harmonizer', () => {

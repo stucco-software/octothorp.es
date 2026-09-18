@@ -154,11 +154,14 @@ export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
     }
   }
 
-  // 2. Caller-context overrides.
-  // A crawler indexes without opt-in, but `octo-policy no-index` is an explicit
-  // opt-OUT rather than a missing opt-in, so it binds here too.
+  // 2. The explicit opt-out, ahead of every caller-context override.
+  // An automatic opt-in (crawling under active mode, feed approval) fills in a
+  // MISSING opt-in; it never overrides an explicit opt-out. Not a refusal —
+  // the page is simply not opted in.
+  if (b.indexPolicy === 'no-index') return { optedIn: false, harmonizer: null, refused: null }
+
+  // 3. Caller-context overrides
   if (crawlerInitiated) {
-    if (b.indexPolicy === 'no-index') return { optedIn: false, harmonizer: null, refused: null }
     return { optedIn: true, harmonizer: null, refused: null }
   }
   if (callerContext.feedApproved === true) {
