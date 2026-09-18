@@ -464,6 +464,56 @@ describe('createIndexer dispatch', () => {
   })
 })
 
+describe('dispatch parse cache is keyed on the parsing handler', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const makeRegistry = (handlers = {}) => ({
+    getHandler: (mode) => handlers[mode] ?? null,
+    getHandlerForContentType: () => null,
+    getDefault: () => null,
+  })
+
+  const makeParsingHandler = (mode) => {
+    const parse = vi.fn(async (content) => ({ tree: mode, content }))
+    const harmonize = vi.fn(async (source) => ({ '@id': 'source', seen: source.document }))
+    return { mode, parse, harmonize }
+  }
+
+  const makeIndexerWith = (registry) => createIndexer({
+    insert: mockInsert, query: mockQuery,
+    queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+    instance, handlerRegistry: registry,
+  })
+
+  it('re-parses when a second dispatch selects a different parsing handler', async () => {
+    const a = makeParsingHandler('a')
+    const b = makeParsingHandler('b')
+    const indexer = makeIndexerWith(makeRegistry({ a, b }))
+    const source = { content: '<doc/>', contentType: 'text/html', document: null }
+
+    await indexer.dispatch(source, { mode: 'a' }, 'https://e.com/p')
+    await indexer.dispatch(source, { mode: 'b' }, 'https://e.com/p')
+
+    expect(a.parse).toHaveBeenCalledTimes(1)
+    expect(b.parse).toHaveBeenCalledTimes(1)
+    // B must harmonize B's own tree, never A's.
+    expect(b.harmonize.mock.calls[0][0].document).toEqual({ tree: 'b', content: '<doc/>' })
+    expect(source.parsedBy).toBe('b')
+  })
+
+  it('parses exactly once when the same handler is dispatched twice', async () => {
+    const a = makeParsingHandler('a')
+    const indexer = makeIndexerWith(makeRegistry({ a }))
+    const source = { content: '<doc/>', contentType: 'text/html', document: null }
+
+    await indexer.dispatch(source, { mode: 'a' }, 'https://e.com/p')
+    await indexer.dispatch(source, { mode: 'a' }, 'https://e.com/p')
+
+    expect(a.parse).toHaveBeenCalledTimes(1)
+    expect(a.harmonize).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('dispatch default handler', () => {
   const makeRegistry = (handlers = {}, defaultMode = null) => {
     const r = {

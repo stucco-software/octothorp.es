@@ -13,14 +13,16 @@ const knownErrors = [
   'Invalid URI',
   'no scheme found',
   'not opted in',
+  'forbids indexing',
 ]
 
-const mapErrorToStatus = (message) => {
+export const _mapErrorToStatus = (message) => {
   if (message.includes('not registered')) return 401
   if (message.includes('Rate limit')) return 429
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
   if (message.includes('not opted in')) return 403
+  if (message.includes('forbids indexing')) return 403
   if (knownErrors.some(e => message.includes(e))) return 400
   return 500
 }
@@ -47,7 +49,7 @@ const handleError = (e) => {
     return json({ status: 'warning', message: e.message }, { status: 200 })
   }
   console.error('index error:', e)
-  return error(mapErrorToStatus(e.message), e.message)
+  return error(_mapErrorToStatus(e.message), e.message)
 }
 
 export async function GET(req) {

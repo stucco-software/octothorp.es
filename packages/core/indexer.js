@@ -658,10 +658,19 @@ export const createIndexer = (deps) => {
     // Handlers that declare `parse` work on a parsed tree: parse once, cache it
     // on the source object, and hand them the source. Everything else keeps
     // receiving the raw string exactly as before.
+    //
+    // The cache is keyed on WHICH handler produced the tree (`source.parsedBy`),
+    // not merely on a document being present: two handlers that both declare
+    // `parse` produce incompatible trees, so a second dispatch through a
+    // different parsing handler must re-parse rather than inherit the first
+    // handler's tree. Repeat dispatches through the same handler still parse once.
     let payload = content
     if (typeof selected.parse === 'function') {
-      if (source.document === null || source.document === undefined) {
+      const parsedBy = selected.mode || selected
+      const cached = source.document !== null && source.document !== undefined
+      if (!cached || source.parsedBy !== parsedBy) {
         source.document = await selected.parse(content, contentType)
+        source.parsedBy = parsedBy
       }
       payload = source
     }
