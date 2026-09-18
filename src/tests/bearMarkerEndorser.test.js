@@ -167,3 +167,60 @@ describe('the Bear Blog profile', () => {
     expect(own.policies.access.endorsement.sources).toEqual([])
   })
 })
+
+describe('src/lib/op.js wiring', () => {
+  const loadOp = async ({ sources, marker }) => {
+    vi.resetModules()
+    const bear = loadProfileFrom('profiles/bearblog/octothorpes.json').getProfile()
+    const profile = {
+      ...bear,
+      policies: {
+        ...bear.policies,
+        access: { ...bear.policies.access, endorsement: { sources } },
+      },
+    }
+    vi.doMock('$lib/profile.js', () => ({ getProfile: () => profile }))
+    const config = await vi.importActual('$lib/config.js')
+    vi.doMock('$lib/config.js', () => ({ ...config, bear_marker: marker }))
+    const captured = {}
+    vi.doMock('octothorpes', async (orig) => {
+      const actual = await orig()
+      return {
+        ...actual,
+        createClient: (cfg) => {
+          Object.assign(captured, cfg)
+          return actual.createClient(cfg)
+        },
+      }
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await import('$lib/op.js')
+    const bearWarnings = warn.mock.calls.filter((c) => String(c[0]).includes('bear-marker endorser'))
+    warn.mockRestore()
+    vi.doUnmock('$lib/profile.js')
+    vi.doUnmock('$lib/config.js')
+    vi.doUnmock('octothorpes')
+    vi.resetModules()
+    return { captured, bearWarnings }
+  }
+
+  it('injects the bear-marker endorser unconditionally', async () => {
+    const { captured } = await loadOp({ sources: [], marker: undefined })
+    expect(captured.endorsers.map((e) => e.name)).toEqual(['bear-marker'])
+  })
+
+  it('stays quiet when the marker is unset and the profile does not name the source', async () => {
+    const { bearWarnings } = await loadOp({ sources: [], marker: undefined })
+    expect(bearWarnings).toEqual([])
+  })
+
+  it('warns when the profile names the source but the marker is unset', async () => {
+    const { bearWarnings } = await loadOp({ sources: ['bear-marker'], marker: undefined })
+    expect(bearWarnings).toHaveLength(1)
+  })
+
+  it('stays quiet when the source is named and the marker is configured', async () => {
+    const { bearWarnings } = await loadOp({ sources: ['bear-marker'], marker: MARKER })
+    expect(bearWarnings).toEqual([])
+  })
+})
