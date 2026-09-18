@@ -31,6 +31,31 @@ describe('robotsForbidsIndexing', () => {
     expect(await robotsForbidsIndexing(page(head), 'text/html')).toBe(true)
   })
 
+  it('treats the `none` token as noindex plus nofollow', async () => {
+    expect(await robotsForbidsIndexing(page('<meta name="robots" content="none">'), 'text/html')).toBe(true)
+  })
+
+  it('treats `NONE` case-insensitively', async () => {
+    expect(await robotsForbidsIndexing(page('<meta name="robots" content="NONE">'), 'text/html')).toBe(true)
+  })
+
+  it('allows an explicit index, follow', async () => {
+    expect(await robotsForbidsIndexing(page('<meta name="robots" content="index, follow">'), 'text/html')).toBe(false)
+  })
+
+  it('handles an unspaced directive list', async () => {
+    expect(await robotsForbidsIndexing(page('<meta name="robots" content="noindex,nofollow">'), 'text/html')).toBe(true)
+  })
+
+  it('allows a robots meta with no content attribute', async () => {
+    expect(await robotsForbidsIndexing(page('<meta name="robots">'), 'text/html')).toBe(false)
+  })
+
+  it('matches whole tokens only, not substrings', async () => {
+    const head = '<meta name="robots" content="noindex-x, nofollow-x">'
+    expect(await robotsForbidsIndexing(page(head), 'text/html')).toBe(false)
+  })
+
   it('ignores per-agent metas such as googlebot', async () => {
     expect(await robotsForbidsIndexing(page('<meta name="googlebot" content="noindex, nofollow">'), 'text/html')).toBe(false)
   })

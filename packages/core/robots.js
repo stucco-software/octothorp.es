@@ -3,7 +3,8 @@
 // A page that declares BOTH `noindex` and `nofollow` in a `<meta name="robots">`
 // is never indexed by this protocol. Either directive alone is fine — plenty of
 // Bear blogs set `nofollow` on its own and still want to be indexed here — so
-// only the pair vetoes.
+// only the pair vetoes. Per the robots spec the single token `none` means
+// `noindex, nofollow`, so it vetoes on its own.
 //
 // This lives in core, not in an endorser, because it is not a policy: no
 // registration, opt-in or endorsement can override what the page itself says.
@@ -34,9 +35,15 @@ export const robotsForbidsIndexing = async (content, contentType) => {
   let nofollow = false
   for (const meta of metas) {
     if (meta.getAttribute('name')?.toLowerCase() !== 'robots') continue
-    const directives = (meta.getAttribute('content') ?? '').toLowerCase()
-    if (directives.includes('noindex')) noindex = true
-    if (directives.includes('nofollow')) nofollow = true
+    // Whole tokens only: a substring test would misfire on e.g. `nofollow-x`.
+    const directives = (meta.getAttribute('content') ?? '')
+      .toLowerCase()
+      .split(/[\s,]+/)
+      .filter(Boolean)
+    for (const directive of directives) {
+      if (directive === 'noindex' || directive === 'none') noindex = true
+      if (directive === 'nofollow' || directive === 'none') nofollow = true
+    }
   }
 
   return noindex && nofollow
