@@ -1,0 +1,66 @@
+{
+  "$schema": "../../packages/core/profile.schema.json",
+
+  "identity": {
+    "instance": "https://bear.octothorp.es/",
+    "name": "Bear Blog",
+    "description": "Octothorpes relay for Bear Blog sites.",
+    "terms": "/~/",
+    "rules": "/terms",
+    "feeds": {
+      "thorpes": ["octothorpe-news", "cats"],
+      "multipass": "https://octothorp.es/news-and-favs.json"
+    },
+    "images": {
+      "favicon": "/favicon.ico",
+      "avatar": "/avatar.png"
+    },
+    "contact": {
+      "email": "admin@octothorp.es",
+      "bluesky": "@octothorp.es"
+    }
+  },
+
+  "policies": {
+    "commercial": false,
+    "indexing": {
+      "mode": "request",
+      "cooldown": 300
+    },
+    "access": {
+      "registration": "registered",
+      "badge": "/badge.png",
+      "blocks": {
+        "domains": [],
+        "terms": []
+      },
+      "whitelist": {
+        "domains": []
+      },
+      "endorsement": {
+        "sources": ["bear-marker"]
+      }
+    }
+  },
+
+  "api": {
+    "linkTypes": [],
+    "documentRecord": [{ "predicate": "richContent", "range": "literal" }],
+    "publishers": {
+      "dir": "./static/publishers"
+    },
+    "handlers": {
+      "dir": "./static/handlers",
+      "default": "html"
+    },
+    "harmonizers": {
+      "dir": "./static/harmonizers"
+    }
+  },
+
+  "vocabulary": {
+    "namespaces": [
+      { "prefix": "skos", "iri": "http://www.w3.org/2004/02/skos/core#", "import": true }
+    ]
+  }
+}

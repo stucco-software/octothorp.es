@@ -8,6 +8,8 @@ import { getProfile } from '$lib/profile.js'
 import { publishers } from '$lib/publishers'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
 import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
+import { createBearMarker } from '$lib/endorsers/bearMarker.js'
+import { env } from '$env/dynamic/private'
 
 const profile = getProfile()
 
@@ -31,6 +33,11 @@ export const op = createClient({
   indexingMode: profile.policies.indexing.mode,
   cooldown: profile.policies.indexing.cooldown,
   access: profile.policies.access,
+  // Endorsement sources are INJECTED here and only run when the profile's
+  // policies.access.endorsement.sources names them. octothorp.es's own profile
+  // names none, so this is inert for this deploy; the Bear relay profile
+  // (profiles/bearblog/octothorpes.json) turns it on.
+  endorsers: [createBearMarker({ marker: env.bear_marker })],
   // Was missing entirely (#217 gap audit): without this, programmatic op.get()
   // silently lost documentRecord projection.
   documentRecordSchema: profile.api.documentRecord,
