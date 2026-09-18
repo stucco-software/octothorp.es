@@ -40,6 +40,8 @@ That is the only command core ships. It writes `octothorpes.json` in the current
 
 The scaffold emits only what you asked for. It does not bake in defaults -- if `policies.commercial` is absent from your file, that is because the loader fills it, not because the command forgot.
 
+`policies.labels` is a list of `{ id, name, description? }` content labels this relay advertises, so other clients can read what a label means before trusting it. Declaring one here does nothing operational yet -- attaching it to a statement is a separate, per-statement step.
+
 Keep the `$schema` pointer the scaffold writes. Every object in the schema is `additionalProperties: false`, so a typo is an error rather than a key that quietly does nothing, and an editor that follows `$schema` will catch it before the relay does.
 
 ## Who may send you data
@@ -126,7 +128,9 @@ The profile declares the query word; a harmonizer declares the markup that write
 
 There is nothing special about the builtins. `cited` is `{ by: "cited", subtype: "Cite", objects: "notTerms" }` hardwired into core, and a declared type takes the identical code path.
 
-`/get/<what>/<by>` is the only route form. There is no `[what]`-slot alias -- an earlier `path` key offered one and was removed 2026-09-16, unused.
+`/get/<what>/<by>` is the only route form.
+
+`mentioned` is a typed link, `octo:Mention`, written by `<a rel="octo:mentions" href="...">`. `linked` is the untyped superset: every non-term link, however it was written, including bookmarks, cites and mentions. This is the pattern a declared link type follows -- a `by` word, a subtype, and a harmonizer section keyed by the lowercased subtype.
 
 ## documentRecord
 

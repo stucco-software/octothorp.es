@@ -89,7 +89,26 @@ The endorsement stage is declared and validated but is not consulted by the gate
 | `api.handlers.default` | string | `"html"` | Handler mode dispatch falls back to. A mode, not a harmonizer id. |
 | `api.harmonizers.dir` | string | `null` | Directory of harmonizer JSON definitions, read and validated at init. |
 
-The resolved profile's `api.linkTypes` is the MERGED list -- the builtins (`thorped`, `octothorped`, `tagged`, `termed`, `linked`, `backlinked`, `cited`, `bookmarked`, `mentioned`, `posted`, `all`, `in-webring`, `members`, `member-of`) tagged `source: "builtin"`, then your declarations tagged `source: "declared"`. Same convention as `vocabulary.namespaces`.
+The resolved profile's `api.linkTypes` is the MERGED list -- the fourteen builtins below, tagged `source: "builtin"`, then your declarations tagged `source: "declared"`. Same convention as `vocabulary.namespaces`.
+
+| `by` | `objects` | `subtype` | `rt` |
+|---|---|---|---|
+| `thorped` | `terms` | -- | no |
+| `octothorped` | `terms` | -- | no |
+| `tagged` | `terms` | -- | no |
+| `termed` | `terms` | -- | no |
+| `linked` | `notTerms` | -- | yes |
+| `backlinked` | `pages` | `Backlink` | yes |
+| `cited` | `notTerms` | `Cite` | yes |
+| `bookmarked` | `notTerms` | `Bookmark` | yes |
+| `mentioned` | `notTerms` | `Mention` | yes |
+| `posted` | `none` | -- | no |
+| `all` | `none` | -- | no |
+| `in-webring` | `all` | -- | no (`subjects: byParent`) |
+| `members` | `all` | -- | no (`subjects: byParent`) |
+| `member-of` | `all` | -- | no (`subjects: byParent`) |
+
+`mentioned` is `octo:Mention`. `linked` carries no subtype filter by design -- it is the untyped superset, matching every non-term link regardless of subtype.
 
 `range` note: the read-side coercion also understands `boolean`, but the schema enum does not include it, so a `boolean` entry fails validation.
 
