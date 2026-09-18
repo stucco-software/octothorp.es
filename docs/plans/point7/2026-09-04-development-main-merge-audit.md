@@ -1,8 +1,10 @@
 # development → main merge audit and pre-merge plan
 
-**Date:** 2026-09-04 · **last revised** 2026-09-11
-**Status:** audit complete; pre-merge work not started. **Cutover has moved out** — endorsement (B5) is
-now a blocker and must land before the freeze. See §6.
+**Date:** 2026-09-04 · **last revised** 2026-09-18
+**Status:** Phase 0 in progress. Step 1 landed (`profile-consumption` merged 2026-09-17, B4 closed).
+Steps 2 and 10 are implemented on feature branches awaiting PR into `development`: `endorsement-gate`
+(B5) and `lewk-revert`. `merge-prep` is not yet cut. **Cutover has moved out** — endorsement (B5) is
+a blocker and must land before the freeze. See §6.
 **Purpose:** establish what must be reconciled before `development` (v0.7) can replace `main` in production.
 
 ## 1. The shape of the divergence
@@ -109,10 +111,13 @@ Phase 0 now carries the two remaining *feature* merges into `development`. Both 
 freeze in step 4, because a freeze that has to be broken is not a freeze.
 
 1. Land `profile-consumption` on `development` (closes B4 — see §2.2).
-2. **Land the endorsement gate — marker slice only** (closes B5 — see §7). Schema, endorser loader,
-   gate stage 4, and the `bear-marker` module. The graph/web-of-trust half is explicitly out and ships
-   after cutover; `sources: []` keeps it inert. Task breakdown:
-   `docs/plans/weeks/2026-09-14-week.md` §0.
+2. **Land the endorsement gate — marker slice only** (closes B5 — see §7). Schema, injected
+   endorsers, gate stage 4, and the `client-endorsed` module (renamed from `bear-marker` 2026-09-18).
+   The graph/web-of-trust half is explicitly out and ships after cutover; `sources: []` keeps it
+   inert. **Implemented on branch `endorsement-gate` (2026-09-17/18), awaiting PR.** That branch also
+   carries the single-parse indexing pipeline and the robots/index-policy rework
+   (`docs/plans/point7/2026-09-18-single-parse-indexing-pipeline.md`). Task breakdown:
+   `docs/plans/weeks/2026-09-14-week.md` §0 and §2; handoff in `docs/plans/weeks/2026-09-28-week.md`.
 3. Cut `merge-prep` from `development`. **Not yet created** — no branch, no ports, no commits.
 4. Freeze: no further feature merges into `development` until cutover.
 5. Land the term-IRI hotfix on `main` (see §4) so production is not waiting on any of this. Independent
@@ -138,7 +143,8 @@ freeze in step 4, because a freeze that has to be broken is not a freeze.
    *Verify:* `git grep -n indexwrapper` returns nothing outside changelogs.
 
 ### Phase 2 — content and de-styling
-10. **Revert the lewk restyling to match production** (decided 2026-09-11). The lewk.css layout system
+10. **Revert the lewk restyling to match production** (decided 2026-09-11). **Implemented on branch
+   `lewk-revert` (2026-09-17) together with §5 of the week plan, awaiting PR.** The lewk.css layout system
    was started early on `development` — it is Wave 6 in the tracker and still unticked there — and is
    not in a shippable state. Revert it now and redo it later as its own piece of work.
 
