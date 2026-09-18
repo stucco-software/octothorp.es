@@ -1150,3 +1150,11 @@ The legacy `/debug/[what]/[by]` route deletion is already recorded in the 4xx en
 **Also in this merge window.** The draft profile docs were patched (`d3ef1ac`) to document the `Mention` subtype, the builtin link-type table and `policies.labels`, and to drop the stale `path` key. Issue **#298** was filed for the unpinned `ghcr.io/oxigraph/oxigraph:latest` image that let production and local dev diverge silently (the root of the #282 diagnosis). Sections 0 and 1 of the week plan were ticked (`afafe67`).
 
 **Files affected:** `docs/plans/weeks/2026-09-14-week.md`, `docs/drafts/profile/profile.md`, `docs/drafts/profile/profile-reference.md`, `src/tests/integration/api-snapshots/next.octothorp.es/` (post-merge snapshot + `latest.json`).
+
+## lewk restyle reverted; homepage server name comes from the profile (2026-09-17)
+
+The lewk restyling was Wave 6 work started ahead of its wave and is not shippable as part of the cutover, so it has been reverted wholesale. `src/app.html`, the Header, Footer, Nav and LayoutSidebar components, `src/routes/+layout.svelte`, `src/routes/+page.svelte` and `static/var.css` are restored byte for byte from `main`, and `static/lewk.css` and `static/op-theme.css` are deleted. `global.css`, `reset.css` and `fonts.css` were already identical across the two branches, and no theme-switcher JS existed, so nothing else had to move. The restyle will be redone standalone when Wave 6 comes up.
+
+The homepage sentence that used to read "This STAGING Server (v0.7rc1) is a network of..." now renders the instance name instead. `src/routes/load.js` already returned `server_name` from `getProfile().identity.name`, so the template just consumes it, with a plain `This Server` fallback for an instance whose profile has no name. There is no environment variable read and no staging flag: the profile name is the label, which is how `next.octothorp.es` announces itself through its own `octothorpes.json`. The hardcoded `STAGING` string is gone from `src/`.
+
+**Files affected:** `src/app.html`, `src/lib/components/Header.svelte`, `src/lib/components/Footer.svelte`, `src/lib/components/Nav.svelte`, `src/lib/components/LayoutSidebar.svelte`, `src/routes/+layout.svelte`, `src/routes/+page.svelte`, `static/var.css`, `static/lewk.css` (deleted), `static/op-theme.css` (deleted), `docs/plans/weeks/2026-09-14-week.md`
