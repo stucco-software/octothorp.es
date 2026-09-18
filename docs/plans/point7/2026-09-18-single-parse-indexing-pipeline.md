@@ -56,7 +56,7 @@ Only the HTML handler is pathological, and only it gets `parse` in this pass.
 
 Right after the fetch the indexer builds `{ content, contentType, document }`, where `document` comes from the resolved handler's `parse` when it has one. Note the ordering wrinkle: the handler is resolved inside `dispatch`, so the indexer cannot know which handler applies before dispatching. The resolution is to let `dispatch` own it. `dispatch` accepts either a string (today's signature) or a source object; when handed a source object whose `document` is still unset and whose selected handler exposes `parse`, it parses once, writes the document back onto the source object, and reuses it on every later call with the same object. The source object is the parse cache.
 
-`dispatch` keeps its `(content, contentType, harmonizer, uri)` string-accepting form. It is on the indexer's public return value and `src/tests/indexer.test.js` calls it with a string in ten places (lines 387, 403, 419, 432, 447, 462, 486, 498, 511, and the error case at 511). Keeping the shim means those tests and any external consumer stay green; the two internal call sites (`packages/core/indexer.js` lines 895 and 980) move to the source object. Grep confirms there are no other `dispatch(` call sites under `src/` or `packages/`; the only other mention is a comment in `src/tests/indexing.test.js` line 592.
+`dispatch` drops its string-accepting form (decided 2026-09-18). Its signature becomes `dispatch(source, harmonizer, uri)` where `source` is the `{ content, contentType, document }` object; passing a string is an error. The two internal call sites (`packages/core/indexer.js` lines 895 and 980) move to the source object, and the ten string-form calls in `src/tests/indexer.test.js` (lines 387, 403, 419, 432, 447, 462, 486, 498, 511) are updated to build a source object. Grep confirms there are no other `dispatch(` call sites under `src/` or `packages/`; the only other mention is a comment in `src/tests/indexing.test.js` line 592. The HTML handler's own `harmonize` still accepts a raw string, because `client.harmonize(html, name)` is a separate public entry point that hands it strings; that is the handler's concern, not the indexer's.
 
 ### Probe always runs, and the probe blobject is the blobject
 
@@ -115,7 +115,7 @@ Note the interaction with the access gate: `blobject` was documented as possibly
 | Probe on active path | Skipped | Always runs | Required to read directives at all. |
 | Final dispatch | Always runs | Skipped when the harmonizer did not change | Otherwise re-harmonizes against the same `document`. |
 | Endorser contract | `{ origin, blobject, content, contentType }` | `{ origin, blobject, content, contentType, document }` | Additive; existing endorsers keep working. |
-| `dispatch` signature | `(content: string, contentType, harmonizer, uri)` | `(sourceOrString, contentType, harmonizer, uri)` | String form retained as a shim. |
+| `dispatch` signature | `(content: string, contentType, harmonizer, uri)` | `(source, harmonizer, uri)` | No shim; the ten test call sites are updated. |
 | Harmonizer JSON authored by sites | N/A | Unchanged | No new keys or rule shapes required of authors. |
 | Remote harmonizers | Probed as `'default'` | Probed as `'default'`, plus the forced policy block | Strictly stricter. |
 | Non-HTML handlers (markdown, xml, calendar, json) | Parse once each already | Unchanged | No `parse` export in this pass. |
@@ -138,9 +138,9 @@ Tests: `src/tests/harmonizer.test.js`, `src/tests/harmonizerCoherence.test.js`, 
 
 Files: `packages/core/indexer.js`, `packages/core/handlerRegistry.js`.
 
-Build `{ content, contentType, document: null }` after the fetch. Let `dispatch` accept it, lazily populate `document` via the selected handler's `parse`, and cache it on the object. Keep the string-accepting shim. Pass the source object at both internal call sites.
+Build `{ content, contentType, document: null }` after the fetch. Change `dispatch` to `dispatch(source, harmonizer, uri)`: it takes only the source object, lazily populates `document` via the selected handler's `parse`, caches it on the object, and throws a clear error if handed a string. Pass the source object at both internal call sites. No shim.
 
-Tests: `src/tests/indexer.test.js` (the ten string-signature `dispatch` calls must stay green), `src/tests/handlerRegistry.test.js`, `src/tests/indexing.test.js`.
+Tests: `src/tests/indexer.test.js` (update the ten string-form `dispatch` calls to build a source object), `src/tests/handlerRegistry.test.js`, `src/tests/indexing.test.js`.
 
 ### 3. Probe, policy schema and refusal
 
@@ -171,4 +171,4 @@ Append a release-notes entry to `docs/plans/point7/release notes/release-notes-d
 - Custom harmonizers that declare their own `subject` block drop the policy rules today, because `mergeSchemas` replaces whole top-level keys. The shipped `openGraph` harmonizer is an existing instance. The forced policy block fixes this, but it is a behaviour change for anyone relying on the current, accidental escape hatch.
 - Active-path cost. The probe is new there. It costs no additional parse and its blobject is reused, so the path goes from 28 parses to 1, but the harmonization work itself is now attributed to policy resolution rather than to ingest. Watch active-mode latency after the change.
 - Memory. A jsdom `Document` for a large page is now held across the access gate, the rate-limit check and the cooldown query rather than being discarded per rule. Peak memory per request rises; total allocation falls sharply. Release the source object promptly after ingest.
-- External consumers of the string `dispatch(content, contentType, harmonizer, uri)` signature. Grep across `src/` and `packages/` finds only `packages/core/indexer.js` lines 895 and 980 (internal) and ten calls in `src/tests/indexer.test.js` (lines 387, 403, 419, 432, 447, 462, 486, 498 and 511). `dispatch` is nonetheless on the indexer's public return value, so the shim stays rather than being a migration.
+- External consumers of the string `dispatch(content, contentType, harmonizer, uri)` signature. Grep across `src/` and `packages/` finds only `packages/core/indexer.js` lines 895 and 980 (internal) and ten calls in `src/tests/indexer.test.js` (lines 387, 403, 419, 432, 447, 462, 486, 498 and 511). `dispatch` is on the indexer's public return value, so this is a breaking change to that surface; noted in the release notes.
