@@ -1,7 +1,7 @@
-import { c as create_custom_element, S as SvelteComponent, i as init, f as flush, s as safe_not_equal, a as append_styles, e as empty, b as insert, n as noop, d as detach, o as onMount, v as subscribe, j as element, k as space, l as attr, m as append, t as text, q as set_data, p as listen, r as destroy_each, u as src_url_equal } from "./index-C1gcNmBK.js";
-import { c as createOctoQuery, e as ensure_array_like } from "./octo-store-DM5sJvIS.js";
-import { p as parseMultipass, e as extractWhatBy, m as multipassToParams } from "./multipass-utils-Ctljzdil.js";
-import { g as getTitle, a as getUrl, f as formatDate } from "./display-helpers-C2Eemnsf.js";
+import { c as create_custom_element, S as SvelteComponent, i as init, s as safe_not_equal, f as flush, a as append_styles, n as noop, d as detach, b as insert, e as empty, o as onMount, u as subscribe, j as element, l as attr, h as append, k as space, m as set_data, t as text, p as listen, q as destroy_each, r as src_url_equal } from "./index-CUq1JIrc.js";
+import { c as createOctoQuery, e as ensure_array_like } from "./octo-store-gqNhvdlq.js";
+import { p as parseMultipass, e as extractWhatBy, m as multipassToParams } from "./multipass-utils-pPo3plf4.js";
+import { g as getTitle, a as getUrl, f as formatDate } from "./display-helpers-CwXNjiBk.js";
 function add_css(target) {
   append_styles(target, "svelte-99us", ":host{--octo-font:system-ui, -apple-system, sans-serif;--octo-primary:#3c7efb;--octo-background:#ffffff;--octo-text:#333333;--octo-border:#e0e0e0;--octo-error:#d32f2f;--octo-spacing:1rem;--octo-radius:4px;display:block;font-family:var(--octo-font);color:var(--octo-text)}.octo-multipass.svelte-99us.svelte-99us{background:var(--octo-background)}.count.svelte-99us.svelte-99us,.count-loading.svelte-99us.svelte-99us,.count-error.svelte-99us.svelte-99us,.count-pending.svelte-99us.svelte-99us{font-weight:bold}.count-loading.svelte-99us.svelte-99us,.count-pending.svelte-99us.svelte-99us{opacity:0.5}.count-error.svelte-99us.svelte-99us{color:var(--octo-error)}.multipass-title.svelte-99us.svelte-99us{margin:0 0 0.5rem 0;font-size:1.5rem;font-weight:bold;color:var(--octo-text)}.multipass-description.svelte-99us.svelte-99us{margin:0 0 0.5rem 0;color:#666;line-height:1.5}.multipass-author.svelte-99us.svelte-99us{margin:0 0 1rem 0;font-size:0.875rem;font-style:italic;color:#999}.load-button.svelte-99us.svelte-99us,.retry-button.svelte-99us.svelte-99us{background:var(--octo-primary);color:white;border:none;padding:0.75rem 1.5rem;font-size:1rem;font-family:var(--octo-font);border-radius:var(--octo-radius);cursor:pointer;transition:opacity 0.2s}.load-button.svelte-99us.svelte-99us:hover,.retry-button.svelte-99us.svelte-99us:hover{opacity:0.9}.retry-button.svelte-99us.svelte-99us{background:var(--octo-error)}.loading.svelte-99us.svelte-99us{text-align:center;padding:calc(var(--octo-spacing) * 2)}.spinner.svelte-99us.svelte-99us{width:40px;height:40px;margin:0 auto var(--octo-spacing);border:4px solid var(--octo-border);border-top-color:var(--octo-primary);border-radius:50%;animation:svelte-99us-spin 1s linear infinite}@keyframes svelte-99us-spin{to{transform:rotate(360deg)}}.loading.svelte-99us p.svelte-99us{margin:0;color:#666}.error-container.svelte-99us.svelte-99us{padding:var(--octo-spacing)}.error.svelte-99us.svelte-99us{padding:var(--octo-spacing);background:#ffebee;border:1px solid var(--octo-error);border-radius:var(--octo-radius);text-align:center}.error.svelte-99us p.svelte-99us{color:var(--octo-error);margin:0 0 var(--octo-spacing) 0}.error.svelte-99us p.svelte-99us:last-child{margin-bottom:0}.list.svelte-99us.svelte-99us{list-style:none;padding:0;margin:0}.list.svelte-99us li.svelte-99us{padding:var(--octo-spacing);border-bottom:1px solid var(--octo-border)}.list.svelte-99us li.svelte-99us:last-child{border-bottom:none}.cards.svelte-99us.svelte-99us{display:grid;grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));gap:var(--octo-spacing)}.card.svelte-99us.svelte-99us{padding:var(--octo-spacing);border:1px solid var(--octo-border);border-radius:var(--octo-radius);background:var(--octo-background)}.card.svelte-99us img.svelte-99us{width:100%;height:auto;border-radius:var(--octo-radius);margin-bottom:0.5rem}.card.svelte-99us h3.svelte-99us{margin:0 0 0.5rem 0;font-size:1.125rem}.compact.svelte-99us.svelte-99us{line-height:1.5}a.svelte-99us.svelte-99us{color:var(--octo-primary);text-decoration:none}a.svelte-99us.svelte-99us:hover{text-decoration:underline}.description.svelte-99us.svelte-99us{margin:0.5rem 0 0 0;color:#666;font-size:0.875rem;line-height:1.4}.date.svelte-99us.svelte-99us{display:block;margin-top:0.25rem;font-size:0.75rem;color:#999}.tags.svelte-99us.svelte-99us{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem}.tag.svelte-99us.svelte-99us{display:inline-block;padding:0.125rem 0.375rem;background:#f0f0f0;border-radius:var(--octo-radius);font-size:0.75rem;color:#666}.meta.svelte-99us.svelte-99us{margin-top:var(--octo-spacing);padding-top:var(--octo-spacing);border-top:1px solid var(--octo-border);text-align:right;font-size:0.875rem;color:#666}.result-count.svelte-99us.svelte-99us{font-weight:bold}.author-credit.svelte-99us.svelte-99us{font-style:italic}");
 }
@@ -73,50 +73,36 @@ function create_else_block_1(ctx) {
   return {
     c() {
       div = element("div");
-      if (if_block0)
-        if_block0.c();
+      if (if_block0) if_block0.c();
       t0 = space();
-      if (if_block1)
-        if_block1.c();
+      if (if_block1) if_block1.c();
       t1 = space();
-      if (if_block2)
-        if_block2.c();
+      if (if_block2) if_block2.c();
       t2 = space();
-      if (if_block3)
-        if_block3.c();
+      if (if_block3) if_block3.c();
       t3 = space();
-      if (if_block4)
-        if_block4.c();
+      if (if_block4) if_block4.c();
       t4 = space();
-      if (if_block5)
-        if_block5.c();
+      if (if_block5) if_block5.c();
       t5 = space();
-      if (if_block6)
-        if_block6.c();
+      if (if_block6) if_block6.c();
       attr(div, "class", "octo-multipass svelte-99us");
     },
     m(target, anchor) {
       insert(target, div, anchor);
-      if (if_block0)
-        if_block0.m(div, null);
+      if (if_block0) if_block0.m(div, null);
       append(div, t0);
-      if (if_block1)
-        if_block1.m(div, null);
+      if (if_block1) if_block1.m(div, null);
       append(div, t1);
-      if (if_block2)
-        if_block2.m(div, null);
+      if (if_block2) if_block2.m(div, null);
       append(div, t2);
-      if (if_block3)
-        if_block3.m(div, null);
+      if (if_block3) if_block3.m(div, null);
       append(div, t3);
-      if (if_block4)
-        if_block4.m(div, null);
+      if (if_block4) if_block4.m(div, null);
       append(div, t4);
-      if (if_block5)
-        if_block5.m(div, null);
+      if (if_block5) if_block5.m(div, null);
       append(div, t5);
-      if (if_block6)
-        if_block6.m(div, null);
+      if (if_block6) if_block6.m(div, null);
     },
     p(ctx2, dirty) {
       var _a2, _b2, _c2;
@@ -188,8 +174,7 @@ function create_else_block_1(ctx) {
         ctx2[2] && /*$query*/
         ctx2[3].loading
       ) {
-        if (if_block4)
-          ;
+        if (if_block4) ;
         else {
           if_block4 = create_if_block_19();
           if_block4.c();
@@ -237,20 +222,13 @@ function create_else_block_1(ctx) {
       if (detaching) {
         detach(div);
       }
-      if (if_block0)
-        if_block0.d();
-      if (if_block1)
-        if_block1.d();
-      if (if_block2)
-        if_block2.d();
-      if (if_block3)
-        if_block3.d();
-      if (if_block4)
-        if_block4.d();
-      if (if_block5)
-        if_block5.d();
-      if (if_block6)
-        if_block6.d();
+      if (if_block0) if_block0.d();
+      if (if_block1) if_block1.d();
+      if (if_block2) if_block2.d();
+      if (if_block3) if_block3.d();
+      if (if_block4) if_block4.d();
+      if (if_block5) if_block5.d();
+      if (if_block6) if_block6.d();
     }
   };
 }
@@ -261,20 +239,17 @@ function create_if_block_1(ctx) {
       /*query*/
       ctx2[2] && /*$query*/
       ctx2[3].loading
-    )
-      return create_if_block_2;
+    ) return create_if_block_2;
     if (
       /*query*/
       ctx2[2] && /*$query*/
       ctx2[3].error
-    )
-      return create_if_block_3;
+    ) return create_if_block_3;
     if (
       /*query*/
       ctx2[2] && /*$query*/
       ctx2[3].results
-    )
-      return create_if_block_4;
+    ) return create_if_block_4;
     return create_else_block;
   }
   let current_block_type = select_block_type_1(ctx);
@@ -347,8 +322,7 @@ function create_if_block_23(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*parsedMultiPass*/
       2 && t_value !== (t_value = /*parsedMultiPass*/
-      ctx2[1].meta.title + ""))
-        set_data(t, t_value);
+      ctx2[1].meta.title + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -377,8 +351,7 @@ function create_if_block_22(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*parsedMultiPass*/
       2 && t_value !== (t_value = /*parsedMultiPass*/
-      ctx2[1].meta.description + ""))
-        set_data(t, t_value);
+      ctx2[1].meta.description + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -410,8 +383,7 @@ function create_if_block_21(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*parsedMultiPass*/
       2 && t1_value !== (t1_value = /*parsedMultiPass*/
-      ctx2[1].meta.author + ""))
-        set_data(t1, t1_value);
+      ctx2[1].meta.author + "")) set_data(t1, t1_value);
     },
     d(detaching) {
       if (detaching) {
@@ -520,8 +492,7 @@ function create_if_block_18(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*$query*/
       8 && t2_value !== (t2_value = /*$query*/
-      ctx2[3].error + ""))
-        set_data(t2, t2_value);
+      ctx2[3].error + "")) set_data(t2, t2_value);
     },
     d(detaching) {
       if (detaching) {
@@ -553,18 +524,15 @@ function create_if_block_5(ctx) {
     if (
       /*render*/
       ctx2[0] === "list"
-    )
-      return create_if_block_7;
+    ) return create_if_block_7;
     if (
       /*render*/
       ctx2[0] === "cards"
-    )
-      return create_if_block_12;
+    ) return create_if_block_12;
     if (
       /*render*/
       ctx2[0] === "compact"
-    )
-      return create_if_block_16;
+    ) return create_if_block_16;
   }
   let current_block_type = select_block_type_2(ctx);
   let if_block0 = current_block_type && current_block_type(ctx);
@@ -574,8 +542,7 @@ function create_if_block_5(ctx) {
   );
   return {
     c() {
-      if (if_block0)
-        if_block0.c();
+      if (if_block0) if_block0.c();
       t0 = space();
       div = element("div");
       span = element("span");
@@ -583,14 +550,12 @@ function create_if_block_5(ctx) {
       t2 = text(" result");
       t3 = text(t3_value);
       t4 = space();
-      if (if_block1)
-        if_block1.c();
+      if (if_block1) if_block1.c();
       attr(span, "class", "result-count svelte-99us");
       attr(div, "class", "meta svelte-99us");
     },
     m(target, anchor) {
-      if (if_block0)
-        if_block0.m(target, anchor);
+      if (if_block0) if_block0.m(target, anchor);
       insert(target, t0, anchor);
       insert(target, div, anchor);
       append(div, span);
@@ -598,16 +563,14 @@ function create_if_block_5(ctx) {
       append(span, t2);
       append(span, t3);
       append(div, t4);
-      if (if_block1)
-        if_block1.m(div, null);
+      if (if_block1) if_block1.m(div, null);
     },
     p(ctx2, dirty) {
       var _a2;
       if (current_block_type === (current_block_type = select_block_type_2(ctx2)) && if_block0) {
         if_block0.p(ctx2, dirty);
       } else {
-        if (if_block0)
-          if_block0.d(1);
+        if (if_block0) if_block0.d(1);
         if_block0 = current_block_type && current_block_type(ctx2);
         if (if_block0) {
           if_block0.c();
@@ -616,12 +579,10 @@ function create_if_block_5(ctx) {
       }
       if (dirty & /*$query*/
       8 && t1_value !== (t1_value = /*$query*/
-      ctx2[3].count + ""))
-        set_data(t1, t1_value);
+      ctx2[3].count + "")) set_data(t1, t1_value);
       if (dirty & /*$query*/
       8 && t3_value !== (t3_value = /*$query*/
-      ctx2[3].count === 1 ? "" : "s"))
-        set_data(t3, t3_value);
+      ctx2[3].count === 1 ? "" : "s")) set_data(t3, t3_value);
       if (
         /*parsedMultiPass*/
         (_a2 = ctx2[1].meta) == null ? void 0 : _a2.author
@@ -646,8 +607,7 @@ function create_if_block_5(ctx) {
       if (if_block0) {
         if_block0.d(detaching);
       }
-      if (if_block1)
-        if_block1.d();
+      if (if_block1) if_block1.d();
     }
   };
 }
@@ -861,8 +821,7 @@ function create_each_block_3(ctx) {
       a = element("a");
       t0 = text(t0_value);
       t1 = space();
-      if (if_block)
-        if_block.c();
+      if (if_block) if_block.c();
       if_block_anchor = empty();
       attr(a, "href", a_href_value = getUrl(
         /*item*/
@@ -876,8 +835,7 @@ function create_each_block_3(ctx) {
       insert(target, a, anchor);
       append(a, t0);
       append(a, t1);
-      if (if_block)
-        if_block.m(target, anchor);
+      if (if_block) if_block.m(target, anchor);
       insert(target, if_block_anchor, anchor);
     },
     p(ctx2, dirty) {
@@ -885,8 +843,7 @@ function create_each_block_3(ctx) {
       8 && t0_value !== (t0_value = getTitle(
         /*item*/
         ctx2[10]
-      ) + ""))
-        set_data(t0, t0_value);
+      ) + "")) set_data(t0, t0_value);
       if (dirty & /*$query*/
       8 && a_href_value !== (a_href_value = getUrl(
         /*item*/
@@ -899,8 +856,7 @@ function create_each_block_3(ctx) {
         ctx2[19] < /*$query*/
         ctx2[3].results.length - 1
       ) {
-        if (if_block)
-          ;
+        if (if_block) ;
         else {
           if_block = create_if_block_17();
           if_block.c();
@@ -916,8 +872,7 @@ function create_each_block_3(ctx) {
         detach(a);
         detach(if_block_anchor);
       }
-      if (if_block)
-        if_block.d(detaching);
+      if (if_block) if_block.d(detaching);
     }
   };
 }
@@ -929,8 +884,7 @@ function create_if_block_15(ctx) {
     c() {
       img = element("img");
       if (!src_url_equal(img.src, img_src_value = /*item*/
-      ctx[10].image))
-        attr(img, "src", img_src_value);
+      ctx[10].image)) attr(img, "src", img_src_value);
       attr(img, "alt", img_alt_value = getTitle(
         /*item*/
         ctx[10]
@@ -982,8 +936,7 @@ function create_if_block_14(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*$query*/
       8 && t_value !== (t_value = /*item*/
-      ctx2[10].description + ""))
-        set_data(t, t_value);
+      ctx2[10].description + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1014,8 +967,7 @@ function create_if_block_13(ctx) {
       8 && t_value !== (t_value = formatDate(
         /*item*/
         ctx2[10].date
-      ) + ""))
-        set_data(t, t_value);
+      ) + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1053,18 +1005,15 @@ function create_each_block_2(ctx) {
   return {
     c() {
       article = element("article");
-      if (if_block0)
-        if_block0.c();
+      if (if_block0) if_block0.c();
       t0 = space();
       h3 = element("h3");
       a = element("a");
       t1 = text(t1_value);
       t2 = space();
-      if (if_block1)
-        if_block1.c();
+      if (if_block1) if_block1.c();
       t3 = space();
-      if (if_block2)
-        if_block2.c();
+      if (if_block2) if_block2.c();
       t4 = space();
       attr(a, "href", a_href_value = getUrl(
         /*item*/
@@ -1078,18 +1027,15 @@ function create_each_block_2(ctx) {
     },
     m(target, anchor) {
       insert(target, article, anchor);
-      if (if_block0)
-        if_block0.m(article, null);
+      if (if_block0) if_block0.m(article, null);
       append(article, t0);
       append(article, h3);
       append(h3, a);
       append(a, t1);
       append(article, t2);
-      if (if_block1)
-        if_block1.m(article, null);
+      if (if_block1) if_block1.m(article, null);
       append(article, t3);
-      if (if_block2)
-        if_block2.m(article, null);
+      if (if_block2) if_block2.m(article, null);
       append(article, t4);
     },
     p(ctx2, dirty) {
@@ -1112,8 +1058,7 @@ function create_each_block_2(ctx) {
       8 && t1_value !== (t1_value = getTitle(
         /*item*/
         ctx2[10]
-      ) + ""))
-        set_data(t1, t1_value);
+      ) + "")) set_data(t1, t1_value);
       if (dirty & /*$query*/
       8 && a_href_value !== (a_href_value = getUrl(
         /*item*/
@@ -1156,12 +1101,9 @@ function create_each_block_2(ctx) {
       if (detaching) {
         detach(article);
       }
-      if (if_block0)
-        if_block0.d();
-      if (if_block1)
-        if_block1.d();
-      if (if_block2)
-        if_block2.d();
+      if (if_block0) if_block0.d();
+      if (if_block1) if_block1.d();
+      if (if_block2) if_block2.d();
     }
   };
 }
@@ -1185,8 +1127,7 @@ function create_if_block_11(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*$query*/
       8 && t_value !== (t_value = /*item*/
-      ctx2[10].description + ""))
-        set_data(t, t_value);
+      ctx2[10].description + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1217,8 +1158,7 @@ function create_if_block_10(ctx) {
       8 && t_value !== (t_value = formatDate(
         /*item*/
         ctx2[10].date
-      ) + ""))
-        set_data(t, t_value);
+      ) + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1308,8 +1248,7 @@ function create_if_block_9(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*$query*/
       8 && t1_value !== (t1_value = /*thorpe*/
-      ctx2[13] + ""))
-        set_data(t1, t1_value);
+      ctx2[13] + "")) set_data(t1, t1_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1324,13 +1263,11 @@ function create_each_block_1(ctx) {
   ctx[13] === "string" && create_if_block_9(ctx);
   return {
     c() {
-      if (if_block)
-        if_block.c();
+      if (if_block) if_block.c();
       if_block_anchor = empty();
     },
     m(target, anchor) {
-      if (if_block)
-        if_block.m(target, anchor);
+      if (if_block) if_block.m(target, anchor);
       insert(target, if_block_anchor, anchor);
     },
     p(ctx2, dirty) {
@@ -1352,8 +1289,7 @@ function create_each_block_1(ctx) {
       if (detaching) {
         detach(if_block_anchor);
       }
-      if (if_block)
-        if_block.d(detaching);
+      if (if_block) if_block.d(detaching);
     }
   };
 }
@@ -1389,14 +1325,11 @@ function create_each_block(ctx) {
       a = element("a");
       t0 = text(t0_value);
       t1 = space();
-      if (if_block0)
-        if_block0.c();
+      if (if_block0) if_block0.c();
       t2 = space();
-      if (if_block1)
-        if_block1.c();
+      if (if_block1) if_block1.c();
       t3 = space();
-      if (if_block2)
-        if_block2.c();
+      if (if_block2) if_block2.c();
       t4 = space();
       attr(a, "href", a_href_value = getUrl(
         /*item*/
@@ -1412,14 +1345,11 @@ function create_each_block(ctx) {
       append(li, a);
       append(a, t0);
       append(li, t1);
-      if (if_block0)
-        if_block0.m(li, null);
+      if (if_block0) if_block0.m(li, null);
       append(li, t2);
-      if (if_block1)
-        if_block1.m(li, null);
+      if (if_block1) if_block1.m(li, null);
       append(li, t3);
-      if (if_block2)
-        if_block2.m(li, null);
+      if (if_block2) if_block2.m(li, null);
       append(li, t4);
     },
     p(ctx2, dirty) {
@@ -1427,8 +1357,7 @@ function create_each_block(ctx) {
       8 && t0_value !== (t0_value = getTitle(
         /*item*/
         ctx2[10]
-      ) + ""))
-        set_data(t0, t0_value);
+      ) + "")) set_data(t0, t0_value);
       if (dirty & /*$query*/
       8 && a_href_value !== (a_href_value = getUrl(
         /*item*/
@@ -1487,12 +1416,9 @@ function create_each_block(ctx) {
       if (detaching) {
         detach(li);
       }
-      if (if_block0)
-        if_block0.d();
-      if (if_block1)
-        if_block1.d();
-      if (if_block2)
-        if_block2.d();
+      if (if_block0) if_block0.d();
+      if (if_block1) if_block1.d();
+      if (if_block2) if_block2.d();
     }
   };
 }
@@ -1519,8 +1445,7 @@ function create_if_block_6(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*parsedMultiPass*/
       2 && t1_value !== (t1_value = /*parsedMultiPass*/
-      ctx2[1].meta.author + ""))
-        set_data(t1, t1_value);
+      ctx2[1].meta.author + "")) set_data(t1, t1_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1568,8 +1493,7 @@ function create_if_block_4(ctx) {
     p(ctx2, dirty) {
       if (dirty & /*$query*/
       8 && t_value !== (t_value = /*$query*/
-      ctx2[3].count + ""))
-        set_data(t, t_value);
+      ctx2[3].count + "")) set_data(t, t_value);
     },
     d(detaching) {
       if (detaching) {
@@ -1620,13 +1544,11 @@ function create_fragment(ctx) {
   let if_block_anchor;
   function select_block_type(ctx2, dirty) {
     if (!/*parsedMultiPass*/
-    ctx2[1])
-      return create_if_block;
+    ctx2[1]) return create_if_block;
     if (
       /*render*/
       ctx2[0] === "count"
-    )
-      return create_if_block_1;
+    ) return create_if_block_1;
     return create_else_block_1;
   }
   let current_block_type = select_block_type(ctx);
@@ -1675,8 +1597,7 @@ function instance($$self, $$props, $$invalidate) {
   let query = null;
   $$subscribe_query();
   async function load() {
-    if (!query || !queryParams)
-      return;
+    if (!query || !queryParams) return;
     await query.fetch(queryParams);
   }
   onMount(() => {
@@ -1685,12 +1606,9 @@ function instance($$self, $$props, $$invalidate) {
     }
   });
   $$self.$$set = ($$props2) => {
-    if ("multipass" in $$props2)
-      $$invalidate(5, multipass = $$props2.multipass);
-    if ("autoload" in $$props2)
-      $$invalidate(6, autoload = $$props2.autoload);
-    if ("render" in $$props2)
-      $$invalidate(0, render = $$props2.render);
+    if ("multipass" in $$props2) $$invalidate(5, multipass = $$props2.multipass);
+    if ("autoload" in $$props2) $$invalidate(6, autoload = $$props2.autoload);
+    if ("render" in $$props2) $$invalidate(0, render = $$props2.render);
   };
   $$self.$$.update = () => {
     if ($$self.$$.dirty & /*multipass, parsedMultiPass, what, by*/

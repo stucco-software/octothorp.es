@@ -43,16 +43,32 @@ Displays pages tagged with octothorpes.
 - `s` - Subject filter (domains, comma-separated)
 - `noto` - Exclude terms
 - `nots` - Exclude subjects
-- `match` - Match mode: `exact`, `fuzzy`, `fuzzy-o`, `fuzzy-s`, `very-fuzzy`
-- `limit` - Maximum results (default: `10`)
+- `match` - Match mode: `exact`, `fuzzy`, `fuzzy-o`, `fuzzy-s`, `very-fuzzy`, `all` (every term must be present)
+- `limit` - Maximum results (default: `10`; `no-limit` for all)
 - `offset` - Result offset for pagination (default: `0`)
-- `when` - Date filter: `recent`, `after-DATE`, `before-DATE`, `between-DATE-and-DATE`
+- `when` - Date filter on the page's own declared postDate: `recent`, `after-DATE`, `before-DATE`, `between-DATE-and-DATE`
+- `created` - Same date syntax, filtering on `octo:created` (when the relay first recorded the page)
+- `indexed` - Same date syntax, filtering on `octo:indexed` (when the relay last indexed it)
 - `autoload` - Auto-load on mount (boolean attribute)
-- `render` - Display mode: `list`, `cards`, `compact`, `count`
+- `nopreload` - Skip injecting the `<link rel="preload">` that triggers indexing of the host page (boolean attribute)
+- `render` - Display mode: `list`, `cards`, `compact` (default), `count`
 - `server` - API server URL (default: `https://octothorp.es`)
 
+`when`, `created` and `indexed` are three different dates. Use `created` to ask
+"which pages did this relay first see in this window", which is usually what a
+year-scoped archive wants; `when` reflects whatever date the page declares about
+itself, and is absent or unreliable on older records.
+
+**Events:**
+- `octo:results` - Fired on the host element after each load, with
+  `detail.results` (the rendered pages) and `detail.params` (the query that
+  produced them). Lets a plain HTML page build its own rollups — unique
+  domains, counts — without issuing a second request. `role: "object"` rows
+  (the term URIs themselves) are filtered out before rendering and before the
+  event fires.
+
 **Render Modes:**
-- `list` - Default bulleted list with descriptions and dates
+- `list` - Bulleted list with descriptions and dates
 - `cards` - Grid layout with images
 - `compact` - Inline comma-separated links
 - `count` - Just the number (for inline use)
