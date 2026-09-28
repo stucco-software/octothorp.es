@@ -16,25 +16,42 @@
   further down for why that year is handled differently.
 -->
 <script type="module" src="https://next.octothorp.es/components/octo-thorpe.js"></script>
+<style>
+  /* Layout only: enough to put the years in a row and the daily tags beside
+     the results. No colours, fonts or decoration — everything else is the
+     browser default. */
+  #years, #tags { list-style: none; margin: 0; padding: 0; }
+  #years li { display: inline; margin-right: 1em; }
+  #columns { display: flex; gap: 2em; align-items: flex-start; }
+  #sidebar { flex: 0 0 12em; }
+  #main { flex: 1; min-width: 0; }
+</style>
 </head>
 <body>
 
 <h1>Weird Web October</h1>
 <p>Pages tagged <a href="https://octothorp.es/~/weirdweboctober">#weirdweboctober</a>, grouped by the year they were first indexed. Daily tags come from <a href="https://weirdweboctober.website/">weirdweboctober.website</a>.</p>
 
-<h2>Year</h2>
-<p id="years"></p>
+<nav><ul id="years"></ul></nav>
 
-<h2>Daily tag</h2>
-<p id="tags"></p>
+<hr>
 
-<h2>Pages</h2>
-<p id="status"></p>
-<div id="feed"></div>
+<div id="columns">
+  <aside id="sidebar">
+    <h2>Daily tag</h2>
+    <ul id="tags"></ul>
+  </aside>
 
-<h2>Domains</h2>
-<p id="domain-status"></p>
-<ol id="domains"></ol>
+  <main id="main">
+    <h2>Pages</h2>
+    <p id="status"></p>
+    <div id="feed"></div>
+
+    <h2>Domains</h2>
+    <p id="domain-status"></p>
+    <ol id="domains"></ol>
+  </main>
+</div>
 
 <script type="module">
 const SERVER = 'https://octothorp.es'
@@ -72,21 +89,33 @@ function hashFor(year, tag) {
   return '#' + year + (tag ? '/' + encodeURIComponent(tag) : '')
 }
 
-function renderNav({ year, tag }) {
-  el('years').replaceChildren(...YEAR_LIST.flatMap((y, i) => {
+// The current item is marked with aria-current and rendered as plain text,
+// so "where am I" survives without relying on styling.
+function navItem(href, label, isCurrent) {
+  const li = document.createElement('li')
+  if (isCurrent) {
+    const strong = document.createElement('strong')
+    strong.textContent = label
+    strong.setAttribute('aria-current', 'true')
+    li.append(strong)
+  } else {
     const a = document.createElement('a')
-    a.href = hashFor(y, null)
-    a.textContent = y === year ? `[${y}]` : String(y)
-    return i ? [document.createTextNode(' '), a] : [a]
-  }))
+    a.href = href
+    a.textContent = label
+    li.append(a)
+  }
+  return li
+}
+
+function renderNav({ year, tag }) {
+  el('years').replaceChildren(
+    ...YEAR_LIST.map((y) => navItem(hashFor(y, null), String(y), y === year))
+  )
 
   const links = [{ label: 'All', value: null }, ...YEARS[year].map((t) => ({ label: t, value: t }))]
-  el('tags').replaceChildren(...links.flatMap((item, i) => {
-    const a = document.createElement('a')
-    a.href = hashFor(year, item.value)
-    a.textContent = item.value === tag ? `[${item.label}]` : item.label
-    return i ? [document.createTextNode(' · '), a] : [a]
-  }))
+  el('tags').replaceChildren(
+    ...links.map((item) => navItem(hashFor(year, item.value), item.label, item.value === tag))
+  )
 }
 
 // A `pages` query returns one row per side of the relationship; only the
@@ -194,6 +223,9 @@ async function route() {
   current = token
 
   const view = parseHash()
+  // Reflect the resolved view so the rendered state is inspectable without
+  // reading it back out of the nav.
+  document.body.dataset.view = hashFor(view.year, view.tag).slice(1)
   renderNav(view)
   el('status').textContent = 'Loading…'
   el('domain-status').textContent = ''
