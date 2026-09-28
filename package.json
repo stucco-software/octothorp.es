@@ -23,8 +23,8 @@
     "api-smoketest:diff": "node scripts/api-smoketest.js --diff"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^3.0.0",
     "@sveltejs/adapter-node": "^5.5.4",
+    "@sveltejs/adapter-vercel": "^6.3.4",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "ajv": "^6.15.0",
@@ -38,6 +38,9 @@
     "vitest": "^1.2.0"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "fast-xml-parser": "^5.8.0",
