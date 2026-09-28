@@ -1,7 +1,7 @@
 <svelte:options customElement="octo-thorpe" />
 
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
   import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
 
@@ -16,7 +16,9 @@
   export let match = '';       // Match mode: exact, fuzzy, fuzzy-o, fuzzy-s, very-fuzzy
   export let limit = '10';     // Result limit
   export let offset = '0';     // Result offset
-  export let when = '';        // Date filter: recent, after-DATE, before-DATE, between-DATE-and-DATE
+  export let when = '';        // Date filter on the page's declared postDate
+  export let created = '';     // Date filter on octo:created (first recorded by the relay)
+  export let indexed = '';     // Date filter on octo:indexed (last indexed by the relay)
 
   // Behavior
   export let autoload = false;  // Auto-load on mount
@@ -34,17 +36,45 @@
   // Load function
   async function load() {
     hasLoaded = true;
-    await query.fetch({
-      server,
-      s,
-      o,
-      nots,
-      noto,
-      match,
-      limit,
-      offset,
-      when
-    });
+    try {
+      await query.fetch({
+        server,
+        s,
+        o,
+        nots,
+        noto,
+        match,
+        limit,
+        offset,
+        when,
+        created,
+        indexed
+      });
+    } catch (error) {
+      // Already surfaced through $query.error; the event still fires so a host
+      // page can clear a stale rollup.
+    }
+    // `items` is derived reactively; wait a tick so the event carries the
+    // same filtered list the component renders.
+    await tick();
+    dispatchResults();
+  }
+
+  // `pages` queries return a row per side of the relationship; the `object`
+  // rows are the term URIs themselves (e.g. .../~/weirdweboctober), never
+  // pages a reader wants listed.
+  $: items = $query.results.filter((item) => item.role !== 'object');
+
+  // Re-emit results on the host element so a plain HTML page can do its own
+  // rollups (unique domains, counts) without issuing a duplicate request.
+  function dispatchResults() {
+    const host = rootEl?.getRootNode?.()?.host;
+    if (!host) return;
+    host.dispatchEvent(new CustomEvent('octo:results', {
+      detail: { results: items, params: { server, s, o, nots, noto, match, limit, offset, when, created, indexed } },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   // Fire the first load when the compact details is opened
@@ -106,7 +136,7 @@
     {:else if $query.error}
       <span class="count-error">✗</span>
     {:else}
-      <span class="count">{$query.count}</span>
+      <span class="count">{items.length}</span>
     {/if}
   </span>
 
@@ -117,9 +147,9 @@
       <p class="compact-status">Loading…</p>
     {:else if $query.error}
       <p class="compact-status compact-error">Error: {$query.error}</p>
-    {:else if $query.results.length > 0}
+    {:else if items.length > 0}
       <ul>
-        {#each $query.results as item}
+        {#each items as item}
           <li>
             <a href={getUrl(item)} target="_blank" rel="noopener noreferrer">
               {getTitle(item)}
@@ -134,10 +164,14 @@
   <!-- Full component display -->
   <div bind:this={rootEl} class="octo-thorpe">
 
-    {#if !$query.results.length && !$query.loading && !$query.error}
-      <button on:click={load} class="load-button">
-        Load pages tagged "{displayTerm || 'octothorpes'}"
-      </button>
+    {#if !items.length && !$query.loading && !$query.error}
+      {#if hasLoaded}
+        <p class="empty">No pages found.</p>
+      {:else}
+        <button on:click={load} class="load-button">
+          Load pages tagged "{displayTerm || 'octothorpes'}"
+        </button>
+      {/if}
     {/if}
 
     {#if $query.loading}
@@ -154,11 +188,11 @@
       </div>
     {/if}
 
-    {#if $query.results.length > 0 && !$query.loading}
+    {#if items.length > 0 && !$query.loading}
 
       {#if render === 'list'}
         <ul class="list">
-          {#each $query.results as item}
+          {#each items as item}
             <li>
               <a href={getUrl(item)} target="_blank" rel="noopener noreferrer">
                 {getTitle(item)}
@@ -175,7 +209,7 @@
 
       {:else if render === 'cards'}
         <div class="cards">
-          {#each $query.results as item}
+          {#each items as item}
             <article class="card">
               {#if item.image}
                 <img src={item.image} alt={getTitle(item)} loading="lazy" />
@@ -197,7 +231,7 @@
       {/if}
 
       <div class="meta">
-        <span class="result-count">{$query.count} result{$query.count === 1 ? '' : 's'}</span>
+        <span class="result-count">{items.length} result{items.length === 1 ? '' : 's'}</span>
       </div>
 
     {/if}
@@ -419,6 +453,12 @@
     margin-top: 0.25rem;
     font-size: 0.75rem;
     color: #999;
+  }
+
+  .empty {
+    margin: 0;
+    color: #666;
+    font-style: italic;
   }
 
   /* Meta info */

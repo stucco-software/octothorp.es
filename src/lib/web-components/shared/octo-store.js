@@ -41,7 +41,9 @@ export function createOctoQuery(what, by) {
    * @param {string} [params.match] - Match mode (exact, fuzzy, fuzzy-s, fuzzy-o, very-fuzzy)
    * @param {string|number} [params.limit='10'] - Max results
    * @param {string|number} [params.offset='0'] - Result offset
-   * @param {string} [params.when] - Date filter (recent, after-DATE, before-DATE, between-DATE-and-DATE)
+   * @param {string} [params.when] - Date filter on the page's declared postDate (recent, after-DATE, before-DATE, between-DATE-and-DATE)
+   * @param {string} [params.created] - Date filter on octo:created (when the relay first recorded the page)
+   * @param {string} [params.indexed] - Date filter on octo:indexed (when the relay last indexed the page)
    */
   async function fetch(params = {}) {
     const {
@@ -54,6 +56,8 @@ export function createOctoQuery(what, by) {
       limit = '10',
       offset = '0',
       when = '',
+      created = '',
+      indexed = '',
       rt = '',
       subtype = ''
     } = params;
@@ -73,6 +77,8 @@ export function createOctoQuery(what, by) {
       if (limit) searchParams.set('limit', limit);
       if (offset) searchParams.set('offset', offset);
       if (when) searchParams.set('when', when);
+      if (created) searchParams.set('created', created);
+      if (indexed) searchParams.set('indexed', indexed);
       if (rt) searchParams.set('rt', Array.isArray(rt) ? rt.join(',') : rt);
       if (subtype) searchParams.set('subtype', subtype);
 

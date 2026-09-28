@@ -1,4 +1,4 @@
-import { c as create_custom_element, S as SvelteComponent, i as init, f as flush, s as safe_not_equal, a as append_styles, e as empty, b as insert, n as noop, d as detach, o as onMount, j as element, u as src_url_equal, l as attr, m as append } from "./index-C1gcNmBK.js";
+import { c as create_custom_element, S as SvelteComponent, i as init, f as flush, s as safe_not_equal, a as append_styles, n as noop, d as detach, b as insert, e as empty, o as onMount, r as src_url_equal, l as attr, h as append, j as element } from "./index-CUq1JIrc.js";
 function add_css(target) {
   append_styles(target, "svelte-mne1ep", "a.svelte-mne1ep{display:inline-block;line-height:0}img.svelte-mne1ep{image-rendering:pixelated}");
 }
@@ -11,8 +11,7 @@ function create_if_block(ctx) {
       a = element("a");
       img = element("img");
       if (!src_url_equal(img.src, img_src_value = /*badgeUrl*/
-      ctx[1]))
-        attr(img, "src", img_src_value);
+      ctx[1])) attr(img, "src", img_src_value);
       attr(img, "alt", "Octothorpes Protocol");
       attr(img, "width", "88");
       attr(img, "height", "31");
@@ -62,13 +61,11 @@ function create_fragment(ctx) {
   );
   return {
     c() {
-      if (if_block)
-        if_block.c();
+      if (if_block) if_block.c();
       if_block_anchor = empty();
     },
     m(target, anchor) {
-      if (if_block)
-        if_block.m(target, anchor);
+      if (if_block) if_block.m(target, anchor);
       insert(target, if_block_anchor, anchor);
     },
     p(ctx2, [dirty]) {
@@ -94,8 +91,7 @@ function create_fragment(ctx) {
       if (detaching) {
         detach(if_block_anchor);
       }
-      if (if_block)
-        if_block.d(detaching);
+      if (if_block) if_block.d(detaching);
     }
   };
 }
@@ -108,17 +104,13 @@ function instance($$self, $$props, $$invalidate) {
     const pageUri = uri || window.location.href;
     const params = new URLSearchParams();
     params.set("uri", pageUri);
-    if (as)
-      params.set("as", as);
+    if (as) params.set("as", as);
     $$invalidate(1, badgeUrl = `${server.replace(/\/+$/, "")}/badge?${params.toString()}`);
   });
   $$self.$$set = ($$props2) => {
-    if ("server" in $$props2)
-      $$invalidate(0, server = $$props2.server);
-    if ("uri" in $$props2)
-      $$invalidate(2, uri = $$props2.uri);
-    if ("as" in $$props2)
-      $$invalidate(3, as = $$props2.as);
+    if ("server" in $$props2) $$invalidate(0, server = $$props2.server);
+    if ("uri" in $$props2) $$invalidate(2, uri = $$props2.uri);
+    if ("as" in $$props2) $$invalidate(3, as = $$props2.as);
   };
   return [server, badgeUrl, uri, as];
 }

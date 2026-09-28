@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weird Web October — pages by year and daily tag</title>
+<!--
+  Standalone, unstyled feed for #weirdweboctober.
+
+  The component script is served from next.octothorp.es; every query it makes
+  is aimed at production via the `server` attribute. This file has no build
+  step and no dependencies beyond that one module.
+
+  Year scoping uses ?created=, the date the relay first recorded a page, not
+  ?when=, which filters the page's own declared postDate. See the 2024 note
+  further down for why that year is handled differently.
+-->
+<script type="module" src="https://next.octothorp.es/components/octo-thorpe.js"></script>
+</head>
+<body>
+
+<h1>Weird Web October</h1>
+<p>Pages tagged <a href="https://octothorp.es/~/weirdweboctober">#weirdweboctober</a>, grouped by the year they were first indexed. Daily tags come from <a href="https://weirdweboctober.website/">weirdweboctober.website</a>.</p>
+
+<h2>Year</h2>
+<p id="years"></p>
+
+<h2>Daily tag</h2>
+<p id="tags"></p>
+
+<h2>Pages</h2>
+<p id="status"></p>
+<div id="feed"></div>
+
+<h2>Domains</h2>
+<p id="domain-status"></p>
+<ol id="domains"></ol>
+
+<script type="module">
+const SERVER = 'https://octothorp.es'
+const ROOT_TAG = 'weirdweboctober'
+
+// Scraped from weirdweboctober.website — terms are matched exactly and are
+// case- and hyphen-sensitive, so these strings must stay verbatim.
+// "Spooky" is day 31 in every year, which is why the year window matters.
+const YEARS = {
+  2026: ['Reveal', 'Spark', 'Fake', 'Plastic', 'Sheet', 'Analog', 'Organic', 'Skeumorphism', 'Spicy', 'Layers', 'Stuck', 'Pointy', 'Scratch', 'Origami', 'Wooden', 'Instant', 'Branching', 'Geometric', 'Distorted', 'Undefined', 'Illusion', 'Skeletons', 'Incognito', 'Collage', 'Ascending', 'Net', 'Spiral', 'Smooth', 'The End', 'Pastel', 'Spooky'],
+  2025: ['Transparency', 'Maps', 'Scramble', 'Filters', 'Remix', 'Solids', 'Sub-optimal', 'Containers', 'Blink', 'Warning', 'Camera', 'Battle', 'Upside-down', 'Doubles', 'Unicode', 'Transition', 'Illumination', 'Trading', 'Bounce', 'Hidden', 'Language', 'Memory', 'Style', 'Counter', 'Empty', 'Texture', 'Spell', 'Tables', 'Surprise', 'Deprecated', 'Spooky'],
+  2024: ['Nature', 'CSS', 'Color', 'Lists', 'Food', 'Notifications', 'Science', 'Hashtags', 'Blessed', 'Art', 'API', 'Ritual', 'GIFs', 'History', 'Audio', 'Social', 'Dimensions', 'Words', 'Data', 'Capitalism', 'Memes', 'Bugs', 'IRL', 'Cursed', 'Interactive', 'Chat', 'Nostalgia', 'Generative', 'Forms', 'Emoji', 'Spooky']
+}
+const YEAR_LIST = [2026, 2025, 2024]
+const DEFAULT_YEAR = 2026
+
+// The relay's octo:created predicate postdates the 2024 cohort: every page
+// tagged #weirdweboctober either has a created date of 2025 or later, or has
+// none at all. So 2024 can't be selected by a date window — it is defined as
+// the complement: everything tagged, minus everything created since 2025.
+const CREATED_EPOCH = '2025-01-01'
+const windowFor = (year) => `between-${year}-09-15-and-${year}-11-15`
+
+const el = (id) => document.getElementById(id)
+const feed = el('feed')
+
+function parseHash() {
+  const [rawYear, rawTag] = decodeURIComponent(location.hash.slice(1)).split('/')
+  const year = YEARS[rawYear] ? Number(rawYear) : DEFAULT_YEAR
+  const tag = YEARS[year].includes(rawTag) ? rawTag : null
+  return { year, tag }
+}
+
+function hashFor(year, tag) {
+  return '#' + year + (tag ? '/' + encodeURIComponent(tag) : '')
+}
+
+function renderNav({ year, tag }) {
+  el('years').replaceChildren(...YEAR_LIST.flatMap((y, i) => {
+    const a = document.createElement('a')
+    a.href = hashFor(y, null)
+    a.textContent = y === year ? `[${y}]` : String(y)
+    return i ? [document.createTextNode(' '), a] : [a]
+  }))
+
+  const links = [{ label: 'All', value: null }, ...YEARS[year].map((t) => ({ label: t, value: t }))]
+  el('tags').replaceChildren(...links.flatMap((item, i) => {
+    const a = document.createElement('a')
+    a.href = hashFor(year, item.value)
+    a.textContent = item.value === tag ? `[${item.label}]` : item.label
+    return i ? [document.createTextNode(' · '), a] : [a]
+  }))
+}
+
+// A `pages` query returns one row per side of the relationship; only the
+// `subject` rows are pages someone actually published.
+const pagesOnly = (results) => results.filter((r) => r.role !== 'object')
+
+async function fetchPages(params) {
+  const search = new URLSearchParams({ match: 'all', limit: 'no-limit', ...params })
+  const response = await window.fetch(`${SERVER}/get/pages/thorped?${search}`, {
+    headers: { Accept: 'application/json' }
+  })
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+  const data = await response.json()
+  return pagesOnly(data.results || [])
+}
+
+function renderDomains(results) {
+  const counts = new Map()
+  for (const item of results) {
+    let origin
+    try {
+      origin = new URL(item.uri).origin
+    } catch {
+      continue
+    }
+    counts.set(origin, (counts.get(origin) || 0) + 1)
+  }
+
+  const sorted = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  el('domain-status').textContent = sorted.length
+    ? `${sorted.length} domain${sorted.length === 1 ? '' : 's'} in this view.`
+    : 'No domains in this view.'
+  el('domains').replaceChildren(...sorted.map(([origin, count]) => {
+    const li = document.createElement('li')
+    const a = document.createElement('a')
+    a.href = origin
+    a.textContent = origin
+    li.append(a, document.createTextNode(` — ${count} page${count === 1 ? '' : 's'}`))
+    return li
+  }))
+}
+
+function renderPageList(results) {
+  const ul = document.createElement('ul')
+  ul.append(...results.map((item) => {
+    const li = document.createElement('li')
+    const a = document.createElement('a')
+    a.href = item.uri
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.textContent = item.title || item.uri
+    li.append(a)
+    if (item.description) {
+      li.append(document.createElement('br'), document.createTextNode(item.description))
+    }
+    return li
+  }))
+  feed.replaceChildren(ul)
+}
+
+// 2025 and 2026 are a plain created-window query, so the component does the
+// work and hands its results back via the octo:results event.
+function showWithComponent({ year, tag }, token) {
+  const node = document.createElement('octo-thorpe')
+  node.setAttribute('server', SERVER)
+  node.setAttribute('o', tag ? `${ROOT_TAG},${tag}` : ROOT_TAG)
+  node.setAttribute('match', 'all')
+  node.setAttribute('created', windowFor(year))
+  node.setAttribute('limit', 'no-limit')
+  node.setAttribute('render', 'list')
+  node.setAttribute('autoload', '')
+  node.setAttribute('nopreload', '')
+  node.addEventListener('octo:results', (event) => {
+    if (token.cancelled) return
+    const results = event.detail.results
+    el('status').textContent = `${results.length} page${results.length === 1 ? '' : 's'}.`
+    renderDomains(results)
+  })
+  feed.replaceChildren(node)
+}
+
+// 2024 is the complement of the created-since-2025 set, which no single query
+// can express — so this path fetches both and differences them here.
+async function show2024(tag, token) {
+  const o = tag ? `${ROOT_TAG},${tag}` : ROOT_TAG
+  const [all, since] = await Promise.all([
+    fetchPages({ o }),
+    fetchPages({ o, created: `after-${CREATED_EPOCH}` })
+  ])
+  if (token.cancelled) return
+  const recent = new Set(since.map((item) => item.uri))
+  const results = all.filter((item) => !recent.has(item.uri))
+  el('status').textContent = results.length
+    ? `${results.length} page${results.length === 1 ? '' : 's'}.`
+    : 'No pages found.'
+  renderPageList(results)
+  renderDomains(results)
+}
+
+let current = { cancelled: false }
+
+async function route() {
+  current.cancelled = true
+  const token = { cancelled: false }
+  current = token
+
+  const view = parseHash()
+  renderNav(view)
+  el('status').textContent = 'Loading…'
+  el('domain-status').textContent = ''
+  el('domains').replaceChildren()
+  feed.replaceChildren()
+
+  if (view.year !== 2024) {
+    showWithComponent(view, token)
+    return
+  }
+  try {
+    await show2024(view.tag, token)
+  } catch (error) {
+    if (token.cancelled) return
+    el('status').textContent = `Error: ${error.message}`
+  }
+}
+
+window.addEventListener('hashchange', route)
+route()
+</script>
+
+</body>
+</html>
