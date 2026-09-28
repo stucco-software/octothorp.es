@@ -111,7 +111,7 @@ At the start of any development session, perform these checks:
 - try to work within base queries instead of writing new ones
 
 **Indexing:**
-- /routes/index/+server.js contains logic for indexing external pages
+- /routes/(endpoints)/index/+server.js contains logic for indexing external pages (the `(endpoints)` route group keeps the URL at /index; see svelte.config.js)
 - try to use existing logic instead of re-creating those patterns
 
 ---
@@ -121,7 +121,7 @@ At the start of any development session, perform these checks:
 | File | Purpose |
 |------|---------|
 | `/src/routes/get/[what]/[by]/[[as]]/load.js` | Main API |
-| `/src/routes/index/+server.js` | Indexing route handler |
+| `/src/routes/(endpoints)/index/+server.js` | Indexing route handler (serves `/index`) |
 | `/src/lib/indexing.js` | Indexing logic: handlers, storage, validation |
 | `/src/lib/converters.js` | URL ↔ MultiPass |
 | `/src/lib/sparql.js` | Query building |
