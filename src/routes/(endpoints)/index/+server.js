@@ -25,6 +25,10 @@ const mapErrorToStatus = (message) => {
   if (message.includes('Rate limit')) return 429
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
+  // The origin refused us the page (block page or anti-bot challenge). That is
+  // an upstream failure, not a client error — 502 keeps it distinct from the
+  // 403 a genuine opt-out returns.
+  if (message.includes('Could not read the page')) return 502
   if (message.includes('not opted in')) return 403
   if (knownErrors.some(e => message.includes(e))) return 400
   return 500

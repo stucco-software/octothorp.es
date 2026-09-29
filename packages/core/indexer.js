@@ -118,6 +118,56 @@ export const isURL = (term) => {
 }
 
 /**
+ * Recognise a fetch that did not return the page we asked for.
+ *
+ * An anti-bot interstitial is valid HTML with a title and no Octothorpes
+ * markup, so it harmonizes into a perfectly well-formed blobject with no
+ * opt-in signals. Without this check the caller cannot tell "the origin
+ * refused to show us the page" from "the page never opted in", and reports
+ * the second — which sends whoever is debugging it to look at markup that is
+ * in fact present and correct.
+ *
+ * Only fires on an EXPLICIT failure signal. A response object with no `ok`
+ * and no numeric `status` is left alone, so partial test doubles and any
+ * non-standard fetch implementation keep working.
+ *
+ * @param {Response} response
+ * @param {string} content - the already-read body
+ * @returns {string|null} a message to throw, or null if the response looks real
+ */
+export const detectBlockedFetch = (response, content = '') => {
+  const status = typeof response?.status === 'number' ? response.status : null
+  const explicitlyFailed = response?.ok === false || (status !== null && status >= 400)
+
+  if (explicitlyFailed) {
+    const code = status === null ? 'an error' : `HTTP ${status}`
+    return `Could not read the page: the origin returned ${code}. ` +
+      `Indexing fetches the page server-side, so the origin may be blocking automated requests.`
+  }
+
+  // A challenge can also arrive with a 200. Match on markers that do not occur
+  // in ordinary pages — Cloudflare's own mitigation header, and the challenge
+  // script path it injects — rather than on wording, which would catch any
+  // page that happens to discuss bot challenges.
+  // Match the mitigation ACTION, not merely a present header: a partial test
+  // double whose get() returns the same string for every header must not be
+  // mistaken for a challenge.
+  const mitigated = response?.headers?.get?.('cf-mitigated')
+  const isMitigated = typeof mitigated === 'string' && /challenge/i.test(mitigated)
+  const hasChallengeMarker =
+    content.includes('/cdn-cgi/challenge-platform') ||
+    content.includes('cf-browser-verification') ||
+    content.includes('__cf_chl')
+
+  if (isMitigated || hasChallengeMarker) {
+    return `Could not read the page: the origin served an anti-bot challenge instead of the page. ` +
+      `Allow this relay's requests (User-Agent: Octothorpes/1.0) at the origin to index it.`
+  }
+
+  return null
+}
+
+/**
  * Resolve whether a source is opted in to indexing.
  * Precedence: caller-context overrides (Client policy mode, feed approval) >
  * per-blobject markers (indexPolicy, octothorpes).
@@ -855,6 +905,15 @@ export const createIndexer = (deps) => {
       headers: { 'User-Agent': 'Octothorpes/1.0' }
     })
     const content = await response.text()
+
+    // Fail loudly when the origin did not actually give us the page. Must come
+    // before harmonization: an interstitial parses cleanly and would otherwise
+    // be reported as "Page has not opted in to indexing."
+    const blocked = detectBlockedFetch(response, content)
+    if (blocked) {
+      throw new Error(blocked)
+    }
+
     const contentType = response.headers.get('content-type') || 'text/html'
 
     // 4. Policy resolution.
