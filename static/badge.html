@@ -4,19 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Octothorpes badge builder</title>
-<!--
-  Standalone, unstyled helper for adding the OP badge to a page.
 
-  No CSS, no build step, no dependencies. Deliberately makes no request to
-  /badge: a successful badge request triggers indexing of the page that asked
-  for it, so a reference page that fired one would index itself every time
-  someone loaded it. The state examples below are the static PNGs instead.
--->
 </head>
 <body>
 
 <h1>Octothorpes badge builder</h1>
-<p>The badge is an image served by <code>https://octothorp.es/badge</code>. Requesting it tells the relay to index the page it appears on. Enter the URL of the page you are adding it to and copy the markup.</p>
+<p>Put the magic button on your page and it'll tell Octothorpes to look at it.</p>
 
 <h2>Build the markup</h2>
 
@@ -34,51 +27,28 @@
   <span id="copied" role="status"></span>
 </p>
 
-<p>The URL is percent-encoded when it goes into <code>?uri=</code>, which is why characters like <code>&amp;</code>, <code>?</code> and <code>"</code> are safe to paste — they come out as <code>%26</code>, <code>%3F</code> and <code>%22</code> rather than breaking out of the attribute.</p>
 
-<h2>Or use the web component</h2>
+<h2>Advanced mode</h2>
+<p>If you feel like doing this with JavaScript instead, or want to know more about how this works, read the <a href="https://docs.octothorp.es/image-indexing">documentation</a></p>
 
-<p>If the page can load a script, <code>&lt;octo-badge&gt;</code> does the same job without a per-page URL. It reads the current page's address at runtime, so the same two lines work on every page of a site — no need to regenerate anything when you add a page.</p>
+<h2>Did it work?</h2>
 
-<pre><code>&lt;script type="module" src="https://octothorp.es/components/octo-badge.js"&gt;&lt;/script&gt;
-&lt;octo-badge&gt;&lt;/octo-badge&gt;</code></pre>
-
-<p>Attributes, all optional:</p>
-
-<ul>
-  <li><code>uri</code> — index this URL instead of the current page. Use it when the badge sits somewhere that isn't the page you want indexed.</li>
-  <li><code>server</code> — a different relay. Defaults to <code>https://octothorp.es</code>.</li>
-  <li><code>as</code> — a harmonizer id or URL, if the page needs something other than the default reading.</li>
-</ul>
-
-<p>The plain <code>&lt;img&gt;</code> above is the better choice when you can't run scripts, or when you want the markup to be legible and inert. The component is the better choice across a whole site.</p>
-
-<h2>What the three badges mean</h2>
-
-<p>The endpoint always answers with an image — never an error page — so the image you get back <em>is</em> the status.</p>
+<p>You can tell by how it looks on your page.</p>
 
 <dl>
   <dt><img src="/badge.png" alt="Octothorpes badge, success state" width="88" height="31"></dt>
   <dd>
-    <strong>Verified.</strong> The page's origin is registered with this relay, and indexing has been started.
-    Indexing runs in the background after the image is sent, and its failures are only written to the relay's
-    log — so this badge means the origin is verified, not that the page was successfully indexed. A page still
-    needs the opt-in markup for indexing to complete.
+    <strong>Verified.</strong> This means you're registered, and the request should have been sent. Wait a few minutes for it to get recorded when you first check.
   </dd>
 
   <dt><img src="/badge_unregistered.png" alt="Octothorpes badge, unregistered state" width="88" height="31"></dt>
   <dd>
-    <strong>Unregistered origin.</strong> The URL parsed, but its origin has not been verified with this relay.
-    Register the domain and the badge changes on its own; nothing in the markup needs to change.
+    <strong>Unregistered origin.</strong> You wrote it right, but your site isn't verified. Send a registration request or wait to get your confirmation email. When you're registered the image will automatically fix itself.
   </dd>
 
   <dt><img src="/badge_fail.png" alt="Octothorpes badge, failure state" width="88" height="31"></dt>
   <dd>
-    <strong>No usable URL.</strong> The relay could not get a valid URL from either <code>?uri=</code> or the
-    request's <code>Referer</code> header. Usually a malformed or missing <code>uri</code>, or a browser that
-    stripped the referrer on a cross-origin image request — which is the reason to set <code>?uri=</code>
-    explicitly rather than relying on the referrer.
-  </dd>
+    <strong>Something's Broken!</strong> There probably isn't a valid url in <code>?uri=</code> </dd>
 </dl>
 
 <script type="module">
