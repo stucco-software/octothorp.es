@@ -1,3 +1,8 @@
+// Served at /index. The `(endpoints)` route group does not appear in the URL —
+// it exists only to keep this route's id out of the way of adapter-vercel,
+// which names the site root's serverless function `index` and so collided with
+// a literal `/index` route id (EEXIST on functions/index.func). Moving this
+// file back to src/routes/index/ will break the Vercel build.
 import { json } from '@sveltejs/kit'
 import { instance, server_name } from '$lib/config.js'
 import { queryBoolean } from '$lib/sparql.js'
