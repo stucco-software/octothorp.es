@@ -72,12 +72,13 @@ export async function GET({ url }) {
         VALUES ?s { ${values} }
         ?s rdf:type ?pageType .
         ?s octo:octothorpes ?o .
-        ?s octo:created ?date .
         OPTIONAL { ?o rdf:type ?oType }
         OPTIONAL { ?s octo:title ?title }
         OPTIONAL { ?s octo:image ?image }
         OPTIONAL { ?s octo:description ?description }
         OPTIONAL { ?s octo:postDate ?postDate }
+        OPTIONAL { ?s octo:created ?createdDate }
+        OPTIONAL { ?s octo:indexed ?indexedDate }
         OPTIONAL { ?o octo:title ?ot }
         OPTIONAL { ?o octo:description ?od }
         OPTIONAL { ?o octo:image ?oimg }
@@ -87,22 +88,25 @@ export async function GET({ url }) {
           ?blankNode ?bnp ?blankNodeObj .
           FILTER(!isBlank(?blankNodeObj))
         }
+        BIND(COALESCE(?createdDate, ?indexedDate) AS ?date)
       }
       UNION
       {
         VALUES ?s { ${values} }
         ?s rdf:type ?pageType .
-        ?s octo:created ?date .
         OPTIONAL { ?s octo:title ?title }
         OPTIONAL { ?s octo:image ?image }
         OPTIONAL { ?s octo:description ?description }
         OPTIONAL { ?s octo:postDate ?postDate }
+        OPTIONAL { ?s octo:created ?createdDate }
+        OPTIONAL { ?s octo:indexed ?indexedDate }
         OPTIONAL {
           ?s ?blankNodePred ?blankNode .
           FILTER(isBlank(?blankNode))
           ?blankNode ?bnp ?blankNodeObj .
           FILTER(!isBlank(?blankNodeObj))
         }
+        BIND(COALESCE(?createdDate, ?indexedDate) AS ?date)
         BIND("" AS ?o)
         BIND("" AS ?oType)
         BIND("" AS ?ot)

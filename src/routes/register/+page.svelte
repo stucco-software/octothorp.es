@@ -74,6 +74,22 @@
 
     </div>
 
+    {#if form?.blocked}
+      <p>
+        <span>
+          <mark>Please register a real domain.</mark>
+        </span>
+      </p>
+    {/if}
+
+    {#if form?.notFound}
+      <p>
+        <span>
+          <mark>We couldn't reach that site. Check that the address is correct and that it's online, then try again.</mark>
+        </span>
+      </p>
+    {/if}
+
     {#if form?.banned}
       <p>
         <span>

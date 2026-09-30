@@ -13,6 +13,9 @@ export async function GET({ request, params }) {
     }
   `)
   const items = sr.results.bindings
+    // Skip blank-node subtype relationship nodes (Bookmark/Cite/Backlink) and
+    // any subject without a usage timestamp -- only real pages belong in the feed.
+    .filter(b => b.s?.type === 'uri' && b.t?.value)
     .map(b => {
       return {
         link: b.s.value,
