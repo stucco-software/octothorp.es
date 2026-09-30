@@ -4,9 +4,6 @@ export const verifyApprovedDomain = async (origin, { queryBoolean }) => {
       <${origin}> octo:verified "true" .
     }
   `)
-  console.log(`ask {
-      <${origin}> octo:verified "true" .
-    }`, originVerified)
   return originVerified
 }
 
