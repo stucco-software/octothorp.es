@@ -1184,3 +1184,13 @@ The policy probe now always runs, including on the active (crawler) path, so a p
 One observable change for active (crawler) clients: because the probe now always runs before the gate, a page that fails to harmonize now surfaces "Harmonization failed: could not extract page metadata" at the probe step rather than later at ingest.
 
 **Files affected:** `packages/core/access.js`, `packages/core/client.js`, `packages/core/handlerRegistry.js`, `packages/core/handlers/html/handler.js`, `packages/core/harmonizers.js`, `packages/core/indexer.js`, `packages/core/origin.js`, `packages/core/robots.js` (deleted), `src/lib/endorsers/clientEndorsed.js`, `src/tests/accessGate.test.js`, `src/tests/clientEndorsed.test.js`, `src/tests/htmlHandlerParse.test.js` (new), `src/tests/indexPolicy.test.js` (new), `src/tests/indexPolicyIndexer.test.js` (new), `src/tests/indexer.test.js`, `src/tests/indexerEndorsement.test.js`, `src/tests/indexing.test.js`, `src/tests/robots.test.js` (deleted).
+
+## Endorsement pre-merge testing: two fixes (2026-09-29)
+
+**Injected endorsers reach the /index route (2026-09-29).** `createIndexer` in `$lib/indexing.js` never received the endorsers built for `createClient` in `op.js`, so the route ran the gate's endorsement stage with nothing to consult and denied every unregistered origin — the marker never worked over HTTP. Endorser construction moved to `src/lib/endorsers/index.js`, shared by both entry points; a regression test asserts both receive the same array. Found by the manual admit/deny test; all unit suites were green throughout because nothing tested the adapter seam.
+
+**Files affected:** `src/lib/endorsers/index.js` (new), `src/lib/op.js`, `src/lib/indexing.js`, `src/tests/indexingAdapterEndorsers.test.js` (new).
+
+**Endorsed admissions no longer register the origin (2026-09-29).** `createOctothorpe` and `mentionTriples` wrote `octo:verified "true"` + `rdf:type <octo:Origin>` for every recorded page, so one endorsed index permanently registered its origin and every later request bypassed the marker check. The gate signals endorsed admissions via an optional `endorsement.onEndorsed` callback (string|null contract and 3-arg callers unchanged); recording skips the two origin-registration triples on that path, keeping `hasPart` and the page triples. Endorsement is per-request again: pull the marker, the next index attempt is denied. Scope ruling: applies only to endorsement-stage admissions — `open`-mode and registered admissions write exactly what they did before.
+
+**Files affected:** `packages/core/access.js`, `packages/core/indexer.js`, `src/tests/accessGate.test.js`, `src/tests/indexerEndorsement.test.js`.
