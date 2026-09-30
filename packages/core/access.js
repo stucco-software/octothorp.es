@@ -217,7 +217,15 @@ export const checkAccessGate = async (origin, access, verifyRegistered, endorsem
         // that do not parse at all) — endorsers fall back to `content`.
         document: endorsement?.document ?? null,
       })
-      if (verdict === true) return null
+      if (verdict === true) {
+        // Tell the caller this admission is endorsement-only, so it can avoid
+        // recording the origin as registered (octo:verified / octo:Origin) —
+        // otherwise one endorsed page would promote the origin for good and
+        // the "nothing is stored" promise above would be false. A callback
+        // rather than a new return shape keeps the string|null contract.
+        endorsement?.onEndorsed?.(endorser.name)
+        return null
+      }
     } catch (err) {
       // A broken endorser must not take the gate down with it — it declines.
       console.warn(`Endorser "${endorser.name}" threw; treating as a decline:`, err)

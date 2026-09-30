@@ -32,12 +32,12 @@ const stubRegistry = (harmonize) => ({
     : null,
 })
 
-const makeIndexer = ({ sources, endorsers }) => {
+const makeIndexer = ({ sources, endorsers, octothorpes = ['cats'] }) => {
   const harmonize = vi.fn(async () => ({
     '@id': pageUri,
     title: 'Bear post',
     indexPolicy: 'index',
-    octothorpes: ['cats'],
+    octothorpes,
   }))
   return createIndexer({
     insert: mockInsert,
@@ -118,5 +118,63 @@ describe('indexer: injected endorsers reach the gate', () => {
       access: { registration: 'registered', endorsement: { sources: ['client-endorsed'] } },
     })
     expect(endorse).toHaveBeenCalledOnce()
+  })
+})
+
+// An endorsed admission is per-request (see checkAccessGate stage 4), so the
+// recording path must not quietly promote the origin: writing octo:verified /
+// rdf:type octo:Origin would let every later unmarked page from that origin
+// pass datastore verification. octo:hasPart and page triples are still written.
+describe('indexer: an endorsed admission does not register its origin', () => {
+  const origin = 'https://bear-endorsed.test'
+  const octothorpes = ['cats', { type: 'link', uri: 'https://elsewhere.test/p' }]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockQueryBoolean.mockResolvedValue(false)
+    mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => `<html><head>${MARKER}</head><body>hi</body></html>`,
+      headers: { get: () => 'text/html' },
+    })
+  })
+
+  const config = (verified) => ({
+    instance,
+    serverName: instance,
+    queryBoolean: mockQueryBoolean,
+    verifyOrigin: async () => verified,
+  })
+
+  it('endorsed: writes hasPart but not verified / Origin', async () => {
+    const indexer = makeIndexer({
+      sources: ['client-endorsed'],
+      endorsers: [{ name: 'client-endorsed', endorse: () => true }],
+      octothorpes,
+    })
+    await indexer.handler(pageUri, 'default', null, config(false))
+
+    const out = inserted()
+    expect(out).toContain('~/cats')
+    expect(out).toContain('<https://elsewhere.test/p>')
+    expect(out).toContain(`<${origin}> octo:hasPart <${pageUri}>`)
+    expect(out).not.toContain(`<${origin}> octo:verified`)
+    expect(out).not.toContain(`<${origin}> rdf:type <octo:Origin>`)
+  })
+
+  it('registered: still writes verified / Origin', async () => {
+    const endorse = vi.fn(() => true)
+    const indexer = makeIndexer({
+      sources: ['client-endorsed'],
+      endorsers: [{ name: 'client-endorsed', endorse }],
+      octothorpes,
+    })
+    await indexer.handler(pageUri, 'default', null, config(true))
+
+    expect(endorse).not.toHaveBeenCalled()
+    const out = inserted()
+    expect(out).toContain(`<${origin}> octo:hasPart <${pageUri}>`)
+    expect(out).toContain(`<${origin}> octo:verified "true"`)
+    expect(out).toContain(`<${origin}> rdf:type <octo:Origin>`)
   })
 })

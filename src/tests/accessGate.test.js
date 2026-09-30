@@ -196,6 +196,23 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
     expect(endorse).toHaveBeenCalledOnce()
   })
 
+  // The admission is per-request; onEndorsed lets the caller tell it apart
+  // from a registered admission so it does not record the origin as verified.
+  it('signals onEndorsed only for an endorsement admission', async () => {
+    const onEndorsed = vi.fn()
+    const endorsers = [{ name: 'client-endorsed', endorse: () => true }]
+    await checkAccessGate('https://endorsed.test', registered(['client-endorsed']), verifyFalse,
+      endorsement(endorsers, { onEndorsed }))
+    expect(onEndorsed).toHaveBeenCalledWith('client-endorsed')
+
+    onEndorsed.mockClear()
+    await checkAccessGate('https://registered.test', registered(['client-endorsed']), verifyTrue,
+      endorsement(endorsers, { onEndorsed }))
+    await checkAccessGate('https://open.test', normalizeAccess({ registration: 'open' }), verifyFalse,
+      endorsement(endorsers, { onEndorsed }))
+    expect(onEndorsed).not.toHaveBeenCalled()
+  })
+
   it('never runs an injected endorser that sources does not name', async () => {
     const endorse = vi.fn(async () => true)
     const reason = await checkAccessGate(

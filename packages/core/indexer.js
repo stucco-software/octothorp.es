@@ -335,7 +335,15 @@ export const createIndexer = (deps) => {
 
   ////////// creation //////////
 
-  const createOctothorpe = async (s, o, { instance: inst } = {}) => {
+  // Origin-registration triples. Skipped for an endorsement-only admission
+  // (#217 stage 4): endorsement is evaluated per request and must not leave
+  // the origin looking registered to later verifiedOrigin checks.
+  const originTriples = (origin, endorsed) => endorsed ? '' : `
+      <${origin}> octo:verified "true" .
+      <${origin}> rdf:type <octo:Origin> .
+    `
+
+  const createOctothorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     let now = Date.now()
     let url = new URL(s)
@@ -343,8 +351,7 @@ export const createIndexer = (deps) => {
       <${s}> ${p} <${base}~/${o}> .
       <${s}> <${base}~/${o}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
-      <${url.origin}> octo:verified "true" .
-      <${url.origin}> rdf:type <octo:Origin> .
+      ${originTriples(url.origin, endorsed)}
       <${s}> rdf:type <octo:Page> .
     `)
   }
@@ -369,14 +376,13 @@ export const createIndexer = (deps) => {
 
   // Triple-builder helpers: produce raw triple strings (no INSERT DATA wrapper)
   // so handleMention can batch multiple writes into a single SPARQL update.
-  const mentionTriples = (s, o, now) => {
+  const mentionTriples = (s, o, now, { endorsed = false } = {}) => {
     const url = new URL(s)
     return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
-      <${url.origin}> octo:verified "true" .
-      <${url.origin}> rdf:type <octo:Origin> .
+      ${originTriples(url.origin, endorsed)}
       <${o}> rdf:type <octo:Page>.
     `
   }
@@ -682,7 +688,7 @@ export const createIndexer = (deps) => {
 
   ////////// handlers //////////
 
-  const handleThorpe = async (s, o, { instance: inst } = {}) => {
+  const handleThorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     console.log(`#`, s, o)
     let isExtantTerm = await extantTerm(o, { instance: base })
@@ -691,7 +697,7 @@ export const createIndexer = (deps) => {
     }
     let isExtantThorpe = await extantThorpe(s, o, { instance: base })
     if (!isExtantThorpe) {
-      await createOctothorpe(s, o, { instance: base })
+      await createOctothorpe(s, o, { instance: base, endorsed })
       await recordUsage(s, o, { instance: base })
     }
   }
@@ -702,7 +708,7 @@ export const createIndexer = (deps) => {
   //    (carries metadata: subtype, terms, created timestamp)
   // Both are needed: the direct triple supports simple joins in queries,
   // the blank node carries relationship metadata.
-  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
+  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     const subj = deslash(s)
     const obj = deslash(o)
@@ -735,7 +741,7 @@ export const createIndexer = (deps) => {
     const blocks = []
 
     if (!isExtantMention) {
-      blocks.push(mentionTriples(subj, obj, now))
+      blocks.push(mentionTriples(subj, obj, now, { endorsed }))
     }
 
     if (!isExtantbacklink) {
@@ -802,7 +808,7 @@ export const createIndexer = (deps) => {
     await processDomains(newDomains, s)
   }
 
-  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride } = {}) => {
+  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
@@ -852,13 +858,13 @@ export const createIndexer = (deps) => {
 
     for (const octothorpe of admittedOctothorpes) {
       if (typeof octothorpe === 'string') {
-        await handleThorpe(s, octothorpe, { instance: base })
+        await handleThorpe(s, octothorpe, { instance: base, endorsed })
         continue
       }
       if (!octothorpe.uri) continue
       let octoURI = deslash(octothorpe.uri)
       if (octothorpe.type === 'hashtag') {
-        await handleThorpe(s, octoURI, { instance: base })
+        await handleThorpe(s, octoURI, { instance: base, endorsed })
       } else if (octothorpe.type === 'endorse') {
         friends.endorsed.push(octoURI)
       } else {
@@ -868,7 +874,7 @@ export const createIndexer = (deps) => {
           console.warn(`[index] term "${t}" is blocked by this server; statement dropped`)
           return false
         })
-        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base })
+        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
       }
     }
 
@@ -983,7 +989,11 @@ export const createIndexer = (deps) => {
     // already fetched. The gate itself decides whether any of it is consulted
     // — a per-call config.access override's endorsement.sources applies here
     // because effectiveAccess is what is passed in.
+    // Set only when stage 4 (not registration) admitted this request; threaded
+    // to ingestBlobject so recording skips the origin-registration triples.
+    let endorsed = false
     const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered, {
+      onEndorsed: () => { endorsed = true },
       endorsers: injectedEndorsers,
       blobject: policyBlobject ?? null,
       content,
@@ -1046,7 +1056,7 @@ export const createIndexer = (deps) => {
     const blobject = harmonizer === policyHarmonizer
       ? policyBlobject
       : await dispatch(source, harmonizer, parsed.normalized)
-    await ingestBlobject(blobject, { instance: base, access: effectiveAccess })
+    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed })
   }
 
   return {
