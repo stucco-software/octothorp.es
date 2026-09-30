@@ -3,25 +3,14 @@
 // #217: all non-secret config now comes from the profile. sparql credentials
 // stay in .env (secrets), which is the whole point of the split.
 import { createClient, mergeNamespaces } from 'octothorpes'
-import { sparql_endpoint, sparql_user, sparql_password, endorsement_marker } from '$lib/config.js'
+import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { publishers } from '$lib/publishers'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
 import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
-import { createClientEndorsed, CLIENT_ENDORSED_NAME } from '$lib/endorsers/clientEndorsed.js'
+import { endorsers } from '$lib/endorsers/index.js'
 
 const profile = getProfile()
-
-// Injection is unconditional — core only runs an endorser the profile's
-// policies.access.endorsement.sources names, so an unnamed source is inert.
-// The missing-marker warning, however, is a real alarm ONLY when this deploy
-// actually names the source: octothorp.es leaves `endorsement_marker` unset on
-// purpose, and must not log a false alarm on every boot.
-const clientEndorsedNamed = (profile.policies.access.endorsement?.sources ?? []).includes(CLIENT_ENDORSED_NAME)
-const clientEndorsed = createClientEndorsed({
-  marker: endorsement_marker,
-  warn: clientEndorsedNamed ? console.warn : () => {},
-})
 
 export const op = createClient({
   instance: profile.identity.instance,
@@ -46,8 +35,9 @@ export const op = createClient({
   // Endorsement sources are INJECTED here and only run when the profile's
   // policies.access.endorsement.sources names them. octothorp.es's own profile
   // names none, so this is inert for this deploy; the Bear relay profile
-  // (profiles/bearblog/octothorpes.json) turns it on.
-  endorsers: [clientEndorsed],
+  // (profiles/bearblog/octothorpes.json) turns it on. Built once in
+  // $lib/endorsers/index.js and shared with the indexing adapter.
+  endorsers,
   // Was missing entirely (#217 gap audit): without this, programmatic op.get()
   // silently lost documentRecord projection.
   documentRecordSchema: profile.api.documentRecord,
