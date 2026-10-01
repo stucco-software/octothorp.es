@@ -13,6 +13,10 @@ import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
 
+// XML Schema datatype namespace for typed documentRecord literals (full IRIs;
+// SPARQL updates here carry no xsd: prefix).
+const XSD = 'http://www.w3.org/2001/XMLSchema#'
+
 const harmonizerWhitelist = [
   'octothorp.es',
   'localhost',
@@ -526,8 +530,11 @@ export const createIndexer = (deps) => {
   // SAME predicate IRIs; here we write them from a harmonized blobject's
   // `documentRecord` sub-object. Declaration-driven: only predicates present in
   // `schema` are written (admission allowlist — undeclared keys are dropped,
-  // mirroring the read guard). `uri`-range values are stored as IRIs, everything
-  // else as a string literal (the read side coerces number/timestamp/boolean).
+  // mirroring the read guard). Values are typed by range so SPARQL comparisons
+  // are numeric/temporal, not lexical: `uri` -> IRI, `number` -> xsd:decimal,
+  // `timestamp` -> xsd:dateTime (ISO), `literal` -> plain string literal.
+  // Unparseable number/timestamp values are skipped with a warning. The read
+  // side (coerceDocumentRecordValue) still tolerates old plain literals.
   // Every predicate is written under the octo namespace (octo:<predicate>);
   // documentRecord is not a route into foreign vocabularies.
   // Idempotent per predicate (delete-then-insert). Leaf triples only — never the
@@ -548,9 +555,26 @@ export const createIndexer = (deps) => {
           continue
         }
         object = `<${safe}>`
+      } else if (entry.range === 'number') {
+        const n = Number(value)
+        if (typeof value === 'boolean' || String(value).trim() === '' || !Number.isFinite(n) || /e/i.test(String(n))) {
+          console.warn(`recordDocumentRecord: skipping ${entry.predicate}; not a finite number:`, value)
+          continue
+        }
+        object = `"${n}"^^<${XSD}decimal>`
+      } else if (entry.range === 'timestamp') {
+        const d = new Date(value)
+        if (Number.isNaN(d.getTime())) {
+          console.warn(`recordDocumentRecord: skipping ${entry.predicate}; not a valid timestamp:`, value)
+          continue
+        }
+        object = `"${d.toISOString()}"^^<${XSD}dateTime>`
       } else {
         object = `"${escapeLiteral(String(value))}"`
       }
+      // `?o` is unconstrained, so the delete matches the old value whatever its
+      // datatype. This is the migration story: plain (untyped) literals written
+      // before typed-by-range storage are replaced by typed ones on reindex.
       await query(`
         delete { <${s}> <${iri}> ?o . }
         insert { <${s}> <${iri}> ${object} . }

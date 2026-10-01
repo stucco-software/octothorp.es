@@ -1198,6 +1198,12 @@ It only fires on an **explicit** failure signal: a response with neither `ok` no
 
 **Files affected:** `packages/core/indexer.js`, `src/routes/(endpoints)/index/+server.js`, `src/routes/indexwrapper/+server.js`, `src/tests/fetchBlocked.test.js` (new, 9 tests).
 
+## documentRecord literals are typed by range (2026-10-01, profile-testing)
+
+`recordDocumentRecord` now writes `number` as `^^xsd:decimal` and `timestamp` as `^^xsd:dateTime` (full datatype IRIs); `literal` and `uri` are unchanged, and unparseable values are skipped with a warning. Previously every non-uri value was stored as a plain string literal, so any future SPARQL filter or sort on a number/timestamp field would have compared lexically, and the type lived in the reading profile rather than the data. Old untyped literals are tolerated on read and replaced on reindex (the delete clause matches any datatype). The range enum is unchanged and closed at `literal | uri | number | timestamp`; the `boolean` branch in `coerceDocumentRecordValue` is unreachable from a validated profile and now says so.
+
+**Files affected:** `packages/core/indexer.js`, `packages/core/blobject.js`, `packages/core/CHANGELOG.md`, `src/tests/indexing.test.js`. End-to-end typed-literal checks live in op-test-site's smoke roundtrip (175 passing).
+
 ## /badge no longer 500s on Vercel (2026-10-01)
 
 Every `/badge` request on next.octothorp.es returned 500. The route read the three badge PNGs with module-scope `readFileSync(resolve('static/...'))`; under adapter-vercel 6, @vercel/nft cannot trace that template-string path, so `static/` is absent from the function bundle and the import threw ENOENT at `/var/task/static/`. Fourth symptom of #300's pattern; fixed here badge-only. Each variant is now fetched lazily from the deployment's own static assets via `event.fetch('/<file>')` and cached after first success. A failed load returns a plain-text 404/502 for that request instead of crashing the route.

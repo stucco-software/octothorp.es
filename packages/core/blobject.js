@@ -8,7 +8,8 @@ import { documentRecordVar } from './queryBuilders.js'
  *   timestamp -> ISO-8601 string (unix ms, unix seconds, or ISO in; ISO out;
  *                unparseable input is passed through as the raw string)
  *   number    -> JS number (non-numeric -> undefined, i.e. key dropped)
- *   boolean   -> JS boolean (only true/1/false/0; anything else -> undefined)
+ * `boolean` is NOT in the range enum (profile.schema.json); the branch below
+ * is tolerant legacy coercion only and is unreachable via a validated profile.
  * Returning `undefined` signals "do not project this key" (never emit null/NaN).
  * @param {string} raw - the binding's `.value`
  * @param {string} range

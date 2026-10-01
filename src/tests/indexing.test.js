@@ -432,6 +432,43 @@ describe('Indexing Business Logic', () => {
     })
   })
 
+  describe('recordDocumentRecord typed literals by range', () => {
+    const XSD = 'http://www.w3.org/2001/XMLSchema#'
+    const s = 'https://example.com/page'
+
+    it('writes number range as xsd:decimal', async () => {
+      mockQuery.mockResolvedValue({})
+      await indexer.recordDocumentRecord(s, { contentSize: '42' }, [{ predicate: 'contentSize', range: 'number' }])
+      expect(mockQuery.mock.calls[0][0]).toContain(`"42"^^<${XSD}decimal>`)
+    })
+
+    it('writes timestamp range as xsd:dateTime ISO', async () => {
+      mockQuery.mockResolvedValue({})
+      await indexer.recordDocumentRecord(s, { dateModified: '2024-01-02' }, [{ predicate: 'dateModified', range: 'timestamp' }])
+      expect(mockQuery.mock.calls[0][0]).toContain(`"2024-01-02T00:00:00.000Z"^^<${XSD}dateTime>`)
+    })
+
+    it('keeps literal range as a plain literal', async () => {
+      mockQuery.mockResolvedValue({})
+      await indexer.recordDocumentRecord(s, { prefLabel: 'Hi' }, [{ predicate: 'prefLabel', range: 'literal' }])
+      const q = mockQuery.mock.calls[0][0]
+      expect(q).toContain('"Hi" .')
+      expect(q).not.toContain('^^')
+    })
+
+    it('skips unparseable number and timestamp values with a warning', async () => {
+      mockQuery.mockResolvedValue({})
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      await indexer.recordDocumentRecord(s, { contentSize: 'lots', dateModified: 'not a date' }, [
+        { predicate: 'contentSize', range: 'number' },
+        { predicate: 'dateModified', range: 'timestamp' },
+      ])
+      expect(mockQuery).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledTimes(2)
+      warn.mockRestore()
+    })
+  })
+
   describe('getAllMentioningUrls', () => {
     it('should return URLs from SPARQL bindings', async () => {
       mockQueryArray.mockResolvedValue({
