@@ -1197,3 +1197,9 @@ An interstitial is valid HTML with a title and no Octothorpes markup, so it harm
 It only fires on an **explicit** failure signal: a response with neither `ok` nor a numeric `status` is left alone, so partial test doubles and non-standard fetch implementations keep working. Both `/index` routes map the new message to **502** — an upstream refusal, kept distinct from the 403 a genuine opt-out returns.
 
 **Files affected:** `packages/core/indexer.js`, `src/routes/(endpoints)/index/+server.js`, `src/routes/indexwrapper/+server.js`, `src/tests/fetchBlocked.test.js` (new, 9 tests).
+
+## /badge no longer 500s on Vercel (2026-10-01)
+
+Every `/badge` request on next.octothorp.es returned 500. The route read the three badge PNGs with module-scope `readFileSync(resolve('static/...'))`; under adapter-vercel 6, @vercel/nft cannot trace that template-string path, so `static/` is absent from the function bundle and the import threw ENOENT at `/var/task/static/`. Fourth symptom of #300's pattern; fixed here badge-only. Each variant is now fetched lazily from the deployment's own static assets via `event.fetch('/<file>')` and cached after first success. A failed load returns a plain-text 404/502 for that request instead of crashing the route.
+
+**Files affected:** `src/routes/badge/+server.js`, `src/tests/badge-route.test.js`.

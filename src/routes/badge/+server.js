@@ -1,5 +1,3 @@
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
 import { getProfile } from '$lib/profile.js'
 import { verifiedOrigin, determineBadgeUri, badgeVariant } from 'octothorpes'
 import { queryBoolean } from '$lib/sparql.js'
@@ -23,9 +21,36 @@ export const _badgeFileName = (badgePath) => {
 }
 
 const badgeFile = _badgeFileName(profile.policies.access.badge)
-const badgeSuccess = readFileSync(resolve(`static/${badgeFile}`))
-const badgeFail = readFileSync(resolve(`static/${badgeVariant(badgeFile, 'fail')}`))
-const badgeUnregistered = readFileSync(resolve(`static/${badgeVariant(badgeFile, 'unregistered')}`))
+const badgeFiles = {
+  success: badgeFile,
+  fail: badgeVariant(badgeFile, 'fail'),
+  unregistered: badgeVariant(badgeFile, 'unregistered'),
+}
+
+// Badge images are loaded lazily from the deployment's own static assets via
+// event.fetch. Module-scope fs reads of static/ crash on Vercel, where nft
+// does not bundle static/ into the function (see #300).
+const badgeCache = new Map()
+
+/** Test hook: clear cached badge bytes. */
+export const _resetBadgeCache = () => badgeCache.clear()
+
+const loadBadge = (fetch, variant) => {
+  if (badgeCache.has(variant)) return badgeCache.get(variant)
+  const path = `/${badgeFiles[variant]}`
+  const pending = (async () => {
+    const res = await fetch(path)
+    if (!res.ok) {
+      const err = new Error(`fetch ${path} -> ${res.status}`)
+      err.status = 404
+      throw err
+    }
+    return new Uint8Array(await res.arrayBuffer())
+  })()
+  badgeCache.set(variant, pending)
+  pending.catch(() => badgeCache.delete(variant))
+  return pending
+}
 
 const headers = {
   'Content-Type': 'image/png',
@@ -33,9 +58,20 @@ const headers = {
   'Cache-Control': 'max-age=300',
 }
 
-const pngResponse = (buffer) => new Response(buffer, { headers })
+const sendBadge = async (fetch, variant) => {
+  try {
+    return new Response(await loadBadge(fetch, variant), { headers })
+  } catch (e) {
+    console.log(`[badge] could not load ${variant} badge: ${e.message}`)
+    return new Response('badge image unavailable', {
+      status: e.status ?? 502,
+      headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' },
+    })
+  }
+}
 
-export async function GET({ request, url }) {
+export async function GET({ request, url, fetch }) {
+  const pngResponse = (variant) => sendBadge(fetch, variant)
   const uriParam = url.searchParams.get('uri')
   const referer = request.headers.get('referer')
   const harmonizer = url.searchParams.get('as') ?? 'default'
@@ -46,7 +82,7 @@ export async function GET({ request, url }) {
 
   if (!pageUrl) {
     console.log(`[badge] -> fail (no valid URI)`)
-    return pngResponse(badgeFail)
+    return pngResponse('fail')
   }
 
   let parsed
@@ -54,7 +90,7 @@ export async function GET({ request, url }) {
     parsed = new URL(pageUrl)
   } catch (e) {
     console.log(`[badge] -> fail (malformed URL: ${pageUrl})`)
-    return pngResponse(badgeFail)
+    return pngResponse('fail')
   }
 
   const origin = parsed.origin
@@ -65,7 +101,7 @@ export async function GET({ request, url }) {
   const isVerified = await verifiedOrigin(origin, { queryBoolean })
   if (!isVerified) {
     console.log(`[badge] -> unregistered (origin not verified: ${origin})`)
-    return pngResponse(badgeUnregistered)
+    return pngResponse('unregistered')
   }
 
   console.log(`[badge] -> success (triggering indexing for ${pageUrl})`)
@@ -83,5 +119,5 @@ export async function GET({ request, url }) {
     console.log(`[badge] indexing result for ${pageUrl}: ${e.message}`)
   })
 
-  return pngResponse(badgeSuccess)
+  return pngResponse('success')
 }

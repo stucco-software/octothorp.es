@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('fs', () => ({
-  readFileSync: vi.fn((path) => {
-    if (path.includes('_fail')) return Buffer.from('fail')
-    if (path.includes('_unregistered')) return Buffer.from('unregistered')
-    return Buffer.from('success')
-  })
-}))
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+const bodyFor = (path) => {
+  if (path.includes('_fail')) return 'fail'
+  if (path.includes('_unregistered')) return 'unregistered'
+  return 'success'
+}
+const okFetch = vi.fn(async (path) => new Response(bodyFor(String(path))))
 
 vi.mock('$lib/profile.js', () => ({
   getProfile: () => ({
@@ -38,7 +40,7 @@ vi.mock('$lib/sparql.js', () => ({
   queryBoolean: vi.fn(),
 }))
 
-import { GET, _badgeFileName } from '../routes/badge/+server.js'
+import { GET, _badgeFileName, _resetBadgeCache } from '../routes/badge/+server.js'
 import { verifiedOrigin } from 'octothorpes'
 import { handler } from '$lib/indexing.js'
 
@@ -50,7 +52,7 @@ const makeEvent = ({ uri = null, referer = null, harmonizer = null } = {}) => {
   const headers = new Headers()
   if (referer) headers.set('referer', referer)
   const request = new Request(url.toString(), { headers })
-  return { request, url }
+  return { request, url, fetch: okFetch }
 }
 
 const responseText = async (response) => {
@@ -61,6 +63,7 @@ const responseText = async (response) => {
 describe('Badge Route Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    _resetBadgeCache()
     handler.mockResolvedValue(undefined)
   })
 
@@ -151,6 +154,56 @@ describe('Badge Route Handler', () => {
       const response = await GET(makeEvent({ uri: 'https://example.com/page' }))
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
     })
+  })
+})
+
+describe('badge loading via event.fetch (Vercel bundle fix)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetBadgeCache()
+    handler.mockResolvedValue(undefined)
+  })
+
+  it('route module does not import fs', () => {
+    const src = readFileSync(fileURLToPath(new URL('../routes/badge/+server.js', import.meta.url)), 'utf8')
+    expect(src).not.toMatch(/from ['"](node:)?fs['"]/)
+    expect(src).not.toMatch(/readFileSync/)
+  })
+
+  it('fetches each variant by relative URL', async () => {
+    verifiedOrigin.mockResolvedValue(false)
+    await GET(makeEvent({ uri: 'https://example.com/page' }))
+    expect(okFetch).toHaveBeenCalledWith('/badge_unregistered.png')
+    await GET(makeEvent())
+    expect(okFetch).toHaveBeenCalledWith('/badge_fail.png')
+  })
+
+  it('caches a variant after the first successful load', async () => {
+    await GET(makeEvent())
+    await GET(makeEvent())
+    expect(okFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns a 404 (not a throw) when a variant fetch fails, and does not cache the failure', async () => {
+    const badFetch = vi.fn(async () => new Response('nope', { status: 404 }))
+    const response = await GET({ ...makeEvent(), fetch: badFetch })
+    expect(response.status).toBe(404)
+    const again = await GET(makeEvent())
+    expect(await responseText(again)).toBe('fail')
+  })
+
+  it('returns a 502 when fetch rejects', async () => {
+    const throwing = vi.fn(async () => { throw new Error('network') })
+    const response = await GET({ ...makeEvent(), fetch: throwing })
+    expect(response.status).toBe(502)
+  })
+
+  it('a missing variant does not break the others', async () => {
+    verifiedOrigin.mockResolvedValue(true)
+    const partial = vi.fn(async (p) => p.includes('_fail') ? new Response('x', { status: 404 }) : new Response(bodyFor(p)))
+    expect((await GET({ ...makeEvent(), fetch: partial })).status).toBe(404)
+    const ok = await GET({ ...makeEvent({ uri: 'https://example.com/page' }), fetch: partial })
+    expect(await responseText(ok)).toBe('success')
   })
 })
 
