@@ -5,25 +5,26 @@
   import StaticNav from './Nav.svelte'
 </script>
 
-<header class="op-header">
+<header>
 	<a href="/">
     <Lockup {host} />
   </a>
 </header>
-<StaticNav />
+<StaticNav /> 
 
 
 <style type="text/css">
-  .op-header {
-    padding-block: var(--sp-2);
+  header {
+    border-bottom: 2px dotted var(--dark-blue);
+    padding-block: calc(var(--baseline) * .5);
+    padding-inline: 2ch;
+    background-color: var(--bg-color);
     display: flex;
     justify-content: center;
-    border-bottom: var(--rule-strong);
-    background-color: var(--bg);
   }
-  a {
+  a, li a {
     text-decoration-skip-ink: auto;
     text-decoration: none;
     color: currentColor;
-  }
+  }  
 </style>
