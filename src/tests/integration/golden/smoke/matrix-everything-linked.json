@@ -1,5 +1,36 @@
 [
   {
+    "@id": "https://nimdaghlian.github.io/devdemo",
+    "title": "Home - OP DEV DEMO",
+    "description": "Welcome to the demonstration site for Octothorpe Protocol, where you can find live examples of what you can do with **OP version 0.6**.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": null,
+    "octothorpes": [
+      "demo",
+      {
+        "uri": "https://ideastore.dev/blog/why-tho",
+        "type": "Link"
+      },
+      {
+        "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
+        "type": "Link"
+      },
+      {
+        "uri": "https://nimdaghlian.github.io/devdemo/tags-and-octothorpes",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      },
+      "octothorpes"
+    ]
+  },
+  {
     "@id": "https://nimdaghlian.github.io/devdemo/backlinked-page",
     "title": "Backlinks - OP DEV DEMO",
     "description": "The idea of a backlink is as old as the concept of a hyperlink, but they're not as widely implemented as one-way links.",
@@ -225,23 +256,6 @@
         "type": "Link"
       },
       "multipass"
-    ]
-  },
-  {
-    "@id": "https://nimdaghlian.github.io/devdemo/octothorpes",
-    "title": "- OP DEV DEMO",
-    "description": null,
-    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
-    "postDate": null,
-    "octothorpes": [
-      {
-        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
-        "type": "Link"
-      },
-      {
-        "uri": "https://octothorpes.neocities.org",
-        "type": "Link"
-      }
     ]
   },
   {

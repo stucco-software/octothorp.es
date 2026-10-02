@@ -1,6 +1,13 @@
 [
   {
     "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo",
+    "title": "Home - OP DEV DEMO",
+    "description": "Welcome to the demonstration site for Octothorpe Protocol, where you can find live examples of what you can do with **OP version 0.6**.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
     "title": "Backlinks - OP DEV DEMO",
     "description": "The idea of a backlink is as old as the concept of a hyperlink, but they're not as widely implemented as one-way links.",

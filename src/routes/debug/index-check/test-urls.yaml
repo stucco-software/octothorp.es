@@ -7,7 +7,7 @@ urlSets:
   - name: "Regular hashtags"
     description: "Pages with octothorpes"
     urls:
-      - https://nimdaghlian.github.io/devdemo/octothorpes
+      - https://nimdaghlian.github.io/devdemo/
       - https://nimdaghlian.github.io/devdemo/tags-and-octothorpes
   - name: "Term relationships"
     description: "Pages with hashtag/term octothorpes"

@@ -131,6 +131,14 @@
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
+  <title>Home - OP DEV DEMO</title>
+  <description>Welcome to the demonstration site for Octothorpe Protocol, where you can find live examples of what you can do with **OP version 0.6**.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
   <title>Post Date - OP DEV DEMO</title>
   <description>Pages can declare their own publication date, which OP indexes and uses for date-based API filtering.</description>
   <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/post-date</guid>

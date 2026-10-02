@@ -19,14 +19,6 @@
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
-  <title>Tags and Octothorpes - OP DEV DEMO</title>
-  <description>Octothorpes are like super-tags for websites. So they are designed to work seamlessly with any platform&apos;s normal method of tagging content.</description>
-  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/tags-and-octothorpes</guid>
-  <pubDate>{DATE}</pubDate>
-  <link>https://nimdaghlian.github.io/devdemo/tags-and-octothorpes</link>
-  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
-</item>
-  <item>
   <title>Fun with RSS - OP DEV DEMO</title>
   <description>The OP API outputs RSS for almost any query. Here are some combinations worth bookmarking.</description>
   <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/rss-feeds</guid>
@@ -48,14 +40,6 @@
   <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/pure-http</guid>
   <pubDate>{DATE}</pubDate>
   <link>https://nimdaghlian.github.io/devdemo/pure-http</link>
-  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
-</item>
-  <item>
-  <title>- OP DEV DEMO</title>
-  
-  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/octothorpes</guid>
-  <pubDate>{DATE}</pubDate>
-  <link>https://nimdaghlian.github.io/devdemo/octothorpes</link>
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
@@ -139,11 +123,11 @@
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
-  <title>Backlinks - OP DEV DEMO</title>
-  <description>The idea of a backlink is as old as the concept of a hyperlink, but they&apos;re not as widely implemented as one-way links.</description>
-  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/backlinked-page</guid>
+  <title>Home - OP DEV DEMO</title>
+  <description>Welcome to the demonstration site for Octothorpe Protocol, where you can find live examples of what you can do with **OP version 0.6**.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo</guid>
   <pubDate>{DATE}</pubDate>
-  <link>https://nimdaghlian.github.io/devdemo/backlinked-page</link>
+  <link>https://nimdaghlian.github.io/devdemo</link>
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
