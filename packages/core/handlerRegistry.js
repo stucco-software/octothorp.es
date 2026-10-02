@@ -18,6 +18,11 @@ export const createHandlerRegistry = () => {
     if (!handler.mode || !handler.contentTypes || typeof handler.harmonize !== 'function') {
       throw new Error('Handler must have mode, contentTypes, and harmonize')
     }
+    // `parse` is optional: handlers that work on a parsed tree expose it so the
+    // indexer can parse once per source and cache the result.
+    if (handler.parse !== undefined && typeof handler.parse !== 'function') {
+      throw new Error('Handler "parse" must be a function when present')
+    }
     handlers[mode] = handler
     for (const ct of handler.contentTypes) {
       contentTypeMap[ct] = handler

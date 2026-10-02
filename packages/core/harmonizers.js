@@ -104,6 +104,19 @@ export const createHarmonizerRegistry = (instance) => {
                     "selector": "link[rel='octo:harmonizer']",
                     "attribute": "href"
                   }
+                ],
+              // Robots directives. Unlike every other subject property this is
+              // ARRAY-valued: a page may carry several robots metas and the
+              // refusal check in resolveIndexPolicy has to see all of them. The
+              // HTML handler keeps a small allow-list of array-valued subject
+              // props (SUBJECT_ARRAY_PROPS) so this one rule skips the
+              // "first non-empty value wins" scalar path.
+              "robots":
+                [
+                  {
+                    "selector": "meta[name='robots']",
+                    "attribute": "content"
+                  }
                 ]
               },
 

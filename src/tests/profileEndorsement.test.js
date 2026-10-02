@@ -32,7 +32,7 @@ describe('schema — policies.access.endorsement', () => {
   it('accepts an empty object, an empty sources list and a named source', () => {
     expect(validate(withEndorsement({}))).toBe(true)
     expect(validate(withEndorsement({ sources: [] }))).toBe(true)
-    expect(validate(withEndorsement({ sources: ['bear-marker'] }))).toBe(true)
+    expect(validate(withEndorsement({ sources: ['client-endorsed'] }))).toBe(true)
   })
 
   it('rejects an unknown property under endorsement', () => {
@@ -42,7 +42,7 @@ describe('schema — policies.access.endorsement', () => {
   })
 
   it('rejects a non-string sources item', () => {
-    expect(validate(withEndorsement({ sources: [{ name: 'bear-marker' }] }))).toBe(false)
+    expect(validate(withEndorsement({ sources: [{ name: 'client-endorsed' }] }))).toBe(false)
   })
 })
 
@@ -57,9 +57,9 @@ describe('defaults — an absent endorsement block', () => {
   })
 
   it('normalizeAccess copies an authored list rather than aliasing it', () => {
-    const authored = ['bear-marker']
+    const authored = ['client-endorsed']
     const normalized = normalizeAccess({ endorsement: { sources: authored } })
-    expect(normalized.endorsement.sources).toEqual(['bear-marker'])
+    expect(normalized.endorsement.sources).toEqual(['client-endorsed'])
     expect(normalized.endorsement.sources).not.toBe(authored)
   })
 
@@ -87,8 +87,8 @@ describe('coherence warnings — warn, never throw', () => {
   it('warns that sources is inert under open', () => {
     const warn = vi.fn()
     expect(() =>
-      load({ registration: 'open', endorsement: { sources: ['bear-marker'] } }, [
-        { name: 'bear-marker', endorse: async () => false },
+      load({ registration: 'open', endorsement: { sources: ['client-endorsed'] } }, [
+        { name: 'client-endorsed', endorse: async () => false },
       ], warn)
     ).not.toThrow()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('endorsement.sources is non-empty'))
@@ -101,9 +101,9 @@ describe('coherence warnings — warn, never throw', () => {
       {
         registration: 'closed',
         whitelist: { domains: ['https://friend.test'] },
-        endorsement: { sources: ['bear-marker'] },
+        endorsement: { sources: ['client-endorsed'] },
       },
-      [{ name: 'bear-marker', endorse: async () => false }],
+      [{ name: 'client-endorsed', endorse: async () => false }],
       warn
     )
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('endorsement.sources is non-empty'))
@@ -120,15 +120,15 @@ describe('coherence warnings — warn, never throw', () => {
 
   it('does not warn when every source resolves under registered', () => {
     const warn = vi.fn()
-    load({ registration: 'registered', endorsement: { sources: ['bear-marker'] } }, [
-      { name: 'bear-marker', endorse: async () => false },
+    load({ registration: 'registered', endorsement: { sources: ['client-endorsed'] } }, [
+      { name: 'client-endorsed', endorse: async () => false },
     ], warn)
     expect(warn).not.toHaveBeenCalled()
   })
 
   it('accepts bare name strings as the injected endorser list', () => {
     const warn = vi.fn()
-    load({ registration: 'registered', endorsement: { sources: ['bear-marker'] } }, ['bear-marker'], warn)
+    load({ registration: 'registered', endorsement: { sources: ['client-endorsed'] } }, ['client-endorsed'], warn)
     expect(warn).not.toHaveBeenCalled()
   })
 })
@@ -144,17 +144,17 @@ describe('createClient({ endorsers })', () => {
   })
 
   it('stores the injected endorsers and does nothing else with them', () => {
-    const bear = { name: 'bear-marker', endorse: async () => true }
+    const bear = { name: 'client-endorsed', endorse: async () => true }
     const client = createClient({ ...base, endorsers: [bear] })
     expect(client.endorsers).toEqual([bear])
     expect(typeof client.get).toBe('function')
   })
 
   it('throws on a bad endorser shape', () => {
-    expect(() => createClient({ ...base, endorsers: 'bear-marker' })).toThrow(/must be an array/)
+    expect(() => createClient({ ...base, endorsers: 'client-endorsed' })).toThrow(/must be an array/)
     expect(() => createClient({ ...base, endorsers: [{ endorse: () => {} }] })).toThrow(/string `name`/)
     expect(() => createClient({ ...base, endorsers: [{ name: '', endorse: () => {} }] })).toThrow(/string `name`/)
-    expect(() => createClient({ ...base, endorsers: [{ name: 'bear-marker' }] })).toThrow(/`endorse` function/)
+    expect(() => createClient({ ...base, endorsers: [{ name: 'client-endorsed' }] })).toThrow(/`endorse` function/)
   })
 
   it('throws on a duplicate endorser name', () => {
@@ -162,8 +162,8 @@ describe('createClient({ endorsers })', () => {
       createClient({
         ...base,
         endorsers: [
-          { name: 'bear-marker', endorse: () => {} },
-          { name: 'bear-marker', endorse: () => {} },
+          { name: 'client-endorsed', endorse: () => {} },
+          { name: 'client-endorsed', endorse: () => {} },
         ],
       })
     ).toThrow(/duplicate endorser name/)

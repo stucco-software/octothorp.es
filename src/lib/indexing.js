@@ -3,6 +3,7 @@ import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
 import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
+import { endorsers } from '$lib/endorsers/index.js'
 
 // #217: everything operational comes from the profile now. `instance` still
 // originates in .env when a deploy overrides it, but it arrives here through
@@ -64,6 +65,10 @@ const indexer = createIndexer({
   // axis and is orthogonal to all of it. `blocks.terms` is neither: it is a
   // write-time, statement-level filter that applies in every registration mode.
   access: profile.policies.access,
+  // #217 stage 4: the same endorser array op.js injects. Without it the gate's
+  // endorsement stage had no sources and /index denied every unregistered
+  // origin, marker or not.
+  endorsers,
 })
 
 // Content-path harmonization bound to the same registry/lookup the indexer

@@ -179,15 +179,47 @@ export const detectBlockedFetch = (response, content = '', ua = userAgent()) => 
  * @param {Object} args
  * @param {Object} [args.blobject] - The harmonized blobject (may be null if caller short-circuits).
  * @param {Object} [args.callerContext] - { policyMode, policyCheck, feedApproved }
- * @returns {{ optedIn: boolean, harmonizer: string|null }}
+ * @returns {{ optedIn: boolean, harmonizer: string|null, refused: string|null }}
  */
+const REFUSING_ROBOTS_TOKENS = new Set(['noindex', 'nofollow', 'none'])
+
 export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
-  // Caller-context overrides
-  if (callerContext.policyMode === 'active' && !callerContext.policyCheck) {
-    return { optedIn: true, harmonizer: null }
+  const b = blobject || {}
+
+  // A crawler-initiated request: this relay went looking for the page, rather
+  // than the page's owner asking for it. Both the robots refusal and the
+  // active-mode opt-in override key off it.
+  const crawlerInitiated = callerContext.policyMode === 'active' && !callerContext.policyCheck
+
+  // 1. The page's own refusal, evaluated before anything else.
+  // Robots directives only bind CRAWLER-initiated requests — the active policy
+  // mode without a policy check. An owner-initiated request (a site asking this
+  // relay to index its own page) is not crawling, so its robots meta, which
+  // addresses search engines, is ignored entirely.
+  if (crawlerInitiated) {
+    const metas = Array.isArray(b.robots) ? b.robots : (typeof b.robots === 'string' ? [b.robots] : [])
+    for (const meta of metas) {
+      if (typeof meta !== 'string') continue
+      const tokens = meta.split(/[\s,]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
+      const hit = tokens.find(t => REFUSING_ROBOTS_TOKENS.has(t))
+      if (hit) {
+        return { optedIn: false, harmonizer: null, refused: `robots ${hit}` }
+      }
+    }
+  }
+
+  // 2. The explicit opt-out, ahead of every caller-context override.
+  // An automatic opt-in (crawling under active mode, feed approval) fills in a
+  // MISSING opt-in; it never overrides an explicit opt-out. Not a refusal —
+  // the page is simply not opted in.
+  if (b.indexPolicy === 'no-index') return { optedIn: false, harmonizer: null, refused: null }
+
+  // 3. Caller-context overrides
+  if (crawlerInitiated) {
+    return { optedIn: true, harmonizer: null, refused: null }
   }
   if (callerContext.feedApproved === true) {
-    return { optedIn: true, harmonizer: null }
+    return { optedIn: true, harmonizer: null, refused: null }
   }
 
   // Per-blobject fallback (current behavior)
@@ -197,12 +229,11 @@ export const resolveIndexPolicy = ({ blobject, callerContext = {} } = {}) => {
   //   - <link rel="preload" href="..."> pointing at this instance
   // Any truthy value means the page has opted in, unless explicitly "no-index".
   // Implicit opt-in: page contains <octo-thorpe> elements or other OP markup.
-  const b = blobject || {}
   const hasPolicy = !!(b.indexPolicy) && b.indexPolicy !== 'no-index'
   const hasOctothorpes = Array.isArray(b.octothorpes) && b.octothorpes.length > 0
   const optedIn = hasPolicy || hasOctothorpes
   const harmonizer = b.indexHarmonizer || null
-  return { optedIn: !!optedIn, harmonizer }
+  return { optedIn: !!optedIn, harmonizer, refused: null }
 }
 
 export const checkIndexingPolicy = (harmed, instance) => {
@@ -221,10 +252,14 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @param {Object} [deps.handlerRegistry] - Handler registry for content-type dispatch
  * @param {Function} [deps.getHarmonizer] - Harmonizer lookup function
  * @param {number} [deps.cooldown=300] - Re-index cooldown in seconds; 0 disables it
+ * @param {{name:string, endorse:Function}[]} [deps.endorsers] - #217 stage 4:
+ *   the endorsers injected via createClient({ endorsers }). Which of them run
+ *   (and in what order) is decided by access.endorsement.sources, not by this
+ *   array; an empty sources list leaves the stage off.
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers } = deps
 
   // #217: re-index cooldown in SECONDS, injected from
   // profile.policies.indexing.cooldown. 0 disables the wait.
@@ -234,6 +269,10 @@ export const createIndexer = (deps) => {
   // point below sees a filled shape. Core never reads a profile — the mode and
   // the lists arrive as config.
   const access = normalizeAccess(accessConfig)
+
+  // #217 stage 4: injected endorsers, held as-is. They are inert until an
+  // access block's endorsement.sources names them (see checkAccessGate).
+  const injectedEndorsers = endorsers ?? []
 
   const p = 'octo:octothorpes'
 
@@ -350,7 +389,15 @@ export const createIndexer = (deps) => {
 
   ////////// creation //////////
 
-  const createOctothorpe = async (s, o, { instance: inst } = {}) => {
+  // Origin-registration triples. Skipped for an endorsement-only admission
+  // (#217 stage 4): endorsement is evaluated per request and must not leave
+  // the origin looking registered to later verifiedOrigin checks.
+  const originTriples = (origin, endorsed) => endorsed ? '' : `
+      <${origin}> octo:verified "true" .
+      <${origin}> rdf:type <octo:Origin> .
+    `
+
+  const createOctothorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     let now = Date.now()
     let url = new URL(s)
@@ -358,8 +405,7 @@ export const createIndexer = (deps) => {
       <${s}> ${p} <${base}~/${o}> .
       <${s}> <${base}~/${o}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
-      <${url.origin}> octo:verified "true" .
-      <${url.origin}> rdf:type <octo:Origin> .
+      ${originTriples(url.origin, endorsed)}
       <${s}> rdf:type <octo:Page> .
     `)
   }
@@ -384,14 +430,13 @@ export const createIndexer = (deps) => {
 
   // Triple-builder helpers: produce raw triple strings (no INSERT DATA wrapper)
   // so handleMention can batch multiple writes into a single SPARQL update.
-  const mentionTriples = (s, o, now) => {
+  const mentionTriples = (s, o, now, { endorsed = false } = {}) => {
     const url = new URL(s)
     return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
-      <${url.origin}> octo:verified "true" .
-      <${url.origin}> rdf:type <octo:Origin> .
+      ${originTriples(url.origin, endorsed)}
       <${o}> rdf:type <octo:Page>.
     `
   }
@@ -654,13 +699,21 @@ export const createIndexer = (deps) => {
   ////////// dispatch //////////
 
   /**
-   * Resolve a handler for the given harmonizer/contentType and produce a blobject.
+   * Resolve a handler for the given harmonizer/source contentType and produce a blobject.
    * Resolution order: declared mode > contentType > default > null.
    * A DECLARED mode with no registered handler is an error — content-type and
    * default fallback apply only when no mode was declared.
    * Patches @id === 'source' to the source URI before returning.
    */
-  const dispatch = async (content, contentType, harmonizer, uri, ua) => {
+  const dispatch = async (source, harmonizer, uri, ua) => {
+    // `source` is the single fetched-content object `{ content, contentType,
+    // document }`. There is no string form: the object is the parse cache, and
+    // a bare string would silently defeat it.
+    if (!source || typeof source !== 'object' || typeof source.content !== 'string') {
+      throw new Error('dispatch() requires a source object { content, contentType, document }, not a string')
+    }
+    const { content, contentType } = source
+
     // Resolve the harmonizer schema if it's a string name and a lookup is wired in.
     const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
       ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
@@ -682,14 +735,34 @@ export const createIndexer = (deps) => {
       throw new Error(`No handler available for contentType="${contentType}" mode="${mode || ''}"`)
     }
 
-    const blobject = await selected.harmonize(content, resolvedHarmonizer, { instance, ...(ua ? { userAgent: ua } : {}) })
+    // Handlers that declare `parse` work on a parsed tree: parse once, cache it
+    // on the source object, and hand them the source. Everything else keeps
+    // receiving the raw string exactly as before.
+    //
+    // The cache is keyed on WHICH handler produced the tree (`source.parsedBy`),
+    // not merely on a document being present: two handlers that both declare
+    // `parse` produce incompatible trees, so a second dispatch through a
+    // different parsing handler must re-parse rather than inherit the first
+    // handler's tree. Repeat dispatches through the same handler still parse once.
+    let payload = content
+    if (typeof selected.parse === 'function') {
+      const parsedBy = selected.mode || selected
+      const cached = source.document !== null && source.document !== undefined
+      if (!cached || source.parsedBy !== parsedBy) {
+        source.document = await selected.parse(content, contentType)
+        source.parsedBy = parsedBy
+      }
+      payload = source
+    }
+
+    const blobject = await selected.harmonize(payload, resolvedHarmonizer, { instance, ...(ua ? { userAgent: ua } : {}) })
     if (blobject && blobject['@id'] === 'source') blobject['@id'] = uri
     return blobject
   }
 
   ////////// handlers //////////
 
-  const handleThorpe = async (s, o, { instance: inst } = {}) => {
+  const handleThorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     console.log(`#`, s, o)
     let isExtantTerm = await extantTerm(o, { instance: base })
@@ -698,7 +771,7 @@ export const createIndexer = (deps) => {
     }
     let isExtantThorpe = await extantThorpe(s, o, { instance: base })
     if (!isExtantThorpe) {
-      await createOctothorpe(s, o, { instance: base })
+      await createOctothorpe(s, o, { instance: base, endorsed })
       await recordUsage(s, o, { instance: base })
     }
   }
@@ -709,7 +782,7 @@ export const createIndexer = (deps) => {
   //    (carries metadata: subtype, terms, created timestamp)
   // Both are needed: the direct triple supports simple joins in queries,
   // the blank node carries relationship metadata.
-  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
+  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     const subj = deslash(s)
     const obj = deslash(o)
@@ -742,7 +815,7 @@ export const createIndexer = (deps) => {
     const blocks = []
 
     if (!isExtantMention) {
-      blocks.push(mentionTriples(subj, obj, now))
+      blocks.push(mentionTriples(subj, obj, now, { endorsed }))
     }
 
     if (!isExtantbacklink) {
@@ -809,7 +882,7 @@ export const createIndexer = (deps) => {
     await processDomains(newDomains, s)
   }
 
-  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride } = {}) => {
+  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
@@ -859,13 +932,13 @@ export const createIndexer = (deps) => {
 
     for (const octothorpe of admittedOctothorpes) {
       if (typeof octothorpe === 'string') {
-        await handleThorpe(s, octothorpe, { instance: base })
+        await handleThorpe(s, octothorpe, { instance: base, endorsed })
         continue
       }
       if (!octothorpe.uri) continue
       let octoURI = deslash(octothorpe.uri)
       if (octothorpe.type === 'hashtag') {
-        await handleThorpe(s, octoURI, { instance: base })
+        await handleThorpe(s, octoURI, { instance: base, endorsed })
       } else if (octothorpe.type === 'endorse') {
         friends.endorsed.push(octoURI)
       } else {
@@ -875,7 +948,7 @@ export const createIndexer = (deps) => {
           console.warn(`[index] term "${t}" is blocked by this server; statement dropped`)
           return false
         })
-        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base })
+        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
       }
     }
 
@@ -893,7 +966,8 @@ export const createIndexer = (deps) => {
     const {
       instance: inst,
       // serverName identifies this relay (from config.js). No longer consumed by
-      // verifiedOrigin (the old Bear Blog content check was removed); threaded
+      // verifiedOrigin (the old per-service content check was removed; robots
+      // directives are resolved by resolveIndexPolicy below); threaded
       // through for the future index-policy work — see #221.
       serverName,
       queryBoolean: configQueryBoolean,
@@ -940,32 +1014,46 @@ export const createIndexer = (deps) => {
     }
 
     const contentType = response.headers.get('content-type') || 'text/html'
+    // One object carries the fetched page through every harmonization in this
+    // request; the handler's parsed document is cached on it.
+    const source = { content, contentType, document: null }
 
     // 4. Policy resolution.
-    // If caller context grants opt-in, skip page-level harmonization entirely.
-    // Otherwise dispatch through the registry to extract policy markers.
-    let policy = resolveIndexPolicy({ callerContext })
+    // The probe now runs on EVERY path, including the caller-context opted-in
+    // ones (active mode, feed approval): the page's own directives can only be
+    // read from a harmonized blobject, so they have to be extracted before any
+    // decision. It costs no extra parse — the document is cached on `source`.
+    //
+    // For remote (URL) harmonizers, probe as 'default' — an attacker-supplied
+    // schema must not influence opt-in. Local harmonizer IDs are run as-is so
+    // their extracted octothorpes can satisfy implicit opt-in.
+    const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
+      ? 'default'
+      : harmonizer
+    // Kept in the outer scope so the access gate below can hand it to the
+    // endorsers, and so step 9 can ingest it directly.
+    const policyBlobject = await dispatch(source, policyHarmonizer, parsed.normalized, ua)
+    if (!policyBlobject) {
+      throw new Error('Harmonization failed — could not extract page metadata.')
+    }
+
     let harmonizerDeclaredOnPage = false
+    const policy = resolveIndexPolicy({ blobject: policyBlobject, callerContext })
+
+    // The page's own refusal. It sits ahead of the opt-in check, the access
+    // gate and endorsement on purpose: it is not a policy this relay applies
+    // but the page's own statement, so no opt-in, registration or endorsement
+    // may override it. A denial, never a warning.
+    if (policy.refused) {
+      throw new Error(`Page forbids indexing (${policy.refused}).`)
+    }
 
     if (!policy.optedIn) {
-      // For remote (URL) harmonizers, use 'default' for the policy probe — an
-      // attacker-supplied schema must not influence opt-in. Local harmonizer
-      // IDs are run as-is so their extracted octothorpes can satisfy implicit opt-in.
-      const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
-        ? 'default'
-        : harmonizer
-      const policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized, ua)
-      if (!policyBlobject) {
-        throw new Error('Harmonization failed — could not extract page metadata.')
-      }
-      policy = resolveIndexPolicy({ blobject: policyBlobject, callerContext })
-      if (!policy.optedIn) {
-        throw new Error('Page has not opted in to indexing.')
-      }
-      harmonizerDeclaredOnPage = !!policy.harmonizer
-      if (policy.harmonizer) {
-        harmonizer = policy.harmonizer
-      }
+      throw new Error('Page has not opted in to indexing.')
+    }
+    harmonizerDeclaredOnPage = !!policy.harmonizer
+    if (policy.harmonizer) {
+      harmonizer = policy.harmonizer
     }
 
     // 5. Access gate (#217). registration decides WHICH check runs:
@@ -981,7 +1069,21 @@ export const createIndexer = (deps) => {
         queryBoolean: configQueryBoolean || queryBoolean
       })))(parsed.origin)
 
-    const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered)
+    // Stage 4 input: the endorsers this client injected, plus the page we
+    // already fetched. The gate itself decides whether any of it is consulted
+    // — a per-call config.access override's endorsement.sources applies here
+    // because effectiveAccess is what is passed in.
+    // Set only when stage 4 (not registration) admitted this request; threaded
+    // to ingestBlobject so recording skips the origin-registration triples.
+    let endorsed = false
+    const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered, {
+      onEndorsed: () => { endorsed = true },
+      endorsers: injectedEndorsers,
+      blobject: policyBlobject ?? null,
+      content,
+      contentType,
+      document: source.document ?? null,
+    })
     if (denial) throw new Error(denial)
 
     // 6. Rate limiting
@@ -1030,8 +1132,15 @@ export const createIndexer = (deps) => {
 
     // 9. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
-    const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized, ua)
-    await ingestBlobject(blobject, { instance: base, access: effectiveAccess })
+    // Reuse the probe's blobject when the effective harmonizer is identical to
+    // the one the probe ran — true unless the page declared its own harmonizer
+    // or a remote URL harmonizer was swapped for 'default' in the probe. In the
+    // common case this removes the second harmonize entirely; otherwise we
+    // re-harmonize against the same cached document, so still no re-parse.
+    const blobject = harmonizer === policyHarmonizer
+      ? policyBlobject
+      : await dispatch(source, harmonizer, parsed.normalized, ua)
+    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed })
   }
 
   return {

@@ -14,9 +14,10 @@ const knownErrors = [
   'Invalid URI',
   'no scheme found',
   'not opted in',
+  'forbids indexing',
 ]
 
-const mapErrorToStatus = (message) => {
+export const _mapErrorToStatus = (message) => {
   if (message.includes('not registered')) return 401
   if (message.includes('Rate limit')) return 429
   if (message.includes('recently indexed')) return 429
@@ -27,6 +28,7 @@ const mapErrorToStatus = (message) => {
   // 403 a genuine opt-out returns.
   if (message.includes('Could not read the page')) return 502
   if (message.includes('not opted in')) return 403
+  if (message.includes('forbids indexing')) return 403
   if (knownErrors.some(e => message.includes(e))) return 400
   return 500
 }
@@ -54,7 +56,7 @@ export async function GET(req) {
     return await handler(uri, harmonizer, requestOrigin, config())
   } catch (e) {
     console.error('indexwrapper GET error:', e)
-    return error(mapErrorToStatus(e.message), e.message)
+    return error(_mapErrorToStatus(e.message), e.message)
   }
 }
 
@@ -92,6 +94,6 @@ export async function POST({ request }) {
     }, { status: 200 })
   } catch (e) {
     console.error('Indexing error:', e)
-    return error(mapErrorToStatus(e.message), e.message)
+    return error(_mapErrorToStatus(e.message), e.message)
   }
 }

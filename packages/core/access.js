@@ -134,17 +134,40 @@ export const termBlocked = (term, terms) => {
 }
 
 /**
+ * Filter the INJECTED endorsers down to the ones `access.endorsement.sources`
+ * names, in the order `sources` names them. Endorsers are injected via
+ * createClient({ endorsers }) — core never discovers them — and `sources` is
+ * what decides which of the injected ones this relay actually runs.
+ *
+ * A source naming no injected endorser is skipped silently here: the profile
+ * loader already warns about unknown names, so warning again per request would
+ * just be noise.
+ *
+ * @param {string[]} [sources] - access.endorsement.sources
+ * @param {{name:string, endorse:Function}[]} [endorsers]
+ * @returns {{name:string, endorse:Function}[]}
+ */
+export const resolveEndorsers = (sources = [], endorsers = []) => {
+  const byName = new Map(endorsers.map((endorser) => [endorser.name, endorser]))
+  return sources.map((name) => byName.get(name)).filter(Boolean)
+}
+
+/**
  * The ORIGIN gate. Reads access.blocks.domains and access.whitelist.domains;
  * it deliberately never consults access.blocks.terms, which is enforced
  * elsewhere and in every mode.
  *
  * @param {string} origin
- * @param {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}}} access
+ * @param {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}, endorsement?:{sources:string[]}}} access
  * @param {() => Promise<boolean>} verifyRegistered - datastore verification,
  *   consulted ONLY in 'registered' mode.
+ * @param {{endorsers?:{name:string,endorse:Function}[], blobject?:object|null, content?:string, contentType?:string, document?:object|null}} [endorsement]
+ *   Stage 4 input, optional. Omitted — or with no endorsers, or with an empty
+ *   access.endorsement.sources — the stage is off and this function behaves
+ *   exactly as it did before it existed.
  * @returns {Promise<string|null>} null to admit, else a human-readable reason.
  */
-export const checkAccessGate = async (origin, access, verifyRegistered) => {
+export const checkAccessGate = async (origin, access, verifyRegistered, endorsement) => {
   const { registration, blocks, whitelist } = access
 
   if (registration === 'open') {
@@ -159,6 +182,55 @@ export const checkAccessGate = async (origin, access, verifyRegistered) => {
       : 'Origin is not on this server’s whitelist.'
   }
 
-  // 'registered' — today's behavior.
-  return (await verifyRegistered()) ? null : 'Origin is not registered with this server.'
+  // 'registered' — datastore verification first.
+  if (await verifyRegistered()) return null
+
+  // Stage 4: ENDORSEMENT, an admit-only second chance reached only when the
+  // registration check above failed, and only in this mode — 'closed' stays
+  // strictly whitelist-only and 'open' returns long before here.
+  //
+  // Evaluated PER REQUEST; nothing is stored. An endorsed request is admitted,
+  // which is not the same as the origin becoming registered: the next request
+  // from the same origin runs this gate again from the top.
+  //
+  // SEMANTIC CHANGE FROM main: main fetched the origin's ROOT page and looked
+  // for the marker there. This checks the page that asked to be indexed —
+  // already fetched (and, on the normal path, harmonized) before the gate, so
+  // no second fetch. Bear puts its marker on every page, so the outcome
+  // matches there, but the check is no longer origin-root and a host that
+  // marks only its home page would no longer endorse its subpages.
+  const sources = resolveEndorsers(access.endorsement?.sources, endorsement?.endorsers)
+  for (const endorser of sources) {
+    try {
+      // Strictly `true` admits. There is no three-valued abstain: an endorser
+      // returning anything else — false, undefined, a truthy string — declines
+      // and the next source gets its turn.
+      const verdict = await endorser.endorse({
+        origin,
+        // May be null (the opted-in path computes no policy probe). Endorsers
+        // must tolerate that and lean on `content` instead.
+        blobject: endorsement?.blobject ?? null,
+        content: endorsement?.content,
+        contentType: endorsement?.contentType,
+        // The already-parsed Document for HTML pages, so an endorser never
+        // parses the page a second time. Null for non-HTML (and for callers
+        // that do not parse at all) — endorsers fall back to `content`.
+        document: endorsement?.document ?? null,
+      })
+      if (verdict === true) {
+        // Tell the caller this admission is endorsement-only, so it can avoid
+        // recording the origin as registered (octo:verified / octo:Origin) —
+        // otherwise one endorsed page would promote the origin for good and
+        // the "nothing is stored" promise above would be false. A callback
+        // rather than a new return shape keeps the string|null contract.
+        endorsement?.onEndorsed?.(endorser.name)
+        return null
+      }
+    } catch (err) {
+      // A broken endorser must not take the gate down with it — it declines.
+      console.warn(`Endorser "${endorser.name}" threw; treating as a decline:`, err)
+    }
+  }
+
+  return 'Origin is not registered with this server.'
 }

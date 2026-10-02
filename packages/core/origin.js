@@ -4,9 +4,6 @@ export const verifyApprovedDomain = async (origin, { queryBoolean }) => {
       <${origin}> octo:verified "true" .
     }
   `)
-  console.log(`ask {
-      <${origin}> octo:verified "true" .
-    }`, originVerified)
   return originVerified
 }
 
@@ -35,8 +32,10 @@ export const verifiedOrigin = async (origin, { queryBoolean }) => {
   // We can also add a couple more basic methods, like verifying
   // on origin (ie *.glitch.com) and white/blacklists.
   //
-  // The old per-service content checks (Bear Blog meta tag + robots
-  // nofollow/noindex) have been removed — see the index-policy issue.
+  // The old per-service content checks are no longer here. The Bear Blog meta
+  // tag became an injected endorser (src/lib/endorsers/clientEndorsed.js), and
+  // robots directives are resolved by resolveIndexPolicy in ./indexer.js,
+  // before any gate.
   // TKTK verify web trusted domain
   // let webbed = await verifyWebOfTrust(origin)
   return await verifyApprovedDomain(origin, { queryBoolean })

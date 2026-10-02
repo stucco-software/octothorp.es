@@ -46,7 +46,7 @@ export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.
 export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
 export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer } from './discover.js'
-export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate } from './access.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate, resolveEndorsers } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
@@ -430,6 +430,9 @@ export const createClient = (config) => {
     documentRecordSchema: config.documentRecordSchema,
     access,
     cooldown: config.cooldown ?? 300,
+    // #217 stage 4: the gate consumes these only where
+    // access.endorsement.sources names them.
+    endorsers,
   })
 
   // #217: the `by` axis is a table, not a switch. Merge the profile's declared
