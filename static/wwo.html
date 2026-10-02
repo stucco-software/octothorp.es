@@ -13,6 +13,10 @@
   #columns { display: flex; gap: 2em; align-items: flex-start; }
   #sidebar { flex: 0 0 12em; }
   #main { flex: 1; min-width: 0; }
+  #feed ul { list-style: none; padding: 0; }
+  #feed li { display: flex; gap: 0.75em; align-items: flex-start; margin-bottom: 1em; }
+  #feed li img { flex: 0 0 auto; max-width: 80px; max-height: 80px; object-fit: cover; }
+  #feed .site { font-size: 0.85em; color: #666; }
 </style>
 </head>
 <body>
@@ -135,24 +139,47 @@ function renderDomains(results) {
   }))
 }
 
-function renderPageList(results) {
+function renderPageList(results, target = feed) {
   const ul = document.createElement('ul')
   ul.append(...results.map((item) => {
     const li = document.createElement('li')
+    if (item.image) {
+      const img = document.createElement('img')
+      img.src = item.image
+      img.alt = ''
+      img.loading = 'lazy'
+      li.append(img)
+    }
+    const body = document.createElement('div')
     const a = document.createElement('a')
     a.href = item.uri
     a.target = '_blank'
     a.rel = 'noopener noreferrer'
     a.textContent = item.title || item.uri
-    li.append(a)
-    if (item.description) {
-      li.append(document.createElement('br'), document.createTextNode(item.description))
+    body.append(a)
+    let origin
+    try {
+      origin = new URL(item.uri).origin
+    } catch {
+      origin = null
     }
+    if (origin) {
+      const site = document.createElement('a')
+      site.className = 'site'
+      site.href = origin
+      site.target = '_blank'
+      site.rel = 'noopener noreferrer'
+      site.textContent = origin
+      body.append(document.createElement('br'), site)
+    }
+    if (item.description) {
+      body.append(document.createElement('br'), document.createTextNode(item.description))
+    }
+    li.append(body)
     return li
   }))
-  feed.replaceChildren(ul)
+  target.replaceChildren(ul)
 }
-
 
 function showWithComponent({ year, tag }, token) {
   const node = document.createElement('octo-thorpe')
@@ -161,16 +188,22 @@ function showWithComponent({ year, tag }, token) {
   node.setAttribute('match', 'all')
   node.setAttribute('created', windowFor(year))
   node.setAttribute('limit', 'no-limit')
-  node.setAttribute('render', 'list')
+  // Unknown render value -> component renders no item list; hidden suppresses its spinner/meta.
+  node.setAttribute('render', 'none')
+  node.hidden = true
   node.setAttribute('autoload', '')
   node.setAttribute('nopreload', '')
   node.addEventListener('octo:results', (event) => {
     if (token.cancelled) return
     const results = event.detail.results
-    el('status').textContent = `${results.length} page${results.length === 1 ? '' : 's'}.`
+    el('status').textContent = results.length
+      ? `${results.length} page${results.length === 1 ? '' : 's'}.`
+      : 'No pages found.'
+    renderPageList(results, list)
     renderDomains(results)
   })
-  feed.replaceChildren(node)
+  const list = document.createElement('div')
+  feed.replaceChildren(node, list)
 }
 
 // Didn't have created dates in 2024,  so this path fetches everything and diffs them here.
