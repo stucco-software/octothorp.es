@@ -15,7 +15,7 @@ In-progress
 * [x] 235 - rename index.js
 * [x] 269 - renamed profile.json to octothorpes.json
 * [x] 216 - Rev 1 profile schema/loader/endpoints; superseded by 217
-* [x] 217 - actually read from profile; awaiting merge of profile-consumption branch
+* [x] 217 - actually read from profile; merged and validated via the op-test-site harness
 * [x] 236 - link subtypes get first-class paths; superseded by 217 as api.linkTypes
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
 * [ ] 166 - on-demand Document Records. Open surface is the stored `octo:harmonizeWith` ref.
@@ -90,7 +90,7 @@ Epic: **273**
 
 ### Status
 
-Code-complete including profile-driven discovery and the csv/anchors example demos, awaiting merge of profile-consumption. Needs documentation; smoketest fixtures wait on deploy.
+Code-complete and merged, including profile-driven discovery and the csv/anchors example demos. Needs documentation; csv/anchors absent from the Vercel bundle (300).
 
 ### TODO:
 
