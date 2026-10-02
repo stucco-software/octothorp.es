@@ -8,7 +8,8 @@ import {
   isURL,
   checkIndexingPolicy,
 } from '../../packages/core/indexer.js'
-import { verifiedOrigin, verifyApprovedDomain } from 'octothorpes'
+import { verifiedOrigin, verifyApprovedDomain, userAgent } from 'octothorpes'
+import corePkg from '../../packages/core/package.json'
 
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
@@ -906,9 +907,51 @@ describe('Indexing Business Logic', () => {
       })
 
       expect(global.fetch).toHaveBeenCalledWith('https://valid-request-test.com/page', {
-        headers: { 'User-Agent': 'Octothorpes/1.0' }
+        headers: { 'User-Agent': `Octothorpes/${corePkg.version} (+${instance})` }
       })
       expect(mockHarmonizeSource).toHaveBeenCalled()
+    })
+
+    it('sends the active-flavored User-Agent under policyMode active', async () => {
+      const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
+      mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
+      mockQuery.mockResolvedValue({})
+      mockInsert.mockResolvedValue({})
+      mockQueryBoolean.mockResolvedValue(true)
+
+      await indexer.handler('https://active-ua-test.com/page', 'default', 'https://active-ua-test.com', {
+        instance, verifyOrigin: mockVerifyOrigin, policyMode: 'active'
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith('https://active-ua-test.com/page', {
+        headers: { 'User-Agent': `Octothorpes/${corePkg.version} (active; +${instance})` }
+      })
+    })
+  })
+
+  describe('userAgent', () => {
+    it('request mode (and unspecified) leads with Octothorpes/<version> and the instance', () => {
+      expect(userAgent({ mode: 'request', instance: 'https://octothorp.es/' }))
+        .toBe(`Octothorpes/${corePkg.version} (+https://octothorp.es/)`)
+      expect(userAgent({ instance: 'https://octothorp.es/' }))
+        .toBe(`Octothorpes/${corePkg.version} (+https://octothorp.es/)`)
+    })
+
+    it('active mode keeps the Octothorpes/ lead and adds the (active; marker', () => {
+      const ua = userAgent({ mode: 'active', instance: 'https://octothorp.es/' })
+      expect(ua).toBe(`Octothorpes/${corePkg.version} (active; +https://octothorp.es/)`)
+      expect(ua.startsWith('Octothorpes/')).toBe(true)
+      expect(ua).toContain('(active;')
+    })
+
+    it('sources the version from the core package.json', () => {
+      expect(userAgent({})).toBe(`Octothorpes/${corePkg.version}`)
+      expect(userAgent({ version: '9.9.9' })).toBe('Octothorpes/9.9.9')
+    })
+
+    it('omits the instance URL when instance is falsy', () => {
+      expect(userAgent({ mode: 'request', instance: '' })).toBe(`Octothorpes/${corePkg.version}`)
+      expect(userAgent({ mode: 'active' })).toBe(`Octothorpes/${corePkg.version} (active)`)
     })
   })
 

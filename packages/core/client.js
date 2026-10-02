@@ -28,7 +28,7 @@ export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.j
 export { createHarmonizerRegistry } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme } from './uri.js'
 export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin } from './origin.js'
-export { parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
+export { userAgent, parseBindings, deslash, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
 export { normalizeEnvelope } from './envelope.js'

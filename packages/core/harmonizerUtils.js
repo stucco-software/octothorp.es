@@ -5,6 +5,7 @@
  */
 
 import { normalizeEnvelope } from './envelope.js'
+import { userAgent } from './utils.js'
 
 /**
  * Maximum size for remote harmonizer files (56KB)
@@ -371,7 +372,7 @@ export const validators = {
  * @returns {Promise<Object|null>} Harmonizer schema object or null if fetch fails
  * @throws {Error} If HTTP request fails or schema is invalid
  */
-export async function remoteHarmonizer(url, { validateSchema } = {}) {
+export async function remoteHarmonizer(url, { validateSchema, userAgent: ua = userAgent() } = {}) {
   const schemaValidator = typeof validateSchema === 'function'
     ? validateSchema
     : typeof validateSchema === 'string'
@@ -407,7 +408,7 @@ export async function remoteHarmonizer(url, { validateSchema } = {}) {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Octothorpes/1.0'
+          'User-Agent': ua
         }
       })
 

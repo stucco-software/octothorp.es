@@ -1209,3 +1209,9 @@ It only fires on an **explicit** failure signal: a response with neither `ok` no
 Every `/badge` request on next.octothorp.es returned 500. The route read the three badge PNGs with module-scope `readFileSync(resolve('static/...'))`; under adapter-vercel 6, @vercel/nft cannot trace that template-string path, so `static/` is absent from the function bundle and the import threw ENOENT at `/var/task/static/`. Fourth symptom of #300's pattern; fixed here badge-only. Each variant is now fetched lazily from the deployment's own static assets via `event.fetch('/<file>')` and cached after first success. A failed load returns a plain-text 404/502 for that request instead of crashing the route.
 
 **Files affected:** `src/routes/badge/+server.js`, `src/tests/badge-route.test.js`.
+
+## Mode-differentiated User-Agent (2026-10-01)
+
+Page and remote-harmonizer fetches no longer send a hardcoded `Octothorpes/1.0`. A new core export `userAgent({ mode, instance, version })` builds `Octothorpes/<core version> (+<instance>)` for request mode and `Octothorpes/<core version> (active; +<instance>)` for active mode (instance part omitted when there is none). Active mode bypasses page-level opt-in, so sites need a handle to refuse it specifically (`(active;`) and a way to tell which instance fetched them; `Octothorpes/` still leads in both modes, so an existing block on "Octothorpes" also catches active traffic. The indexer derives the mode from the handler's `policyMode`, passes the UA through dispatch to the HTML handler's `remoteHarmonizer` call, and the anti-bot-challenge message now quotes the actual UA.
+
+**Files affected:** `packages/core/utils.js`, `packages/core/client.js`, `packages/core/indexer.js`, `packages/core/harmonizerUtils.js`, `packages/core/handlers/html/handler.js`, `src/tests/indexing.test.js`.

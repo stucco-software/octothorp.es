@@ -4,7 +4,7 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
-import { deslash, harmonizerId } from './utils.js'
+import { deslash, harmonizerId, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
@@ -139,7 +139,7 @@ export const isURL = (term) => {
  * @param {string} content - the already-read body
  * @returns {string|null} a message to throw, or null if the response looks real
  */
-export const detectBlockedFetch = (response, content = '') => {
+export const detectBlockedFetch = (response, content = '', ua = userAgent()) => {
   const status = typeof response?.status === 'number' ? response.status : null
   const explicitlyFailed = response?.ok === false || (status !== null && status >= 400)
 
@@ -165,7 +165,7 @@ export const detectBlockedFetch = (response, content = '') => {
 
   if (isMitigated || hasChallengeMarker) {
     return `Could not read the page: the origin served an anti-bot challenge instead of the page. ` +
-      `Allow this relay's requests (User-Agent: Octothorpes/1.0) at the origin to index it.`
+      `Allow this relay's requests (User-Agent: ${ua}) at the origin to index it.`
   }
 
   return null
@@ -660,7 +660,7 @@ export const createIndexer = (deps) => {
    * default fallback apply only when no mode was declared.
    * Patches @id === 'source' to the source URI before returning.
    */
-  const dispatch = async (content, contentType, harmonizer, uri) => {
+  const dispatch = async (content, contentType, harmonizer, uri, ua) => {
     // Resolve the harmonizer schema if it's a string name and a lookup is wired in.
     const resolvedHarmonizer = (getHarmonizer && typeof harmonizer === 'string')
       ? await getHarmonizer(harmonizer).catch(() => null) || harmonizer
@@ -682,7 +682,7 @@ export const createIndexer = (deps) => {
       throw new Error(`No handler available for contentType="${contentType}" mode="${mode || ''}"`)
     }
 
-    const blobject = await selected.harmonize(content, resolvedHarmonizer, { instance })
+    const blobject = await selected.harmonize(content, resolvedHarmonizer, { instance, ...(ua ? { userAgent: ua } : {}) })
     if (blobject && blobject['@id'] === 'source') blobject['@id'] = uri
     return blobject
   }
@@ -925,15 +925,16 @@ export const createIndexer = (deps) => {
     }
 
     // 3. Single fetch — capture content AND content-type
+    const ua = userAgent({ mode: policyMode, instance: base })
     const response = await fetch(parsed.normalized, {
-      headers: { 'User-Agent': 'Octothorpes/1.0' }
+      headers: { 'User-Agent': ua }
     })
     const content = await response.text()
 
     // Fail loudly when the origin did not actually give us the page. Must come
     // before harmonization: an interstitial parses cleanly and would otherwise
     // be reported as "Page has not opted in to indexing."
-    const blocked = detectBlockedFetch(response, content)
+    const blocked = detectBlockedFetch(response, content, ua)
     if (blocked) {
       throw new Error(blocked)
     }
@@ -953,7 +954,7 @@ export const createIndexer = (deps) => {
       const policyHarmonizer = (typeof harmonizer === 'string' && harmonizer.startsWith('http'))
         ? 'default'
         : harmonizer
-      const policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized)
+      const policyBlobject = await dispatch(content, contentType, policyHarmonizer, parsed.normalized, ua)
       if (!policyBlobject) {
         throw new Error('Harmonization failed — could not extract page metadata.')
       }
@@ -1029,7 +1030,7 @@ export const createIndexer = (deps) => {
 
     // 9. Final dispatch and ingest
     await recordIndexing(parsed.normalized)
-    const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized)
+    const blobject = await dispatch(content, contentType, harmonizer, parsed.normalized, ua)
     await ingestBlobject(blobject, { instance: base, access: effectiveAccess })
   }
 

@@ -89,7 +89,7 @@ export default {
       schema = mergeSchemas(d.schema, harmonizerSchema.schema ?? harmonizerSchema)
     } else if (harmonizerSchema && harmonizerSchema != "default") {
       if (harmonizerSchema.startsWith("http")) {
-        let h = await remoteHarmonizer(harmonizerSchema, { validateSchema: 'html' })
+        let h = await remoteHarmonizer(harmonizerSchema, { validateSchema: 'html', userAgent: options.userAgent })
         if (h) {
           schema = mergeSchemas(d.schema, h.schema)
         } else {

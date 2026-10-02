@@ -1,5 +1,23 @@
 import normalizeUrl from "normalize-url";
 import { arrayify } from "./arrayify.js";
+import corePkg from "./package.json" with { type: "json" };
+
+/**
+ * Builds the User-Agent an OP client sends when it fetches pages.
+ * `Octothorpes/` always leads, so a substring block on "Octothorpes" catches
+ * every mode. Active mode bypasses page opt-in, so it carries an "(active;"
+ * marker sites can block on specifically.
+ * @param {Object} [opts]
+ * @param {'request'|'active'|string} [opts.mode] - indexing mode; anything but 'active' renders as request
+ * @param {string} [opts.instance] - the OP instance URL, for accountability
+ * @param {string} [opts.version] - defaults to the core package version
+ * @returns {string}
+ */
+export const userAgent = ({ mode, instance, version = corePkg.version } = {}) => {
+  const base = `Octothorpes/${version}`
+  if (mode === 'active') return instance ? `${base} (active; +${instance})` : `${base} (active)`
+  return instance ? `${base} (+${instance})` : base
+}
 
 /**
  * Removes trailing slashes from URLs
