@@ -157,9 +157,7 @@
     ],
     "coherence": {
       "uncapturedLinkTypes": [],
-      "uncapturedDocumentRecord": [
-        "richContent"
-      ],
+      "uncapturedDocumentRecord": [],
       "unqueriedSubtypes": [],
       "undeclaredDocumentRecord": []
     },
