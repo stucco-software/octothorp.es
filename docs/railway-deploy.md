@@ -32,6 +32,11 @@ Copy `.env.railway.example` into the **app** service variables and fill in:
 - `instance` → your generated/custom domain.
 - `server_name` → your host/name.
 - SMTP/email values.
+- `registration_mode` → `approval` (default) alerts `admin_email` to vet each
+  new domain; `open` auto-verifies origins on register and first index, with no
+  admin email. Pick `open` only if you want unsupervised sign-ups.
+- `admin_secret` → optional bearer token enabling `POST /admin/ban` (origin
+  bans). Leave unset to disable the endpoint (it returns 503).
 - Leave `sparql_user` / `sparql_password` unset.
 `sparql_endpoint` and `ADAPTER` are already correct in the example.
 
