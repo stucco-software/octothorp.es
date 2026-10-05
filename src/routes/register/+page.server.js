@@ -1,6 +1,6 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
-import { admin_email, registration_mode } from '$lib/config.js'
+import { admin_email, instance, registration_mode } from '$lib/config.js'
 import { send } from '$lib/mail/send.js'
 import { server_name } from '$lib/config.js'
 import { canonicalOrigin, originVariants, verifyApprovedDomain } from 'octothorpes'
@@ -69,10 +69,9 @@ const insertRequest = async ({domain, challenge}) => {
 const alertAdmin = async ({domain, email}) => {
   let success
   try {
-    // Self-contained approval path: works for relay admins without a
-    // verificator instance or WebID. The curl command hits this relay's own
-    // /admin/approve endpoint, guarded by the same admin_secret as /admin/ban.
-    const approve = `curl -X POST ${instance}/admin/approve -H "Authorization: Bearer $ADMIN_SECRET" -H "Content-Type: application/json" -d '{"value": "${domain}"}'`
+    // Approvals happen at this relay's own /admin form, which works for every
+    // deployment -- no verificator app or WebID needed.
+    const base = instance.endsWith('/') ? instance : `${instance}/`
     let success = await send({
       to: admin_email,
       subject: 'New Domain Verification Request',
@@ -87,11 +86,7 @@ const alertAdmin = async ({domain, email}) => {
           Contact <code>${email}</code> for more information.
         </p>
         <p>
-          Approve from any terminal (no verificator or WebID needed):<br/>
-          <code>${approve}</code>
-        </p>
-        <p>
-          Or manage it at <a href="https://administration.octothorp.es/?url=${domain}">administration.octothorp.es</a>.
+          Approve or ban it at <a href="${base}admin">${base}admin</a>.
         </p>
       `
     })

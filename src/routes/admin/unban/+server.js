@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit'
 import { adminConfigured, checkAdminSecret, parseAdminDomain } from '$lib/admin.js'
-import { query } from '$lib/sparql.js'
-import { banOrigin } from '$lib/origin.js'
+import { queryBoolean, query } from '$lib/sparql.js'
+import { unbanOrigin } from '$lib/origin.js'
 
 export async function POST({ request }) {
   if (!adminConfigured()) {
-    return json({ error: 'Banning is not configured.' }, { status: 503 })
+    return json({ error: 'Unbanning is not configured.' }, { status: 503 })
   }
   const auth = request.headers.get('authorization') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
@@ -22,7 +22,7 @@ export async function POST({ request }) {
 
   const type = body?.type ?? 'origin'
   if (type !== 'origin') {
-    return json({ error: `Unsupported ban type: ${type}` }, { status: 400 })
+    return json({ error: `Unsupported unban type: ${type}` }, { status: 400 })
   }
 
   const domain = parseAdminDomain(String(body?.value ?? ''))
@@ -30,6 +30,6 @@ export async function POST({ request }) {
     return json({ error: 'Invalid domain.' }, { status: 400 })
   }
 
-  await banOrigin(domain, { query })
-  return json({ status: 'banned', domain }, { status: 200 })
+  const status = await unbanOrigin(domain, { queryBoolean, query })
+  return json({ status, domain }, { status: 200 })
 }

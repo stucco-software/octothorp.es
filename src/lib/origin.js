@@ -130,3 +130,43 @@ export const banOrigin = async (domain, { query }) => {
   await query(`delete { <${domain}> ?p ?o . } where { <${domain}> ?p ?o . }`)
   await query(`insert data { <${domain}> rdf:type <octo:Origin> . <${domain}> octo:banned "true" . }`)
 }
+
+// Approve an origin: refuses banned origins, no-ops when already verified,
+// otherwise writes the verification triples (the same ones open mode writes).
+// Returns 'banned' | 'already-verified' | 'approved'.
+export const approveOrigin = async (origin, { queryBoolean, insert }) => {
+  const variants = originVariants(origin).map(o => `<${o}>`).join(' ')
+  const banned = await queryBoolean(`
+    ask {
+      values ?origin { ${variants} }
+      ?origin octo:banned "true" .
+    }
+  `)
+  if (banned) return 'banned'
+  if (await verifyApprovedDomain(origin, { queryBoolean })) return 'already-verified'
+  await createVerifiedOrigin(origin, { insert })
+  return 'approved'
+}
+
+// Unban an origin with a clean slate. Ban purges everything and leaves exactly
+// the tombstone (type + banned marker), so deleting every remaining triple
+// returns the graph to "never existed" -- the domain can register again through
+// the normal flow. Returns 'not-banned' | 'unbanned'.
+export const unbanOrigin = async (origin, { queryBoolean, query }) => {
+  const variants = originVariants(origin).map(o => `<${o}>`).join(' ')
+  const banned = await queryBoolean(`
+    ask {
+      values ?origin { ${variants} }
+      ?origin octo:banned "true" .
+    }
+  `)
+  if (!banned) return 'not-banned'
+  await query(`
+    delete { ?origin ?p ?o . }
+    where {
+      values ?origin { ${variants} }
+      ?origin ?p ?o .
+    }
+  `)
+  return 'unbanned'
+}
