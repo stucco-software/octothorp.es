@@ -54,8 +54,8 @@ Each rule is an object (or a static string) with these fields:
   "selector": "string",        // CSS selector to query
   "attribute": "string",       // DOM attribute to extract (textContent, content, href, src, etc.)
   "postProcess": {             // Optional: transform extracted values
-    "method": "string",        // "regex", "substring", "split", "trim"
-    "params": "string|array"   // Method-specific parameters
+    "method": "string",        // "regex", "substring", "split", "trim", "sanitizeHtml"
+    "params": "string|array|object" // Method-specific parameters
   },
   "filterResults": {           // Optional: filter values before postProcess
     "method": "string",        // "regex", "contains", "exclude", "startsWith", "endsWith"
@@ -70,6 +70,11 @@ Each rule is an object (or a static string) with these fields:
 - `substring` - `[start, end]` params
 - `split` - Split on delimiter string, returns array
 - `trim` - Strip whitespace
+- `sanitizeHtml` - Strip executable markup from extracted HTML (use with `"attribute": "innerHTML"`). Removes `script`, `style`, `iframe`, `frame`, `frameset`, `object`, `embed`, `applet`, `noscript`, `template`, `link`, `meta`, `base` and comments, every `on*` attribute, and URL attributes using `javascript:`, `vbscript:` or non-image `data:`. Optional params `{ maxLength }`: over the limit, trailing nodes are dropped (a node that alone is too long is shrunk from the inside) so markup is never cut, with one warning. Also exported standalone as `sanitizeHtml(html, { maxLength })`. A rule takes one postProcess method, so this is the only way to both sanitize and cap HTML.
+
+**documentRecord fields** are single-valued: a field's rules are ordered fallbacks and the first non-blank value wins. A `documentRecord` with no captured fields is left out of the output. `innerHTML`/`outerHTML` values skip the trailing-slash strip applied to other extracted values.
+
+**Default harmonizer `richContent`:** the sanitized `innerHTML` (100 KB cap) of the first element matching `[data-octo-content='rich']`, `[data-octo-content='rich-content']` or `.octo-content`. A bare `data-octo-content` or any other value does not match; the attribute's value is reserved for future content types.
 
 **filterResults methods:**
 - `regex` - Keep values matching regex

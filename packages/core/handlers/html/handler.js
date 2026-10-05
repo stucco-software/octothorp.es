@@ -37,7 +37,8 @@ const extractValues = async (document, rule) => {
       if (value === undefined || value === null) {
         throw new Error(`Harmonizer rule "${selector}" -> "${attribute}": matched element has no such attribute`)
       }
-      value = removeTrailingSlash(value)
+      // Markup is content, not a URL: never strip its trailing slash.
+      if (attribute !== 'innerHTML' && attribute !== 'outerHTML') value = removeTrailingSlash(value)
 
       if (terms) {
         const termsAttr = element.getAttribute(terms.attribute)
@@ -227,7 +228,10 @@ export default {
               })
               setNestedProperty(output, prop, firstValue ?? '')
             } else {
-              setNestedProperty(output[key], prop, values)
+              // documentRecord fields are single-valued too: the schema lists
+              // selectors as ordered fallbacks, and the first non-blank match wins.
+              const firstValue = values.find(v => !isBlankValue(v))
+              if (firstValue !== undefined) setNestedProperty(output[key], prop, firstValue)
             }
           }
         }
@@ -235,6 +239,9 @@ export default {
         typedOutput[key] = await getObjectVals(schema[key].o)
       }
     }
+
+    // A documentRecord with no captured fields is left out entirely.
+    if (output.documentRecord && Object.keys(output.documentRecord).length === 0) delete output.documentRecord
 
     output["octothorpes"] = [
       ...(typedOutput.hashtag || []),

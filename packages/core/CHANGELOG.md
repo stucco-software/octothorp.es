@@ -4,6 +4,7 @@
 
 ### Breaking
 
+- HTML handler: `documentRecord` fields now take the first non-blank match instead of an array of every match (the schema's selectors were already written as ordered fallbacks). An empty `documentRecord` is omitted from the output.
 - Query validation errors are now short, specific, and typed. The four long messages are replaced: `Invalid route.` -> `unknown what: <what>`, `Invalid "match by" route...` -> `unknown by: <by>`, `Invalid match type...` -> `unknown match: <match>`, `Must provide at least subjects, objects, or relationship terms` -> `query needs s, o, or rt`. Anything matching on the old strings breaks.
 - `client.get({ as })` with a name that matches no registered publisher now throws `unknown publisher: <as>` (status 404) instead of silently falling back to the plain JSON envelope. `as` absent is unchanged.
 - `policies.indexing.frequency` is removed. `policies.indexing.cooldown` replaces it: an integer of seconds, minimum 0, default 300, applied under every indexing mode, and wired into the indexer's `recentlyIndexed` in place of the hardcoded five minutes. `createClient({ cooldown })`.
@@ -19,6 +20,8 @@
 
 ### Added
 
+- `sanitizeHtml(html, { maxLength })` and the matching `postProcess` method `sanitizeHtml`. Removes executable elements (`script`, `style`, `iframe`, `object`, `embed` and similar), comments, `on*` attributes and `javascript:`/`vbscript:`/non-image `data:` URLs. Over `maxLength`, whole trailing nodes are dropped rather than cutting markup, with one warning.
+- Default harmonizer captures `documentRecord.richContent`: the sanitized `innerHTML` (100 KB cap) of the first element matching `[data-octo-content='rich']`, `[data-octo-content='rich-content']` or `.octo-content`. `data-octo-content` requires one of those two values.
 - `packages/core/errors.js`: `QueryError` (a caller error carrying an HTTP `status`, default 400) and `isQueryError`, both re-exported from the package root. Core throws it for bad route words, bad match modes, unbounded queries and unknown publishers; a transport maps it to a 4xx with the message as the whole body.
 
 - Exports: `OCTO_NAMESPACE`, `DOCUMENT_RECORD_PREDICATE_PATTERN`.

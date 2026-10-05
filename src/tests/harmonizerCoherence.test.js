@@ -194,7 +194,7 @@ describe('builtins alone are coherent', () => {
     expect(coherenceLines(lines)).toEqual([])
   })
 
-  it('the repo profile produces no link-type or reverse warnings', () => {
+  it('the repo profile produces no coherence warnings', () => {
     const { warn, lines } = capture()
     createClient({
       instance,
@@ -202,10 +202,10 @@ describe('builtins alone are coherent', () => {
       warn,
       profile: createProfile({ profile: repoProfileSource, schema }).getProfile(),
     })
-    // The only thing the repo profile can be incoherent about is its declared
-    // `richContent` documentRecord predicate, which arrives by direct blobject
-    // POST rather than from a harmonizer — an advisory, not an error.
-    expect(coherenceLines(lines).filter((l) => !l.includes('documentRecord'))).toEqual([])
+    // The declared `richContent` documentRecord predicate is captured by the
+    // default harmonizer (`data-octo-content="rich"` / `.octo-content`), so
+    // nothing is left to warn about.
+    expect(coherenceLines(lines)).toEqual([])
   })
 })
 

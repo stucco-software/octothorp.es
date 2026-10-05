@@ -212,6 +212,18 @@ export const createHarmonizerRegistry = (instance) => {
                     }
                   }
                 ]
+              },
+              // Sanitized innerHTML of the first element marked as rich
+              // content. data-octo-content requires a value so other content
+              // types can be added later.
+              "documentRecord": {
+                "richContent": [
+                  {
+                    "selector": "[data-octo-content='rich'], [data-octo-content='rich-content'], .octo-content",
+                    "attribute": "innerHTML",
+                    "postProcess": { "method": "sanitizeHtml", "params": { "maxLength": 100000 } }
+                  }
+                ]
               }
             }
       },

@@ -6,6 +6,7 @@
 
 import { normalizeEnvelope } from './envelope.js'
 import { userAgent } from './utils.js'
+import { sanitizeHtml } from './sanitizeHtml.js'
 
 /**
  * Maximum size for remote harmonizer files (56KB)
@@ -149,8 +150,8 @@ const cacheHarmonizer = (url, data) => {
 /**
  * Processes extracted values using various transformation methods
  * @param {string|Array} value - The value(s) to process
- * @param {string} flag - Processing method: "regex", "substring", "split", or "trim"
- * @param {string|Array} p - Parameters for the processing method
+ * @param {string} flag - Processing method: "regex", "substring", "split", "trim", or "sanitizeHtml"
+ * @param {string|Array|Object} p - Parameters for the processing method ("sanitizeHtml": optional `{ maxLength }`)
  * @returns {string|Array|null} Processed value(s) or null if regex doesn't match
  */
 export const processValue = (value, flag, p) => {
@@ -180,6 +181,11 @@ export const processValue = (value, flag, p) => {
   if (flag === "trim") {
     // Remove whitespace and break characters from start and end
     return value.trim()
+  }
+
+  if (flag === "sanitizeHtml") {
+    // Strip executable markup from extracted HTML; see sanitizeHtml.js.
+    return sanitizeHtml(value, p ?? {})
   }
 }
 
