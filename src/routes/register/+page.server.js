@@ -69,6 +69,10 @@ const insertRequest = async ({domain, challenge}) => {
 const alertAdmin = async ({domain, email}) => {
   let success
   try {
+    // Self-contained approval path: works for relay admins without a
+    // verificator instance or WebID. The curl command hits this relay's own
+    // /admin/approve endpoint, guarded by the same admin_secret as /admin/ban.
+    const approve = `curl -X POST ${instance}/admin/approve -H "Authorization: Bearer $ADMIN_SECRET" -H "Content-Type: application/json" -d '{"value": "${domain}"}'`
     let success = await send({
       to: admin_email,
       subject: 'New Domain Verification Request',
@@ -77,10 +81,17 @@ const alertAdmin = async ({domain, email}) => {
           New domain request:
         </p>
         <p>
-          <a href="https://administration.octothorp.es/?url=${domain}"><b>${domain}</b></a> is requesting verification
+          <b>${domain}</b> is requesting verification
         </p>
         <p>
           Contact <code>${email}</code> for more information.
+        </p>
+        <p>
+          Approve from any terminal (no verificator or WebID needed):<br/>
+          <code>${approve}</code>
+        </p>
+        <p>
+          Or manage it at <a href="https://administration.octothorp.es/?url=${domain}">administration.octothorp.es</a>.
         </p>
       `
     })

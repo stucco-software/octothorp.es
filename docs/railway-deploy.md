@@ -35,10 +35,19 @@ Copy `.env.railway.example` into the **app** service variables and fill in:
 - `registration_mode` → `approval` (default) alerts `admin_email` to vet each
   new domain; `open` auto-verifies origins on register and first index, with no
   admin email. Pick `open` only if you want unsupervised sign-ups.
-- `admin_secret` → optional bearer token enabling `POST /admin/ban` (origin
-  bans). Leave unset to disable the endpoint (it returns 503).
+- `admin_secret` → optional bearer token enabling `POST /admin/approve` and
+  `POST /admin/ban`. This is the approval workflow for template users: the
+  registration email includes a ready-to-run curl command against
+  `/admin/approve`, so no verificator app, WebID, or direct SPARQL access is
+  needed (the oxigraph service is private-network-only anyway). Leave unset to
+  disable both endpoints (they return 503).
 - Leave `sparql_user` / `sparql_password` unset.
 `sparql_endpoint` and `ADAPTER` are already correct in the example.
+
+With `registration_mode=approval`, "rejecting" a request is a no-op (pending
+requests are not persisted — the email is the record); use `/admin/ban` for
+abuse. With `registration_mode=open` you likely won't need `/admin/approve` at
+all — approvals are automatic.
 
 ### 5. Verify
 - App URL loads.
