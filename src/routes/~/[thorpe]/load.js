@@ -1,15 +1,17 @@
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { instance } from '$lib/config.js'
+import { termIri } from 'octothorpes'
 
 export async function load(req) {
   // grt query params here
-  const term = decodeURIComponent(req.params.thorpe)
+  // SvelteKit already decodes params; decoding again throws on terms like `100%` (#285)
+  const term = req.params.thorpe
   let o
   try {
     new URL(term)
     o = term
   } catch (err) {
-    o = `${instance}~/${term}`
+    o = termIri(instance, term)
   }
 
   const sr = await queryArray(`

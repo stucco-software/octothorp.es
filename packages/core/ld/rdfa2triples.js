@@ -1,4 +1,5 @@
 import { arrayify } from '../arrayify.js'
+import { termIri } from '../utils.js'
 let p = 'octo:octothorpes'
 
 // Private Function Test
@@ -17,7 +18,7 @@ const getO = (node, instance) => {
   } catch (e) {
     o.startsWith('/')
       ? url = new URL(`${instance}${o.replace('/', '')}`)
-      : url = new URL(`${instance}~/${o}`)
+      : url = new URL(termIri(instance, o))
   }
   return url.href
 }

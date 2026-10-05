@@ -1,15 +1,15 @@
 import { queryArray } from '$lib/sparql.js'
 import { instance } from '$lib/config.js'
 import { json, error } from '@sveltejs/kit'
-import { rss } from "octothorpes"
+import { rss, termIri } from "octothorpes"
 
 export async function GET({ request, params }) {
   const thorpe = params.thorpe
 
   const sr = await queryArray(`
     SELECT * {
-     ?s octo:octothorpes <${instance}~/${thorpe}> .
-     optional { ?s <${instance}~/${thorpe}> ?t . }
+     ?s octo:octothorpes <${termIri(instance, thorpe)}> .
+     optional { ?s <${termIri(instance, thorpe)}> ?t . }
     }
   `)
   const items = sr.results.bindings
@@ -27,7 +27,7 @@ export async function GET({ request, params }) {
   let tree = {
     channel: {
       title: `#${thorpe} | ${instance}`,
-      link: `${instance}~/${thorpe}`,
+      link: termIri(instance, thorpe),
       items: items
     }
   }

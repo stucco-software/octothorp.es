@@ -29,6 +29,26 @@ export const deslash = (urlstring) => {
   if (!urlstring) return '';
   return urlstring.replace(/\/$/, '')
 }
+
+// Characters that may not appear raw in a SPARQL IRIREF / RFC 3987 IRI, plus a
+// `%` that does not start a valid %HH escape (#285).
+const TERM_IRI_ILLEGAL = /[\u0000- \u007F<>"{}|\\^`]|%(?![0-9A-Fa-f]{2})/g
+
+/**
+ * Builds the IRI for an octothorpe Term: `${instance}~/${name}`, with
+ * IRI-illegal characters percent-encoded (space -> %20, matching
+ * `new URL()`). Ordinary terms and non-ASCII are left unchanged so existing
+ * stored IRIs still match. Existing %HH escapes are kept, so href-authored
+ * terms (`site%20changes`) and text terms (`site changes`) resolve to the same
+ * IRI and the function is idempotent. Never decodes, so it cannot throw.
+ * @param {string} instance - Instance base URL with trailing slash
+ * @param {string} name - Term name
+ * @returns {string} Term IRI (without angle brackets)
+ */
+export const termIri = (instance, name) =>
+  `${instance}~/${String(name).replace(TERM_IRI_ILLEGAL, (c) =>
+    c === '%' ? '%25' : encodeURIComponent(c))}`
+
 /**
  * Converts various date formats to Unix timestamps
  * @param {string} datestring - Date string to convert (ISO, YYYY-MM-DD, or Unix timestamp)

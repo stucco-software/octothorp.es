@@ -4,7 +4,7 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
-import { deslash, harmonizerId, userAgent } from './utils.js'
+import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin } from './uri.js'
@@ -340,7 +340,7 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     return await queryBoolean(`
       ask {
-        <${base}~/${o}> rdf:type <octo:Term> .
+        <${termIri(base, o)}> rdf:type <octo:Term> .
       }
     `)
   }
@@ -365,7 +365,7 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     return await queryBoolean(`
       ask {
-        <${s}> ${p} <${base}~/${o}> .
+        <${s}> ${p} <${termIri(base, o)}> .
       }
     `)
   }
@@ -402,8 +402,8 @@ export const createIndexer = (deps) => {
     let now = Date.now()
     let url = new URL(s)
     return await insert(`
-      <${s}> ${p} <${base}~/${o}> .
-      <${s}> <${base}~/${o}> ${now} .
+      <${s}> ${p} <${termIri(base, o)}> .
+      <${s}> <${termIri(base, o)}> ${now} .
       <${url.origin}> octo:hasPart <${s}> .
       ${originTriples(url.origin, endorsed)}
       <${s}> rdf:type <octo:Page> .
@@ -414,8 +414,8 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     let now = Date.now()
     return await insert(`
-      <${base}~/${o}> octo:created ${now} .
-      <${base}~/${o}> rdf:type <octo:Term> .
+      <${termIri(base, o)}> octo:created ${now} .
+      <${termIri(base, o)}> rdf:type <octo:Term> .
     `)
   }
 
@@ -442,12 +442,12 @@ export const createIndexer = (deps) => {
   }
 
   const termTriples = (o, base, now) => `
-      <${base}~/${o}> octo:created ${now} .
-      <${base}~/${o}> rdf:type <octo:Term> .
+      <${termIri(base, o)}> octo:created ${now} .
+      <${termIri(base, o)}> rdf:type <octo:Term> .
     `
 
   const usageTriples = (o, base, now) => `
-      <${base}~/${o}> octo:used ${now} .
+      <${termIri(base, o)}> octo:used ${now} .
     `
 
   const backlinkTriples = (s, o, subtype, terms, base, now) => {
@@ -459,7 +459,7 @@ export const createIndexer = (deps) => {
     `
     for (const term of terms) {
       t += `
-        _:backlink ${p} <${base}~/${term}> .
+        _:backlink ${p} <${termIri(base, term)}> .
       `
     }
     return t
@@ -632,7 +632,7 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     let now = Date.now()
     return await insert(`
-      <${base}~/${o}> octo:used ${now} .
+      <${termIri(base, o)}> octo:used ${now} .
     `)
   }
 
@@ -641,12 +641,12 @@ export const createIndexer = (deps) => {
     let now = Date.now()
     if (o.includes(base)) {
       return await insert(`
-        <${base}~/${o}> octo:created ${now} .
-        <${base}~/${o}> rdf:type <octo:Term> .
+        <${termIri(base, o)}> octo:created ${now} .
+        <${termIri(base, o)}> rdf:type <octo:Term> .
       `)
     } else {
       return await insert(`
-        <${base}~/${o}> octo:created ${now} .
+        <${termIri(base, o)}> octo:created ${now} .
         <${o}> rdf:type <octo:Page> .
       `)
     }

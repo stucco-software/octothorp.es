@@ -1,4 +1,4 @@
-import { getFuzzyTags } from './utils.js'
+import { getFuzzyTags, termIri } from './utils.js'
 import { QueryError } from './errors.js'
 
 /**
@@ -143,7 +143,6 @@ export const buildDocumentRecordClauses = (schema = []) => {
  * @returns {Object} Query builder functions
  */
 export const createQueryBuilders = (instance, queryArray) => {
-  const thorpePath = `${instance}~/`
 
   // Formats URIs as SPARQL records
   const formatUris = uris => uris.map(uri =>
@@ -310,7 +309,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       return output
     }
     else {
-      output = output.map((item) => thorpePath + item)
+      output = output.map((item) => termIri(instance, item))
       return formatUris(output)
     }
   }
@@ -382,7 +381,7 @@ export const createQueryBuilders = (instance, queryArray) => {
 
     if (hasSubtype && hasRelationTerms) {
       // Merged: both constraints on the same blank node
-      const termUris = filters.relationTerms.map(t => `<${instance}~/${t}>`).join(' ')
+      const termUris = filters.relationTerms.map(t => `<${termIri(instance, t)}>`).join(' ')
       subtypeFilter = `FILTER EXISTS {
         ?s octo:octothorpes ?_stBn .
         FILTER(isBlank(?_stBn))
@@ -399,7 +398,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?_stBn rdf:type <octo:${filters.subtype}> .
       }`
     } else if (hasRelationTerms) {
-      const termUris = filters.relationTerms.map(t => `<${instance}~/${t}>`).join(' ')
+      const termUris = filters.relationTerms.map(t => `<${termIri(instance, t)}>`).join(' ')
       relationTermsFilter = `FILTER EXISTS {
         ?s octo:octothorpes ?_rtBn .
         FILTER(isBlank(?_rtBn))

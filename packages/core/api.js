@@ -1,7 +1,7 @@
 import { buildMultiPass } from './multipass.js'
 import { getBlobjectFromResponse, createEnrichBlobjectTargets } from './blobject.js'
 import { createQueryBuilders } from './queryBuilders.js'
-import { parseBindings } from './utils.js'
+import { parseBindings, termIri } from './utils.js'
 import { WHAT_GROUP_BY_VALUE } from './apiGrammar.js'
 import { QueryError } from './errors.js'
 
@@ -135,7 +135,7 @@ export const createApi = (config) => {
         new URL(termOrUri)
         o = termOrUri
       } catch {
-        o = `${instance}~/${termOrUri}`
+        o = termIri(instance, termOrUri)
       }
 
       const sr = await queryArray(`
