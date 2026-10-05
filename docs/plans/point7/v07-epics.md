@@ -8,7 +8,7 @@ Epic: **215**
 
 ### Status
 
-In-progress
+Code-complete and merged; epic closed. Docs and demos remain.
 
 ### Issues
 
@@ -19,6 +19,10 @@ In-progress
 * [x] 236 - link subtypes get first-class paths; superseded by 217 as api.linkTypes
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
 * [ ] 166 - on-demand Document Records. Open surface is the stored `octo:harmonizeWith` ref.
+* [ ] 291 - generated vocabulary document
+* [ ] 292 - `mentioned` becomes its own subtype. Shipped; awaiting confirmation.
+* [ ] 293 - coherence warning for undeclared/uncaptured link types. Shipped; awaiting confirmation.
+* [x] 295 - api-smoketest
 
 ### TODO:
 
@@ -42,6 +46,7 @@ Not started. Critical path — blocks Deletion.
 * [ ] 268 - octo:created on relationships
 	* [ ] don't break the `?s ?o ?date` read path or RSS link feeds go empty
 * [ ] 192 - content labels, riding on this migration
+* [ ] 286 - SKOS terms. Precursor, can land independently.
 
 Four more pieces are deliberately unticketed until the migration design settles (identifier-key rename, the statement-metadata rewrite itself, data migration, JSON-LD publisher endpoint). They're listed in 270's Scope. Don't file them early.
 
@@ -90,7 +95,7 @@ Epic: **273**
 
 ### Status
 
-Code-complete and merged, including profile-driven discovery and the csv/anchors example demos. Needs documentation; csv/anchors absent from the Vercel bundle (300).
+Code-complete and merged, including profile-driven discovery and the csv/anchors example demos. Needs documentation.
 
 ### TODO:
 
@@ -128,9 +133,14 @@ Deployed on staging. Lightly tested.
 * [ ] 241 - guard mention-path origin logic against non-http(s) schemes
 * [ ] 243 - markdown handler follow-ups
 * [x] 279 - post-merge fixes from the 245 review
+* [ ] 300 - site harmonizers/handlers/publishers missing from the Vercel bundle
+* [ ] 285 - terms with spaces crash indexing. Needed by WWO day 29.
+* [ ] 275 - canonical www origins. Cutover blocker.
+* [ ] 282 - /get planner slowdown. Shipped; awaiting confirmation.
 
 ### TODO:
 
+* [ ] Cutover blockers: CORS on /index, port webring batching, delete indexwrapper
 * [ ] Write simple dev-focused documentation
 * [ ] Add example demos to demo site
 * [ ] Re-test demos
@@ -202,7 +212,7 @@ Things in the milestone that don't have a home yet.
 * [ ] 221 - replace removed verifyContent origin checks with index-policy mechanisms
 * [ ] 222 - allow a domain with a subpath to act as a domain
 * [ ] 228 - internal SvelteKit urls should use instance
-* [ ] 224 - update Bear Blog's check to the New Way
+* [x] 224 - update Bear Blog's check to the New Way
 
 ### Memex-specific sub-group
 
