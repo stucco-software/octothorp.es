@@ -4,7 +4,7 @@
  * Synchronous on purpose: `processValue` is sync and the JSON handler's
  * `harmonize` is sync, so the DOM is obtained without `await`. In a browser the
  * native `DOMParser`/`document` is used; under Node, jsdom is loaded lazily on
- * the first call through `createRequire` and one window is reused afterwards.
+ * the first call through `createRequire` (obtained via `process.getBuiltinModule`) and one window is reused afterwards.
  *
  * Rules:
  * - Elements removed with their content: script, style, iframe, frame,
@@ -25,7 +25,6 @@
  * wrapping tags alone exceed the limit the result is an empty string. One
  * `console.warn` reports the sanitized length and the final length.
  */
-import { createRequire } from 'node:module'
 
 const REMOVED_ELEMENTS = [
   'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed',
@@ -44,8 +43,10 @@ const getDocument = () => {
   if (typeof globalThis.DOMParser === 'function') {
     cachedDocument = new globalThis.DOMParser().parseFromString('<!DOCTYPE html><body></body>', 'text/html')
   } else {
-    const require = createRequire(import.meta.url)
-    const { JSDOM } = require('jsdom')
+    // No static `node:` import, so core stays importable in a browser (which
+    // takes the DOMParser branch above). getBuiltinModule needs Node >= 20.16.
+    const { createRequire } = globalThis.process.getBuiltinModule('node:module')
+    const { JSDOM } = createRequire(import.meta.url)('jsdom')
     cachedDocument = new JSDOM('<!DOCTYPE html><body></body>').window.document
   }
   return cachedDocument
