@@ -38,7 +38,10 @@ let reachable = false
 beforeAll(async () => {
   try {
     const res = await fetch(`${instance}/debug/api-check`)
-    reachable = res.status < 500
+    // Only a healthy dev server (2xx) counts as reachable — anything else
+    // answering on the port (a broken server, or a non-HTTP process) can't
+    // serve these tests.
+    reachable = res.ok
   } catch {}
   if (!reachable) {
     console.warn(`[integration] Skipping: ${instance} is not reachable`)
