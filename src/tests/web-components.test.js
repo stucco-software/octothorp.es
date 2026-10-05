@@ -576,8 +576,13 @@ describe('octo-store', () => {
       const query = createOctoQuery('pages', 'thorped')
       await query.fetch({ o: 'demo' })
 
+      // The default server is the module's own origin — the origin that served
+      // the component. Under vitest that's a file:// URL, whose origin is
+      // "null"; in a browser it's the serving relay's origin.
       const url = globalThis.fetch.mock.calls[0][0]
-      expect(url).toContain('https://octothorp.es/get/')
+      expect(url).toBe(
+        `${new URL(import.meta.url).origin}/get/pages/thorped?o=demo&limit=10&offset=0`
+      )
     })
   })
 

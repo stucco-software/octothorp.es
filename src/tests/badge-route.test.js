@@ -99,7 +99,8 @@ describe('Badge Route Handler', () => {
       expect(handler).toHaveBeenCalledWith(
         'https://example.com/page',
         'default',
-        'https://example.com/page',
+        // null requestingOrigin: a badge request doesn't claim page ownership
+        null,
         expect.objectContaining({ verifyOrigin: expect.any(Function) })
       )
     })
@@ -117,7 +118,7 @@ describe('Badge Route Handler', () => {
       expect(handler).toHaveBeenCalledWith(
         'https://example.com/page',
         'ghost',
-        'https://example.com/page',
+        null,
         expect.anything()
       )
     })
