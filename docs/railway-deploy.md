@@ -66,7 +66,12 @@ composer (railway.com → Templates → New Template):
    `ghcr.io/oxigraph/oxigraph:latest`; start command
    `serve --location /data --bind [::]:7878`; attach a volume at `/data`; no
    public domain.
-3. Wire `instance` to reference the app service's generated domain variable.
+3. Wire `instance` to the app service's generated domain: set its value to
+   `https://${{RAILWAY_PUBLIC_DOMAIN}}/`. Railway resolves the `${{...}}`
+   reference at deploy time, so every deployment gets its own domain with no
+   manual editing. The full URL matters — the app parses `instance` with
+   `new URL()` (badge asset loading, origin checks), so a bare domain breaks
+   it. If a custom domain is attached later, update `instance` to it.
 4. Save and publish; the resulting deploy button provisions both services, the
    volume, and the private networking automatically.
 
