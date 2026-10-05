@@ -167,8 +167,10 @@
       "available": [
         "bluesky",
         "ics",
+        "readable",
         "rss",
         "rss2",
+        "semble",
         "standardSiteDocument"
       ]
     },
@@ -177,6 +179,7 @@
       "available": [
         "blobject",
         "calendar",
+        "csv",
         "html",
         "json",
         "markdown",
@@ -233,8 +236,10 @@
         "as": [
           "bluesky",
           "ics",
+          "readable",
           "rss",
           "rss2",
+          "semble",
           "standardSiteDocument"
         ],
         "params": [
