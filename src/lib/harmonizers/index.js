@@ -1,31 +1,32 @@
-import { readdir, readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import { discoverHarmonizers } from 'octothorpes'
 import { getProfile } from '$lib/profile.js'
+import { bundledSource, fsSource, pickSource } from '$lib/extensions.js'
 
-// #217 wave 5: site harmonizers are DATA (JSON definitions), not modules, so
-// they live at a built path (`static/harmonizers/<file>.json`, which
-// SvelteKit copies verbatim into the output tree) and are read + validated at
-// RUNTIME rather than imported. Mirrors src/lib/handlers/index.js's role as a
-// thin real-fs adapter over the path declared by the profile
-// (`api.harmonizers.dir`) — all policy (underscore skip, skip-and-warn,
-// shallow shape validation) lives in core's discoverHarmonizers.
+// #217 wave 5: site harmonizers are DATA (JSON definitions), not modules. They
+// live at `static/harmonizers/<file>.json` (also served verbatim as public
+// assets) and are validated at init. All policy (underscore skip, skip-and-warn,
+// shallow shape validation) lives in core's discoverHarmonizers; this module
+// only supplies the entries for the profile-declared `api.harmonizers.dir`.
+//
+// #300: the default dir is bundled via a lazy import.meta.glob so the
+// definitions ship inside the server build (Vercel's nft cannot trace a runtime
+// readdir of static/). A dir the glob does not cover falls back to the runtime
+// fs walk. See src/lib/extensions.js.
 //
 // Module scope, awaited once.
 
 const dir = getProfile().api.harmonizers.dir
 
-const listEntries = async (d) =>
-  (await readdir(resolve(process.cwd(), d), { withFileTypes: true }))
-    .filter((e) => e.isFile())
-    .map((e) => e.name)
-
-const readJson = async (d, file) => JSON.parse(await readFile(resolve(process.cwd(), d, file), 'utf8'))
+const source = pickSource(
+  dir,
+  bundledSource(import.meta.glob('/static/harmonizers/*.json'), '/static/harmonizers'),
+  fsSource({ filter: (e) => e.isFile(), json: true }),
+)
 
 const { harmonizers: discovered, skipped } = await discoverHarmonizers({
   dir,
-  listEntries,
-  readJson,
+  listEntries: source.listEntries,
+  readJson: source.load,
 })
 
 export const harmonizers = discovered
