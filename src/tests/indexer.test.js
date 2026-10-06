@@ -657,3 +657,69 @@ describe('handler() routes policy and dispatch through the registry', () => {
     )).rejects.toThrow(/not opted in/i)
   })
 })
+
+// B3 / #262, ported from main's ed0019c: handleWebring is the other direction
+// of the handshake (the indexed page IS the ring, friends.linked are candidate
+// members). Rings can hold hundreds, so membership writes must not be
+// per-member.
+describe('handleWebring - batched membership writes', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('writes ring membership in one insert regardless of member count', async () => {
+    const indexer = makeIndexer()
+    const members = Array.from({ length: 200 }, (_, i) => `https://member-${i}.com`)
+
+    mockQueryArray.mockImplementation(async (q) => {
+      if (q.includes('octo:hasMember')) return { results: { bindings: [] } }
+      // getAllMentioningUrls: every member links back
+      return { results: { bindings: members.map((m) => ({ s: { value: m } })) } }
+    })
+
+    await indexer.handleWebring('https://ring.com', { linked: members, endorsed: [] }, true)
+
+    expect(mockInsert).toHaveBeenCalledTimes(1)
+    const written = mockInsert.mock.calls[0][0]
+    for (const m of members) {
+      expect(written).toContain(`<https://ring.com> octo:hasMember <${m}>`)
+    }
+  })
+
+  it('folds a new ring\'s type triple into the same insert', async () => {
+    const indexer = makeIndexer()
+    mockQueryArray.mockImplementation(async (q) => {
+      if (q.includes('octo:hasMember')) return { results: { bindings: [] } }
+      return { results: { bindings: [{ s: { value: 'https://a.com' } }] } }
+    })
+
+    await indexer.handleWebring('https://ring.com', { linked: ['https://a.com'], endorsed: [] }, false)
+
+    expect(mockInsert).toHaveBeenCalledTimes(1)
+    const written = mockInsert.mock.calls[0][0]
+    expect(written).toContain('<https://ring.com> rdf:type <octo:Webring>')
+    expect(written).toContain('<https://ring.com> octo:hasMember <https://a.com>')
+  })
+
+  it('recognises existing members instead of reprocessing them every index', async () => {
+    const indexer = makeIndexer()
+    mockQueryArray.mockImplementation(async (q) => {
+      if (q.includes('octo:hasMember')) {
+        return { results: { bindings: [{ o: { value: 'https://old.com' } }] } }
+      }
+      return {
+        results: {
+          bindings: [{ s: { value: 'https://old.com' } }, { s: { value: 'https://new.com' } }],
+        },
+      }
+    })
+
+    await indexer.handleWebring(
+      'https://ring.com',
+      { linked: ['https://old.com', 'https://new.com'], endorsed: [] },
+      true
+    )
+
+    const written = mockInsert.mock.calls.map((c) => c[0]).join('\n')
+    expect(written).toContain('<https://new.com>')
+    expect(written).not.toContain('<https://old.com>')
+  })
+})

@@ -494,10 +494,16 @@ export const createIndexer = (deps) => {
     return await insert(backlinkTriples(s, o, subtype, terms, base, Date.now()))
   }
 
+  // Triples for a webring: optionally its type triple, plus one hasMember per
+  // member. Built once so a ring and all its members land in a single insert
+  // (#262) instead of one round trip per member.
+  const webringTriples = (s, members = [], { newRing = false } = {}) => [
+    ...(newRing ? [`<${s}> rdf:type <octo:Webring> .`] : []),
+    ...members.map((m) => `<${s}> octo:hasMember <${m}> .`),
+  ].join('\n')
+
   const createWebring = async (s) => {
-    return await insert(`
-      <${s}> rdf:type <octo:Webring> .
-    `)
+    return await insert(webringTriples(s, [], { newRing: true }))
   }
 
   const createWebringMember = async (s, o) => {
@@ -852,52 +858,29 @@ export const createIndexer = (deps) => {
   }
 
   const handleWebring = async (s, friends, alreadyRing) => {
-    if (!alreadyRing) {
-      console.log(`Create new Webring for ${s}`)
-      await createWebring(s)
-    }
-
-    let domainsOnPage = friends.linked.map(member => deslash(member))
+    const domainsOnPage = friends.linked.map(member => deslash(member))
     const membersResult = await webringMembers(s)
     const extantMembers = (membersResult?.results?.bindings || [])
       .map(b => deslash(b.o?.value))
       .filter(Boolean)
-    let newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
-    console.log("Extant Members:", extantMembers)
-    console.log(`New Domains: ${newDomains}`)
+    const newDomains = domainsOnPage.filter(domain => !extantMembers.includes(domain))
+    console.log(`Webring ${s}: ${extantMembers.length} extant members, ${newDomains.length} new`)
 
-    const processDomains = async (newDomains, s) => {
-      if (newDomains.length === 0) {
-        console.log("No new domains to process")
-        return
-      }
+    // A candidate joins only if it links back to the ring (the handshake).
+    let joining = []
+    if (newDomains.length > 0) {
       const mentioningUrls = await getAllMentioningUrls(s)
-      console.log("MentioningURLS", mentioningUrls)
-      console.log(`Processing ${newDomains.length} domains:`, newDomains)
-
-      const promises = newDomains.map(async (domain) => {
-        try {
-          const isMentioned = mentioningUrls.some(url => url.includes(domain))
-          if (isMentioned) {
-            console.log(`Domain ${domain} is mentioned in the mentioning urls, can be added to webring`)
-            await createWebringMember(s, domain)
-          } else {
-            console.log(`Domain ${domain} is not mentioned in the mentioning urls, cannot be added to webring`)
-          }
-        } catch (error) {
-          console.error(`Error processing domain ${domain}:`, error)
-        }
-      })
-
-      try {
-        console.log("Starting processDomains...")
-        await Promise.all(promises)
-        console.log("processDomains completed successfully")
-      } catch (error) {
-        console.error("Error in Promise.all:", error)
-      }
+      joining = newDomains.filter(domain => mentioningUrls.some(url => url.includes(domain)))
+      const refused = newDomains.filter(domain => !joining.includes(domain))
+      if (refused.length) console.log(`Not mentioned by the ring, not added: ${refused.join(', ')}`)
     }
-    await processDomains(newDomains, s)
+
+    // The ring's type triple and every new member go out in ONE insert, so
+    // round trips stay flat however large the ring is (#262).
+    if (!alreadyRing || joining.length > 0) {
+      if (!alreadyRing) console.log(`Create new Webring for ${s}`)
+      await insert(webringTriples(s, joining, { newRing: !alreadyRing }))
+    }
   }
 
   const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false } = {}) => {
