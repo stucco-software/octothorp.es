@@ -100,21 +100,44 @@ describe('originVariants', () => {
   })
 })
 
-// validateSameOrigin is a security boundary and stays STRICT until the www
-// leniency question is decided deliberately (#275). These pin today's behavior.
-describe('validateSameOrigin stays strict across www spellings', () => {
-  it('rejects a www page requested by the bare origin', () => {
-    expect(() => validateSameOrigin(parseUri('https://www.foo.com/page'), 'https://foo.com'))
+// www-lenient, matching production since main's 3672bbc (#275). Scheme,
+// port, other subdomains and lookalike hosts still distinguish.
+describe('validateSameOrigin across www spellings', () => {
+  it('allows a www page to index its non-www origin', () => {
+    expect(validateSameOrigin(parseUri('https://www.foo.com/page'), 'https://foo.com')).toBe(true)
+  })
+
+  it('allows a non-www page to index its www origin', () => {
+    expect(validateSameOrigin(parseUri('https://foo.com/page'), 'https://www.foo.com')).toBe(true)
+  })
+
+  it('tolerates a trailing slash on the requesting origin', () => {
+    expect(validateSameOrigin(parseUri('https://foo.com/page'), 'https://www.foo.com/')).toBe(true)
+  })
+
+  it('still rejects a genuinely different origin', () => {
+    expect(() => validateSameOrigin(parseUri('https://foo.com/page'), 'https://bar.com'))
       .toThrow('Cannot index pages from a different origin.')
   })
 
-  it('rejects a bare page requested by the www origin', () => {
-    expect(() => validateSameOrigin(parseUri('https://foo.com/page'), 'https://www.foo.com'))
+  it('still rejects a www-prefixed lookalike host', () => {
+    expect(() => validateSameOrigin(parseUri('https://wwwfoo.com/page'), 'https://foo.com'))
       .toThrow('Cannot index pages from a different origin.')
   })
 
-  it('still admits an exact match, trailing slash or not', () => {
-    expect(validateSameOrigin(parseUri('https://www.foo.com/page'), 'https://www.foo.com/')).toBe(true)
+  it('still rejects a subdomain claiming the apex', () => {
+    expect(() => validateSameOrigin(parseUri('https://evil.foo.com/page'), 'https://foo.com'))
+      .toThrow('Cannot index pages from a different origin.')
+  })
+
+  it('still rejects across schemes', () => {
+    expect(() => validateSameOrigin(parseUri('https://foo.com/page'), 'http://foo.com'))
+      .toThrow('Cannot index pages from a different origin.')
+  })
+
+  it('still rejects across ports', () => {
+    expect(() => validateSameOrigin(parseUri('http://localhost:5173/page'), 'http://localhost:4000'))
+      .toThrow('Cannot index pages from a different origin.')
   })
 })
 

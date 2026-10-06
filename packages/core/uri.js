@@ -68,14 +68,14 @@ export const originVariants = (uri) => {
   return [...new Set([canonical, `${canonical}/`, withWww, `${withWww}/`])]
 }
 
-// Deliberately STRICT about www: this is a security boundary, and whether
-// www.foo.com may index foo.com pages (and vice versa) is an open call (#275).
-// Registration lookups are lenient via originVariants; this is not.
 export const validateSameOrigin = (parsedUri, requestingOrigin) => {
   if (parsedUri.scheme === 'http' || parsedUri.scheme === 'https') {
-    // Extract just the origin from requestingOrigin, whether it's a full URL or bare origin
-    const requestingParsed = new URL(requestingOrigin)
-    if (parsedUri.origin !== requestingParsed.origin) {
+    // Compare canonical origins, so a site serving both www.foo.com and
+    // foo.com counts as one origin -- the same DNS owner controls both, and a
+    // strict comparison blocks a page that merely redirected between the two.
+    // Everything else stays a boundary: scheme, port, and any non-www
+    // subdomain still distinguish origins.
+    if (canonicalOrigin(parsedUri.origin) !== canonicalOrigin(requestingOrigin)) {
       throw new Error('Cannot index pages from a different origin.')
     }
     return true
