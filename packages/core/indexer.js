@@ -7,7 +7,7 @@
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
-import { parseUri, validateSameOrigin } from './uri.js'
+import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
 import { verifiedOrigin } from './origin.js'
 import normalizeUrl from 'normalize-url'
 
@@ -79,10 +79,18 @@ export const isHarmonizerAllowed = (harmonizerUrl, requestingOrigin, { instance 
 
 export const checkIndexingRateLimit = (origin) => {
   const now = Date.now()
-  const limit = indexingRateLimitMap.get(origin)
+  // Bucket by canonical origin (#275) so www.foo.com and foo.com share one
+  // quota rather than getting a separate allowance each.
+  let key
+  try {
+    key = canonicalOrigin(origin)
+  } catch (e) {
+    key = origin
+  }
+  const limit = indexingRateLimitMap.get(key)
 
   if (!limit || now > limit.resetTime) {
-    indexingRateLimitMap.set(origin, {
+    indexingRateLimitMap.set(key, {
       count: 1,
       resetTime: now + INDEXING_RATE_LIMIT_WINDOW
     })
@@ -397,15 +405,25 @@ export const createIndexer = (deps) => {
       <${origin}> rdf:type <octo:Origin> .
     `
 
+  // The origin node a page files under. Canonical spelling (#275) so it is the
+  // one registration verifies against, whatever spelling the subject carries.
+  // Non-HTTP subjects keep URL#origin exactly as before.
+  const storedOrigin = (s) => {
+    const url = new URL(s)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? canonicalOrigin(url.origin)
+      : url.origin
+  }
+
   const createOctothorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
     const base = inst || instance
     let now = Date.now()
-    let url = new URL(s)
+    const origin = storedOrigin(s)
     return await insert(`
       <${s}> ${p} <${termIri(base, o)}> .
       <${s}> <${termIri(base, o)}> ${now} .
-      <${url.origin}> octo:hasPart <${s}> .
-      ${originTriples(url.origin, endorsed)}
+      <${origin}> octo:hasPart <${s}> .
+      ${originTriples(origin, endorsed)}
       <${s}> rdf:type <octo:Page> .
     `)
   }
@@ -431,12 +449,12 @@ export const createIndexer = (deps) => {
   // Triple-builder helpers: produce raw triple strings (no INSERT DATA wrapper)
   // so handleMention can batch multiple writes into a single SPARQL update.
   const mentionTriples = (s, o, now, { endorsed = false } = {}) => {
-    const url = new URL(s)
+    const origin = storedOrigin(s)
     return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
-      <${url.origin}> octo:hasPart <${s}> .
-      ${originTriples(url.origin, endorsed)}
+      <${origin}> octo:hasPart <${s}> .
+      ${originTriples(origin, endorsed)}
       <${o}> rdf:type <octo:Page>.
     `
   }
@@ -985,6 +1003,14 @@ export const createIndexer = (deps) => {
 
     // 1. Parse and normalize URI
     const parsed = parseUri(uri)
+    // The ONE origin spelling used for verification, the access gate, rate
+    // limiting and storage (#275): no www, no trailing slash. parsed.origin
+    // keeps www while parsed.normalized (and so every stored subject) strips
+    // it, so verifying against parsed.origin rejected www.foo.com pages of a
+    // site registered as foo.com. Lookups still match every spelling — see
+    // originVariants in verifyApprovedDomain. The same-origin check below
+    // deliberately keeps using the raw parsed.origin.
+    const origin = canonicalOrigin(parsed.origin)
 
     // 2. Same-origin check (when headers are present)
     // Requests from the OP instance itself (e.g. debug tools) skip this check.
@@ -1065,9 +1091,9 @@ export const createIndexer = (deps) => {
     // (the badge route's `async () => true`) still wins inside 'registered' —
     // it IS the verification function, not a bypass of the gate.
     const verifyRegistered = () =>
-      (verifyOrigin || ((origin) => verifiedOrigin(origin, {
+      (verifyOrigin || ((o) => verifiedOrigin(o, {
         queryBoolean: configQueryBoolean || queryBoolean
-      })))(parsed.origin)
+      })))(origin)
 
     // Stage 4 input: the endorsers this client injected, plus the page we
     // already fetched. The gate itself decides whether any of it is consulted
@@ -1076,7 +1102,7 @@ export const createIndexer = (deps) => {
     // Set only when stage 4 (not registration) admitted this request; threaded
     // to ingestBlobject so recording skips the origin-registration triples.
     let endorsed = false
-    const denial = await checkAccessGate(parsed.origin, effectiveAccess, verifyRegistered, {
+    const denial = await checkAccessGate(origin, effectiveAccess, verifyRegistered, {
       onEndorsed: () => { endorsed = true },
       endorsers: injectedEndorsers,
       blobject: policyBlobject ?? null,
@@ -1087,7 +1113,7 @@ export const createIndexer = (deps) => {
     if (denial) throw new Error(denial)
 
     // 6. Rate limiting
-    if (!checkIndexingRateLimit(parsed.origin)) {
+    if (!checkIndexingRateLimit(origin)) {
       throw new Error('Rate limit exceeded. Please try again later.')
     }
 

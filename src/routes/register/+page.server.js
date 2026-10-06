@@ -1,7 +1,7 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
 import { send } from '$lib/mail/send.js'
-import { originBlocked } from 'octothorpes'
+import { originBlocked, canonicalOrigin, getScheme, originVariants, verifyApprovedDomain } from 'octothorpes'
 import { getProfile } from '$lib/profile.js'
 
 /**
@@ -34,17 +34,39 @@ const gate = () => {
   return { profile, registration, blockedDomains: blocks.domains, formState: _registrationFormState(registration) }
 }
 
-const domainBanned = async (domain) => await queryBoolean(`ask {
-  <${domain}> octo:banned "true" .
+// Origins are stored canonically (#275), but older rows may carry www or a
+// trailing slash, so every lookup here matches any spelling of the same site --
+// otherwise a ban on www.foo.com wouldn't cover foo.com. See originVariants.
+const askAnyVariant = async (domain, predicate, object) => {
+  const variants = originVariants(domain).map((o) => `<${o}>`).join(' ')
+  return await queryBoolean(`ask {
+  values ?origin { ${variants} }
+  ?origin ${predicate} ${object} .
 }`)
+}
 
-const domainVerified = async (domain) => await queryBoolean(`ask {
-  <${domain}> octo:verified "true" .
-}`)
+const domainBanned = async (domain) => await askAnyVariant(domain, 'octo:banned', '"true"')
 
-const domainPresent = async (domain) => await queryBoolean(`ask {
-  <${domain}> rdf:type <octo:Origin> .
-}`)
+// Delegates to core so this and the indexer can never disagree about what
+// "verified" means (the old local ASK looked for a trailing-slash spelling the
+// indexer never writes).
+const domainVerified = async (domain) => await verifyApprovedDomain(domain, { queryBoolean })
+
+const domainPresent = async (domain) => await askAnyVariant(domain, 'rdf:type', '<octo:Origin>')
+
+// Canonical spelling to store, plus the spelling as submitted (scheme + host,
+// www kept) for the reachability fetch -- a site served only at www must not
+// fail because its bare apex doesn't resolve. Null for anything that isn't an
+// http(s) URL.
+const parseDomain = (submitted) => {
+  try {
+    const scheme = getScheme(String(submitted))
+    if (scheme !== 'http' && scheme !== 'https') return null
+    return { domain: canonicalOrigin(submitted), fetchable: new URL(submitted).origin }
+  } catch {
+    return null
+  }
+}
 
 // Spam registrations are usually URLs that don't serve anything. Reject a 404
 // response, and also reject hosts we can't reach at all -- a domain that
@@ -119,9 +141,15 @@ export const actions = {
 
     const data = await request.formData()
     const email = data.get('email')
-    const domain = data.get('domain').endsWith('/')
-      ? data.get('domain')
-      : `${data.get('domain')}/`
+    const submitted = data.get('domain')
+
+    // Store one canonical spelling per site -- no www, no trailing slash --
+    // so www.foo.com and foo.com don't become two identities in the graph.
+    const parsedDomain = parseDomain(submitted)
+    if (!parsedDomain) {
+      return fail(400, { domain: submitted, blocked: true })
+    }
+    const { domain, fetchable } = parsedDomain
 
     if (originBlocked(domain, blockedDomains)) {
       return fail(400, { domain, blocked: true })
@@ -131,7 +159,7 @@ export const actions = {
       return fail(403, { domain, banned: true })
     }
 
-    if (await domainUnreachable(domain)) {
+    if (await domainUnreachable(fetchable)) {
       return fail(400, { domain, notFound: true })
     }
 
