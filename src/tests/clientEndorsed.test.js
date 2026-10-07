@@ -300,3 +300,67 @@ describe('src/lib/op.js wiring', () => {
     expect(endorserWarnings).toEqual([])
   })
 })
+
+// `endorsement_selector`: a single CSS selector, matched against the page. Any
+// element counts, not just <meta>, so a relay can key endorsement on whatever
+// its client stamps into pages. A separate key from `endorsement_marker`
+// because a plain marker string is itself a valid (type) selector, so one key
+// could not tell the two forms apart.
+describe('createClientEndorsed: selector form', () => {
+  const SELECTOR = 'meta[name="octothorpes"][content="test-marker-xyz"]'
+
+  it('admits a page with an element matching the selector', async () => {
+    const { endorse } = createClientEndorsed({ selector: SELECTOR })
+    const content = page('<meta name="octothorpes" content="test-marker-xyz">')
+    expect(await endorse({ content })).toBe(true)
+  })
+
+  it('declines when only the content matches, under a different name', async () => {
+    const { endorse } = createClientEndorsed({ selector: SELECTOR })
+    const content = page('<meta name="description" content="test-marker-xyz">')
+    expect(await endorse({ content })).toBe(false)
+  })
+
+  it('is not limited to meta tags', async () => {
+    const { endorse } = createClientEndorsed({ selector: 'body[data-relay="bear"] footer .made-with' })
+    const content = '<html><body data-relay="bear"><footer><span class="made-with">x</span></footer></body></html>'
+    expect(await endorse({ content })).toBe(true)
+    expect(await endorse({ content: content.replace('bear', 'other') })).toBe(false)
+  })
+
+  it('reads a pre-parsed document without parsing again', async () => {
+    const { endorse } = createClientEndorsed({ selector: SELECTOR })
+    const document = new JSDOM(page('<meta name="octothorpes" content="test-marker-xyz">')).window.document
+    // The first call waits on the one-time selector syntax check, which builds
+    // a single empty document. After that, endorsing never parses.
+    await endorse({ document, content: 'ignored' })
+    JSDOM.mockClear()
+    expect(await endorse({ document, content: 'ignored' })).toBe(true)
+    expect(JSDOM).not.toHaveBeenCalled()
+  })
+
+  it('takes precedence over the marker, with one warning that the marker is ignored', async () => {
+    const warn = vi.fn()
+    const { endorse } = createClientEndorsed({ selector: SELECTOR, marker: 'other-marker', warn })
+    expect(await endorse({ content: page('<meta content="other-marker">') })).toBe(false)
+    expect(await endorse({ content: page('<meta name="octothorpes" content="test-marker-xyz">') })).toBe(true)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toMatch(/endorsement_marker is ignored/)
+  })
+
+  it('warns once and declines everything when the selector is invalid', async () => {
+    const warn = vi.fn()
+    const { endorse } = createClientEndorsed({ selector: 'meta[name=', warn })
+    expect(await endorse({ content: page('<meta name="octothorpes">') })).toBe(false)
+    expect(await endorse({ content: page('<meta name="octothorpes">') })).toBe(false)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toMatch(/not a valid CSS selector/)
+  })
+
+  it('does not warn about a missing marker when a selector is set', async () => {
+    const warn = vi.fn()
+    const { endorse } = createClientEndorsed({ selector: SELECTOR, warn })
+    await endorse({ content: page('') })
+    expect(warn).not.toHaveBeenCalled()
+  })
+})

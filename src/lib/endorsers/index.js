@@ -3,7 +3,7 @@
 // /index route's indexer, which previously got none and denied every
 // unregistered origin). Built once at module evaluation, so the
 // construction-time missing-marker warning fires once, not per consumer.
-import { endorsement_marker } from '$lib/config.js'
+import { endorsement_marker, endorsement_selector } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { createClientEndorsed, CLIENT_ENDORSED_NAME } from '$lib/endorsers/clientEndorsed.js'
 
@@ -17,6 +17,7 @@ const profile = getProfile()
 const clientEndorsedNamed = (profile.policies.access.endorsement?.sources ?? []).includes(CLIENT_ENDORSED_NAME)
 const clientEndorsed = createClientEndorsed({
   marker: endorsement_marker,
+  selector: endorsement_selector,
   warn: clientEndorsedNamed ? console.warn : () => {},
 })
 

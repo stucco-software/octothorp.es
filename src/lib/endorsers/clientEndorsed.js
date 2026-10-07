@@ -18,22 +18,56 @@
 // op.js imports profile.js).
 export const CLIENT_ENDORSED_NAME = 'client-endorsed'
 
+const parseHtml = async (content) => {
+  const { JSDOM } = await import('jsdom')
+  return new JSDOM(content, { contentType: 'text/html' }).window.document
+}
+
 /**
- * @param {{ marker?: string, warn?: (...args:any[]) => void }} [options]
+ * Two ways to say what an endorsed page carries:
+ * - `selector` (env.endorsement_selector): a single CSS selector; the page is
+ *   endorsed when ANY element matches. Not limited to <meta>.
+ * - `marker` (env.endorsement_marker): the original form; endorsed when some
+ *   <meta> has `content` exactly equal to the marker.
+ * They are separate keys because a plain marker string is itself a valid
+ * (type) selector, so one key could not tell the forms apart. When both are
+ * set the selector wins and the marker is ignored, with one warning.
+ *
+ * @param {{ marker?: string, selector?: string, warn?: (...args:any[]) => void }} [options]
  * @returns {{ name: 'client-endorsed', endorse: (input: { origin?: string, blobject?: object|null, content?: string, contentType?: string, document?: object|null }) => Promise<boolean> }}
  */
-export const createClientEndorsed = ({ marker, warn = console.warn } = {}) => {
-  // Warn ONCE, at construction: a missing marker is a deployment mistake, and
-  // warning per request would just be noise on a relay that gets traffic.
-  const configured = typeof marker === 'string' && marker.length > 0
-  if (!configured) {
+export const createClientEndorsed = ({ marker, selector, warn = console.warn } = {}) => {
+  const hasSelector = typeof selector === 'string' && selector.trim().length > 0
+  const hasMarker = typeof marker === 'string' && marker.length > 0
+
+  // Warn ONCE, at construction: a missing or broken rule is a deployment
+  // mistake, and warning per request would just be noise on a relay that gets
+  // traffic.
+  if (!hasSelector && !hasMarker) {
     warn(
-      'client-endorsed endorser: no marker configured (env.endorsement_marker is unset); every request will be declined.'
+      'client-endorsed endorser: no marker configured (env.endorsement_selector and env.endorsement_marker are unset); every request will be declined.'
     )
   }
+  if (hasSelector && hasMarker) {
+    warn('client-endorsed endorser: env.endorsement_selector is set, so env.endorsement_marker is ignored.')
+  }
+
+  // Selector syntax is checked once, against an empty document, so a typo
+  // shows up at boot instead of as silent per-request declines. Async because
+  // jsdom is imported lazily; endorse() awaits the same promise.
+  const selectorValid = hasSelector
+    ? parseHtml('').then((doc) => {
+      try {
+        doc.querySelector(selector)
+        return true
+      } catch {
+        warn(`client-endorsed endorser: env.endorsement_selector is not a valid CSS selector (${selector}); every request will be declined.`)
+        return false
+      }
+    })
+    : Promise.resolve(false)
 
   /**
-   * Admit iff some <meta> carries `content` EXACTLY equal to the marker.
    * `blobject` is ignored on purpose: the marker only ever exists in the raw
    * body, and the blobject may be null.
    *
@@ -49,20 +83,17 @@ export const createClientEndorsed = ({ marker, warn = console.warn } = {}) => {
    * that arrive through this source.
    */
   const endorse = async ({ content, document } = {}) => {
-    if (!configured) return false
+    if (hasSelector && !(await selectorValid)) return false
+    if (!hasSelector && !hasMarker) return false
 
-    const metas = document
-      ? [...document.querySelectorAll('meta')]
-      : await (async () => {
-        if (typeof content !== 'string' || content.length === 0) return null
-        const { JSDOM } = await import('jsdom')
-        const dom = new JSDOM(content, { contentType: 'text/html' })
-        return [...dom.window.document.getElementsByTagName('meta')]
-      })()
+    let doc = document
+    if (!doc) {
+      if (typeof content !== 'string' || content.length === 0) return false
+      doc = await parseHtml(content)
+    }
 
-    if (!metas) return false
-
-    return metas.some((meta) => meta.getAttribute('content') === marker)
+    if (hasSelector) return doc.querySelector(selector) !== null
+    return [...doc.querySelectorAll('meta')].some((meta) => meta.getAttribute('content') === marker)
   }
 
   return { name: CLIENT_ENDORSED_NAME, endorse }

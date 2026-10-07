@@ -1301,3 +1301,9 @@ A site registered as `foo.com` that indexed `https://www.foo.com/page` was refus
 `handleWebring` wrote one INSERT per new ring member, so a ring with hundreds of members made hundreds of round trips while indexing, the same timeout-mid-write pattern #262 fixed for mentions on `main` (`ed0019c`). A new `webringTriples(s, members, { newRing })` builder puts the ring's type triple, when the ring is new, and every member that passes the handshake into a single INSERT. `createWebring` delegates to it. Dev already had `ed0019c`'s member-dedupe fix; its two tests are ported, plus one that checks a new ring's type triple goes out in the same insert. The single-member path in `handleMention` is unchanged.
 
 **Files affected:** `packages/core/indexer.js`, `src/tests/indexer.test.js`.
+
+## Endorsement by CSS selector (2026-10-07, merge-prep)
+
+The `client-endorsed` endorser could only match a `<meta>` whose `content` exactly equals `endorsement_marker`, ignoring `name`, so a relay couldn't require Bear's live `<meta name="octothorpes" content="…">` as a whole. A new env key, `endorsement_selector`, takes one CSS selector, and a page is endorsed when any element matches. It isn't limited to `<meta>`. It's a separate key because a plain marker string is itself a valid type selector, so one key couldn't tell the two forms apart. `endorsement_marker` behaves as before. When both are set the selector wins, with one warning at boot. The selector's syntax is checked once against an empty document, so a typo warns at boot and every request is declined, the same as a missing marker. A pre-parsed page document is read directly without parsing again.
+
+**Files affected:** `src/lib/endorsers/clientEndorsed.js`, `src/lib/endorsers/index.js`, `src/lib/config.js`, `.env.example`, `src/tests/clientEndorsed.test.js`.
