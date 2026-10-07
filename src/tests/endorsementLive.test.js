@@ -43,7 +43,7 @@ const makeIndexer = () => {
     handlerRegistry: reg,
     getHarmonizer,
     access: { registration: 'registered', endorsement: { sources: ['client-endorsed'] } },
-    endorsers: [createClientEndorsed({ marker: 'test-marker-123' })],
+    endorsers: [createClientEndorsed({ knock: 'test-marker-123' })],
   })
 }
 

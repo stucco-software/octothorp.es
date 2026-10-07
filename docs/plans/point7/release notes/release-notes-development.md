@@ -1302,8 +1302,10 @@ A site registered as `foo.com` that indexed `https://www.foo.com/page` was refus
 
 **Files affected:** `packages/core/indexer.js`, `src/tests/indexer.test.js`.
 
-## Endorsement by CSS selector (2026-10-07, merge-prep)
+## `secret_knock` replaces `endorsement_marker` (2026-10-07, merge-prep)
 
-The `client-endorsed` endorser could only match a `<meta>` whose `content` exactly equals `endorsement_marker`, ignoring `name`, so a relay couldn't require Bear's live `<meta name="octothorpes" content="…">` as a whole. A new env key, `endorsement_selector`, takes one CSS selector, and a page is endorsed when any element matches. It isn't limited to `<meta>`. It's a separate key because a plain marker string is itself a valid type selector, so one key couldn't tell the two forms apart. `endorsement_marker` behaves as before. When both are set the selector wins, with one warning at boot. The selector's syntax is checked once against an empty document, so a typo warns at boot and every request is declined, the same as a missing marker. A pre-parsed page document is read directly without parsing again.
+The `client-endorsed` endorser reads its rule from a new env key, `secret_knock`. `endorsement_marker` and the short-lived `endorsement_selector` (added and removed the same day, never released) are gone. Neither was ever in production. The value takes two forms. A plain string behaves like the old marker: a page is endorsed when some `<meta>` has `content` exactly equal to it. A JSON object with a `type` is a rule. The only type today is `{"type":"selector","selector":"<css>"}`, which endorses a page when any element matches, so a relay can require `meta[name=octothorpes][content=…]` or a non-meta element. The object form leaves room for other kinds of knock, such as API keys, but those would also need the gate to pass request details to endorsers, which it doesn't today. Malformed JSON, a non-object, an unknown type, a missing `selector`, or an invalid selector each log one warning at boot, and every request is then declined, the same as an unset knock. A pre-parsed page document is read directly without parsing again.
 
-**Files affected:** `src/lib/endorsers/clientEndorsed.js`, `src/lib/endorsers/index.js`, `src/lib/config.js`, `.env.example`, `src/tests/clientEndorsed.test.js`.
+**Deploy note:** rename `endorsement_marker` to `secret_knock` in any `.env` or Vercel project that sets it.
+
+**Files affected:** `src/lib/endorsers/clientEndorsed.js`, `src/lib/endorsers/index.js`, `src/lib/config.js`, `.env.example`, `src/tests/clientEndorsed.test.js`, `src/tests/endorsementLive.test.js`.
