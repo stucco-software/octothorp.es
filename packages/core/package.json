@@ -1,6 +1,6 @@
 {
   "name": "octothorpes",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "type": "module",
   "description": "Core library for the Octothorpes Protocol",
   "main": "client.js",
