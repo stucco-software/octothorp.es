@@ -21,6 +21,20 @@
     "image": null
   },
   {
+    "role": "object",
+    "uri": "https://indieweb.org",
+    "title": null,
+    "description": null,
+    "image": null
+  },
+  {
+    "role": "object",
+    "uri": "https://neocities.org",
+    "title": null,
+    "description": null,
+    "image": null
+  },
+  {
     "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo",
     "title": "Home - OP DEV DEMO",
@@ -92,6 +106,13 @@
   },
   {
     "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/mentions",
+    "title": "Mentions - OP DEV DEMO",
+    "description": "Mentions are now their own link types with their own syntax.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/multi-platform",
     "title": "Octothorpe Anywhere - OP DEV DEMO",
     "description": "Implementing Octothorpes is really easy. Here are some sites on other platforms that already have it.",
@@ -134,6 +155,13 @@
   },
   {
     "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/rich-content",
+    "title": "Rich Content - OP DEV DEMO",
+    "description": "The Rich Content Document Record is included in the defaults in our relay, and lets you mark any element to be stored as sanitized HTML in the triplestore.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/rss-feeds",
     "title": "Fun with RSS - OP DEV DEMO",
     "description": "The OP API outputs RSS for almost any query. Here are some combinations worth bookmarking.",
@@ -165,6 +193,13 @@
     "uri": "https://nimdaghlian.github.io/devdemo/tags-only",
     "title": "Tags Only - OP DEV DEMO",
     "description": "This page is using tags in the traditional way, even though the pages linked here use those tags as octothorpes.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/term-with-space",
+    "title": "Terms With Spaces - OP DEV DEMO",
+    "description": "Octothorpe terms can contain spaces and other characters that aren't allowed raw in an IRI. OP percent-encodes them when it stores the term.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
   },
   {

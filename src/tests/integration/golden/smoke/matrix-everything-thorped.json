@@ -202,6 +202,32 @@
     ]
   },
   {
+    "@id": "https://nimdaghlian.github.io/devdemo/mentions",
+    "title": "Mentions - OP DEV DEMO",
+    "description": "Mentions are now their own link types with their own syntax.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": 1791374400000,
+    "octothorpes": [
+      "demo",
+      {
+        "uri": "https://indieweb.org",
+        "type": "Mention"
+      },
+      {
+        "uri": "https://neocities.org",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      }
+    ]
+  },
+  {
     "@id": "https://nimdaghlian.github.io/devdemo/multi-platform",
     "title": "Octothorpe Anywhere - OP DEV DEMO",
     "description": "Implementing Octothorpes is really easy. Here are some sites on other platforms that already have it.",
@@ -312,6 +338,27 @@
     ]
   },
   {
+    "@id": "https://nimdaghlian.github.io/devdemo/rich-content",
+    "title": "Rich Content - OP DEV DEMO",
+    "description": "The Rich Content Document Record is included in the defaults in our relay, and lets you mark any element to be stored as sanitized HTML in the triplestore.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": 1791375000000,
+    "octothorpes": [
+      "demo",
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      }
+    ],
+    "documentRecord": {
+      "richContent": "\n  <h4>Stored as rich content</h4>\n  <p>This <em>paragraph</em> and its <a href=\"https://docs.octothorp.es\">link</a> are kept.</p>\n  <p>The onclick handler on this paragraph is stripped.</p>\n  \n  <p><a>This link keeps its text but loses its javascript: href.</a></p>\n"
+    }
+  },
+  {
     "@id": "https://nimdaghlian.github.io/devdemo/rss-feeds",
     "title": "Fun with RSS - OP DEV DEMO",
     "description": "The OP API outputs RSS for almost any query. Here are some combinations worth bookmarking.",
@@ -350,6 +397,25 @@
         "uri": "https://octothorpes.neocities.org",
         "type": "Link"
       }
+    ]
+  },
+  {
+    "@id": "https://nimdaghlian.github.io/devdemo/term-with-space",
+    "title": "Terms With Spaces - OP DEV DEMO",
+    "description": "Octothorpe terms can contain spaces and other characters that aren't allowed raw in an IRI. OP percent-encodes them when it stores the term.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": 1791375600000,
+    "octothorpes": [
+      "demo",
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      },
+      "site changes"
     ]
   },
   {

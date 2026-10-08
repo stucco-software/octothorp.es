@@ -139,6 +139,30 @@
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
+  <title>Terms With Spaces - OP DEV DEMO</title>
+  <description>Octothorpe terms can contain spaces and other characters that aren&apos;t allowed raw in an IRI. OP percent-encodes them when it stores the term.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/term-with-space</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo/term-with-space</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
+  <title>Rich Content - OP DEV DEMO</title>
+  <description>The Rich Content Document Record is included in the defaults in our relay, and lets you mark any element to be stored as sanitized HTML in the triplestore.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/rich-content</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo/rich-content</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
+  <title>Mentions - OP DEV DEMO</title>
+  <description>Mentions are now their own link types with their own syntax.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/mentions</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo/mentions</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
   <title>Post Date - OP DEV DEMO</title>
   <description>Pages can declare their own publication date, which OP indexes and uses for date-based API filtering.</description>
   <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/post-date</guid>
