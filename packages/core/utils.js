@@ -182,7 +182,8 @@ export function parseBindings(bindings, mode="pages") {
       const seenTerms = new Set();
       output = [];
       for (const b of bindingArray) {
-        const term = b.o?.value ? b.o.value.substring(b.o.value.lastIndexOf('/') + 1) : null;
+        // Decoded name, not the IRI spelling (#285).
+        const term = b.o?.value ? termName(b.o.value) : null;
         if (seenTerms.has(term)) continue;
         seenTerms.add(term);
         output.push({ term, date: parseInt(b.date?.value || null) });

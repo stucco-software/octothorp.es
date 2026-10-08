@@ -1,3 +1,5 @@
+import { termName } from 'octothorpes'
+
 function processSparqlResponse(response, instance) {
     const urlMap = {};
   
@@ -32,7 +34,7 @@ function processSparqlResponse(response, instance) {
           // For Terms, only include if starts with instance
           if (targetUrl.startsWith(instance)) {
             // Trim to value after last /
-            const termValue = targetUrl.substring(targetUrl.lastIndexOf('/') + 1);
+            const termValue = termName(targetUrl);
             if (!current.octothorpes.includes(termValue)) {
               current.octothorpes.push(termValue);
             }

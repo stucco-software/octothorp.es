@@ -181,3 +181,14 @@ describe('blobject output uses decoded term names', () => {
     expect(blob.octothorpes).not.toContain('site%20changes')
   })
 })
+
+describe('term lists (what=thorpes) use decoded names', () => {
+  it('parseBindings terms mode decodes the term after /~/', async () => {
+    const { parseBindings } = await import('../../packages/core/utils.js')
+    const out = parseBindings([
+      { o: { value: 'https://relay.test/~/site%20changes' }, date: { value: '1' } },
+      { o: { value: 'https://relay.test/~/demo' }, date: { value: '2' } },
+    ], 'terms')
+    expect(out.map((r) => r.term)).toEqual(['site changes', 'demo'])
+  })
+})
