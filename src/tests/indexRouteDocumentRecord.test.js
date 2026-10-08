@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { writeFileSync, rmSync, existsSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { query, queryBoolean } from '$lib/sparql.js'
+import { base, checkLiveTarget } from './helpers/liveTarget.js'
 
 // #242: the live /index route now injects the profile's declared
 // documentRecord schema (wired in src/lib/indexing.js -> createIndexer),
@@ -17,8 +18,6 @@ import { query, queryBoolean } from '$lib/sparql.js'
 // Self-cleaning: removes the static probe file, the store triples for its
 // URI, and (only if this test created it) the origin's verified flag.
 
-const instance = (process.env.instance || 'http://localhost:5173/').replace(/\/?$/, '/')
-const base = instance.replace(/\/$/, '')
 const origin = new URL(base).origin
 
 const staticDebugDir = fileURLToPath(new URL('../../static/debug/', import.meta.url))
@@ -44,13 +43,9 @@ describe('#242 — live /index route persists documentRecord', () => {
   let insertedVerifiedOrigin = false
 
   beforeAll(async () => {
-    try {
-      const res = await fetch(`${base}/profile.json`)
-      live = res.ok
-    } catch {
-      live = false
-    }
-    if (!live) return
+    const target = await checkLiveTarget()
+    live = target.live
+    if (!live) { console.warn(`[#242] skipping: ${target.reason}`); return }
 
     if (!existsSync(staticDebugDir)) mkdirSync(staticDebugDir, { recursive: true })
     writeFileSync(probePath, probeMarkdown, 'utf8')
@@ -80,7 +75,7 @@ describe('#242 — live /index route persists documentRecord', () => {
   })
 
   it('persists declared documentRecord fields; undeclared frontmatter dropped', { timeout: 30000 }, async () => {
-    if (!live) { console.warn('[#242] dev server / SPARQL down — skipping'); return }
+    if (!live) return
 
     // A local (non-URL) harmonizer id that isn't a registered schema: the
     // policy probe and final dispatch both fall through to content-type

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { insert, query } from '$lib/sparql.js'
+import { base, checkLiveTarget } from './helpers/liveTarget.js'
 
 // C7 (#237 P3): the profile's vocabulary.documentRecord schema is wired into the
 // live /get blobject pipeline (route injects it -> api.js passes it to the query
@@ -7,8 +8,6 @@ import { insert, query } from '$lib/sparql.js'
 // stored on a page project into blobject.documentRecord, typed by range; pages
 // without them are unchanged. Live-store fixture, self-cleaning.
 
-const instance = (process.env.instance || 'http://localhost:5173/').replace(/\/?$/, '/')
-const base = instance.replace(/\/$/, '')
 
 describe('C7 documentRecord projection through the live /get pipeline', () => {
   let live = false
@@ -23,11 +22,9 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
   }
 
   beforeAll(async () => {
-    try {
-      const res = await fetch(`${base}/profile.json`)
-      live = res.ok
-    } catch { live = false }
-    if (!live) return
+    const target = await checkLiveTarget()
+    live = target.live
+    if (!live) { console.warn(`[C7] skipping: ${target.reason}`); return }
     await cleanup()
     // Two pages sharing a term; only the first carries the declared
     // documentRecord predicate (octo:richContent — the only entry the repo's
@@ -57,7 +54,7 @@ describe('C7 documentRecord projection through the live /get pipeline', () => {
   afterAll(async () => { if (live) await cleanup() })
 
   it('projects declared predicates onto blobject.documentRecord; undeclared ones are not projected', { timeout: 30000 }, async () => {
-    if (!live) { console.warn('[C7] dev server down — skipping'); return }
+    if (!live) return
     const res = await fetch(`${base}/get/everything/thorped/debug?o=__c7term__`)
     expect(res.ok).toBe(true)
     const out = await res.json()
