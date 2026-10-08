@@ -10,9 +10,6 @@ export const queryErrorResponse = (e) => {
   if (!isQueryError(e)) throw e
   return new Response(JSON.stringify({ error: e.message }), {
     status: e.status ?? 400,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+    headers: { 'Content-Type': 'application/json' },
   })
 }

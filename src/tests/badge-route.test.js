@@ -149,10 +149,13 @@ describe('Badge Route Handler', () => {
       expect(response.headers.get('Content-Type')).toBe('image/png')
     })
 
-    it('should set Access-Control-Allow-Origin to *', async () => {
+    it('should set Access-Control-Allow-Origin to * (via hooks.server.js)', async () => {
       verifiedOrigin.mockResolvedValue(true)
-      const response = await GET(makeEvent({ uri: 'https://example.com/page' }))
+      const { handle } = await import('../hooks.server.js')
+      const event = makeEvent({ uri: 'https://example.com/page' })
+      const response = await handle({ event, resolve: GET })
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
+      expect(response.headers.get('Content-Type')).toBe('image/png')
     })
   })
 })

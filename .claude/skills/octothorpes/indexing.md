@@ -20,9 +20,9 @@ Currently only HTTP indexing is implemented. The architecture supports pluggable
 
 ## Flow (HTTP)
 
-`handler()` in `$lib/indexing.js` owns the full validation pipeline. Route handlers (`indexwrapper/+server.js`) are thin HTTP adapters that parse requests, inject config, call `handler()`, and map errors to HTTP responses.
+`handler()` in `$lib/indexing.js` owns the full validation pipeline. Route handlers (`src/routes/(endpoints)/index/+server.js`) are thin HTTP adapters that parse requests, inject config, call `handler()`, and map errors to HTTP responses.
 
-1. Client: `GET /indexwrapper?uri=<page-url>`
+1. Client: `GET /index?uri=<page-url>`
 2. `handler()` pipeline:
    a. `parseUri(uri)` -- validate and normalize via `$lib/uri.js` (supports HTTP, AT Protocol)
    b. `validateSameOrigin()` -- cross-origin check

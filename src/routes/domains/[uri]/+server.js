@@ -41,11 +41,5 @@ export async function GET(req) {
     uri: `${uri}`,
     backlinks,
     bookmarks
-  },{
-    headers: {
-      'Access-Control-Allow-Methods': 'GET',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': '*',
-    }
   })
 }

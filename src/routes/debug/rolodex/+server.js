@@ -28,8 +28,7 @@ const html = `<!doctype html>
     <label>Endpoint:
       <select name="endpoint">
         <option value="">this page (direct handler)</option>
-        <option value="/indexwrapper">/indexwrapper</option>
-        <option value="/index">/index</option>
+                <option value="/index">/index</option>
       </select>
     </label>
     <br><br>

@@ -1,7 +1,7 @@
 /**
  * Indexing pipeline smoke test
  * Runs harmonization (dry-run via orchestra-pit) and live indexing
- * (via /indexwrapper) against all test URLs from test-urls.yaml.
+ * (via /index) against all test URLs from test-urls.yaml.
  *
  * Usage:
  *   node --env-file=.env scripts/index-check.js            # dry-run only
@@ -40,7 +40,7 @@ function orchestraPitUrl(url, harm) {
 }
 
 function indexUrl(url, harm) {
-  return `${base}/indexwrapper?uri=${encodeURIComponent(url)}&as=${encodeURIComponent(harm)}`
+  return `${base}/index?uri=${encodeURIComponent(url)}&as=${encodeURIComponent(harm)}`
 }
 
 async function checkHarmonize(url, harm) {
@@ -136,7 +136,7 @@ async function run() {
     report('Harmonize', results)
   }
 
-  // --- Live indexing via /indexwrapper ---
+  // --- Live indexing via /index ---
   if (includeLive && setUrls.length) {
     console.log('\n=== URL Sets (live index) ===')
     const results = []

@@ -168,7 +168,7 @@ function orchestraPitUrl(url, harmonizer) {
 }
 
 function indexUrl(url, harmonizer) {
-  return BASE + '/indexwrapper?uri=' + encodeURIComponent(url) + '&as=' + encodeURIComponent(harmonizer)
+  return BASE + '/index?uri=' + encodeURIComponent(url) + '&as=' + encodeURIComponent(harmonizer)
 }
 
 async function runHarmonize(rowId) {

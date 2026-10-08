@@ -85,7 +85,7 @@ describe('queryErrorResponse', () => {
     const res = queryErrorResponse(new QueryError('unknown by: nope'))
     expect(res.status).toBe(400)
     expect(res.headers.get('content-type')).toBe('application/json')
-    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+    // CORS is added by hooks.server.js (covered in indexRouteErrorMapping.test.js)
     expect(await res.json()).toEqual({ error: 'unknown by: nope' })
   })
 

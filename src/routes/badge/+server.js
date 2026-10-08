@@ -54,7 +54,6 @@ const loadBadge = (fetch, variant) => {
 
 const headers = {
   'Content-Type': 'image/png',
-  'Access-Control-Allow-Origin': '*',
   'Cache-Control': 'max-age=300',
 }
 
@@ -65,7 +64,7 @@ const sendBadge = async (fetch, variant) => {
     console.log(`[badge] could not load ${variant} badge: ${e.message}`)
     return new Response('badge image unavailable', {
       status: e.status ?? 502,
-      headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'text/plain' },
     })
   }
 }
