@@ -16,6 +16,19 @@ Detect the working directory to determine where to write files:
 
 Always use absolute paths when writing outside the current repo.
 
+## devdemo is built from octodemo
+
+The **devdemo** site (`https://nimdaghlian.github.io/devdemo/`, repo `~/dev/devdemo`) is not edited by hand. It is the build output of octodemo's **`development` branch**, using `_dev.yml` as the only config (title "OP DEV DEMO", `url` pointing at devdemo, `op-relay: https://next.octothorp.es/`). The user's shell alias `opddev`, run from `~/dev/octodemo`, does the build:
+
+```
+bundle exec jekyll build --config _dev.yml --destination ~/dev/devdemo/
+```
+
+- Write devdemo pages as markdown in `~/dev/octodemo/demos/` on the `development` branch. Never write or patch HTML in `~/dev/devdemo`.
+- devdemo is the smoketest fixture site. Its pages index against next.octothorp.es, and the octothorp.es smoketest captures them. A new devdemo page is only indexed by the smoketest if its URL is added to `src/routes/debug/index-check/test-urls.yaml` in the octothorp.es repo, and adding pages changes the smoketest golden files (`npm run smoketest:check`, then `npm run smoketest:update`).
+- Give every devdemo page a fixed `post_date`, so dates in the smoketest output stay deterministic.
+- Building, committing and pushing devdemo publishes it on GitHub Pages. Pages lags a few minutes behind a push, so wait before re-indexing.
+
 ## Folder Structure
 
 ```
@@ -29,36 +42,40 @@ _layouts/                 ← Jekyll layouts
 
 ## Standard Front Matter for Demo Pages
 
+Feature demos use the `feature-demo` layout:
+
 ```yaml
 ---
-layout: default
+layout: feature-demo
 title: "Feature Name"
 excerpt: "One or two sentences describing what this demo shows."
 permalink: feature-name        # always set explicitly; never change existing permalinks
-tags:
+category: "Fundamentals"       # grouping on the index, e.g. Fundamentals, Querying
+tags:                          # each tag is emitted as an octothorpe on the page
   - demo
   - relevant-term
-version: "v0.6"                # optional — include when tied to a specific release
-docs_url: "https://docs.octothorp.es/some-page/"  # optional — link to relevant docs page
+version: "v0.7"                # optional; renders as a badge in the page header
+post_date: "2026-10-07T12:00:00Z"  # optional; emitted as article:published_time
+docs_url: "https://docs.octothorp.es/some-page/"  # optional; renders a docs link
 ---
 ```
 
-- `version` renders as a small badge in the page header automatically
-- `docs_url` renders as a "Read the docs →" link in the page header automatically
-- Authors do not need to write these manually in the body
-
 ## Demo Page Content Structure
 
-Order: live demo → code snippet → extended description.
+The body is split by a `<!-- /// -->` line:
 
 ```markdown
-<!-- Live demo: web component, embedded result, or interactive element -->
-{% include post-list.html multipass='{"what":"pages","by":"thorped","o":"term"}' %}
+Commentary: what the demo shows. Author handles the copy.
 
-<!-- Code snippet (only if there's something worth copying) -->
+<!-- /// -->
 
-<!-- Extended description (only if the demo isn't self-evident) -->
+<!-- Live markup. The layout renders it under "In action on this page" and
+     shows the same markup escaped under "Raw HTML", so don't add a separate
+     code snippet for it. -->
+<a rel="octo:bookmarks" href="https://example.com/">A Bookmark</a>
 ```
+
+Pages that aren't feature demos may still use `layout: default` with a live demo, then a code snippet, then an extended description.
 
 ## post-list.html Include
 
@@ -82,7 +99,7 @@ This site connects to `https://octothorp.es/`. The `_includes/octocode.html` inc
 
 - Demo page filenames: lowercase, hyphenated (e.g. `badge-indexing.md`)
 - Permalink matches filename without extension (e.g. `permalink: badge-indexing`)
-- Release-tagged pages include `version: "v0.6"` (or current release) in front matter
+- Release-tagged pages include `version: "v0.7"` (or current release) in front matter
 
 ## When Creating a New Demo Page
 
