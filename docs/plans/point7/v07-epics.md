@@ -20,8 +20,8 @@ Code-complete and merged; epic closed. Docs and demos remain.
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
 * [ ] 166 - on-demand Document Records. Open surface is the stored `octo:harmonizeWith` ref.
 * [ ] 291 - generated vocabulary document
-* [ ] 292 - `mentioned` becomes its own subtype. Shipped; awaiting confirmation.
-* [ ] 293 - coherence warning for undeclared/uncaptured link types. Shipped; awaiting confirmation.
+* [x] 292 - `mentioned` becomes its own subtype
+* [x] 293 - coherence warning for undeclared/uncaptured link types
 * [x] 295 - api-smoketest
 
 ### TODO:
@@ -133,14 +133,14 @@ Deployed on staging. Lightly tested.
 * [ ] 241 - guard mention-path origin logic against non-http(s) schemes
 * [ ] 243 - markdown handler follow-ups
 * [x] 279 - post-merge fixes from the 245 review
-* [ ] 300 - site harmonizers/handlers/publishers missing from the Vercel bundle
-* [ ] 285 - terms with spaces crash indexing. Needed by WWO day 29.
-* [ ] 275 - canonical www origins. Cutover blocker.
-* [ ] 282 - /get planner slowdown. Shipped; awaiting confirmation.
+* [x] 300 - site harmonizers/handlers/publishers missing from the Vercel bundle
+* [x] 285 - terms with spaces crash indexing. Needed by WWO day 29.
+* [ ] 275 - canonical www origins. Shipped; one manual www-indexing check on a deploy remains (#307).
+* [x] 282 - /get planner slowdown
 
 ### TODO:
 
-* [ ] Cutover blockers: CORS on /index, port webring batching, delete indexwrapper
+* [x] Cutover blockers: CORS on /index, port webring batching, delete indexwrapper
 * [ ] Write simple dev-focused documentation
 * [ ] Add example demos to demo site
 * [ ] Re-test demos
