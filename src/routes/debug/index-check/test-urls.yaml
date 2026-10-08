@@ -25,6 +25,21 @@ urlSets:
     urls:
       - https://nimdaghlian.github.io/devdemo/demo-webring
 
+  - name: "Mentions"
+    description: "Pages with octo:mentions relationships alongside a plain link (#292)"
+    urls:
+      - https://nimdaghlian.github.io/devdemo/mentions
+
+  - name: "Rich content"
+    description: "Pages with a data-octo-content element captured as documentRecord.richContent"
+    urls:
+      - https://nimdaghlian.github.io/devdemo/rich-content
+
+  - name: "Terms with spaces"
+    description: "Pages with a term containing a space, stored percent-encoded (#285)"
+    urls:
+      - https://nimdaghlian.github.io/devdemo/term-with-space
+
   - name: "Bookmarks"
     description: "Pages with octo:bookmarks relationships"
     urls:

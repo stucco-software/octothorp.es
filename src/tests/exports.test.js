@@ -28,6 +28,8 @@ describe('octothorpes package exports', () => {
     'createHandlerRegistry', 'createDefaultHandlerRegistry', 'nullHandler',
     // C2 profile loader (#216)
     'createProfile',
+    // canonical origins (#275)
+    'canonicalOrigin', 'originVariants', 'termName',
   ]
 
   it('should export all expected functions', () => {

@@ -7,6 +7,8 @@
  * verification function are all injected. Core never reads a profile.
  */
 
+import { canonicalOrigin } from './uri.js'
+
 export const REGISTRATION_MODES = Object.freeze(['registered', 'open', 'closed'])
 
 export const ACCESS_DEFAULTS = Object.freeze({
@@ -58,9 +60,17 @@ const hostOf = (value) => {
   }
 }
 
+// `www.foo.com` and `foo.com` are one site (#275), so the exact-host half of
+// the matchers below compares hostnames with a leading www label removed.
+const bareHost = (hostname) => hostname.replace(/^www\./, '')
+
 /**
  * Hostname-exact-or-subdomain match. Entries may be bare hostnames or URLs.
  * An unparseable origin is treated as blocked — fail closed.
+ *
+ * www-lenient (#275): an entry for `www.foo.com` also blocks `foo.com`, and an
+ * entry for `foo.com` already covers `www.foo.com` as a subdomain. An entry
+ * for `www.foo.com` does NOT reach sibling subdomains like `blog.foo.com`.
  *
  * Takes a plain ARRAY, not the access block: callers pass
  * `access.blocks.domains`. Keeping the matcher list-shaped is what lets the
@@ -74,7 +84,7 @@ export const originBlocked = (origin, domains = []) => {
   if (!hostname) return true
   return domains.some((entry) => {
     const blocked = String(entry).toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-    return hostname === blocked || hostname.endsWith(`.${blocked}`)
+    return bareHost(hostname) === bareHost(blocked) || hostname.endsWith(`.${blocked}`)
   })
 }
 
@@ -82,19 +92,23 @@ export const originBlocked = (origin, domains = []) => {
  * Origin-vs-origin comparison. NEVER compare full URLs here — a whitelist entry
  * with a path must still admit every path on that origin.
  *
+ * Compares CANONICAL origins (#275): `https://www.foo.com` and
+ * `https://foo.com` are the same entry. Scheme, port and non-www subdomains
+ * still distinguish.
+ *
  * @param {string} origin
  * @param {string[]} [domains] - access.whitelist.domains
  */
 export const originWhitelisted = (origin, domains = []) => {
   let target
   try {
-    target = new URL(origin).origin
+    target = canonicalOrigin(new URL(origin).origin)
   } catch {
     return false
   }
   return domains.some((entry) => {
     try {
-      return new URL(entry).origin === target
+      return canonicalOrigin(new URL(entry).origin) === target
     } catch {
       return false
     }

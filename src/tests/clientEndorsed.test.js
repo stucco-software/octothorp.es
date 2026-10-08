@@ -24,7 +24,7 @@ const MARKER = 'test-marker-xyz'
 const page = (body) => `<html><head>${body}</head><body>hi</body></html>`
 
 describe('createClientEndorsed: marker detection', () => {
-  const { name, endorse } = createClientEndorsed({ marker: MARKER })
+  const { name, endorse } = createClientEndorsed({ knock: MARKER })
 
   it('is named client-endorsed', () => {
     expect(name).toBe('client-endorsed')
@@ -52,7 +52,7 @@ describe('createClientEndorsed: marker detection', () => {
 })
 
 describe('createClientEndorsed: a pre-parsed document', () => {
-  const { endorse } = createClientEndorsed({ marker: MARKER })
+  const { endorse } = createClientEndorsed({ knock: MARKER })
   const docFor = (body) => new JSDOM(page(body), { contentType: 'text/html' }).window.document
 
   it('admits from the document without constructing a JSDOM', async () => {
@@ -84,7 +84,7 @@ describe('createClientEndorsed: a pre-parsed document', () => {
 describe('createClientEndorsed: missing marker', () => {
   it('warns once at construction and always declines', async () => {
     const warn = vi.fn()
-    const { endorse } = createClientEndorsed({ marker: '', warn })
+    const { endorse } = createClientEndorsed({ knock: '', warn })
     expect(warn).toHaveBeenCalledOnce()
 
     expect(await endorse({ origin: 'https://a.test', blobject: null, content: page(`<meta content='${MARKER}'>`) })).not.toBe(true)
@@ -133,7 +133,7 @@ describe('client-endorsed through the core gate', () => {
       octothorpes: ['cats'],
     }))),
     access: { registration: 'registered', endorsement: { sources: ['client-endorsed'] } },
-    endorsers: [createClientEndorsed({ marker: MARKER })],
+    endorsers: [createClientEndorsed({ knock: MARKER })],
   })
 
   const config = {
@@ -257,7 +257,7 @@ describe('src/lib/op.js wiring', () => {
     }
     vi.doMock('$lib/profile.js', () => ({ getProfile: () => profile }))
     const config = await vi.importActual('$lib/config.js')
-    vi.doMock('$lib/config.js', () => ({ ...config, endorsement_marker: marker }))
+    vi.doMock('$lib/config.js', () => ({ ...config, secret_knock: marker }))
     const captured = {}
     vi.doMock('octothorpes', async (orig) => {
       const actual = await orig()
@@ -299,4 +299,74 @@ describe('src/lib/op.js wiring', () => {
     const { endorserWarnings } = await loadOp({ sources: ['client-endorsed'], marker: MARKER })
     expect(endorserWarnings).toEqual([])
   })
+})
+
+// `secret_knock` as a JSON object: `{ "type": "selector", "selector": "…" }`.
+// The page is endorsed when any element matches, not just <meta>, so a relay
+// can key endorsement on whatever its client stamps into pages. The object
+// form leaves room for other knock types later.
+describe('createClientEndorsed: selector knock', () => {
+  const SELECTOR = "meta[name='octothorpes'][content='test-marker-xyz']"
+  const knock = (selector) => JSON.stringify({ type: 'selector', selector })
+
+  it('admits a page with an element matching the selector', async () => {
+    const { endorse } = createClientEndorsed({ knock: knock(SELECTOR) })
+    const content = page('<meta name="octothorpes" content="test-marker-xyz">')
+    expect(await endorse({ content })).toBe(true)
+  })
+
+  it('declines when only the content matches, under a different name', async () => {
+    const { endorse } = createClientEndorsed({ knock: knock(SELECTOR) })
+    const content = page('<meta name="description" content="test-marker-xyz">')
+    expect(await endorse({ content })).toBe(false)
+  })
+
+  it('is not limited to meta tags', async () => {
+    const { endorse } = createClientEndorsed({ knock: knock("body[data-relay='bear'] footer .made-with") })
+    const content = '<html><body data-relay="bear"><footer><span class="made-with">x</span></footer></body></html>'
+    expect(await endorse({ content })).toBe(true)
+    expect(await endorse({ content: content.replace('bear', 'other') })).toBe(false)
+  })
+
+  it('accepts surrounding whitespace in the env value', async () => {
+    const { endorse } = createClientEndorsed({ knock: `  ${knock(SELECTOR)}\n` })
+    expect(await endorse({ content: page('<meta name="octothorpes" content="test-marker-xyz">') })).toBe(true)
+  })
+
+  it('reads a pre-parsed document without parsing again', async () => {
+    const { endorse } = createClientEndorsed({ knock: knock(SELECTOR) })
+    const document = new JSDOM(page('<meta name="octothorpes" content="test-marker-xyz">')).window.document
+    // The first call waits on the one-time selector syntax check, which builds
+    // a single empty document. After that, endorsing never parses.
+    await endorse({ document, content: 'ignored' })
+    JSDOM.mockClear()
+    expect(await endorse({ document, content: 'ignored' })).toBe(true)
+    expect(JSDOM).not.toHaveBeenCalled()
+  })
+
+  it('does not warn when the knock is valid', async () => {
+    const warn = vi.fn()
+    const { endorse } = createClientEndorsed({ knock: knock(SELECTOR), warn })
+    await endorse({ content: page('') })
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  const broken = [
+    ['an invalid selector', knock('meta[name='), /not a valid CSS selector/],
+    ['a missing selector', JSON.stringify({ type: 'selector' }), /needs a "selector" string/],
+    ['an unknown type', JSON.stringify({ type: 'header', name: 'X-Key', value: 'k' }), /unknown type "header"/],
+    ['a missing type', JSON.stringify({ selector: 'meta' }), /unknown type/],
+    ['malformed JSON', '{"type":"selector",', /not valid JSON/],
+    ['a JSON array', '["selector"]', /must be a JSON object/],
+  ]
+  for (const [label, value, message] of broken) {
+    it(`warns once and declines everything for ${label}`, async () => {
+      const warn = vi.fn()
+      const { endorse } = createClientEndorsed({ knock: value, warn })
+      expect(await endorse({ content: page('<meta name="octothorpes" content="test-marker-xyz">') })).toBe(false)
+      expect(await endorse({ content: page('<meta>') })).toBe(false)
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls[0][0]).toMatch(message)
+    })
+  }
 })

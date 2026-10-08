@@ -1,7 +1,14 @@
+import { originVariants } from './uri.js'
+
 export const verifyApprovedDomain = async (origin, { queryBoolean }) => {
+  // Match any spelling of the origin, not just the one that asked (#275).
+  // Origins are stored canonically (no www, no trailing slash), but a site may
+  // ask as https://www.foo.com/, and legacy rows may carry either spelling.
+  const variants = originVariants(origin).map((o) => `<${o}>`).join(' ')
   let originVerified = await queryBoolean(`
     ask {
-      <${origin}> octo:verified "true" .
+      values ?origin { ${variants} }
+      ?origin octo:verified "true" .
     }
   `)
   return originVerified

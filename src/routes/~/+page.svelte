@@ -65,7 +65,7 @@
       <a
         class="thorpe"
         href="{tag.term}">
-        #{tag.term.split('/~/')[1]}
+        #{tag.name}
       </a>
     </div>
     <div class="column">
