@@ -1,5 +1,5 @@
 import { queryArray } from '$lib/sparql.js'
-import { isSparqlSafe } from 'octothorpes'
+import { isSparqlSafe, termName } from 'octothorpes'
 import { error } from '@sveltejs/kit'
 
 const thorpePath = 'https://octothorp.es/~/'
@@ -79,7 +79,7 @@ export async function load({ params }) {
 
       if (oType === 'Term') {
         // Term octothorpe (always a URI, never a blank node)
-        const termValue = binding.o.value.substring(binding.o.value.lastIndexOf('~/') + 2)
+        const termValue = termName(binding.o.value)
         if (!current.octothorpes.includes(termValue)) {
           current.octothorpes.push(termValue)
         }
@@ -91,9 +91,7 @@ export async function load({ params }) {
 
         let relationTerm = null
         if (binding.bnTerm?.value?.includes('/~/')) {
-          relationTerm = binding.bnTerm.value.substring(
-            binding.bnTerm.value.lastIndexOf('~/') + 2
-          )
+          relationTerm = termName(binding.bnTerm.value)
         }
 
         const existingIndex = current.octothorpes.findIndex(

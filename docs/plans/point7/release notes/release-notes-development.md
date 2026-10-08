@@ -1309,3 +1309,9 @@ The `client-endorsed` endorser reads its rule from a new env key, `secret_knock`
 **Deploy note:** rename `endorsement_marker` to `secret_knock` in any `.env` or Vercel project that sets it.
 
 **Files affected:** `src/lib/endorsers/clientEndorsed.js`, `src/lib/endorsers/index.js`, `src/lib/config.js`, `.env.example`, `src/tests/clientEndorsed.test.js`, `src/tests/endorsementLive.test.js`.
+
+## Term names are decoded on output (#285 read side, 2026-10-07, merge-prep)
+
+After #285, a term with a space was stored as `~/site%20changes`, but blobjects listed it as `"site%20changes"`. They took the name by slicing the IRI after `~/` without decoding it. #285 defines the term's identity as its decoded name, with the IRI only spelling it. A new core export, `termName(iri)`, inverts `termIri`: it decodes everything after the first `/~/`, and returns the raw tail if that isn't valid percent-encoding. Blobject term octothorpes, relationship terms and the term lists on relationships now use it, so the API returns `"site changes"`. Queries already matched by decoded name. RDFa-path terms stored percent-encoded (`caf%C3%A9`) now read back as `café` as well. The `/domains/[uri]` and `/~` pages use it for display. `/bookmarks` still slices raw, and fuzzy search still compares against the encoded IRI (#306).
+
+**Files affected:** `packages/core/utils.js`, `packages/core/client.js`, `packages/core/blobject.js`, `src/routes/domains/[uri]/+page.server.js`, `src/routes/~/load.js`, `src/routes/~/+page.svelte`, `src/tests/termIri.test.js`, `src/tests/exports.test.js`.

@@ -50,6 +50,26 @@ export const termIri = (instance, name) =>
     c === '%' ? '%25' : encodeURIComponent(c))}`
 
 /**
+ * Inverse of termIri: the term's name from its IRI (#285). A term's identity
+ * is its decoded name; the IRI only spells it, so `~/site%20changes` reads
+ * back as `site changes`. Everything after the first `/~/` is decoded. If the
+ * tail is not valid percent-encoding (an IRI not built by termIri), it is
+ * returned raw instead of throwing. A string with no `/~/` is returned as is.
+ * @param {string} iri - Term IRI
+ * @returns {string} Term name
+ */
+export const termName = (iri) => {
+  const s = String(iri)
+  const i = s.indexOf('/~/')
+  const raw = i === -1 ? s : s.slice(i + 3)
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+/**
  * Converts various date formats to Unix timestamps
  * @param {string} datestring - Date string to convert (ISO, YYYY-MM-DD, or Unix timestamp)
  * @returns {number} Unix timestamp (milliseconds since epoch)

@@ -1,5 +1,6 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { instance } from '$lib/config.js'
+import { termName } from 'octothorpes'
 
 export async function load(req) {
   // get all the relevant thorpes
@@ -18,6 +19,7 @@ export async function load(req) {
       .map(b => b.t.value))
     let usage = new Map([...thorpes].map(term => [term, {
       term,
+      name: termName(term),
       latest: 0,
       domains: [],
       pages: [],

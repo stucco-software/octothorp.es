@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { termIri } from '../../packages/core/utils.js'
+import { termIri, termName } from '../../packages/core/utils.js'
+import { getBlobjectFromResponse } from '../../packages/core/blobject.js'
 import { createIndexer } from '../../packages/core/indexer.js'
 import { createQueryBuilders } from '../../packages/core/queryBuilders.js'
 import { rdfa2triples } from '../../packages/core/ld/rdfa2triples.js'
@@ -131,5 +132,52 @@ describe('RDFa / harmonizer parity', () => {
     const triples = rdfa2triples({ doc, s: 'https://example.com/page', instance }).join('\n')
     expect(triples).toContain(`<${termIri(instance, 'site changes')}>`)
     expect(triples).toContain(`<${termIri(instance, 'a|b')}>`)
+  })
+})
+
+// The read side of #285: a term's identity is its decoded name, and the IRI is
+// only its spelling. termName inverts termIri so output shows `site changes`,
+// not `site%20changes`.
+describe('termName', () => {
+  const I = 'https://relay.test/'
+
+  it('round-trips every name termIri encodes', () => {
+    for (const name of ['demo', 'site changes', 'a<b>"c"{d}|e\\f^g`h', '100%', '100% sure', 'café', 'tab\there']) {
+      expect(termName(termIri(I, name))).toBe(name)
+    }
+  })
+
+  it('decodes percent-encoded non-ASCII written by the RDFa path', () => {
+    expect(termName(`${I}~/caf%C3%A9`)).toBe('café')
+  })
+
+  it('returns the raw tail when it is not valid percent-encoding', () => {
+    expect(termName(`${I}~/100%`)).toBe('100%')
+    expect(termName(`${I}~/%E0%A4%A`)).toBe('%E0%A4%A')
+  })
+
+  it('takes everything after the first /~/, so a term may contain ~/', () => {
+    expect(termName(`${I}~/a~/b`)).toBe('a~/b')
+  })
+
+  it('returns a non-term string unchanged', () => {
+    expect(termName('plain')).toBe('plain')
+  })
+})
+
+describe('blobject output uses decoded term names', () => {
+  it('lists a spaced term by its name, not its IRI spelling', async () => {
+    const response = {
+      results: {
+        bindings: [{
+          s: { value: 'https://site.test/page' },
+          o: { value: 'https://relay.test/~/site%20changes' },
+          oType: { value: 'octo:Term' },
+        }],
+      },
+    }
+    const [blob] = await getBlobjectFromResponse(response)
+    expect(blob.octothorpes).toContain('site changes')
+    expect(blob.octothorpes).not.toContain('site%20changes')
   })
 })

@@ -1,4 +1,5 @@
 import { documentRecordVar } from './queryBuilders.js'
+import { termName } from './utils.js'
 
 /**
  * Coerce a raw SPARQL binding value into the JS type declared by a
@@ -133,9 +134,8 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         oType = oType.substring(5); // Remove 'octo:' prefix
       }
       if (oType === "Term") {
-        // For Terms, only include if starts with instance
-        // Trim to value after last /
-        const termValue = targetUrl.substring(targetUrl.lastIndexOf('~/') + 2);
+        // Terms are listed by their decoded name, not their IRI spelling.
+        const termValue = termName(targetUrl);
         if (!current.octothorpes.includes(termValue)) {
           current.octothorpes.push(termValue);
         }
@@ -157,10 +157,7 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         // Check if this blank node has associated terms (terms on relationships)
         let relationTerm = null
         if (binding.blankNodeObj?.value?.includes('/~/')) {
-          const termValue = binding.blankNodeObj.value.substring(
-            binding.blankNodeObj.value.lastIndexOf('~/') + 2
-          )
-          relationTerm = termValue
+          relationTerm = termName(binding.blankNodeObj.value)
         }
 
         if (existingIndex === -1) {
@@ -263,9 +260,9 @@ export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => 
 
     if (binding.term?.value) {
       const termUri = binding.term.value
-      const termName = termUri.substring(termUri.lastIndexOf('~/') + 2)
-      if (!entry.terms.includes(termName)) {
-        entry.terms.push(termName)
+      const name = termName(termUri)
+      if (!entry.terms.includes(name)) {
+        entry.terms.push(name)
       }
     }
   }

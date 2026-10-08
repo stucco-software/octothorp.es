@@ -29,7 +29,7 @@ describe('octothorpes package exports', () => {
     // C2 profile loader (#216)
     'createProfile',
     // canonical origins (#275)
-    'canonicalOrigin', 'originVariants',
+    'canonicalOrigin', 'originVariants', 'termName',
   ]
 
   it('should export all expected functions', () => {
