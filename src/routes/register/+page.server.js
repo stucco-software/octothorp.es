@@ -107,7 +107,7 @@ const alertAdmin = async ({domain, email}) => {
           New domain request:
         </p>
         <p>
-          <a href="https://administration.octothorp.es/?url=${domain}"><b>${domain}</b></a> is requesting verification
+          <b>${domain}</b> is requesting verification. Approve or ban it at <a href="${new URL('admin', getProfile().identity.instance)}">${new URL('admin', getProfile().identity.instance)}</a>.
         </p>
         <p>
           Contact <code>${email}</code> for more information.

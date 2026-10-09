@@ -30,6 +30,8 @@ describe('octothorpes package exports', () => {
     'createProfile',
     // canonical origins (#275)
     'canonicalOrigin', 'originVariants', 'termName',
+    // runtime bans (#310)
+    'isExcluded', 'originBanned', 'banOrigin', 'unbanOrigin', 'approveOrigin', 'createVerifiedOrigin',
   ]
 
   it('should export all expected functions', () => {

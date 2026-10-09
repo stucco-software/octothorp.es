@@ -20,4 +20,7 @@ export const {
   // with a `type` is a rule, e.g. {"type":"selector","selector":"<css>"}.
   // Unset on deploys that do not name that source in their profile.
   secret_knock,
+  // Secret: Bearer token / form secret for /admin (approve, ban, unban).
+  // Env-only, never in octothorpes.json. Unset disables every admin surface (503).
+  admin_secret,
 } = env;
