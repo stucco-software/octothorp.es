@@ -33,7 +33,7 @@ export function createOctoQuery(what, by) {
    * Fetch data from API with given parameters
    * 
    * @param {object} params - Query parameters
-   * @param {string} [params.server='https://octothorp.es'] - API server URL
+   * @param {string} [params.server] - API server URL (defaults to this module's origin)
    * @param {string|string[]} [params.s] - Subject filter(s)
    * @param {string|string[]} [params.o] - Object filter(s)
    * @param {string|string[]} [params.nots] - Excluded subject(s)
@@ -47,7 +47,7 @@ export function createOctoQuery(what, by) {
    */
   async function fetch(params = {}) {
     const {
-      server = 'https://octothorp.es',
+      server = new URL(import.meta.url).origin,
       s = '',
       o = '',
       nots = '',

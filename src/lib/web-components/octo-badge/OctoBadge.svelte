@@ -10,7 +10,7 @@
     <octo-badge></octo-badge>
   
   ATTRIBUTES:
-    server  - OP server URL (default: "https://octothorp.es")
+    server  - OP server URL (default: origin serving this script)
     uri     - Explicit page URL to index (default: current page URL)
     as      - Harmonizer ID or URL (default: "default")
 -->
@@ -20,7 +20,7 @@
 <script>
   import { onMount } from 'svelte';
 
-  export let server = 'https://octothorp.es';
+  export let server = new URL(import.meta.url).origin;
   export let uri = '';
   export let as = '';
 

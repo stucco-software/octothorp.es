@@ -52,7 +52,7 @@ Displays pages tagged with octothorpes.
 - `autoload` - Auto-load on mount (boolean attribute)
 - `nopreload` - Skip injecting the `<link rel="preload">` that triggers indexing of the host page (boolean attribute)
 - `render` - Display mode: `list`, `cards`, `compact` (default), `count`
-- `server` - API server URL (default: `https://octothorp.es`)
+- `server` - API server URL (default: origin serving the component script)
 
 `when`, `created` and `indexed` are three different dates. Use `created` to ask
 "which pages did this relay first see in this window", which is usually what a

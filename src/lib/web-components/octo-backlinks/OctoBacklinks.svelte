@@ -29,7 +29,7 @@
   // STANDARD PROPS
   // ============================================================================
   
-  export let server = 'https://octothorp.es';
+  export let server = new URL(import.meta.url).origin;
   export let s = '';           // Subjects (domains) - comma-separated
   export let o = '';           // Objects (URLs) - comma-separated, defaults to current page URL
   export let nots = '';        // Exclude subjects

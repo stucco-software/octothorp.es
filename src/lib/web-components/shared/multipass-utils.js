@@ -14,7 +14,7 @@ export function multipassToParams(multiPass) {
   if (!multiPass) return {};
   
   return {
-    server: multiPass.meta?.server || 'https://octothorp.es',
+    server: multiPass.meta?.server || new URL(import.meta.url).origin,
     s: multiPass.subjects?.include?.join(',') || '',
     o: multiPass.objects?.include?.join(',') || '',
     nots: multiPass.subjects?.exclude?.join(',') || '',

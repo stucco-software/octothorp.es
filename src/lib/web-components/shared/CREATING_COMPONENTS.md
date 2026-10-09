@@ -62,7 +62,7 @@ These sections are **standard across all components**:
 
 ### Props Declaration (Lines 24-37)
 ```javascript
-export let server = 'https://octothorp.es';
+export let server = new URL(import.meta.url).origin;
 export let s = '';
 export let o = '';
 export let nots = '';

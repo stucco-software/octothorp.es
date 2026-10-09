@@ -6,7 +6,7 @@
   import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
 
   // API Configuration
-  export let server = 'https://octothorp.es';
+  export let server = new URL(import.meta.url).origin;
 
   // Query parameters - map directly to API
   export let o = '';           // Objects (thorpe terms) - comma-separated
