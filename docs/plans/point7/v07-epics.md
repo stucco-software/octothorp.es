@@ -170,11 +170,11 @@ Catch-all bucket. Includes the Domain Pages Overhaul epic (218) rather than givi
 
 ### Status
 
-Not started.
+Domain Pages Overhaul (218) landed on development; close 202/185/191 after staging verification. Follow-ups filed: 311 (octo:created gap), 312 (SPARQL-level blobject paging).
 
 ### Issues
 
-* [ ] 218 - Domain Pages Overhaul (epic). Sequence: 202 refactor → 185 posted view → 191 numerical alias.
+* [ ] 218 - Domain Pages Overhaul (epic). All three steps on development; verify on staging, then close.
 * [ ] 158 - default to fuzzy results on hashtag list
 * [ ] 199 - "links with this hashtag" view
 * [ ] 254 - stop committing built web components
