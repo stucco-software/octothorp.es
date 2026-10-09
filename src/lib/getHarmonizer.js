@@ -1,5 +1,7 @@
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { createHarmonizerRegistry } from 'octothorpes'
+
+const instance = getProfile().identity.instance
 
 const registry = createHarmonizerRegistry(instance)
 

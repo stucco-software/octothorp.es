@@ -1,8 +1,10 @@
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import yaml from 'js-yaml'
+
+const instance = getProfile().identity.instance
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 

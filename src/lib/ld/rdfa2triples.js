@@ -1,5 +1,7 @@
 import { arrayify } from '$lib/arrayify.js'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
+
+const instance = getProfile().identity.instance
 let p = 'octo:octothorpes'
 
 // Private Function Test

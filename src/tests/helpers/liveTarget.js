@@ -1,7 +1,8 @@
 // Shared guard for tests that run against a live dev server.
 //
-// The instance comes from $lib/config.js, the same .env the app and
-// $lib/sparql.js read, so fixture IRIs, the store the fixtures go into, and
+// The instance is the resolved profile value (getProfile().identity.instance,
+// octothorpes.json plus the .env `instance` override), the same value the app and
+// $lib/sparql.js use, so fixture IRIs, the store the fixtures go into, and
 // the server reading them back all agree. Reading process.env.instance
 // instead fell back to localhost under vitest (which doesn't load `instance`
 // into process.env), so a local server configured for another instance
@@ -10,9 +11,9 @@
 // A live test only runs against a LOCAL server running this checkout, whose
 // /debug/identity reports that same instance. Anything else is skipped with a
 // reason, so a test run never writes fixtures into a deployed relay's store.
-import { instance as configInstance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 
-export const instance = (configInstance || 'http://localhost:5173/').replace(/\/?$/, '/')
+export const instance = (getProfile().identity.instance || 'http://localhost:5173/').replace(/\/?$/, '/')
 export const base = instance.replace(/\/$/, '')
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -23,7 +24,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 export const checkLiveTarget = async () => {
   const { hostname } = new URL(base)
   if (!LOCAL_HOSTS.has(hostname)) {
-    return { live: false, reason: `.env instance is ${base}, not a local dev server` }
+    return { live: false, reason: `resolved instance is ${base}, not a local dev server` }
   }
   let reported
   try {

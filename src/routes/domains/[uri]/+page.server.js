@@ -1,8 +1,9 @@
 import { queryArray } from '$lib/sparql.js'
 import { isSparqlSafe, termName } from 'octothorpes'
 import { error } from '@sveltejs/kit'
+import { getProfile } from '$lib/profile.js'
 
-const thorpePath = 'https://octothorp.es/~/'
+const thorpePath = `${getProfile().identity.instance.replace(/\/?$/, '/')}~/`
 
 export async function load({ params }) {
   const domain = decodeURIComponent(params.uri)

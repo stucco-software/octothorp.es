@@ -1,5 +1,7 @@
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { whats, bys, formats, extras } from './matrix.js'
+
+const instance = getProfile().identity.instance
 
 export async function GET() {
   const base = instance.replace(/\/$/, '')

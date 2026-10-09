@@ -1,6 +1,8 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { termName } from 'octothorpes'
+
+const instance = getProfile().identity.instance
 
 export async function load(req) {
   // get all the relevant thorpes

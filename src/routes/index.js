@@ -1,8 +1,10 @@
 import { error } from '@sveltejs/kit'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { verifiedOrigin } from 'octothorpes'
 import normalizeUrl from 'normalize-url'
+
+const instance = getProfile().identity.instance
 
 export const index = async (req) => {
   let reqOrigin = req.request.headers.get('referer')

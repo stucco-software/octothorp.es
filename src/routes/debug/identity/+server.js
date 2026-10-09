@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit'
-import { instance } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
+
+const instance = getProfile().identity.instance
 
 /**
  * Reports the origin this instance believes itself to be.

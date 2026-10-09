@@ -1,5 +1,7 @@
 import { queryArray } from '$lib/sparql.js'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
+
+const instance = getProfile().identity.instance
 
 const mergeBacklinks = (backlinks) => {
   let uIDs = [...new Set(backlinks.map(b => b.from))]

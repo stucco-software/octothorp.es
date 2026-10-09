@@ -1,6 +1,7 @@
 import { send } from '$lib/mail/send.js'
-import { instance } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
+
+const instance = getProfile().identity.instance
 
 const alertAdmin = async ({s, o}) => {
   let success

@@ -5,8 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 // the page, not an internal fault — it must map to 403 like "not opted in",
 // not fall through to 500.
 
-vi.mock('$lib/config.js', () => ({ instance: 'http://localhost:5173/' }))
-vi.mock('$lib/profile.js', () => ({ getProfile: () => ({ identity: { name: 'Test' } }) }))
+vi.mock('$lib/profile.js', () => ({ getProfile: () => ({ identity: { name: 'Test', instance: 'http://localhost:5173/' } }) }))
 vi.mock('$lib/sparql.js', () => ({ queryBoolean: async () => false }))
 vi.mock('$lib/indexing.js', () => ({ handler: async () => {}, parseRequestBody: async () => ({}) }))
 

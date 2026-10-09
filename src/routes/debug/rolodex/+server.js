@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit'
-import { instance } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler } from '$lib/indexing.js'
+
+const instance = getProfile().identity.instance
 
 const allowedDomains = [
   'localhost',

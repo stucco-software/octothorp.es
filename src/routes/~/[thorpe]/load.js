@@ -1,6 +1,8 @@
 import { queryBoolean, queryArray } from '$lib/sparql.js'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { termIri } from 'octothorpes'
+
+const instance = getProfile().identity.instance
 
 export async function load(req) {
   // grt query params here

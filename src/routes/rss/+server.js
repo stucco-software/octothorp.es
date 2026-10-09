@@ -1,7 +1,9 @@
 import { queryArray } from '$lib/sparql.js'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { json, error } from '@sveltejs/kit'
 import { rss } from "octothorpes"
+
+const instance = getProfile().identity.instance
 
 export async function GET({ request, params }) {
 

@@ -1,7 +1,11 @@
 import { json, error } from '@sveltejs/kit'
-import { instance, sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
+import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
+
 import { createClient } from 'octothorpes'
 import { publishers } from '$lib/publishers'
+
+const instance = getProfile().identity.instance
 
 const client = createClient({
   instance,

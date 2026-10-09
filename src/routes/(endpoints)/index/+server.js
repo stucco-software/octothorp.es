@@ -4,11 +4,12 @@
 // a literal `/index` route id (EEXIST on functions/index.func). Moving this
 // file back to src/routes/index/ will break the Vercel build.
 import { json, error } from '@sveltejs/kit'
-import { instance } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { queryBoolean } from '$lib/sparql.js'
 import { handler, parseRequestBody } from '$lib/indexing.js'
 import { parseUri } from 'octothorpes'
+
+const instance = getProfile().identity.instance
 
 const knownErrors = [
   'not registered',

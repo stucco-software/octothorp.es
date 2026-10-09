@@ -7,8 +7,10 @@ import { fail } from '@sveltejs/kit'
 import { harmonize } from '$lib/indexing.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 import { remoteHarmonizer, createHarmonizerRegistry, createDefaultHandlerRegistry, calendarHandler } from 'octothorpes'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { runCalendarUrl } from './calendarPipeline.js'
+
+const instance = getProfile().identity.instance
 
 // Resolve a harmonizer id (or http(s) URL) to a schema object up front. The
 // HTML handler self-resolves string ids, but the JSON/XML handlers expect a

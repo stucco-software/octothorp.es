@@ -1,5 +1,7 @@
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { buildMultiPass, getBlobjectFromResponse } from 'octothorpes'
+
+const instance = getProfile().identity.instance
 
 export { getBlobjectFromResponse }
 

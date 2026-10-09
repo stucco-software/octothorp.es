@@ -1,6 +1,8 @@
 import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
 import { createSparqlClient, createQueryBuilders, createEnrichBlobjectTargets } from 'octothorpes'
+
+const instance = getProfile().identity.instance
 
 if (import.meta.vitest) {
   const { it, expect } = import.meta.vitest

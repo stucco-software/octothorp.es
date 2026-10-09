@@ -8,7 +8,6 @@ export const {
   sparql_endpoint,
   sparql_user,
   sparql_password,
-  instance,
   smtp_host,
   smtp_port,
   smtp_secure,

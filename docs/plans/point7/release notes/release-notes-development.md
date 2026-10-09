@@ -1339,3 +1339,9 @@ Core `packages/core/origin.js` adds `isExcluded`, `originBanned`, `banOrigin`, `
 **Deploy note:** set `admin_secret` to enable `/admin`.
 
 **Files affected:** `packages/core/origin.js`, `packages/core/client.js`, `packages/core/indexer.js`, `src/routes/(endpoints)/index/+server.js`, `src/routes/register/+page.server.js`, `src/lib/admin.js` (new), `src/lib/config.js`, `.env.example`, `src/routes/admin/+page.server.js`, `src/routes/admin/+page.svelte`, `src/routes/admin/{approve,ban,unban}/+server.js` (new), `src/tests/runtimeBans.test.js`, `src/tests/admin.test.js` (new), `src/tests/exports.test.js`, `src/tests/indexer.test.js`, `src/tests/indexing.test.js`.
+
+## SvelteKit side reads instance from the resolved profile (#309, 2026-10-08)
+
+Every SvelteKit reader of `instance` now uses `getProfile().identity.instance` (octothorpes.json plus the `.env` `instance` override) instead of the raw env value, so IRIs match what core builds even when the override is unset. `$lib/config.js` no longer exports `instance`. `/debug/identity` reports the resolved value, the live-test guard uses it, and `/domains/[uri]` derives its thorpe path from it instead of hardcoding octothorp.es. The inline-SPARQL routes were not migrated to `createClient`.
+
+**Files affected:** `src/lib/config.js`, `src/lib/{sparql,converters,getHarmonizer}.js`, `src/lib/ld/rdfa2triples.js`, `src/lib/emails/alertAdmin.js`, `src/routes/{+layout.server,index,load}.js`, `src/routes/(endpoints)/index/+server.js`, `src/routes/rss/+server.js`, `src/routes/~/**`, `src/routes/{backlinks,bookmarks}/load.js`, `src/routes/domains/[uri]/+page.server.js`, `src/routes/debug/**` (6 files), `src/tests/helpers/liveTarget.js`, `src/tests/indexRouteErrorMapping.test.js`.

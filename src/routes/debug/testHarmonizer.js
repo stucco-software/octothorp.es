@@ -1,5 +1,7 @@
 // src/lib/utils/harmonizerPicker.js
-import { instance } from '$lib/config.js';
+import { getProfile } from '$lib/profile.js'
+
+const instance = getProfile().identity.instance
 
 // Cache for harmonizer schemas
 const harmonizerCache = new Map();

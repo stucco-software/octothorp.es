@@ -1,4 +1,6 @@
-import { instance } from '$lib/config.js'
+import { getProfile } from '$lib/profile.js'
+
+const instance = getProfile().identity.instance
 
 export async function load() {
   let url = new URL(instance)
