@@ -152,7 +152,7 @@ Epic: **310**
 
 ### Status
 
-Code-complete on development. Remaining: click through /admin in a running app; decide the octo-store default-server port.
+Code-complete on development, deployed to staging. Remaining: click through /admin in a running app.
 
 ### TODO:
 
@@ -161,7 +161,7 @@ Code-complete on development. Remaining: click through /admin in a running app; 
 * [x] /admin routes (approve, ban, unban)
 * [x] Railway env/docs rewrite for the profile system
 * [ ] Manual /admin check in a running app
-* [ ] Decide: octo-store fetch default stays hardcoded or becomes script origin
+* [x] Octo-store and component server defaults become the script origin
 
 # UI
 
