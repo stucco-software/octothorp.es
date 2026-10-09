@@ -30,10 +30,17 @@ Oxigraph** triplestore with a persistent volume.
 ### 4. Set app env vars
 Copy `.env.railway.example` into the **app** service variables and fill in:
 - `instance` → your generated/custom domain.
-- `server_name` → your host/name.
 - SMTP/email values.
+- `admin_secret` → optional secret (Bearer token or form field) enabling
+  `/admin` and `POST /admin/{approve,ban,unban}`. Unset: these return 503.
+  Env only; never put it in `octothorpes.json`.
 - Leave `sparql_user` / `sparql_password` unset.
 `sparql_endpoint` and `ADAPTER` are already correct in the example.
+
+Instance identity and policy are not env vars. Server name, contact email,
+badge, and registration mode (`policies.access.registration`) are set in
+`octothorpes.json`, which ships in the image. Edit it in your fork before
+deploying.
 
 ### 5. Verify
 - App URL loads.
@@ -61,7 +68,12 @@ composer (railway.com → Templates → New Template):
    `ghcr.io/oxigraph/oxigraph:latest`; start command
    `serve --location /data --bind [::]:7878`; attach a volume at `/data`; no
    public domain.
-3. Wire `instance` to reference the app service's generated domain variable.
+3. Wire `instance` to the app service's generated domain: set its value to
+   `https://${{RAILWAY_PUBLIC_DOMAIN}}/`. Railway resolves the `${{...}}`
+   reference at deploy time, so every deployment gets its own domain with no
+   manual editing. The full URL matters — the app parses `instance` with
+   `new URL()` (badge asset loading, origin checks), so a bare domain breaks
+   it. If a custom domain is attached later, update `instance` to it.
 4. Save and publish; the resulting deploy button provisions both services, the
    volume, and the private networking automatically.
 
