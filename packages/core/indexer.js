@@ -8,7 +8,7 @@ import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
-import { verifiedOrigin } from './origin.js'
+import { verifiedOrigin, isExcluded } from './origin.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -1073,6 +1073,17 @@ export const createIndexer = (deps) => {
     // indexing rather than what gate it must pass. An injected verifyOrigin
     // (the badge route's `async () => true`) still wins inside 'registered' —
     // it IS the verification function, not a bypass of the gate.
+    // 5a. Runtime ban (#310): refused in EVERY registration mode, and not
+    // bypassable by an injected verifyOrigin. The profile blocklist keeps its
+    // pre-#310 scoping (open mode only, inside checkAccessGate) for compat.
+    const exclusion = await isExcluded(origin, {
+      blockedDomains: effectiveAccess.blocks?.domains ?? [],
+      queryBoolean: configQueryBoolean || queryBoolean,
+    })
+    if (exclusion.sources.includes('ban')) {
+      throw new Error('Origin is banned from this server.')
+    }
+
     const verifyRegistered = () =>
       (verifyOrigin || ((o) => verifiedOrigin(o, {
         queryBoolean: configQueryBoolean || queryBoolean

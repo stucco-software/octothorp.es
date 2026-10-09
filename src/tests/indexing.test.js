@@ -14,6 +14,9 @@ import corePkg from '../../packages/core/package.json'
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
 const mockQueryBoolean = vi.fn()
+// #310: the indexer now ASKs for an octo:banned tombstone on every request.
+// These suites stub "verified" as a blanket true, so answer ban ASKs "no".
+const queryBooleanDep = async (q) => (String(q).includes("octo:banned") ? false : mockQueryBoolean(q))
 const mockQueryArray = vi.fn()
 const mockHarmonizeSource = vi.fn()
 
@@ -35,7 +38,7 @@ const makeHandlerRegistry = () => {
 const makeIndexer = () => createIndexer({
   insert: mockInsert,
   query: mockQuery,
-  queryBoolean: mockQueryBoolean,
+  queryBoolean: queryBooleanDep,
   queryArray: mockQueryArray,
   instance,
   handlerRegistry: makeHandlerRegistry(),
@@ -404,7 +407,7 @@ describe('Indexing Business Logic', () => {
       const declaredIndexer = createIndexer({
         insert: mockInsert,
         query: mockQuery,
-        queryBoolean: mockQueryBoolean,
+        queryBoolean: queryBooleanDep,
         queryArray: mockQueryArray,
         instance,
         handlerRegistry: makeHandlerRegistry(),
@@ -872,7 +875,7 @@ describe('Indexing Business Logic', () => {
       await expect(
         indexer.handler('https://unverified-test.com/page', 'default', 'https://unverified-test.com', {
           instance,
-          queryBoolean: mockQueryBoolean,
+          queryBoolean: queryBooleanDep,
           verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Origin is not registered')
@@ -888,7 +891,7 @@ describe('Indexing Business Logic', () => {
       await expect(
         indexer.handler(`${origin}/page`, 'default', origin, {
           instance,
-          queryBoolean: mockQueryBoolean,
+          queryBoolean: queryBooleanDep,
           verifyOrigin: mockVerifyOrigin
         })
       ).rejects.toThrow('Rate limit exceeded')

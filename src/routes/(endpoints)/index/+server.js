@@ -19,11 +19,13 @@ const knownErrors = [
   'no scheme found',
   'not opted in',
   'forbids indexing',
+  'is banned',
 ]
 
 export const _mapErrorToStatus = (message) => {
   if (message.includes('not registered')) return 401
   if (message.includes('Rate limit')) return 429
+  if (message.includes('is banned')) return 403
   if (message.includes('different origin')) return 403
   if (message.includes('Harmonizer not allowed')) return 403
   // The origin refused us the page (block page or anti-bot challenge). That is

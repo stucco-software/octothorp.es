@@ -1,7 +1,7 @@
 import { queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { fail, redirect } from '@sveltejs/kit'
 import { send } from '$lib/mail/send.js'
-import { originBlocked, canonicalOrigin, getScheme, originVariants, verifyApprovedDomain } from 'octothorpes'
+import { isExcluded, canonicalOrigin, getScheme, originVariants, verifyApprovedDomain } from 'octothorpes'
 import { getProfile } from '$lib/profile.js'
 
 /**
@@ -44,8 +44,6 @@ const askAnyVariant = async (domain, predicate, object) => {
   ?origin ${predicate} ${object} .
 }`)
 }
-
-const domainBanned = async (domain) => await askAnyVariant(domain, 'octo:banned', '"true"')
 
 // Delegates to core so this and the indexer can never disagree about what
 // "verified" means (the old local ASK looked for a trailing-slash spelling the
@@ -151,11 +149,13 @@ export const actions = {
     }
     const { domain, fetchable } = parsedDomain
 
-    if (originBlocked(domain, blockedDomains)) {
+    // One core check for both exclusion sources (#310). Profile block keeps
+    // its 400 blocked:true; a runtime ban keeps 403 banned:true.
+    const { sources } = await isExcluded(domain, { blockedDomains, queryBoolean })
+    if (sources.includes('profile')) {
       return fail(400, { domain, blocked: true })
     }
-
-    if (await domainBanned(domain)) {
+    if (sources.includes('ban')) {
       return fail(403, { domain, banned: true })
     }
 

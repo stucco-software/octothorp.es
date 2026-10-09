@@ -5,6 +5,9 @@ import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
 const mockQueryBoolean = vi.fn()
+// #310: the indexer now ASKs for an octo:banned tombstone on every request.
+// These suites stub "verified" as a blanket true, so answer ban ASKs "no".
+const queryBooleanDep = async (q) => (String(q).includes("octo:banned") ? false : mockQueryBoolean(q))
 const mockQueryArray = vi.fn()
 
 const instance = 'http://localhost:5173/'
@@ -12,7 +15,7 @@ const instance = 'http://localhost:5173/'
 const makeIndexer = () => createIndexer({
   insert: mockInsert,
   query: mockQuery,
-  queryBoolean: mockQueryBoolean,
+  queryBoolean: queryBooleanDep,
   queryArray: mockQueryArray,
   instance,
 })
@@ -380,7 +383,7 @@ describe('createIndexer dispatch', () => {
     })
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
 
@@ -396,7 +399,7 @@ describe('createIndexer dispatch', () => {
     })
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
 
@@ -412,7 +415,7 @@ describe('createIndexer dispatch', () => {
     )
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
 
@@ -424,7 +427,7 @@ describe('createIndexer dispatch', () => {
     const registry = makeRegistry({})
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
 
@@ -440,7 +443,7 @@ describe('createIndexer dispatch', () => {
     })
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
 
@@ -455,7 +458,7 @@ describe('createIndexer dispatch', () => {
     })
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
 
@@ -481,7 +484,7 @@ describe('dispatch parse cache is keyed on the parsing handler', () => {
 
   const makeIndexerWith = (registry) => createIndexer({
     insert: mockInsert, query: mockQuery,
-    queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+    queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
     instance, handlerRegistry: registry,
   })
 
@@ -530,7 +533,7 @@ describe('dispatch default handler', () => {
     const registry = makeRegistry({ json: { mode: 'json', contentTypes: [], harmonize } }, 'json')
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
     await indexer.dispatch({ content: '{}', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
@@ -542,7 +545,7 @@ describe('dispatch default handler', () => {
     const registry = makeRegistry({ null: { mode: 'null', contentTypes: [], harmonize: nullHarmonize } }, null)
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
     const result = await indexer.dispatch({ content: 'anything', contentType: 'application/unknown', document: null }, 'default', 'https://e.com/p')
@@ -554,7 +557,7 @@ describe('dispatch default handler', () => {
     const registry = makeRegistry({ null: { mode: 'null', contentTypes: [], harmonize: vi.fn() } }, null)
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
     await expect(
@@ -566,7 +569,7 @@ describe('dispatch default handler', () => {
     const registry = makeRegistry({}, null)
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: registry,
     })
     await expect(
@@ -606,7 +609,7 @@ describe('handler() routes policy and dispatch through the registry', () => {
 
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: setupRegistry(harmonize),
     })
 
@@ -618,7 +621,7 @@ describe('handler() routes policy and dispatch through the registry', () => {
       {
         instance,
         serverName: instance,
-        queryBoolean: mockQueryBoolean,
+        queryBoolean: queryBooleanDep,
         verifyOrigin: async () => true,
         policyMode: 'active',
       }
@@ -640,7 +643,7 @@ describe('handler() routes policy and dispatch through the registry', () => {
 
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
-      queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
+      queryBoolean: queryBooleanDep, queryArray: mockQueryArray,
       instance, handlerRegistry: setupRegistry(harmonize),
     })
 
@@ -651,7 +654,7 @@ describe('handler() routes policy and dispatch through the registry', () => {
       {
         instance,
         serverName: instance,
-        queryBoolean: mockQueryBoolean,
+        queryBoolean: queryBooleanDep,
         verifyOrigin: async () => true,
       }
     )).rejects.toThrow(/not opted in/i)
