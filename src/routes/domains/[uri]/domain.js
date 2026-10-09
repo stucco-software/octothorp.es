@@ -7,20 +7,35 @@ import { op } from '$lib/op.js'
 // this domain are excluded.
 const typeLabel = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Link'
 
-export async function loadDomain(uri) {
+// Pages are paginated via `?offset=` (same param as /explore and the /get API).
+// PAGE_SIZE matches core's default limit (multipass.js). We ask for one extra
+// subject to learn whether a next page exists without a count query.
+export const PAGE_SIZE = 100
+// Terms per domain are few; the sidebar keeps a high cap and is not paginated.
+const TERM_LIMIT = '1000'
+
+export function parseOffset(searchParams) {
+  const n = parseInt(searchParams?.get('offset') ?? '0', 10)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+export async function loadDomain(uri, searchParams) {
   const domain = decodeURIComponent(uri)
-  const q = { s: domain, match: 'origin', limit: '1000' }
+  const offset = parseOffset(searchParams)
+  const q = { s: domain, match: 'origin' }
   let pageRes, termRes
   try {
     ;[pageRes, termRes] = await Promise.all([
-      op.get({ what: 'everything', by: 'posted', ...q }),
-      op.get({ what: 'thorpes', by: 'thorped', ...q }),
+      op.get({ what: 'everything', by: 'posted', ...q, limit: String(PAGE_SIZE + 1), offset: String(offset) }),
+      op.get({ what: 'thorpes', by: 'thorped', ...q, limit: TERM_LIMIT }),
     ])
   } catch (e) {
     if (isQueryError(e) || /sparql|scheme/i.test(e.message)) throw error(400, e.message)
     throw e
   }
-  const pages = (pageRes.results ?? []).map(p => ({
+  const all = pageRes.results ?? []
+  const hasNext = all.length > PAGE_SIZE
+  const pages = all.slice(0, PAGE_SIZE).map(p => ({
     ...p,
     octothorpes: (p.octothorpes ?? []).map(t => typeof t === 'string' ? t : { ...t, type: typeLabel(t.type) }),
   }))
@@ -30,5 +45,5 @@ export async function loadDomain(uri) {
       if (typeof t === 'object' && t.uri) thorpes.push({ term: t.uri, type: t.type })
     }
   }
-  return { domain, pages, thorpes }
+  return { domain, pages, thorpes, offset, pageSize: PAGE_SIZE, hasNext }
 }

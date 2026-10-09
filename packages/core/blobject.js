@@ -202,9 +202,13 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
     );
   }
 
-  const output = limit === 0 ? filteredMap : Object.fromEntries(Object.entries(filteredMap).slice(offset, limit));
-
-  return Object.values(output);
+  // limit/offset arrive as strings from MultiPass. slice() takes an END index,
+  // so the window is [offset, offset + limit) — slice(offset, limit) returned
+  // nothing past page one (#185). limit 0 / 'no-limit' / non-numeric = unbounded.
+  const all = Object.values(filteredMap)
+  const off = Math.max(0, parseInt(offset, 10) || 0)
+  const lim = parseInt(limit, 10)
+  return lim > 0 ? all.slice(off, off + lim) : all.slice(off)
 }
 
 /**

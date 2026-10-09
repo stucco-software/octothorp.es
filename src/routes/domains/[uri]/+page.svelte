@@ -1,6 +1,7 @@
 <script type="text/javascript">
   import { goto } from '$app/navigation'
   import { browser } from '$app/environment'
+  import { page } from '$app/stores'
   import RSSFeed from '$lib/components/RSSFeed.svelte'
   import ResultCard from '$lib/components/ResultCard.svelte'
 
@@ -9,6 +10,20 @@
   $: domain = data.domain
   $: thorpes = data.thorpes
   $: pages = data.pages
+  $: offset = data.offset ?? 0
+  $: pageSize = data.pageSize
+  $: hasNext = data.hasNext
+  $: rangeStart = pages.length ? offset + 1 : 0
+  $: rangeEnd = offset + pages.length
+
+  // Prev/next keep every other search param (e.g. ?o=) and only move offset.
+  $: offsetHref = (n) => {
+    const params = new URLSearchParams($page.url.search)
+    if (n > 0) params.set('offset', String(n))
+    else params.delete('offset')
+    const qs = params.toString()
+    return qs ? `?${qs}` : '?'
+  }
 
   let selectedTerm = null
 
@@ -170,7 +185,7 @@
           <summary>Debug</summary>
           <div class="debug-content">
             <p><a href={`/get/thorpes/thorped?s=${encodeURIComponent(domain)}&match=origin`} target="_blank" rel="noopener noreferrer">Thorpes API</a></p>
-            <p><a href={`/get/everything/posted?s=${encodeURIComponent(domain)}&match=origin&limit=1000`} target="_blank" rel="noopener noreferrer">Pages API</a></p>
+            <p><a href={`/get/everything/posted?s=${encodeURIComponent(domain)}&match=origin&limit=${pageSize}&offset=${offset}`} target="_blank" rel="noopener noreferrer">Pages API</a></p>
           </div>
         </details>
       </aside>
@@ -181,9 +196,9 @@
           <h2>Pages</h2>
           <p class="page-count">
             {#if selectedTerm}
-              Showing {filteredPages.length} of {pages.length} pages with #{selectedTerm}
+              Showing {filteredPages.length} of {pages.length} pages on this page with #{selectedTerm}
             {:else}
-              {pages.length} pages
+              Pages {rangeStart}–{rangeEnd}
             {/if}
           </p>
         </div>
@@ -213,6 +228,16 @@
               </ResultCard>
             {/each}
           </div>
+          {#if offset > 0 || hasNext}
+            <nav class="pager">
+              {#if offset > 0}
+                <a class="tag" href={offsetHref(Math.max(0, offset - pageSize))}>&larr; Newer</a>
+              {/if}
+              {#if hasNext}
+                <a class="tag" href={offsetHref(offset + pageSize)}>Older &rarr;</a>
+              {/if}
+            </nav>
+          {/if}
         {:else if selectedTerm}
           <p class="no-data">No pages found with #{selectedTerm}</p>
         {:else}
@@ -407,6 +432,12 @@
 
   .tag-small.tag-link {
     background-color: #e8f8e8;
+  }
+
+  .pager {
+    display: flex;
+    justify-content: space-between;
+    margin-block-start: 1rem;
   }
 
   .no-data {

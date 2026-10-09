@@ -39,3 +39,25 @@ describe('getBlobjectFromResponse - source-anchored blank nodes', () => {
     expect(pageEntry.terms).toContain('gadgets')
   })
 })
+
+describe('getBlobjectFromResponse - limit/offset window (#185)', () => {
+  const response = {
+    results: {
+      bindings: ['a', 'b', 'c', 'd', 'e'].map(id => ({
+        s: { type: 'uri', value: `https://example.com/${id}` },
+      })),
+    },
+  }
+  const ids = (r) => r.map(b => b['@id'].split('/').pop())
+
+  it('returns [offset, offset + limit) with MultiPass string params', async () => {
+    expect(ids(await getBlobjectFromResponse(response, { limitResults: '2', offsetResults: '0' }))).toEqual(['a', 'b'])
+    expect(ids(await getBlobjectFromResponse(response, { limitResults: '2', offsetResults: '2' }))).toEqual(['c', 'd'])
+    expect(ids(await getBlobjectFromResponse(response, { limitResults: '2', offsetResults: '4' }))).toEqual(['e'])
+  })
+
+  it('treats limit 0 / no-limit as unbounded, still honouring offset', async () => {
+    expect(ids(await getBlobjectFromResponse(response, { limitResults: '0', offsetResults: '0' }))).toHaveLength(5)
+    expect(ids(await getBlobjectFromResponse(response, { limitResults: 'no-limit', offsetResults: '3' }))).toEqual(['d', 'e'])
+  })
+})
