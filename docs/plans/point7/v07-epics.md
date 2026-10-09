@@ -146,6 +146,23 @@ Deployed on staging. Lightly tested.
 * [ ] Re-test demos
 * [ ] Add demos to smoketest
 
+# Port main's post-freeze work
+
+Epic: **310**
+
+### Status
+
+Code-complete on development. Remaining: click through /admin in a running app; decide the octo-store default-server port.
+
+### TODO:
+
+* [x] Test fixes from main + component rebuild
+* [x] Core bans + unified isExcluded gate
+* [x] /admin routes (approve, ban, unban)
+* [x] Railway env/docs rewrite for the profile system
+* [ ] Manual /admin check in a running app
+* [ ] Decide: octo-store fetch default stays hardcoded or becomes script origin
+
 # UI
 
 Catch-all bucket. Includes the Domain Pages Overhaul epic (218) rather than giving it its own section.
