@@ -1,5 +1,6 @@
 import { getFuzzyTags, termIri } from './utils.js'
 import { QueryError } from './errors.js'
+import { originVariants } from './uri.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -179,6 +180,10 @@ export const createQueryBuilders = (instance, queryArray) => {
                  ?parents octo:hasMember ?sdomain .
                  ?sdomain octo:hasPart ?s.`
           break
+        case 'byOrigin':
+          includeStatement = `VALUES ?sorigin { ${formatUris(includeList.flatMap(originVariants))} }
+                 ?sorigin octo:hasPart ?s .`
+          break
         default:
       }
     }
@@ -198,6 +203,12 @@ export const createQueryBuilders = (instance, queryArray) => {
             VALUES ?unwantedParents { ${formatUris(excludeList)} }
             ?unwantedParents octo:hasMember ?sdomain .
             ?sdomain octo:hasPart ?s.
+          }`
+          break
+        case 'byOrigin':
+          excludeStatement = `  FILTER NOT EXISTS {
+            VALUES ?unwantedOrigins { ${formatUris(excludeList.flatMap(originVariants))} }
+            ?unwantedOrigins octo:hasPart ?s .
           }`
           break
         default:
@@ -483,12 +494,19 @@ export const createQueryBuilders = (instance, queryArray) => {
     const dr = buildDocumentRecordClauses(documentRecordSchema)
     let noObjectHandler = ""
 
+    // #202: a page first written as a link target never gets octo:created, even
+    // after it is indexed itself. Under byOrigin the hasPart edge already proves
+    // ownership, so created is only a date there, not a gate.
+    const createdClause = subjects.mode === 'byOrigin'
+      ? `?s rdf:type ?pageType .
+        OPTIONAL { ?s octo:created ?date . }`
+      : `?s octo:created ?date .
+        ?s rdf:type ?pageType .`
     if (objects.type === 'none') {
       noObjectHandler = `UNION
       {
         ${statements.subjectStatement}
-        ?s octo:created ?date .
-        ?s rdf:type ?pageType .
+        ${createdClause}
         OPTIONAL { ?s octo:title ?title }
         OPTIONAL { ?s octo:image ?image }
         OPTIONAL { ?s octo:description ?description }
@@ -584,6 +602,9 @@ export const createQueryBuilders = (instance, queryArray) => {
       OPTIONAL { ?o octo:title ?ot . }
       OPTIONAL { ?o octo:description ?od . }
       OPTIONAL { ?o octo:image ?oimg . }
+    ` : subjects.mode === 'byOrigin' ? `
+      ?s rdf:type ?pageType .
+      OPTIONAL { ?s octo:created ?date . }
     ` : `
       ?s octo:created ?date .
       ?s rdf:type ?pageType .

@@ -68,6 +68,7 @@ export const MATCH_VALUES = [
   'fuzzy-object',
   'fuzzy-s',
   'fuzzy-subject',
+  'origin',
   'very-fuzzy',
   'very-fuzzy-o',
   'very-fuzzy-object',

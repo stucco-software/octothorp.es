@@ -431,3 +431,57 @@ describe('exclusion params (not-s) — issue #211', () => {
     expect(query).toContain('demo.ideastore.dev')
   })
 })
+
+describe('match=origin anchors subjects on octo:hasPart (#202)', () => {
+  const instance = 'http://localhost:5173/'
+  const builders = createQueryBuilders(instance)
+
+  it('buildMultiPass maps match=origin to byOrigin subject mode', () => {
+    const mp = buildMultiPass('everything', 'posted', { s: 'https://example.com', match: 'origin' }, instance)
+    expect(mp.subjects.mode).toBe('byOrigin')
+    expect(mp.subjects.include).toEqual(['https://example.com'])
+  })
+
+  it('everything/posted phase-1 subject query requires <origin> octo:hasPart ?s, no substring match', async () => {
+    // Ghost page: a link target on the domain gets `rdf:type octo:Page` +
+    // `octo:created` but no hasPart edge. Phase 1 of buildEverythingQuery picks
+    // subjects; it must only admit pages the origin owns.
+    const seen = []
+    const stub = async (q) => { seen.push(q); return { results: { bindings: [] } } }
+    const b = createQueryBuilders(instance, stub)
+    const mp = buildMultiPass('everything', 'posted', { s: 'https://example.com', match: 'origin' }, instance)
+    await b.buildEverythingQuery(mp)
+    const phase1 = seen[0]
+    expect(phase1).toContain('?sorigin octo:hasPart ?s')
+    expect(phase1).toContain('<https://example.com>')
+    expect(phase1).toContain('<https://www.example.com/>')
+    expect(phase1).not.toContain('CONTAINS(STR(?s)')
+    expect(phase1).toContain('ORDER BY DESC(COALESCE(?postDate, ?date))')
+    // An owned page first seen as a link target has no octo:created; under
+    // byOrigin, created is optional so that page is still listed.
+    expect(phase1).toContain('OPTIONAL { ?s octo:created ?date . }')
+  })
+
+  it('posted without origin match still gates on octo:created', () => {
+    const mp = buildMultiPass('everything', 'posted', { s: 'example.com', match: 'fuzzy-s' }, instance)
+    const q = builders.buildSimpleQuery(mp)
+    expect(q).toContain('?s octo:created ?date .')
+    expect(q).not.toContain('OPTIONAL { ?s octo:created')
+  })
+
+  it('thorpes/thorped is anchored the same way', () => {
+    const mp = buildMultiPass('thorpes', 'thorped', { s: 'https://example.com', match: 'origin' }, instance)
+    expect(builders.buildThorpeQuery(mp)).toContain('?sorigin octo:hasPart ?s')
+  })
+
+  it('notS excludes by origin ownership', () => {
+    const r = builders.getStatements(
+      { include: [], exclude: ['https://example.com'], mode: 'byOrigin' },
+      { include: [], exclude: [], mode: 'exact', type: 'none' },
+      { limitResults: '100', offsetResults: '0' },
+      'blobjects'
+    )
+    expect(r.subjectStatement).toContain('FILTER NOT EXISTS')
+    expect(r.subjectStatement).toContain('?unwantedOrigins octo:hasPart ?s')
+  })
+})

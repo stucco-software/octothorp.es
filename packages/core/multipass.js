@@ -122,6 +122,14 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
         s = cleanInputs(subjects)
         notS = cleanInputs(notSubjects)
         break;
+      // #202: subjects are origins; match pages the origin owns
+      // (`<origin> octo:hasPart ?s`), never by substring. Link targets that
+      // merely live on the domain have no hasPart edge, so they stay out.
+      case "origin":
+        subjectMode = "byOrigin"
+        s = cleanInputs(subjects, "exact")
+        notS = cleanInputs(notSubjects, "exact")
+        break;
       case "fuzzy-o":
       case "fuzzy-object":
         objectMode = "fuzzy"

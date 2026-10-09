@@ -1,21 +1,11 @@
-import { queryArray } from '$lib/sparql.js'
+import { op } from '$lib/op.js'
 
-export async function load(req) {
+export async function load() {
   let domains = []
   try {
-    const response = await queryArray(`select * {
-      ?d rdf:type <octo:Origin> .
-      ?d octo:verified "true" .
-      optional { ?d octo:banned ?b . }
-    }`)
-
-    domains = response.results.bindings
-      .filter(node => !node.b)
-      .map(node => node.d.value)
+    domains = (await op.getfast.domains()).map(node => node.d.value)
   } catch (e) {
     console.log(e)
   }
-  return {
-    domains
-  }
+  return { domains }
 }

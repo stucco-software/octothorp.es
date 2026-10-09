@@ -7,7 +7,6 @@
   export let data
 
   $: domain = data.domain
-  $: domainForQuery = data.domainForQuery
   $: thorpes = data.thorpes
   $: pages = data.pages
 
@@ -30,7 +29,7 @@
     : pages
 
   // Update URL params when selected term changes
-  $: if (browser && domainForQuery) {
+  $: if (browser && domain) {
     const url = new URL(window.location.href)
     if (selectedTerm) {
       url.searchParams.set('o', selectedTerm)
@@ -170,8 +169,8 @@
         <details class="debug-panel">
           <summary>Debug</summary>
           <div class="debug-content">
-            <p><a href={`/get/thorpes/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s`} target="_blank" rel="noopener noreferrer">Thorpes API</a></p>
-            <p><a href={`/get/everything/thorped?s=${encodeURIComponent(domainForQuery)}&match=fuzzy-s&limit=1000`} target="_blank" rel="noopener noreferrer">Pages API</a></p>
+            <p><a href={`/get/thorpes/thorped?s=${encodeURIComponent(domain)}&match=origin`} target="_blank" rel="noopener noreferrer">Thorpes API</a></p>
+            <p><a href={`/get/everything/posted?s=${encodeURIComponent(domain)}&match=origin&limit=1000`} target="_blank" rel="noopener noreferrer">Pages API</a></p>
           </div>
         </details>
       </aside>
