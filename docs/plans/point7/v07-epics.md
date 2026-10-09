@@ -135,7 +135,8 @@ Deployed on staging. Lightly tested.
 * [x] 279 - post-merge fixes from the 245 review
 * [x] 300 - site harmonizers/handlers/publishers missing from the Vercel bundle
 * [x] 285 - terms with spaces crash indexing. Needed by WWO day 29.
-* [ ] 275 - canonical www origins. Shipped; one manual www-indexing check on a deploy remains (#307).
+* [ ] 275 - canonical www origins. Verified on next; close with #307.
+* [ ] 309 - SvelteKit side reads instance from .env, not the resolved profile. Pulled into the cutover for the Railway deploy test.
 * [x] 282 - /get planner slowdown
 
 ### TODO:

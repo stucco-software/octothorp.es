@@ -10,6 +10,7 @@ The cutover source is `development` (merge-prep merged back via PR #308). Stagin
 - [ ] Pin the Oxigraph image to the version tested on next. Production runs 0.3 on an unpinned `latest`; next tested on 0.4, and #282 was a 0.4-only bug.
 - [ ] Dump the production triplestore. The archive tag rolls back code, not data.
 - [ ] Close #307 and #275 (both verified; note the scheme caveat on #276/#277 when closing #275).
+- [ ] #309: the SvelteKit side reads the resolved profile's `identity.instance`, not raw `.env`. Pulled forward because the Railway one-click deploy test needs it.
 
 ## The switch
 
@@ -26,4 +27,3 @@ The cutover source is `development` (merge-prep merged back via PR #308). Stagin
 
 - RDF-star (270) → Deletion (271) → Batch Indexing (274), then docs/demos for the Profile, Handlers, and Publishers epics.
 - Read-side domain listings filter only `octo:banned`, not profile blocks (#310 notes).
-- #309 (`instance` read from `.env` instead of the profile).
