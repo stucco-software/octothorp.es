@@ -1357,3 +1357,9 @@ Every SvelteKit reader of `instance` now uses `getProfile().identity.instance` (
 The pages list shows 100 per page (core's default limit), with Newer/Older links driven by `?offset=`. Other params such as `?o=` are kept. The sidebar term query keeps a 1000 cap and is not paginated. The route asks for 101 results to work out whether there is a next page, so no count query is needed. The JSON endpoint also takes `?offset=` and returns `offset`, `pageSize` and `hasNext`. Core bug fixed: `getBlobjectFromResponse` sliced with `slice(offset, limit)` instead of `slice(offset, offset + limit)`, so every `everything/*` query with offset ≥ limit returned nothing. `limit=0`/`no-limit` now return all results instead of none.
 
 **Files affected:** `packages/core/blobject.js`, `src/routes/domains/[uri]/{domain.js,+page.server.js,+server.js,+page.svelte}`, `src/tests/blobject.test.js`.
+
+## Numeric domain aliases: /domains/<n> (#191, epic #218 step 3, 2026-10-09)
+
+Verified origins get `octo:siteNum` (string, MAX+1, never reused, idempotent), minted by core `mintSiteNum` at the end of `ingestBlobject` (skipped for endorsement-only admissions) and in `createVerifiedOrigin`/`approveOrigin` (admin approve). `/domains/<digits>` 307-redirects to `/domains/<encoded-origin>` via `originBySiteNum`, 404 if unknown. The `/domains` list shows `#n` links. Existing origins get a number on their next index; there is no backfill. Concurrent mints can collide (accepted).
+
+**Files affected:** `packages/core/{origin.js,indexer.js,client.js,api.js}`, `src/lib/admin.js`, `src/routes/domains/{load.js,+page.svelte}`, `src/routes/domains/[uri]/{domain.js,+page.server.js,+server.js}`, `src/tests/{siteNum,exports,indexerEndorsement}.test.js`.

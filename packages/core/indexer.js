@@ -8,7 +8,7 @@ import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
-import { verifiedOrigin, isExcluded } from './origin.js'
+import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -950,6 +950,17 @@ export const createIndexer = (deps) => {
           return false
         })
         await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
+      }
+    }
+
+    // #191: give a newly registered origin its numeric alias. No-op unless the
+    // origin node is a verified octo:Origin without a number. Never for an
+    // endorsement-only admission (no origin triples are written then).
+    if (!endorsed && /^https?:/.test(s)) {
+      try {
+        await mintSiteNum(storedOrigin(s), { query })
+      } catch (e) {
+        console.error('siteNum mint failed:', e)
       }
     }
 

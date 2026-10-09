@@ -63,7 +63,7 @@ export const adminApprove = async (domain) => {
   if (approveDisabled()) return 'registration-closed'
   if (await originBanned(domain, { queryBoolean })) return 'banned'
   if (await verifyApprovedDomain(domain, { queryBoolean })) return 'already-verified'
-  await approveOrigin(domain, { insert })
+  await approveOrigin(domain, { insert, query })
   return 'approved'
 }
 

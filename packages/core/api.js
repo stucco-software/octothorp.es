@@ -171,6 +171,7 @@ export const createApi = (config) => {
         ?d rdf:type <octo:Origin> .
         ?d octo:verified "true" .
         optional { ?d octo:banned ?b . }
+        optional { ?d octo:siteNum ?siteNum . }
       }`)
       return sr.results.bindings.filter(node => !node.b)
     },

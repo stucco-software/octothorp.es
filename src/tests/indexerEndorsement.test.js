@@ -160,6 +160,8 @@ describe('indexer: an endorsed admission does not register its origin', () => {
     expect(out).toContain(`<${origin}> octo:hasPart <${pageUri}>`)
     expect(out).not.toContain(`<${origin}> octo:verified`)
     expect(out).not.toContain(`<${origin}> rdf:type <octo:Origin>`)
+    // #191: no siteNum for an endorsement-only admission.
+    expect(mockQuery.mock.calls.map((c) => c[0]).join('\n')).not.toContain('octo:siteNum')
   })
 
   it('registered: still writes verified / Origin', async () => {
@@ -176,5 +178,9 @@ describe('indexer: an endorsed admission does not register its origin', () => {
     expect(out).toContain(`<${origin}> octo:hasPart <${pageUri}>`)
     expect(out).toContain(`<${origin}> octo:verified "true"`)
     expect(out).toContain(`<${origin}> rdf:type <octo:Origin>`)
+    // #191: a registered origin gets a siteNum mint for its canonical node.
+    const mints = mockQuery.mock.calls.map((c) => c[0]).filter((q) => q.includes('octo:siteNum ?n'))
+    expect(mints).toHaveLength(1)
+    expect(mints[0]).toContain(`insert { <${origin}> octo:siteNum ?n . }`)
   })
 })

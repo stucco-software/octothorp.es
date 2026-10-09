@@ -46,6 +46,7 @@
       <li>
         <span class="domain-item">
           <a href="/domains/{encodeURIComponent(domain)}">{domain}</a>
+          {#if data.siteNums?.[domain]}<a href="/domains/{data.siteNums[domain]}" class="site-num" title="Short link">#{data.siteNums[domain]}</a>{/if}
           <a href={domain} target="_blank" rel="noopener noreferrer" class="link-out" title="Visit {domain}">↗</a>
         </span>
       </li>

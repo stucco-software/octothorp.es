@@ -87,18 +87,62 @@ export const isExcluded = async (origin, { blockedDomains = [], queryBoolean }) 
  * @param {string} origin - canonical origin
  * @param {{insert:Function}} deps
  */
-export const createVerifiedOrigin = async (origin, { insert }) => {
-  return await insert(`
+export const createVerifiedOrigin = async (origin, { insert, query }) => {
+  const result = await insert(`
     <${origin}> rdf:type <octo:Origin> .
     <${origin}> octo:verified "true" .
   `)
+  if (query) await mintSiteNum(origin, { query })
+  return result
 }
 
 /**
  * Admin approval: mark an origin verified. Under registration 'closed' this
  * has no effect on the gate (the whitelist decides) — callers surface that.
  */
-export const approveOrigin = async (origin, { insert }) => createVerifiedOrigin(origin, { insert })
+export const approveOrigin = async (origin, { insert, query }) => createVerifiedOrigin(origin, { insert, query })
+
+/**
+ * Build the SPARQL Update that gives an origin its numeric alias (#191):
+ * octo:siteNum = MAX(existing) + 1, as a string literal. A no-op when the
+ * origin already has a number (idempotent re-registration) or is not a
+ * verified octo:Origin. Numbers are never reused: MAX ignores gaps.
+ * Race: two concurrent mints can read the same MAX and collide; accepted —
+ * registrations are rare and a collision is fixable by hand.
+ */
+export const siteNumMintQuery = (origin) => `
+  insert { <${origin}> octo:siteNum ?n . }
+  where {
+    <${origin}> rdf:type <octo:Origin> ; octo:verified "true" .
+    filter not exists { <${origin}> octo:siteNum ?existing . }
+    {
+      select (str(coalesce(max(<http://www.w3.org/2001/XMLSchema#integer>(?sn)), 0) + 1) as ?n)
+      where { optional { ?any octo:siteNum ?sn . filter(regex(str(?sn), "^[0-9]+$")) } }
+    }
+  }
+`
+
+/**
+ * Mint a siteNum for an origin (one SPARQL round trip). See siteNumMintQuery.
+ * @param {string} origin - canonical origin
+ * @param {{query:Function}} deps - SPARQL Update function
+ */
+export const mintSiteNum = async (origin, { query }) => query(siteNumMintQuery(origin))
+
+/**
+ * Resolve a siteNum to its origin URI, or null when no origin has it.
+ * @param {string|number} num
+ * @param {{queryArray:Function}} deps
+ * @returns {Promise<string|null>}
+ */
+export const originBySiteNum = async (num, { queryArray }) => {
+  const n = String(num)
+  if (!/^\d+$/.test(n)) return null
+  const res = await queryArray(`
+    select ?origin where { ?origin octo:siteNum "${n}" . } limit 1
+  `)
+  return res?.results?.bindings?.[0]?.origin?.value ?? null
+}
 
 /**
  * Ban + purge an origin. Order matters: delete the origin's pages (under any

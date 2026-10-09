@@ -1,6 +1,18 @@
-import { error } from '@sveltejs/kit'
-import { isQueryError } from 'octothorpes'
+import { error, redirect } from '@sveltejs/kit'
+import { isQueryError, originBySiteNum } from 'octothorpes'
 import { op } from '$lib/op.js'
+import { queryArray } from '$lib/sparql.js'
+
+// #191: /domains/<n> is a numeric alias. Resolve it and 307 to the canonical
+// /domains/<encoded-origin> URL (query string kept) so only one URL shape is
+// canonical. 404 when no origin has that number. Non-digit params pass through.
+export async function resolveSiteNum(uri, url) {
+  if (!/^\d+$/.test(uri)) return
+  const origin = await originBySiteNum(uri, { queryArray })
+  if (!origin) throw error(404, `No domain has number ${uri}`)
+  const base = url.pathname.replace(/[^/]+$/, encodeURIComponent(origin))
+  throw redirect(307, base + url.search)
+}
 
 // Shared by the page and its JSON endpoint. `match: 'origin'` anchors on
 // `<origin> octo:hasPart ?s` (#202), so pages that are only link targets on

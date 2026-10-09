@@ -1,3 +1,6 @@
-import { loadDomain } from './domain.js'
+import { loadDomain, resolveSiteNum } from './domain.js'
 
-export const load = ({ params, url }) => loadDomain(params.uri, url.searchParams)
+export const load = async ({ params, url }) => {
+  await resolveSiteNum(params.uri, url)
+  return loadDomain(params.uri, url.searchParams)
+}

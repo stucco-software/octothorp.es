@@ -32,6 +32,8 @@ describe('octothorpes package exports', () => {
     'canonicalOrigin', 'originVariants', 'termName',
     // runtime bans (#310)
     'isExcluded', 'originBanned', 'banOrigin', 'unbanOrigin', 'approveOrigin', 'createVerifiedOrigin',
+    // siteNum aliases (#191)
+    'mintSiteNum', 'siteNumMintQuery', 'originBySiteNum',
   ]
 
   it('should export all expected functions', () => {
