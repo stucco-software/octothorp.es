@@ -31,6 +31,34 @@ Code-complete and merged; epic closed. Docs and demos remain.
 * [ ] Re-test demos
 * [ ] Add demos to smoketest
 
+# Vocabulary and Ontology
+
+Epic: **316**
+
+### Status
+
+Almost nothing built. `packages/core/vocabulary.js` does not exist; no SKOS triple is emitted; `/vocab` is hand-written and stale; declared namespaces are inert. Scope was spread across four design docs and two milestones until 2026-10-13.
+
+### Issues — independent of 270, workable now
+
+* [ ] 195 - the registry module plus the spec §4 naming fixes. Blocker for 291 and 286.
+* [ ] 291 - generated vocabulary document at `{instance}/vocabulary`. Also owns the stored-type IRI-form decision, moved here from 195/270.
+* [ ] 315 - declared `vocabulary.namespaces` never reach SPARQL; `import: true` unimplemented. Blocks 286 in practice.
+* [ ] 286 - SKOS terms, additive. Independent of 270.
+* [ ] 249 - harmonizer/publisher envelope normalization. Lives only on branch `249-envelope-normalization`; decide whether to land or abandon.
+
+### Waits on 270
+
+`context.json` regeneration; 192 content labels; the JSON-LD publisher endpoint and the `@id`→`uri` rename (both deliberately unticketed).
+
+### Deferred
+
+194 (client vocab reshapes the blobject; superseded), 250, the SKOS federation layer, the canonical normalization function, CDRs.
+
+### Gating unknown
+
+Oxigraph's SPARQL-star surface is unverified on the deployed image. Entangled with 298. Short probe; it gates 270 and therefore the larger half of this epic.
+
 # RDF-Star Relationship Model Migration
 
 Epic: **270**

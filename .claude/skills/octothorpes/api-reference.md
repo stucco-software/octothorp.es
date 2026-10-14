@@ -27,7 +27,7 @@ Multiple aliases map to the same result mode:
 
 ### Subtype Paths (#236)
 
-A relay's `profile.json` can declare `api.linkTypes[]` as `{ by, subtype, objects?, label? }` (e.g. `{ by: "itemed", subtype: "Item", label: "is an item in" }`). Each declared entry EXTENDS core's builtin `by` table (`packages/core/linkTypes.js`, `mergeLinkTypes`), so `/get/everything/itemed` resolves as a normal blobject query constrained by `FILTER EXISTS { … rdf:type <octo:Item> }`. `/get/<what>/<by>` is the only route form; the old `path` alias in the `[what]` slot was removed 2026-09-16.
+A relay's `profile.json` can declare `api.linkTypes[]` as `{ by, subtype, objects?, label? }` (e.g. `{ by: "reviewed", subtype: "Review", label: "reviews" }`). Each declared entry EXTENDS core's builtin `by` table (`packages/core/linkTypes.js`, `mergeLinkTypes`), so `/get/everything/reviewed` resolves as a normal blobject query constrained by `FILTER EXISTS { … rdf:type <octo:Review> }`. `/get/<what>/<by>` is the only route form; the old `path` alias in the `[what]` slot was removed 2026-09-16.
 
 `getStatements` (`packages/core/queryBuilders.js`) admits a query with **no** subject and **no** object as long as `filters.subtype` is set — the subtype filter alone is a bounding constraint.
 
