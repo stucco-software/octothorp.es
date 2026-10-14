@@ -136,7 +136,7 @@ Deployed on staging. Lightly tested.
 * [x] 300 - site harmonizers/handlers/publishers missing from the Vercel bundle
 * [x] 285 - terms with spaces crash indexing. Needed by WWO day 29.
 * [ ] 275 - canonical www origins. Verified on next; close with #307.
-* [ ] 309 - SvelteKit side reads instance from .env, not the resolved profile. Pulled into the cutover for the Railway deploy test.
+* [x] 309 - SvelteKit side reads instance from the resolved profile (db0eb86). Pulled into the cutover for the Railway deploy test.
 * [x] 282 - /get planner slowdown
 
 ### TODO:
@@ -197,7 +197,8 @@ Not started.
 
 * [ ] 200 - ?st= param to query by arbitrary relationship subtype
 * [ ] 204 - typed errors from core indexer with HTTP status codes
-* [ ] 244 - replace getStatements guard with query-validity + pagination policy
+* [x] 244 - closed 2026-10-13, out of milestone. Stale 500 claim; validity matrix dropped as redundant with 312.
+* [ ] 313 - cap limit on subject/object-less shapes; reword the unbounded-query error. Split out of 244.
 * [ ] 266 - /get/domains/posted ignores s=
 * [ ] 213 - wire endorsement gating in handleMention. Design-heavy, deferred.
 

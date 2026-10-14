@@ -10,7 +10,8 @@ The cutover source is `development` (merge-prep merged back via PR #308). Stagin
 - [ ] Pin the Oxigraph image to the version tested on next. Production runs 0.3 on an unpinned `latest`; next tested on 0.4, and #282 was a 0.4-only bug.
 - [ ] Dump the production triplestore. The archive tag rolls back code, not data.
 - [ ] Close #307 and #275 (both verified; note the scheme caveat on #276/#277 when closing #275).
-- [ ] #309: the SvelteKit side reads the resolved profile's `identity.instance`, not raw `.env`. Pulled forward because the Railway one-click deploy test needs it.
+- [x] #309: the SvelteKit side reads the resolved profile's `identity.instance`, not raw `.env` (db0eb86). Pulled forward because the Railway one-click deploy test needs it.
+- [ ] Verify the Domain Pages Overhaul (#218: #202, #185, #191) on staging, then close all four. Landed 2026-10-09, after this checklist was written. Follow-ups #311/#312 are not cutover-blocking.
 
 ## The switch
 
