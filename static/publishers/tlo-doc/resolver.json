@@ -1,0 +1,16 @@
+{
+  "context": "https://tinylittleoffice.com/",
+  "id": "https://octothorp.es/publishers/tlo-doc",
+  "type": "resolver",
+  "contentType": "application/json",
+  "meta": {
+    "name": "TLO Document",
+    "description": "One Tiny Little Office word-processor link per page, built from the title and documentRecord.richContent (under 2,000 characters)"
+  },
+  "schema": {
+    "url": { "from": "@id", "required": true },
+    "title": { "from": ["title", "@id"], "required": true },
+    "content": { "from": "documentRecord.richContent" },
+    "description": { "from": "description" }
+  }
+}

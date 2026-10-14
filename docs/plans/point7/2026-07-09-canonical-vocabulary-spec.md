@@ -26,7 +26,11 @@ The "three representations that don't agree" problem is real and stands, but the
 
 ## 3. Newly discovered disagreement: the `octo:` IRI form
 
-Found during #240 (C9/C14): relationship **types are stored as literal IRIs `<octo:Item>`** — scheme `octo`, *not* expanded — while vocab terms notionally expand to `https://vocab.octothorp.es#`. `documentRecordNamespaces` maps the `octo` prefix to the full IRI for documentRecord predicates, so the same nominal namespace has two on-disk forms depending on which subsystem wrote it. **This is a fourth naming inconsistency for the #195 table, and it has a data-migration cost whichever way it resolves.** Decision needed: normalize stored types to expanded IRIs (migration touches every typed relationship — natural to bundle with the Wave 4.5 rewrite, which already rewrites those blank nodes), or bless the compact form as canonical and document it. **Recommendation: normalize during Wave 4.5's data migration — it's rewriting every typed-relationship node anyway.**
+**Restated 2026-10-13.** Types are stored as unexpanded IRIs — `<octo:Term>`, `<octo:Page>`, `<octo:Origin>`, `<octo:Webring>`, and `<octo:${subtype}>` for every declared subtype (`packages/core/indexer.js`) — and read back in the same form (`packages/core/queryBuilders.js`). Predicates meanwhile expand through `PREFIX octo:` to `https://vocab.octothorp.es#`, so the same nominal namespace has two on-disk forms depending on which subsystem wrote it. This is core's own type set, not a client extension; the original write-up framed it around a client-declared example, which was misleading.
+
+Write and read agree, so nothing is broken. Normalizing to expanded IRIs costs a migration touching every typed relationship in every store, and buys only dereferenceable type IRIs.
+
+**Status: open, scoped to #291.** The decision is not needed until the generated vocabulary document ships, because that document is the first consumer that has to state which form a type IRI takes. Removed from #195's Wave-2 slice and from #270's data-migration scope.
 
 ## 4. The vocab registry (#195 core deliverable)
 
@@ -55,7 +59,7 @@ Found during #240 (C9/C14): relationship **types are stored as literal IRIs `<oc
 | `date` in blobjects vs `indexed` in RDF | Vocab uses `indexed`; blobject projects it as `date`. Documented. |
 | `endorse`/`button` (lowercase) in harmonizer vs `Endorse`/`Button` (class) | Harmonizer schema keys stay lowercase (extraction config); vocab class + blobject type string capitalized. |
 | `challenge` in context.json | Keep — used for origin verification. |
-| **`<octo:Item>` compact IRI vs `https://vocab.octothorp.es#` expanded** (§3, found in #240) | Decision pending; recommend normalize during the Wave 4.5 data migration. |
+| **Unexpanded stored type IRIs (`<octo:Term>`) vs `https://vocab.octothorp.es#` expanded** (§3) | Open, scoped to #291. Nothing is broken; the generated vocab document is the first consumer that must state which form applies. |
 
 Known vocab bug to resolve while here: octothorp.es's own profile declares `sha256` under the `schema` namespace, but schema.org has no such property — either mint it in a `octo:`/`memex:` namespace or find the correct schema.org term. (Specific to the Memex work, not OP core.)
 
@@ -75,7 +79,7 @@ Known vocab bug to resolve while here: octothorp.es's own profile declares `sha2
 ## 6. Remaining open decisions (maintainer)
 
 1. **Vocab hosting.** Should `vocab.octothorp.es` (or `{instance}/vocabulary`) serve a dereferenceable RDF/JSON-LD document? Recommendation: yes, generated from the registry — cheap once the registry exists, pairs with the Wave 4.5 JSON-LD endpoint, and `profile.vocabularyDocument` already points at it. MAINTAINER ANSWER: yes. plan on `{instance}/vocabulary` now, vocab.octothorp.es as a default fallback later
-2. **§3 IRI-form normalization** — recommend bundling into Wave 4.5's migration (above).
+2. **§3 IRI-form normalization** — OPEN, reassigned 2026-10-13 to **#291**. Not bundled into #270's migration; nothing is broken, and the generated vocabulary document is the first consumer that has to commit to a form.
 3. **Harmonizer JSON-LD conformance** — **DECIDED 2026-07-09 (maintainer): discard `@context`; harmonizers are not linked data.** Refined in discussion (see §9): `id` and `type` STAY, without the `@` — they're load-bearing for addressing and validation. Work item: **#249**. Cross-relay rescoping (the real problem §8 found) is a separate mechanism — explicit `authoringInstance` + engine re-interpolation — specced with #166.
 
 ## 7. Harmonizers as vocabulary-adjacent documents (new, 2026-07-09)
