@@ -112,3 +112,27 @@ describe('harmonize', () => {
     await expect(tloHandler.harmonize('https://example.com/')).rejects.toThrow(/tinylittleoffice/)
   })
 })
+
+describe('tlo handler — CLI-style form-encoded (+ as space) links', () => {
+  const cliLink =
+    'https://tinylittleoffice.com/write/#title=TLO+Social+Test&by=tester&doc=' +
+    '%23+TLO+Social+Test+%7B.title%7D%0A%0AHello+from+the+demo+test.+Tagged+%23tlo-demo+and+%23octothorpes.%0A'
+
+  it('decodes + as space in fragment params', () => {
+    const p = parseTloUrl(cliLink)
+    expect(p.title).toBe('TLO Social Test')
+    expect(p.markdown.startsWith('# TLO Social Test {.title}')).toBe(true)
+  })
+
+  it('harmonizes a CLI link: real title, real description, hashtags', async () => {
+    const out = await tloHandler.harmonize(cliLink)
+    expect(out.title).toBe('TLO Social Test')
+    expect(out.description).toMatch(/^Hello from the demo test\./)
+    expect(out.octothorpes).toEqual(['tlo-demo', 'octothorpes'])
+  })
+
+  it('round-trips %2B to a literal +', () => {
+    const p = parseTloUrl('https://tinylittleoffice.com/write/#doc=1%2B1+is+2')
+    expect(p.markdown).toBe('1+1 is 2')
+  })
+})

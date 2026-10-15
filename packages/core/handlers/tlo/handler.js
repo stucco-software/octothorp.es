@@ -26,20 +26,13 @@ export const isTloUrl = (uri) => {
   }
 }
 
-// Manual split: URLSearchParams would turn a literal '+' into a space.
+// Form-urlencoded decode: TLO's CLI emits spaces as '+'. Our publishers use
+// encodeURIComponent, which writes a literal '+' as %2B, so a raw '+' in a
+// fragment value always means a space. URLSearchParams handles both (and
+// tolerates malformed % sequences by leaving them raw).
 const fragmentParams = (hash) => {
   const params = {}
-  for (const part of hash.replace(/^#/, '').split('&')) {
-    if (!part) continue
-    const i = part.indexOf('=')
-    const key = i === -1 ? part : part.slice(0, i)
-    const raw = i === -1 ? '' : part.slice(i + 1)
-    try {
-      params[key] = decodeURIComponent(raw)
-    } catch {
-      params[key] = raw
-    }
-  }
+  for (const [key, value] of new URLSearchParams(hash.replace(/^#/, ''))) params[key] = value
   return params
 }
 
