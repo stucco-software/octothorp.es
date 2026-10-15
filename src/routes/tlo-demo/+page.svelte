@@ -82,7 +82,7 @@
       <aside class="sidebar">
         <section class="thorpe-group index-form">
           <h2>Index a page</h2>
-          <p>Staging demo. Paste a <a href="https://tinylittleoffice.com">Tiny Little Office</a> link.
+          <p><em>D E M O demo demmmo demo</em>. Paste a <a href="https://tinylittleoffice.com">Tiny Little Office</a> link.
             The document lives in the link itself, so the relay decodes it instead of fetching it.
             Hashtags like <code>#some-tag</code> in the text become octothorpes.</p>
           <form method="POST">
@@ -242,7 +242,7 @@
                 date={pg.date}
               >
                 <details class="tlo-url">
-                  <summary>{pg.title || 'TLO link'}</summary>
+                  <summary>{'TLO URL'}</summary>
                   <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">{pg['@id'] || pg.uri}</a>
                 </details>
                 {#if pg.octothorpes && pg.octothorpes.length > 0}
