@@ -12,7 +12,7 @@ The cutover source is `development` (merge-prep merged back via PR #308). Stagin
 - [ ] Close #307 and #275 (both verified; note the scheme caveat on #276/#277 when closing #275).
 - [x] #309: the SvelteKit side reads the resolved profile's `identity.instance`, not raw `.env` (db0eb86). Pulled forward because the Railway one-click deploy test needs it.
 - [ ] Verify the Domain Pages Overhaul (#218: #202, #185, #191) on staging, then close all four. Landed 2026-10-09, after this checklist was written. Follow-ups #311/#312 are not cutover-blocking.
-- [ ] Revert the temporary TLO demo before the switch: `git revert` the tlo-demo commits on development (f9fd55c, 849ee2b, 5b1f9b1, 741de14, 0fcc888, the merge that landed them, and 877d633 which removed the env flag). The demo is ungated — this revert is the only thing keeping it out of production.
+- [ ] Revert the temporary TLO demo before the switch: `git revert` the tlo-demo commits on development (f9fd55c, 849ee2b, 5b1f9b1, 741de14, 0fcc888, the merge that landed them, 877d633 which removed the env flag, and 34ab134 which added the tinylittleoffice dependency — reverting it also removes the dep from packages/core/package.json and the lockfile). The demo is ungated — this revert is the only thing keeping it out of production.
 
 ## The switch
 
