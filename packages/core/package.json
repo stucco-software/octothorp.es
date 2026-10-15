@@ -25,8 +25,8 @@
     "js-yaml": "^4.1.0",
     "jsdom": "^24.0.0",
     "jsonld": "^8.3.2",
-    "normalize-url": "^8.0.1"
+    "normalize-url": "^8.0.1",
+    "tinylittleoffice": "^1.2.0-next"
   },
-  "peerDependencies": {},
   "license": "MIT"
 }

@@ -7,8 +7,10 @@
  * STRING as its content and decodes it. No network I/O.
  *
  * Deliberately NOT registered in createDefaultHandlerRegistry: the relay
- * adapter opts in. The packed `/v1/` form is
- * rejected for now. Identity follows #318 option (a): the full link is the
+ * adapter opts in. The packed share-button form
+ * (https://tinylittleoffice.com/#/v1/<app>/<payload>) is decoded with the
+ * `tinylittleoffice` library, imported lazily so the plain path never loads
+ * it. Identity follows #318 option (a): the full link is the
  * subject (each edit is its own immutable record).
  *
  * The markdown handler has no body-link or hashtag extraction to reuse (it
@@ -34,6 +36,29 @@ const fragmentParams = (hash) => {
   const params = {}
   for (const [key, value] of new URLSearchParams(hash.replace(/^#/, ''))) params[key] = value
   return params
+}
+
+// Packed share link: the fragment is `#/v1/<app>/<payload>[?flags]`.
+export const isPackedTloUrl = (uri) => isTloUrl(uri) && new URL(uri).hash.startsWith('#/v1/')
+
+const FRONTMATTER = /^---\n[\s\S]*?\n---\n?/
+
+// Decodes via the library's read(); it accepts the full link, trailing `?d` included.
+export const decodePackedTloUrl = async (uri) => {
+  if (!isPackedTloUrl(uri)) throw new Error('Not a packed TLO link (#/v1/...).')
+  const { read } = await import('tinylittleoffice')
+  let doc
+  try {
+    doc = await read(uri)
+  } catch (e) {
+    throw new Error(`Could not decode packed TLO link: ${e.message}`)
+  }
+  return {
+    app: doc.app ?? null,
+    markdown: String(doc.text ?? '').replace(FRONTMATTER, ''),
+    title: doc.title || undefined,
+    by: doc.by || undefined,
+  }
 }
 
 export const parseTloUrl = (uri) => {
@@ -97,7 +122,9 @@ const firstParagraph = (md) => {
 
 const harmonize = async (content, _schema, _options = {}) => {
   const uri = typeof content === 'string' ? content.trim() : content?.uri
-  const { markdown, title: paramTitle } = parseTloUrl(uri)
+  const { markdown, title: paramTitle } = isPackedTloUrl(uri)
+    ? await decodePackedTloUrl(uri)
+    : parseTloUrl(uri)
   const output = { '@id': uri, octothorpes: [] }
   const title = findTitle(markdown) ?? (paramTitle || undefined)
   if (title) output.title = title
@@ -113,7 +140,7 @@ export default {
   contentTypes: [],
   meta: {
     name: 'Tiny Little Office Handler (demo)',
-    description: 'Decodes a TLO link\'s #doc= fragment into a blobject without fetching. Staging demo.',
+    description: 'Decodes a TLO link (#doc= fragment or packed #/v1/ form) into a blobject without fetching. Staging demo.',
   },
   harmonize,
 }

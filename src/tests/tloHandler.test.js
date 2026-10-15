@@ -3,6 +3,8 @@ import tloHandler, {
   isTloUrl,
   parseTloUrl,
   extractHashtags,
+  isPackedTloUrl,
+  decodePackedTloUrl,
 } from '../../packages/core/handlers/tlo/handler.js'
 import { createDefaultHandlerRegistry } from '../../packages/core/client.js'
 
@@ -134,5 +136,29 @@ describe('tlo handler — CLI-style form-encoded (+ as space) links', () => {
   it('round-trips %2B to a literal +', () => {
     const p = parseTloUrl('https://tinylittleoffice.com/write/#doc=1%2B1+is+2')
     expect(p.markdown).toBe('1+1 is 2')
+  })
+})
+
+describe('packed /v1/ share links (decoded via tinylittleoffice)', () => {
+  const PACKED = 'https://tinylittleoffice.com/#/v1/write/yXZVBDoIwEEX3cwoSNppgoSZs2HgJVhoXVUGaUmpsSV16Da_nSfxTXRi2TfN_Mu1781eEixj8T8ipRlYbWWe5XLSn43Yrm7rap4BWYyGMOiAGCPZsfzDYz5NgKXT4qs6ZTL~fL8uiY2gVu58oiQM4glfmPAfwQ1BXTwS6YRPsCrZ0gXTTFV9LKhCPPu_OWo3wI2Z2N4LocMIzjXoy8Ixzu~NqCOHmm7KMMQpr7UMAxvlSrukD?d'
+
+  it('detects the #/v1/ form', () => {
+    expect(isPackedTloUrl(PACKED)).toBe(true)
+    expect(isPackedTloUrl(link('hi'))).toBe(false)
+  })
+
+  it('decodes the payload into app + markdown + title', async () => {
+    const p = await decodePackedTloUrl(PACKED)
+    expect(p.app).toBe('write')
+    expect(p.title).toBe('New Document 2026-10-15 #1')
+    expect(p.markdown).toContain('what if it had #hashtags')
+  })
+
+  it('harmonizes the real share link; subject stays the full link', async () => {
+    const out = await tloHandler.harmonize(PACKED)
+    expect(out['@id']).toBe(PACKED)
+    expect(out.title).toBe('New Document 2026-10-15 #1')
+    expect(out.description).toBe('Tiny little office is fun. wheee look i’m making a doc')
+    expect(out.octothorpes).toEqual(['hashtags', { type: 'link', uri: 'https://www.mmmx.cloud/' }])
   })
 })
