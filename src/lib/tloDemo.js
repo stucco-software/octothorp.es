@@ -1,6 +1,6 @@
-// STAGING-ONLY Tiny Little Office demo (issue #318), gated by the `tlo_demo`
-// env var (default off). Kept free of $env/$lib imports so it is unit-testable;
-// the route injects the flag value and the indexer deps.
+// STAGING-ONLY Tiny Little Office demo (issue #318), removed by the pre-cutover revert.
+// Kept free of $env/$lib imports so it is unit-testable;
+// the route injects the indexer deps.
 //
 // Why not /index: core's handler() fetches the page and keys the subject on
 // origin+pathname, dropping the #doc= fragment that IS the document. TLO

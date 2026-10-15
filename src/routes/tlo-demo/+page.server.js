@@ -1,19 +1,15 @@
-// STAGING-ONLY Tiny Little Office indexing demo (#318). Gated by the
-// `tlo_demo` env var: unset/false -> the page and its action 404.
+// STAGING-ONLY Tiny Little Office indexing demo (#318). Prod protection is the
+// planned pre-cutover revert (docs/plans/point7/2026-10-08-cutover-checklist.md).
 //
 // ORIGIN POLICY: indexing passes only if tinylittleoffice.com is an approved
 // origin on this relay. That approval is a manual step the maintainer does at
 // /admin on staging. Do NOT whitelist tinylittleoffice.com in octothorpes.json.
-import { error, fail } from '@sveltejs/kit'
-import { tlo_demo } from '$lib/config.js'
-import { tloDemoEnabled, indexTloLink, TLO_ORIGIN } from '$lib/tloDemo.js'
+import { fail } from '@sveltejs/kit'
+import { indexTloLink, TLO_ORIGIN } from '$lib/tloDemo.js'
 
-const enabled = () => tloDemoEnabled(tlo_demo)
-
-// Gate check stays synchronous; data comes from the same loader the
+// Data comes from the same loader the
 // /domains/[uri] page uses, hard-scoped to the TLO origin.
 export const load = ({ url } = {}) => {
-  if (!enabled()) error(404, 'Not found')
   return import('../domains/[uri]/domain.js')
     .then(({ loadDomain }) => loadDomain(encodeURIComponent(TLO_ORIGIN), url?.searchParams))
     .then((d) => ({ origin: TLO_ORIGIN, ...d }))
@@ -21,12 +17,11 @@ export const load = ({ url } = {}) => {
 
 export const actions = {
   default: async ({ request }) => {
-    if (!enabled()) error(404, 'Not found')
-    const uri = String((await request.formData()).get('uri') ?? '').trim()
+      const uri = String((await request.formData()).get('uri') ?? '').trim()
     if (!uri.startsWith('https://tinylittleoffice.com/')) {
       return fail(400, { uri, error: 'Only links starting with https://tinylittleoffice.com/ are accepted.' })
     }
-    // Loaded lazily so the flag-off path never touches the indexer/SPARQL.
+    // Loaded lazily so the validation-failure path never touches the indexer/SPARQL.
     const [{ queryBoolean }, { verifiedOrigin, isExcluded }, indexing] = await Promise.all([
       import('$lib/sparql.js'),
       import('octothorpes'),

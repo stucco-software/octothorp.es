@@ -7,7 +7,7 @@
  * STRING as its content and decodes it. No network I/O.
  *
  * Deliberately NOT registered in createDefaultHandlerRegistry: the relay
- * adapter opts in behind the `tlo_demo` env flag. The packed `/v1/` form is
+ * adapter opts in. The packed `/v1/` form is
  * rejected for now. Identity follows #318 option (a): the full link is the
  * subject (each edit is its own immutable record).
  *
@@ -113,7 +113,7 @@ export default {
   contentTypes: [],
   meta: {
     name: 'Tiny Little Office Handler (demo)',
-    description: 'Decodes a TLO link\'s #doc= fragment into a blobject without fetching. Staging demo, gated by tlo_demo.',
+    description: 'Decodes a TLO link\'s #doc= fragment into a blobject without fetching. Staging demo.',
   },
   harmonize,
 }
