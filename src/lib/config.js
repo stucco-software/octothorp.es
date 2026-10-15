@@ -22,4 +22,7 @@ export const {
   // Secret: Bearer token / form secret for /admin (approve, ban, unban).
   // Env-only, never in octothorpes.json. Unset disables every admin surface (503).
   admin_secret,
+  // STAGING-ONLY: 'true' turns on the /tlo-demo Tiny Little Office indexing
+  // demo (#318). Unset/false: the page 404s and nothing TLO is reachable.
+  tlo_demo,
 } = env;
