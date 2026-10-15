@@ -241,6 +241,10 @@
                 postDate={pg.postDate}
                 date={pg.date}
               >
+                <details class="tlo-url">
+                  <summary>{pg.title || 'TLO link'}</summary>
+                  <a href={pg['@id'] || pg.uri} target="_blank" rel="noopener noreferrer">{pg['@id'] || pg.uri}</a>
+                </details>
                 {#if pg.octothorpes && pg.octothorpes.length > 0}
                   <div class="page-tags">
                     {#each pg.octothorpes as thorpe}
@@ -425,6 +429,28 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+  }
+
+  /* ResultCard hardcodes the raw URL line; hide it here, full link lives in details. */
+  .page-list :global(.result-url) {
+    display: none;
+  }
+
+  .tlo-url {
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+    margin-block: 0.25rem;
+  }
+
+  .tlo-url summary {
+    cursor: pointer;
+    color: #666;
+  }
+
+  .tlo-url a {
+    display: block;
+    word-break: break-all;
+    overflow-wrap: anywhere;
   }
 
   .page-tags {
