@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => ({ config: { tlo_demo: undefined } }))
 vi.mock('$lib/config.js', () => h.config)
+vi.mock('../routes/domains/[uri]/domain.js', () => ({
+  loadDomain: async (uri) => ({ domain: decodeURIComponent(uri), pages: [], thorpes: [] }),
+}))
 
 const load = async () => {
   vi.resetModules()
@@ -28,7 +31,7 @@ describe('/tlo-demo flag gating', () => {
   it('serves the page when tlo_demo=true', async () => {
     h.config.tlo_demo = 'true'
     const route = await load()
-    expect(route.load()).toEqual({ origin: 'https://tinylittleoffice.com' })
+    expect(await route.load()).toMatchObject({ origin: 'https://tinylittleoffice.com', domain: 'https://tinylittleoffice.com' })
   })
 
   it('rejects non-TLO URLs server-side with 400 before touching the indexer', async () => {

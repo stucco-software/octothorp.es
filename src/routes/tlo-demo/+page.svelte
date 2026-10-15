@@ -1,43 +1,532 @@
-<script>
+<script type="text/javascript">
   // STAGING-ONLY demo (#318). Server gate lives in +page.server.js.
+  // Layout copied from src/routes/domains/[uri]/+page.svelte, scoped to TLO.
+  import { goto } from '$app/navigation'
+  import { browser } from '$app/environment'
+  import { page } from '$app/stores'
+  import RSSFeed from '$lib/components/RSSFeed.svelte'
+  import ResultCard from '$lib/components/ResultCard.svelte'
+
   export let data
   export let form
 
   let uri = form?.uri ?? ''
-  let tag = 'tlo'
   $: clientError = uri && !uri.startsWith('https://tinylittleoffice.com/')
     ? 'Link must start with https://tinylittleoffice.com/'
     : ''
+
+  $: domain = data.domain
+  $: thorpes = data.thorpes
+  $: pages = data.pages
+  $: offset = data.offset ?? 0
+  $: pageSize = data.pageSize
+  $: hasNext = data.hasNext
+  $: rangeStart = pages.length ? offset + 1 : 0
+  $: rangeEnd = offset + pages.length
+
+  // Prev/next keep every other search param (e.g. ?o=) and only move offset.
+  $: offsetHref = (n) => {
+    const params = new URLSearchParams($page.url.search)
+    if (n > 0) params.set('offset', String(n))
+    else params.delete('offset')
+    const qs = params.toString()
+    return qs ? `?${qs}` : '?'
+  }
+
+  let selectedTerm = null
+
+  // Group thorpes by type and deduplicate
+  $: termThorpes = Array.from(new Map(thorpes.filter(t => t.type === 'Term').map(t => [t.term, t])).values())
+  $: backlinks = Array.from(new Map(thorpes.filter(t => t.type === 'Backlink').map(t => [t.term, t])).values())
+  $: bookmarks = Array.from(new Map(thorpes.filter(t => t.type === 'Bookmark').map(t => [t.term, t])).values())
+  $: cites = Array.from(new Map(thorpes.filter(t => t.type === 'Cite').map(t => [t.term, t])).values())
+  $: links = Array.from(new Map(thorpes.filter(t => t.type === 'Link').map(t => [t.term, t])).values())
+  $: otherThorpes = Array.from(new Map(thorpes.filter(t => !['Term', 'Backlink', 'Bookmark', 'Cite', 'Link'].includes(t.type)).map(t => [t.term, t])).values())
+
+  // Filter pages by selected term
+  $: filteredPages = selectedTerm
+    ? pages.filter(p => p.octothorpes && p.octothorpes.some(t =>
+        (typeof t === 'string' && t === selectedTerm) ||
+        (typeof t === 'object' && t.term === selectedTerm)
+      ))
+    : pages
+
+  // Update URL params when selected term changes
+  $: if (browser && domain) {
+    const url = new URL(window.location.href)
+    if (selectedTerm) {
+      url.searchParams.set('o', selectedTerm)
+    } else {
+      url.searchParams.delete('o')
+    }
+    goto(`?${url.searchParams.toString()}`, { replaceState: true, noScroll: true, keepFocus: true })
+  }
+
+  function filterByTerm(term) {
+    selectedTerm = selectedTerm === term ? null : term
+  }
 </script>
 
 <svelte:head>
-  <title>Index a Tiny Little Office page (demo)</title>
-  <script type="module" src="/components/octo-thorpe.js"></script>
+  <title>Tiny Little Office (demo) - Octothorpes Protocol</title>
 </svelte:head>
 
-<h1>Index a Tiny Little Office page</h1>
-<p>Staging demo. Paste a <a href="https://tinylittleoffice.com">Tiny Little Office</a> link.
-  The document lives in the link itself, so the relay decodes it instead of fetching it.
-  Hashtags like <code>#some-tag</code> in the text become octothorpes.</p>
+<div class="domain-page">
+  <header>
+    <h1><a href={domain} target="_blank" rel="noopener noreferrer">{domain}</a></h1>
+    <RSSFeed />
+  </header>
 
-<form method="POST">
-  <input name="uri" type="url" required size="60" bind:value={uri}
-    pattern="https://tinylittleoffice\.com/.*"
-    placeholder="https://tinylittleoffice.com/write/#doc=..." />
-  <button type="submit" disabled={!!clientError}>Index this page</button>
-</form>
-{#if clientError}<p class="error">{clientError}</p>{/if}
-{#if form?.error}<p class="error">{form.error}</p>{/if}
-{#if form?.success}
-  <p>Indexed{form.title ? ` "${form.title}"` : ''}.
-    {#if form.tags?.length}Tags: {form.tags.map((t) => `#${t}`).join(' ')}{/if}</p>
-{/if}
+    <div class="content-wrapper">
+      <!-- Sidebar with Octothorpes -->
+      <aside class="sidebar">
+        <section class="thorpe-group index-form">
+          <h2>Index a page</h2>
+          <p>Staging demo. Paste a <a href="https://tinylittleoffice.com">Tiny Little Office</a> link.
+            The document lives in the link itself, so the relay decodes it instead of fetching it.
+            Hashtags like <code>#some-tag</code> in the text become octothorpes.</p>
+          <form method="POST">
+            <input name="uri" type="url" required bind:value={uri}
+              pattern="https://tinylittleoffice\.com/.*"
+              placeholder="https://tinylittleoffice.com/write/#doc=..." />
+            <button type="submit" disabled={!!clientError}>Index this page</button>
+          </form>
+          {#if clientError}<p class="error">{clientError}</p>{/if}
+          {#if form?.error}<p class="error">{form.error}</p>{/if}
+          {#if form?.success}
+            <p>Indexed{form.title ? ` "${form.title}"` : ''}.
+              {#if form.tags?.length}Tags: {form.tags.map((t) => `#${t}`).join(' ')}{/if}</p>
+          {/if}
+        </section>
 
-<h2>Recent TLO pages</h2>
-<octo-thorpe s={data.origin} match="origin" render="list" limit="20" nopreload autoload></octo-thorpe>
+        <h2>Octothorpes</h2>
 
-<h2>TLO pages by hashtag</h2>
-<label>Tag: <input bind:value={tag} /></label>
-{#key tag}
-  <octo-thorpe o={tag} s={data.origin} match="origin" render="list" limit="20" nopreload autoload></octo-thorpe>
-{/key}
+        {#if termThorpes.length > 0}
+          <section class="thorpe-group">
+            <h3>Terms ({termThorpes.length})</h3>
+            <div class="thorpe-list">
+              {#each termThorpes as thorpe}
+                <button
+                  type="button"
+                  class="tag tag-button"
+                  class:active={selectedTerm === thorpe.term}
+                  on:click={() => filterByTerm(thorpe.term)}>
+                  #{thorpe.term}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if backlinks.length > 0}
+          <section class="thorpe-group">
+            <h3>Backlinks ({backlinks.length})</h3>
+            <div class="thorpe-list">
+              {#each backlinks as thorpe}
+                <button
+                  type="button"
+                  class="tag tag-button tag-backlink"
+                  class:active={selectedTerm === thorpe.term}
+                  on:click={() => filterByTerm(thorpe.term)}>
+                  #{thorpe.term}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if bookmarks.length > 0}
+          <section class="thorpe-group">
+            <h3>Bookmarks ({bookmarks.length})</h3>
+            <div class="thorpe-list">
+              {#each bookmarks as thorpe}
+                <button
+                  type="button"
+                  class="tag tag-button tag-bookmark"
+                  class:active={selectedTerm === thorpe.term}
+                  on:click={() => filterByTerm(thorpe.term)}>
+                  #{thorpe.term}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if cites.length > 0}
+          <section class="thorpe-group">
+            <h3>Cites ({cites.length})</h3>
+            <div class="thorpe-list">
+              {#each cites as thorpe}
+                <button
+                  type="button"
+                  class="tag tag-button tag-cite"
+                  class:active={selectedTerm === thorpe.term}
+                  on:click={() => filterByTerm(thorpe.term)}>
+                  #{thorpe.term}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if links.length > 0}
+          <section class="thorpe-group">
+            <h3>Links ({links.length})</h3>
+            <div class="thorpe-list">
+              {#each links as thorpe}
+                <button
+                  type="button"
+                  class="tag tag-button tag-link"
+                  class:active={selectedTerm === thorpe.term}
+                  on:click={() => filterByTerm(thorpe.term)}>
+                  #{thorpe.term}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if otherThorpes.length > 0}
+          <section class="thorpe-group">
+            <h5># ({otherThorpes.length})</h5>
+            <div class="thorpe-list">
+              {#each otherThorpes as thorpe}
+                <button
+                  type="button"
+                  class="tag tag-button"
+                  class:active={selectedTerm === thorpe.term}
+                  on:click={() => filterByTerm(thorpe.term)}>
+                  #{thorpe.term}
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if thorpes.length === 0}
+          <p class="no-data">No octothorpes found.</p>
+        {/if}
+
+        <!-- Debug Panel -->
+        <details class="debug-panel">
+          <summary>Debug</summary>
+          <div class="debug-content">
+            <p><a href={`/get/thorpes/thorped?s=${encodeURIComponent(domain)}&match=origin`} target="_blank" rel="noopener noreferrer">Thorpes API</a></p>
+            <p><a href={`/get/everything/posted?s=${encodeURIComponent(domain)}&match=origin&limit=${pageSize}&offset=${offset}`} target="_blank" rel="noopener noreferrer">Pages API</a></p>
+          </div>
+        </details>
+      </aside>
+
+      <!-- Main Content with Pages -->
+      <main class="main-content">
+        <div class="pages-header">
+          <h2>Pages</h2>
+          <p class="page-count">
+            {#if selectedTerm}
+              Showing {filteredPages.length} of {pages.length} pages on this page with #{selectedTerm}
+            {:else}
+              Pages {rangeStart}–{rangeEnd}
+            {/if}
+          </p>
+        </div>
+
+        {#if filteredPages.length > 0}
+          <div class="page-list">
+            {#each filteredPages as pg}
+              <ResultCard
+                url={pg['@id'] || pg.uri}
+                title={pg.title}
+                description={pg.description}
+                image={pg.image}
+                postDate={pg.postDate}
+                date={pg.date}
+              >
+                {#if pg.octothorpes && pg.octothorpes.length > 0}
+                  <div class="page-tags">
+                    {#each pg.octothorpes as thorpe}
+                      {#if typeof thorpe === 'string'}
+                        <a href="/~/{thorpe}" class="tag-small">#{thorpe}</a>
+                      {:else if thorpe.term}
+                        <a href="/~/{thorpe.term}" class="tag-small tag-{thorpe.type?.toLowerCase()}">{thorpe.type}: #{thorpe.term}</a>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+              </ResultCard>
+            {/each}
+          </div>
+          {#if offset > 0 || hasNext}
+            <nav class="pager">
+              {#if offset > 0}
+                <a class="tag" href={offsetHref(Math.max(0, offset - pageSize))}>&larr; Newer</a>
+              {/if}
+              {#if hasNext}
+                <a class="tag" href={offsetHref(offset + pageSize)}>Older &rarr;</a>
+              {/if}
+            </nav>
+          {/if}
+        {:else if selectedTerm}
+          <p class="no-data">No pages found with #{selectedTerm}</p>
+        {:else}
+          <p class="no-data">No pages found for this domain.</p>
+        {/if}
+      </main>
+    </div>
+</div>
+
+<style>
+  .index-form input[type="url"] {
+    width: 100%;
+    box-sizing: border-box;
+    margin-block-end: 0.5rem;
+  }
+
+  .index-form .error {
+    color: #b00;
+  }
+
+  .domain-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  header {
+    margin-block-end: 1rem;
+    padding-block-end: 0.5rem;
+  }
+
+  h1 {
+    font-family: var(--serif-stack);
+    font-size: var(--txt-2);
+    margin: 0;
+  }
+
+  h1 a {
+    color: var(--txt-color);
+    text-decoration: none;
+  }
+
+  h1 a:hover {
+    background-color: yellow;
+  }
+
+  h2 {
+    font-family: var(--sans-stack);
+    font-size: var(--txt-1);
+    margin-block-end: 0.75rem;
+    margin-block-start: 0;
+  }
+
+  h3 {
+    font-family: var(--sans-stack);
+    font-size: var(--txt-0);
+    margin: 0 0 0.5rem 0;
+    font-weight: bold;
+  }
+
+  .content-wrapper {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding: 0.75rem;
+    background-color: var(--bg-color);
+  }
+
+  .sidebar h2 {
+    font-size: var(--txt-0);
+    margin-block-end: 0.5rem;
+  }
+
+  .main-content {
+    min-height: 400px;
+  }
+
+  .pages-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-block-end: 1rem;
+    padding-block-end: 0.5rem;
+    border-bottom: 1px solid var(--txt-color);
+  }
+
+  .page-count {
+    font-family: var(--mono-stack);
+    font-size: var(--txt--1);
+    color: #666;
+    margin: 0;
+  }
+
+  .thorpe-group {
+    margin-block-end: 1rem;
+  }
+
+  .thorpe-group:last-child {
+    margin-block-end: 0;
+  }
+
+  .thorpe-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    background-color: lightgoldenrodyellow;
+    border: 1px solid var(--txt-color);
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+    text-decoration: none;
+    color: var(--txt-color);
+  }
+
+  .tag:hover {
+    background-color: yellow;
+  }
+
+  .tag-button {
+    cursor: pointer;
+    margin: 5px;
+  }
+
+  .tag-button.active {
+    background-color: yellow;
+    font-weight: bold;
+  }
+
+  .tag-backlink {
+    background-color: #e8f4f8;
+  }
+
+  .tag-cite {
+    background-color: #f0e8f8;
+  }
+
+  .tag-bookmark {
+    background-color: #f8f0e8;
+  }
+
+  .tag-link {
+    background-color: #e8f8e8;
+  }
+
+  .page-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .page-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-block-start: 0.5rem;
+  }
+
+  .tag-small {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+    color: #666;
+    text-decoration: none;
+  }
+
+  .tag-small:hover {
+    background-color: yellow;
+  }
+
+  .tag-small.tag-term {
+    background-color: lightgoldenrodyellow;
+    border-color: var(--txt-color);
+    color: var(--txt-color);
+  }
+
+  .tag-small.tag-backlink {
+    background-color: #e8f4f8;
+  }
+
+  .tag-small.tag-cite {
+    background-color: #f0e8f8;
+  }
+
+  .tag-small.tag-bookmark {
+    background-color: #f8f0e8;
+  }
+
+  .tag-small.tag-link {
+    background-color: #e8f8e8;
+  }
+
+  .pager {
+    display: flex;
+    justify-content: space-between;
+    margin-block-start: 1rem;
+  }
+
+  .no-data {
+    color: #666;
+    font-style: italic;
+    font-size: var(--txt--1);
+  }
+
+  .debug-panel {
+    color:  #ccc;
+    margin-block-start: 0.5rem;
+  }
+
+  .debug-panel summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0.125rem 0.25rem;
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+  }
+
+  .debug-panel summary:hover {
+    background-color: yellow;
+  }
+
+  .debug-content {
+    margin-block-start: 0.25rem;
+    font-family: var(--mono-stack);
+    font-size: var(--txt--2);
+  }
+
+  .debug-content p {
+    margin: 0.125rem 0;
+    padding: 0.125rem 0;
+  }
+
+  .debug-content a {
+    color: blue;
+    text-decoration: underline;
+    font-size: var(--txt--2);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .content-wrapper {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      position: static;
+      max-height: none;
+      margin-block-end: 1.5rem;
+    }
+  }
+</style>

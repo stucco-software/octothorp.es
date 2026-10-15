@@ -10,9 +10,13 @@ import { tloDemoEnabled, indexTloLink, TLO_ORIGIN } from '$lib/tloDemo.js'
 
 const enabled = () => tloDemoEnabled(tlo_demo)
 
-export const load = () => {
+// Gate check stays synchronous; data comes from the same loader the
+// /domains/[uri] page uses, hard-scoped to the TLO origin.
+export const load = ({ url } = {}) => {
   if (!enabled()) error(404, 'Not found')
-  return { origin: TLO_ORIGIN }
+  return import('../domains/[uri]/domain.js')
+    .then(({ loadDomain }) => loadDomain(encodeURIComponent(TLO_ORIGIN), url?.searchParams))
+    .then((d) => ({ origin: TLO_ORIGIN, ...d }))
 }
 
 export const actions = {
