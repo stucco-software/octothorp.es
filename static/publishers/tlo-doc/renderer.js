@@ -2,7 +2,7 @@ import resolver from './resolver.json' with { type: 'json' }
 import { parseHTML } from 'linkedom'
 import { tloLink, tloInline, escapeText, escapeLineStart, safeHref, fits } from '../_tlo/tlo.js'
 
-const APP = 'doc'
+const APP = 'write'
 const DROP = new Set(['SCRIPT', 'STYLE', 'TEMPLATE', 'NOSCRIPT'])
 const BLOCK = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'BLOCKQUOTE', 'DIV',
   'SECTION', 'ARTICLE', 'MAIN', 'HEADER', 'FOOTER', 'ASIDE', 'NAV', 'FIGURE', 'TABLE', 'PRE', 'HR',

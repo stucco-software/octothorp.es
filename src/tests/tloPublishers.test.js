@@ -44,8 +44,8 @@ describe('tloInline escaping', () => {
 describe('tloLink', () => {
   it('round-trips the doc text', () => {
     const text = '# T {.title}\n\nhello & 100% #ok'
-    const link = tloLink('doc', text, { title: 'T' })
-    expect(link.startsWith('https://tinylittleoffice.com/doc/#doc=')).toBe(true)
+    const link = tloLink('write', text, { title: 'T' })
+    expect(link.startsWith('https://tinylittleoffice.com/write/#doc=')).toBe(true)
     expect(docText(link)).toBe(text)
     expect(link).toContain('&by=octothorpes')
   })
