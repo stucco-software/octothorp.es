@@ -46,6 +46,7 @@ export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
+export { buildVocabulary, vocabularyToJsonLd, vocabularyToTurtle, RANGE_TO_RDFS, BUILTIN_CLASSES, BUILTIN_PROPERTIES } from './vocabulary.js'
 export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer, validatePublisher } from './discover.js'
 export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate, resolveEndorsers } from './access.js'
 

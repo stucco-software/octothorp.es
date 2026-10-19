@@ -25,6 +25,7 @@ export const DEFAULT_ROUTES = {
   domains: '/domains',
   rss: '/rss',
   badge: '/badge',
+  vocabulary: '/vocabulary',
 }
 
 /**

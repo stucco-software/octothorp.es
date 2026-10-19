@@ -55,5 +55,6 @@ export const op = createClient({
     domains: '/domains',
     rss: '/rss',
     badge: '/badge',
+    vocabulary: '/vocabulary',
   },
 })

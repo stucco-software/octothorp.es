@@ -1417,3 +1417,9 @@ The eight builtin harmonizers are now JSON files under `packages/core/harmonizer
 `/profile` gains a "Blocking this relay" section: the `<meta name="octo-policy" content="no-index">` snippet, plus plain notes on what else is honored. The robots meta binds only active-mode crawls, a User-Agent block (`Octothorpes/... (+instance)`) targets one relay, and robots.txt is not read. No markup names a single relay; the page says so.
 
 **Files affected:** `src/routes/profile/+page.svelte`.
+
+## Generated vocabulary document (#291, 2026-10-19)
+
+`/vocabulary` serves a generated RDFS description of the instance's terms — core protocol classes/predicates (incl. `octo:Term rdfs:subClassOf skos:Concept`), declared `api.documentRecord` predicates (`rdf:Property`, `rdfs:label`, `rdfs:range` from the profile range enum, `rdfs:isDefinedBy <instance>`), and declared link-type subtypes (`rdfs:subClassOf octo:Link`). Content-negotiated Turtle / JSON-LD / HTML, generated on request from the resolved profile, canonical full IRIs only with a legacy-spelling note. The stale hand-written `/vocab` page is replaced by a 301 to `/vocabulary`; the mount is advertised in `api.routes`.
+
+**Files affected:** `packages/core/vocabulary.js` (new), `packages/core/{client,resolveProfile}.js`, `src/routes/vocabulary/+server.js` (new), `src/routes/vocab/` (+page.svelte deleted, redirect +server.js), `src/lib/op.js`, `src/tests/vocabulary.test.js` (new).
