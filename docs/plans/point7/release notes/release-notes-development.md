@@ -1423,3 +1423,9 @@ The eight builtin harmonizers are now JSON files under `packages/core/harmonizer
 `/vocabulary` serves a generated RDFS description of the instance's terms — core protocol classes/predicates (incl. `octo:Term rdfs:subClassOf skos:Concept`), declared `api.documentRecord` predicates (`rdf:Property`, `rdfs:label`, `rdfs:range` from the profile range enum, `rdfs:isDefinedBy <instance>`), and declared link-type subtypes (`rdfs:subClassOf octo:Link`). Content-negotiated Turtle / JSON-LD / HTML, generated on request from the resolved profile, canonical full IRIs only with a legacy-spelling note. The stale hand-written `/vocab` page is replaced by a 301 to `/vocabulary`; the mount is advertised in `api.routes`.
 
 **Files affected:** `packages/core/vocabulary.js` (new), `packages/core/{client,resolveProfile}.js`, `src/routes/vocabulary/+server.js` (new), `src/routes/vocab/` (+page.svelte deleted, redirect +server.js), `src/lib/op.js`, `src/tests/vocabulary.test.js` (new).
+
+## domains/posted rejects s=; domains restored to the matrix as clean-db-only (#266, 2026-10-19)
+
+`/get/domains/posted` now rejects `s=`/`not-s=` with a 400 QueryError naming the fix (`use pages/posted to filter by subject`) instead of silently returning the full list; subject-less, it falls under #313's limit cap. `matrix-domains-posted` is back in the smoketest matrix — subject-less and tagged `cleanDbOnly`, so capture and compare skip it unless the run wiped (or `--clean-db` asserts a clean store), killing the old ~100-domain fixture brittleness. Golden lands with the batch-wide regen.
+
+**Files affected:** `packages/core/{multipass.js,CHANGELOG.md}`, `src/routes/debug/api-check/{matrix.js,+server.js}`, `src/tests/integration/{queries.js,queries.test.js,smoketest.test.js}`, `src/tests/getRouteErrors.test.js`, `scripts/smoketest.js`.

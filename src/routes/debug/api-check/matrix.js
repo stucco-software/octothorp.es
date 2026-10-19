@@ -11,11 +11,11 @@ export const bys = [
   { by: 'backlinked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'cited',      needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
   { by: 'bookmarked', needsObject: true,  isLinkType: true,  excludeWhats: ['thorpes'] },
-  // domains/posted ignores s=, returning every domain in the database, so the
-  // fixture enumerated 100 third-party domains and broke whenever anyone
-  // indexed a new site. Excluded until s= filtering is fixed; since queries.js
-  // already skips `domains` for every other `by`, this drops it entirely.
-  { by: 'posted',     needsObject: false, isLinkType: false, excludeWhats: ['domains'] },
+  // domains/posted is single-purpose: the domains posted to this relay (#266).
+  // s= is rejected by core, so queries.js builds it subject-less and tags it
+  // clean-db-only — on a clean store the result is just the devdemo domain,
+  // durable by construction; against a dirty store it is skipped.
+  { by: 'posted',     needsObject: false, isLinkType: false },
   { by: 'in-webring', needsObject: false, isLinkType: false, excludeWhats: ['thorpes', 'domains'] },
 ]
 

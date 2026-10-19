@@ -98,8 +98,10 @@ async function dump() {
   console.log(`[dump] wrote ${file} (${body.length} bytes)`)
 }
 
+let wiped = false
 async function wipe() {
   const result = await deleteOrigin(sparql, manifest.origin, targetConfig)
+  wiped = true
   console.log(`[wipe] removed ${result.deletedPages} pages under ${manifest.origin}`)
 }
 
@@ -137,7 +139,14 @@ async function reindex() {
   console.log(`[reindex] indexed ${done}/${manifest.urls.length}`)
 }
 
-async function fetchAndWrite(outDir, queries) {
+async function fetchAndWrite(outDir, allQueries) {
+  // clean-db-only entries (#266, e.g. matrix-domains-posted) are only
+  // deterministic right after a wipe+reindex cycle: on a dirty store the
+  // relay-wide domain list includes whatever else got indexed. Capture them
+  // only when this invocation wiped, or when --clean-db asserts a clean store.
+  const queries = allQueries.filter((q) => !q.cleanDbOnly || wiped || flags.has('--clean-db'))
+  const skipped = allQueries.length - queries.length
+  if (skipped) console.log(`[capture] skipped ${skipped} clean-db-only queries (no wipe this run; pass --clean-db to assert a clean store)`)
   for (const q of queries) {
     const res = await fetch(`${instance}${q.path}`)
     if (q.format === 'xml') {

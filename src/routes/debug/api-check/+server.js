@@ -113,7 +113,8 @@ async function runOne(rowId, what, by, as, extraParams) {
   sparqlCell.innerHTML = ''
 
   const { s, o, rt } = getParams()
-  const params = { s }
+  // domains/posted rejects s= (#266): it is the relay-wide domain list
+  const params = (what === 'domains' && by === 'posted') ? {} : { s }
   if (by !== 'posted') params.o = o
   if (rt) params.rt = rt
   Object.assign(params, extraParams)

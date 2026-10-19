@@ -4,6 +4,7 @@
 
 ### Breaking
 
+- `domains/posted` now rejects `s=` and `not-s=` with a `QueryError` (400) instead of silently ignoring them (#266): the endpoint is single-purpose — the domains posted to this relay — and `s=` never filtered it. With no subject or object the result set falls under the #313 limit cap.
 - Subject- and object-less query shapes now cap `limit` at 400 (#313): `limit=no-limit`, `limit=0`, and anything over the cap throw a `QueryError` naming the cap. Shapes with an `s` or `o` keep `no-limit` working. The cap is exported as `capLimit(limit, cap = LIMIT_CAP)` / `LIMIT_CAP` from `multipass.js` for reuse (#266).
 - The unbounded-query error from `getStatements` is reworded (#313): `query needs s, o, or rt` -> `valid query refused as unbounded: add s, o, or rt to bound it`. Anything matching on the old string breaks.
 - HTML handler: `documentRecord` fields now take the first non-blank match instead of an array of every match (the schema's selectors were already written as ordered fallbacks). An empty `documentRecord` is omitted from the output.

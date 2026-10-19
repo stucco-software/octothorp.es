@@ -24,19 +24,25 @@ const buildMatrix = ({ full = false } = {}) => {
     for (const { by, needsObject, isLinkType, excludeWhats = [] } of bys) {
       if (excludeWhats.includes(what)) continue
       if (what === 'domains' && by !== 'posted') continue
+      // domains/posted is single-purpose and rejects s= (#266): it queries
+      // subject-less, capped by the #313 limit cap. On a clean store the
+      // result is just the devdemo domain (durable by construction), so the
+      // entry is clean-db-only: capture and compare skip it on dirty stores.
+      const subjectless = what === 'domains' && by === 'posted'
       const variations = [{}]
       if (full) {
         for (const extra of extras) {
           if (Object.keys(extra).length === 0) continue
           if (extra.match === 'all' && !needsObject) continue
           if (extra.rt && !isLinkType) continue
+          if (extra.limit && subjectless) continue // limit=1000 exceeds the #313 cap on subject-less shapes
           variations.push(extra)
         }
       }
       for (const extra of variations) {
         // in-webring uses the specific webring page as subject, not the origin host
         const subject = by === 'in-webring' ? WEBRING_PAGE : SUBJECT_HOST
-        const params = new URLSearchParams({ s: subject })
+        const params = new URLSearchParams(subjectless ? {} : { s: subject })
         // thorped: o is a term; link types: o is a page URL (smoke=none, full=known target)
         if (needsObject && !isLinkType) params.set('o', OBJECT_TERM)
         if (isLinkType && full && LINK_OBJECTS[by]) params.set('o', LINK_OBJECTS[by])
@@ -45,6 +51,7 @@ const buildMatrix = ({ full = false } = {}) => {
         out.push({
           name: safe(`matrix-${what}-${by}${label}`),
           path: `/get/${what}/${by}/debug?${params}`,
+          ...(subjectless ? { cleanDbOnly: true } : {}),
         })
       }
     }

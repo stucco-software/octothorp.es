@@ -58,6 +58,14 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   let subtype = ""
 
   let matchByParams = by ?? 'termsOnly'
+
+  // #266: domains/posted is single-purpose — the domains posted to this relay.
+  // s= never filtered it; accepting it silently read as a broken filter, so it
+  // is rejected outright. (domains/in-webring resolves s byParent and keeps it.)
+  // With s and o both empty the #313 cap below bounds the result set.
+  if (resultParams === 'domains' && matchByParams === 'posted' && (subjects.length || notSubjects.length)) {
+    throw new QueryError('s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject.')
+  }
   let objectType = "all"
   let relationTerms = undefined
 

@@ -51,6 +51,34 @@ describe('core query validation errors', () => {
     expect(e.status).toBe(400)
   })
 
+  it('rejects s= on domains/posted (#266)', async () => {
+    const e = await grab(() => api().get('domains', 'posted', { s: 'example.com' }))
+    expect(e).toBeInstanceOf(QueryError)
+    expect(e.message).toBe('s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject.')
+    expect(e.status).toBe(400)
+  })
+
+  it('rejects not-s on domains/posted (#266)', async () => {
+    const e = await grab(() => api().get('domains', 'posted', { notS: 'example.com' }))
+    expect(e).toBeInstanceOf(QueryError)
+    expect(e.status).toBe(400)
+  })
+
+  it('domains/posted without s stays valid and is capped (#266/#313)', async () => {
+    const { multiPass } = await api().get('domains', 'posted', { as: 'multipass' })
+    expect(multiPass.filters.limitResults).toBe('100') // default page size under the cap
+    const e = await grab(() => api().get('domains', 'posted', { limit: 'no-limit' }))
+    expect(e).toBeInstanceOf(QueryError)
+    expect(e.message).toContain('400') // names the #313 cap
+  })
+
+  it('domains/in-webring keeps s (resolved byParent, not a filter rejection)', async () => {
+    const out = await api()
+      .get('domains', 'in-webring', { s: `${instance}ring` })
+      .then(() => 'ok', (e) => e.message)
+    expect(out).toBe('ok')
+  })
+
   it('leaves subtype-only queries alone', async () => {
     // A built-in link type's subtype bounds the query on its own (#236), so a
     // subject-less `pages/cited` must NOT hit the unbounded guard.
