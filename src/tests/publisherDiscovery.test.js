@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { discoverPublishers } from 'octothorpes'
+import { discoverPublishers, validatePublisher } from 'octothorpes'
 
 const pub = (name) => ({ meta: { name }, contentType: 'text/html', render: () => '' })
 
@@ -68,6 +68,51 @@ describe('discoverPublishers (#217 wave 3)', () => {
     })
     expect(publishers).toEqual({})
     expect(skipped[0].name).toBe('empty')
+  })
+
+  // #287: boot-time shape validation — a wrong-shaped default export is
+  // rejected at discovery, naming the file and the field, instead of failing
+  // at publish time far from the authoring mistake.
+  it('skips a publisher without a render function, naming file and field', async () => {
+    const warn = vi.fn()
+    const { publishers, skipped } = await discoverPublishers({
+      ...base,
+      listEntries: async () => ['norender'],
+      loadPublisher: async () => ({ meta: { name: 'norender' } }),
+      warn,
+    })
+    expect(publishers).toEqual({})
+    expect(skipped[0].name).toBe('norender')
+    expect(skipped[0].reason).toMatch(/render/)
+    expect(warn.mock.calls[0][0]).toMatch(/norender/)
+    expect(warn.mock.calls[0][0]).toMatch(/render/)
+  })
+
+  it('skips a flat resolver publisher that declares an id but no schema', async () => {
+    const { skipped } = await discoverPublishers({
+      ...base,
+      listEntries: async () => ['noschema'],
+      loadPublisher: async () => ({ id: 'https://x.test/publishers/noschema', render: () => '' }),
+    })
+    expect(skipped[0].name).toBe('noschema')
+    expect(skipped[0].reason).toMatch(/schema/)
+  })
+})
+
+describe('validatePublisher (#287)', () => {
+  it('accepts a flat resolver publisher and a minimal meta+render stub', () => {
+    expect(validatePublisher({ id: 'https://x.test/p', schema: {}, contentType: 'text/html', render: () => '' })).toEqual([])
+    expect(validatePublisher({ meta: { name: 'stub' }, render: () => '' })).toEqual([])
+  })
+
+  it('rejects non-objects and missing render', () => {
+    expect(validatePublisher(undefined).length).toBeGreaterThan(0)
+    expect(validatePublisher({ meta: {} }).join(' ')).toMatch(/render/)
+  })
+
+  it('rejects an explicit-shape publisher whose resolver lacks id or schema', () => {
+    const problems = validatePublisher({ resolver: { id: 'https://x.test/p' }, render: () => '' })
+    expect(problems.join(' ')).toMatch(/resolver/)
   })
 })
 

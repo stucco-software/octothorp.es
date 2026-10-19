@@ -10,6 +10,7 @@
   "exports": {
     ".": "./client.js",
     "./profile.schema.json": "./profile.schema.json",
+    "./harmonizer.schema.json": "./harmonizer.schema.json",
     "./handlers/*": "./handlers/*"
   },
   "files": [
@@ -17,7 +18,8 @@
     "ld/",
     "handlers/",
     "bin/",
-    "profile.schema.json"
+    "profile.schema.json",
+    "harmonizer.schema.json"
   ],
   "dependencies": {
     "ajv": "^6.15.0",
