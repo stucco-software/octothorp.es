@@ -1363,3 +1363,9 @@ The pages list shows 100 per page (core's default limit), with Newer/Older links
 Verified origins get `octo:siteNum` (string, MAX+1, never reused, idempotent), minted by core `mintSiteNum` at the end of `ingestBlobject` (skipped for endorsement-only admissions) and in `createVerifiedOrigin`/`approveOrigin` (admin approve). `/domains/<digits>` 307-redirects to `/domains/<encoded-origin>` via `originBySiteNum`, 404 if unknown. The `/domains` list shows `#n` links. Existing origins get a number on their next index; there is no backfill. Concurrent mints can collide (accepted).
 
 **Files affected:** `packages/core/{origin.js,indexer.js,client.js,api.js}`, `src/lib/admin.js`, `src/routes/domains/{load.js,+page.svelte}`, `src/routes/domains/[uri]/{domain.js,+page.server.js,+server.js}`, `src/tests/{siteNum,exports,indexerEndorsement}.test.js`.
+
+## HTML parsing is isomorphic: lazy jsdom import (#203, 2026-10-19)
+
+The HTML handler's `parse` is now `parseHTML`: it uses the native `DOMParser` when one exists (browser) and only dynamically imports `jsdom` in Node, so bundlers can exclude jsdom from client builds and `octothorpes` is browser-importable. `parse` remains as an alias; jsdom stays a dependency for server use. A new test asserts the Node and DOMParser paths work and that no file in `packages/core/` statically imports jsdom.
+
+**Files affected:** `packages/core/handlers/html/handler.js`, `src/tests/parseHTML.test.js` (new).

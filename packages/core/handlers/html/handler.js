@@ -12,10 +12,17 @@ function removeTrailingSlash(url) {
 // Parse the HTML once and hand the resulting document to every selector rule.
 // Constructing a JSDOM per rule made one `harmonize` against the default schema
 // cost 27 parses of the same page.
-export const parse = async (content) => {
+// Isomorphic (#203): native DOMParser in the browser; in Node, jsdom is
+// imported dynamically so bundlers can exclude it from client builds.
+export const parseHTML = async (html) => {
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(html, 'text/html')
+  }
   const { JSDOM } = await import('jsdom')
-  return new JSDOM(content, { contentType: "text/html" }).window.document
+  return new JSDOM(html, { contentType: "text/html" }).window.document
 }
+
+export const parse = parseHTML
 
 const extractValues = async (document, rule) => {
   if (rule === undefined || rule === null) return []
