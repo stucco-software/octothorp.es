@@ -17,7 +17,7 @@
     	From <a href="https://stucco.software">Stucco Software</a> & <a href="https://ideastore.dev/">The Idea Store</a>
   	</p>
 
-      <a href="https://octothorp.es">
+      <a href="/">
         <img
           src="{assets}/badge.png"
           alt="Badge for the Octothorpes main ring" />

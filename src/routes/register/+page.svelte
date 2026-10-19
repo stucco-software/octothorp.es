@@ -2,7 +2,10 @@
   export let form
   export let data
   import { assets } from '$app/paths';
-  const badgeCode = `<a href="https://octothorp.es"><img src="https://octothorp.es/badge.png" alt="Badge for the Octothorpes main ring" /></a>`;
+  // The copyable embed must be absolute — it lives on someone else's site —
+  // so build it from this instance's origin, not a hardcoded one (#228).
+  const origin = new URL(data.instance).origin
+  const badgeCode = `<a href="${origin}"><img src="${origin}/badge.png" alt="Badge for the Octothorpes main ring" /></a>`;
 
   console.log(data)
 </script>
@@ -126,7 +129,7 @@
   <div>
     <h3><span>Once you're verified: </span></h3>
     <p><span>Here's some flair to show off your membership in the first Octothorpes server.</span></p>
-    <p><a href="https://octothorp.es"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main server" /></a></p>
+    <p><a href="/"><img src="{assets}/badge.png" alt="Badge for the Octothorpes main server" /></a></p>
 
     <p>Copy this to put it on your site:</p>
     <code>{badgeCode}</code>

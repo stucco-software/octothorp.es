@@ -3,11 +3,11 @@
     #xoxofest
   </h1>
 
-  <p>Thank you for directing your browser to the kinda-secret launch of <a href="https://octothorp.es/">Octothorpes</a>.</p>
+  <p>Thank you for directing your browser to the kinda-secret launch of <a href="/">Octothorpes</a>.</p>
 
   <p><strong>Octothorpes are hashtags and backlinks you can use on regular websites.</strong> Independent sites linked by a ring can see each other's hashtags and links, and we've opened up the first ring just for XOXO.</p>
 
-  <p>If you didn't get the spiel about what they are and how to use them, the <a href="https://demo.ideastore.dev/">demo site</a> is a good introduction. You can also check out the octothorpe for <a href="https://octothorp.es/~/demo">demo</a>.</p>
+  <p>If you didn't get the spiel about what they are and how to use them, the <a href="https://demo.ideastore.dev/">demo site</a> is a good introduction. You can also check out the octothorpe for <a href="/~/demo">demo</a>.</p>
 
   <h3>What did I win?</h3>
 

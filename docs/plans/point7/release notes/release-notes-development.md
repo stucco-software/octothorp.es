@@ -1375,3 +1375,9 @@ The HTML handler's `parse` is now `parseHTML`: it uses the native `DOMParser` wh
 Query shapes with no subject and no object now cap `limit` at 400: `limit=no-limit`, `limit=0`, or anything over the cap throws a 400 `QueryError` naming the cap, while shapes bounded by an `s` or `o` keep `no-limit` working. The cap lives in core as `capLimit(limit, cap = LIMIT_CAP)` exported from `multipass.js` for reuse by #266. The `getStatements` unbounded error is reworded from `query needs s, o, or rt` to `valid query refused as unbounded: add s, o, or rt to bound it`.
 
 **Files affected:** `packages/core/{multipass,queryBuilders,client.js,CHANGELOG.md}`, `src/tests/limitCap.test.js` (new), `src/tests/getRouteErrors.test.js`.
+
+## Internal links use the instance, not hardcoded octothorp.es (#228, 2026-10-19)
+
+Self-links across the SvelteKit pages are now relative, so they stay on whatever instance serves them (next.octothorp.es/~ previously linked back to octothorp.es). The /~ tag grid links by term name instead of the stored term IRI, and [thorpe] tag chips do the same. The register page's copyable badge embed (which must stay absolute, since it lives on other sites) is built from `profile.identity.instance`, threaded through `load()`. External links (docs.octothorp.es, GitHub, mailto, vocab) and debug fixtures were left as-is.
+
+**Files affected:** `src/routes/~/+page.svelte`, `src/routes/~/[thorpe]/+page.svelte`, `src/routes/register/{+page.server.js,+page.svelte}`, `src/routes/{about,ratbike,flyer}/+page.svelte`, `src/lib/components/Footer.svelte`.

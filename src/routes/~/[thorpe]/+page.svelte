@@ -62,7 +62,7 @@
         {/if}
         <p>
           {#each arrayify(mark.tag) as tag}
-            <a href="{tag}">#{tag.split('/~/')[1]}</a>
+            <a href="/~/{tag.split('/~/')[1]}">#{tag.split('/~/')[1]}</a>
           {/each}
         </p>
 
