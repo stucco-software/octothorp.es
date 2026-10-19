@@ -246,8 +246,9 @@ export const createQueryBuilders = (instance, queryArray) => {
           break
         case 'fuzzy':
           if (type === "termsOnly") {
-            const processedInclude = processTermObjects(includeList, "fuzzy")
-            includeStatement = `VALUES ?o { ${processedInclude} }`
+            // #253: fold case on read — compare LCASE'd IRIs instead of
+            // enumerating cased variants, so any stored casing matches.
+            includeStatement = `FILTER(LCASE(STR(?o)) IN (${lcaseTermIriList(includeList)}))`
           }
           else {
             includeStatement = `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
@@ -257,7 +258,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         case 'very-fuzzy':
           const veryFuzzyInclude = processTermObjects(includeList, "very-fuzzy")
           includeStatement = `VALUES ?objList { ${veryFuzzyInclude.map(o => `"${o}"`).join(' ')} }
-                   FILTER(CONTAINS(STR(?o), ?objList))`
+                   FILTER(CONTAINS(LCASE(STR(?o)), ?objList))`
           break
         case 'all':
           let allUris
@@ -284,9 +285,8 @@ export const createQueryBuilders = (instance, queryArray) => {
           break
         case 'fuzzy':
           if (type === "termsOnly") {
-            const processedExclude = processTermObjects(excludeList, "fuzzy")
-            excludeStatement = `VALUES ?excludedObjList { ${processedExclude.map(o => `"${o}"`).join(' ')} }
-                   FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+            // #253: case-insensitive exclusion, mirror of the include path
+            excludeStatement = `FILTER(LCASE(STR(?o)) NOT IN (${lcaseTermIriList(excludeList)}))`
           }
           else {
             excludeStatement = `VALUES ?excludedObjList { ${excludeList.map(o => `"${o}"`).join(' ')} }
@@ -296,7 +296,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         case 'very-fuzzy':
           const veryFuzzyExclude = processTermObjects(excludeList, "very-fuzzy")
           excludeStatement = `VALUES ?excludedObjList { ${veryFuzzyExclude.map(o => `"${o}"`).join(' ')} }
-                   FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+                   FILTER(!CONTAINS(LCASE(STR(?o)), ?excludedObjList))`
           break
         default:
           excludeStatement = ''
@@ -305,6 +305,14 @@ export const createQueryBuilders = (instance, queryArray) => {
 
     return `${includeStatement}${excludeStatement}`
   }
+
+  // #253: lowercased, deduped term-IRI string list for case-insensitive
+  // comparison against LCASE(STR(?o)). Fuzzy variants cover separator styles;
+  // LCASE covers casing, so any stored casing matches any query casing.
+  const lcaseTermIriList = (terms) =>
+    [...new Set(getFuzzyTags(terms).map((t) => termIri(instance, t).toLowerCase()))]
+      .map((iri) => `"${iri}"`)
+      .join(', ')
 
   // Converts terms to URIs and will getFuzzyTags when mode is fuzzy
   function processTermObjects(terms, mode="exact") {
@@ -316,8 +324,8 @@ export const createQueryBuilders = (instance, queryArray) => {
       output = getFuzzyTags(terms)
     }
     if (mode === "very-fuzzy") {
-      output = getFuzzyTags(terms)
-      return output
+      // #253: comparison side is LCASE'd, so only lowercase variants are needed
+      return [...new Set(getFuzzyTags(terms).map((t) => t.toLowerCase()))]
     }
     else {
       output = output.map((item) => termIri(instance, item))

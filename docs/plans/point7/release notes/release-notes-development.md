@@ -1429,3 +1429,9 @@ The eight builtin harmonizers are now JSON files under `packages/core/harmonizer
 `/get/domains/posted` now rejects `s=`/`not-s=` with a 400 QueryError naming the fix (`use pages/posted to filter by subject`) instead of silently returning the full list; subject-less, it falls under #313's limit cap. `matrix-domains-posted` is back in the smoketest matrix — subject-less and tagged `cleanDbOnly`, so capture and compare skip it unless the run wiped (or `--clean-db` asserts a clean store), killing the old ~100-domain fixture brittleness. Golden lands with the batch-wide regen.
 
 **Files affected:** `packages/core/{multipass.js,CHANGELOG.md}`, `src/routes/debug/api-check/{matrix.js,+server.js}`, `src/tests/integration/{queries.js,queries.test.js,smoketest.test.js}`, `src/tests/getRouteErrors.test.js`, `scripts/smoketest.js`.
+
+## Case-insensitive term matching on search/fuzzy reads (#253, 2026-10-19)
+
+Term matching now folds case on read: the `/~/[term]` search page compares `LCASE`'d term IRIs (via the new core `caseInsensitiveTermClause`), so `mytag` finds pages thorped `MyTag` in any stored casing. The fuzzy query modes do the same — `fuzzy` termsOnly include/exclude compare `LCASE(STR(?o))` against a lowercased IRI list instead of enumerating cased variants, and `very-fuzzy` `CONTAINS` folds both sides. Storage keeps the author's casing; `exact` mode stays case-sensitive (pinned by test). Stale-tags-after-rename and deleted-post persistence moved to #322.
+
+**Files affected:** `packages/core/{utils.js,queryBuilders.js,client.js}`, `src/routes/~/[thorpe]/load.js`, `src/tests/caseInsensitiveTerms.test.js` (new).

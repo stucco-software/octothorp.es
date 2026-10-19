@@ -70,6 +70,25 @@ export const termName = (iri) => {
 }
 
 /**
+ * SPARQL clause matching pages that octothorpe a term case-insensitively
+ * (#253). Storage keeps the author's casing; only the read-side comparison
+ * folds case, by comparing LCASE of the bound term IRI against the lowercased
+ * IRI of the requested name. termIri percent-encodes `"` and whitespace, so
+ * the lowered IRI is always safe inside a SPARQL string literal.
+ * @param {string} instance - Instance base URL with trailing slash
+ * @param {string} name - Term name, any casing
+ * @param {{subjectVar?: string, objectVar?: string}} [vars]
+ * @returns {string} SPARQL group graph pattern text
+ */
+export const caseInsensitiveTermClause = (
+  instance,
+  name,
+  { subjectVar = '?s', objectVar = '?term' } = {}
+) => `${subjectVar} octo:octothorpes ${objectVar} .
+     ${objectVar} rdf:type <octo:Term> .
+     FILTER(LCASE(STR(${objectVar})) = "${termIri(instance, name).toLowerCase()}")`
+
+/**
  * Converts various date formats to Unix timestamps
  * @param {string} datestring - Date string to convert (ISO, YYYY-MM-DD, or Unix timestamp)
  * @returns {number} Unix timestamp (milliseconds since epoch)

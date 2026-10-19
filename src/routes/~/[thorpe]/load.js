@@ -1,6 +1,6 @@
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
-import { termIri } from 'octothorpes'
+import { caseInsensitiveTermClause } from 'octothorpes'
 
 const instance = getProfile().identity.instance
 
@@ -8,17 +8,19 @@ export async function load(req) {
   // grt query params here
   // SvelteKit already decodes params; decoding again throws on terms like `100%` (#285)
   const term = req.params.thorpe
-  let o
+  // Full-URL params (backlink targets) keep exact matching; term names match
+  // case-insensitively on read (#253) — stored casing is untouched.
+  let matchClause
   try {
     new URL(term)
-    o = term
+    matchClause = `?s octo:octothorpes <${term}> .`
   } catch (err) {
-    o = termIri(instance, term)
+    matchClause = caseInsensitiveTermClause(instance, term)
   }
 
   const sr = await queryArray(`
     SELECT DISTINCT ?s ?t ?d ?postDate ?date {
-     ?s octo:octothorpes <${o}> .
+     ${matchClause}
      optional { ?s octo:title ?t . }
      optional { ?s octo:description ?d . }
      optional { ?s octo:postDate ?postDate . }
@@ -40,7 +42,7 @@ export async function load(req) {
 
   const sa = await queryArray(`
     SELECT DISTINCT ?uri ?t ?d ?postDate ?date {
-     ?s octo:octothorpes <${o}> .
+     ${matchClause}
      ?s octo:uri ?uri .
      optional { ?s octo:title ?t . }
      optional { ?s octo:description ?d . }
