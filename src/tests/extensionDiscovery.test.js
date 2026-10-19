@@ -31,7 +31,7 @@ describe('#300 bundled extension discovery (adapter path)', () => {
 
   it('discovers the static publishers by directory name, skipping _example', async () => {
     const { publishers, skippedPublishers } = await import('$lib/publishers/index.js')
-    expect(Object.keys(publishers).sort()).toEqual(['readable', 'semble'])
+    expect(Object.keys(publishers).sort()).toEqual(['readable', 'semble', 'tlo-cal', 'tlo-doc'])
     expect(typeof publishers.semble.render).toBe('function')
     expect(skippedPublishers).toEqual([])
   })
