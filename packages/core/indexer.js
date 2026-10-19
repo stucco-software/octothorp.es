@@ -890,8 +890,17 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     const s = harmed['@id']
 
-    let isExtantPage = await extantPage(s)
-    if (!isExtantPage) {
+    // #311: key the exists-check on octo:created, not rdf:type. Pages first
+    // seen as link targets get only `rdf:type octo:Page` from mentionTriples;
+    // an rdf:type check would skip createPage forever and the page would never
+    // gain octo:created, dropping it from posted queries. createPage
+    // re-asserts the (idempotent) type triple alongside the backfilled date.
+    const hasCreated = await queryBoolean(`
+      ask {
+        <${s}> octo:created ?t .
+      }
+    `)
+    if (!hasCreated) {
       await createPage(s)
     }
 

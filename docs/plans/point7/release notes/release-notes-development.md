@@ -1435,3 +1435,9 @@ The eight builtin harmonizers are now JSON files under `packages/core/harmonizer
 Term matching now folds case on read: the `/~/[term]` search page compares `LCASE`'d term IRIs (via the new core `caseInsensitiveTermClause`), so `mytag` finds pages thorped `MyTag` in any stored casing. The fuzzy query modes do the same — `fuzzy` termsOnly include/exclude compare `LCASE(STR(?o))` against a lowercased IRI list instead of enumerating cased variants, and `very-fuzzy` `CONTAINS` folds both sides. Storage keeps the author's casing; `exact` mode stays case-sensitive (pinned by test). Stale-tags-after-rename and deleted-post persistence moved to #322.
 
 **Files affected:** `packages/core/{utils.js,queryBuilders.js,client.js}`, `src/routes/~/[thorpe]/load.js`, `src/tests/caseInsensitiveTerms.test.js` (new).
+
+## Mention-first pages gain octo:created at real-index time (#311)
+
+Pages first seen as link targets got only `rdf:type octo:Page` from `mentionTriples`; the later real index skipped `createPage` because the node existed, so `octo:created` was never written and the page vanished from `everything/posted` outside `match=origin`. `ingestBlobject` now keys its exists-check on `octo:created` (ASK) instead of `rdf:type`, so `createPage` backfills the date on first real index. Write-side only; query patterns untouched (#282). Pages already in prod stores stay dateless until re-indexed — a possible cutover-chore migration, flagged in the report.
+
+**Files affected:** `packages/core/indexer.js`, `src/tests/indexing.test.js`.

@@ -643,6 +643,53 @@ describe('Indexing Business Logic', () => {
       expect(titleUpdate[0]).toContain('https://example.com/fallback')
     })
 
+    // #311: pages first seen as link targets get rdf:type octo:Page from
+    // mentionTriples but no octo:created; the exists-check must key on
+    // octo:created so real indexing backfills it.
+    it('should write octo:created for a page that exists without one (#311)', async () => {
+      // ASK { <s> octo:created ?t } answers false: node exists type-only.
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
+
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/mentioned-first',
+        title: 'Now indexed for real',
+        description: null,
+        octothorpes: [],
+        type: null,
+      }, { instance })
+
+      const askCall = mockQueryBoolean.mock.calls
+        .map(c => String(c[0]))
+        .find(q => q.includes('https://example.com/mentioned-first'))
+      expect(askCall).toContain('octo:created')
+
+      const createInsert = mockInsert.mock.calls
+        .map(c => c[0])
+        .find(c => c.includes('octo:created') && c.includes('https://example.com/mentioned-first'))
+      expect(createInsert).toBeDefined()
+    })
+
+    it('should not re-create the page when octo:created already exists (#311)', async () => {
+      mockQueryBoolean.mockResolvedValue(true) // octo:created present
+      mockInsert.mockResolvedValue({})
+      mockQuery.mockResolvedValue({})
+
+      await indexer.ingestBlobject({
+        '@id': 'https://example.com/already-created',
+        title: 'Already created',
+        description: null,
+        octothorpes: [],
+        type: null,
+      }, { instance })
+
+      const createInsert = mockInsert.mock.calls
+        .map(c => c[0])
+        .find(c => c.includes('octo:created') && c.includes('https://example.com/already-created'))
+      expect(createInsert).toBeUndefined()
+    })
+
     it('should handle unrecognized typed objects (e.g. cite) as mentions without crashing', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
