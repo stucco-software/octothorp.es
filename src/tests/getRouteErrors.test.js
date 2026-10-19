@@ -47,7 +47,7 @@ describe('core query validation errors', () => {
   it('unbounded query', async () => {
     const e = await grab(() => api().get('everything', 'posted', {}))
     expect(e).toBeInstanceOf(QueryError)
-    expect(e.message).toBe('query needs s, o, or rt')
+    expect(e.message).toBe('valid query refused as unbounded: add s, o, or rt to bound it')
     expect(e.status).toBe(400)
   })
 

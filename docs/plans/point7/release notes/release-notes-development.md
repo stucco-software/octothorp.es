@@ -1369,3 +1369,9 @@ Verified origins get `octo:siteNum` (string, MAX+1, never reused, idempotent), m
 The HTML handler's `parse` is now `parseHTML`: it uses the native `DOMParser` when one exists (browser) and only dynamically imports `jsdom` in Node, so bundlers can exclude jsdom from client builds and `octothorpes` is browser-importable. `parse` remains as an alias; jsdom stays a dependency for server use. A new test asserts the Node and DOMParser paths work and that no file in `packages/core/` statically imports jsdom.
 
 **Files affected:** `packages/core/handlers/html/handler.js`, `src/tests/parseHTML.test.js` (new).
+
+## Limit cap on subject/object-less queries; unbounded error reworded (#313, 2026-10-19)
+
+Query shapes with no subject and no object now cap `limit` at 400: `limit=no-limit`, `limit=0`, or anything over the cap throws a 400 `QueryError` naming the cap, while shapes bounded by an `s` or `o` keep `no-limit` working. The cap lives in core as `capLimit(limit, cap = LIMIT_CAP)` exported from `multipass.js` for reuse by #266. The `getStatements` unbounded error is reworded from `query needs s, o, or rt` to `valid query refused as unbounded: add s, o, or rt to bound it`.
+
+**Files affected:** `packages/core/{multipass,queryBuilders,client.js,CHANGELOG.md}`, `src/tests/limitCap.test.js` (new), `src/tests/getRouteErrors.test.js`.

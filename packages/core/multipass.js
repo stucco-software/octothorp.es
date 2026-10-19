@@ -2,6 +2,30 @@ import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } fr
 import { BUILTIN_LINK_TYPES, OBJECT_TYPES, findLinkType } from './linkTypes.js'
 import { QueryError } from './errors.js'
 
+/** Max page size for query shapes nothing else bounds (#313; reused by #266). */
+export const LIMIT_CAP = 400
+
+/**
+ * Enforces the page-size cap on query shapes that nothing else bounds
+ * (no subject, no object). `no-limit` and `0` — which suppress the SPARQL
+ * LIMIT entirely — are refused, as is any limit over the cap. Bounded
+ * shapes should not pass through here; `no-limit` stays legal on them.
+ * @param {string|number} [limit] - raw limit param; undefined falls back to the default page size (100)
+ * @param {number} [cap] - max page size, defaults to LIMIT_CAP
+ * @returns {string} the validated limit
+ * @throws {QueryError} naming the cap when the limit is missing a bound or exceeds it
+ */
+export const capLimit = (limit, cap = LIMIT_CAP) => {
+  const n = parseInt(limit ?? '100', 10)
+  if (limit === 'no-limit' || isNaN(n) || n <= 0) {
+    throw new QueryError(`limit=${limit} is not allowed on a query with no subject or object: nothing else bounds it. Pass limit=${cap} or less (the cap is ${cap}).`)
+  }
+  if (n > cap) {
+    throw new QueryError(`limit=${n} exceeds the cap of ${cap} for a query with no subject or object. Pass limit=${cap} or less and page with offset.`)
+  }
+  return String(n)
+}
+
 /**
  * Builds a MultiPass configuration from plain parameters.
  * Framework-agnostic equivalent of getMultiPassFromParams.
@@ -158,6 +182,13 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
     }
   }
 
+  // #313: a shape with no subject and no object has nothing but LIMIT bounding
+  // it, so the default becomes a cap there — `no-limit`/`0` and anything over
+  // LIMIT_CAP are refused. Shapes with an s or o keep `no-limit` working.
+  const limitResults = (s.length === 0 && o.length === 0)
+    ? capLimit(limitParams)
+    : limitParams
+
   // Set resultMode
   let resultMode = resultParams
   switch (resultParams) {
@@ -247,7 +278,7 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
     filters: {
       subtype: subtype,
       relationTerms: relationTerms,
-      limitResults: limitParams,
+      limitResults: limitResults,
       offsetResults: offsetParams,
       dateRange: dateFilter,
       createdRange: Object.keys(createdFilter).length ? createdFilter : null,

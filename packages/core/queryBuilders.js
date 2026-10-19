@@ -375,7 +375,9 @@ export const createQueryBuilders = (instance, queryArray) => {
     // subtype FILTER EXISTS is itself a bounding constraint, so admit it as one
     // (mirrors the relationTerms allowance) rather than rejecting as unbounded.
     if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0) && !filters.subtype) {
-      throw new QueryError('query needs s, o, or rt');
+      // Not a validity problem: the query is well-formed, but with nothing to
+      // bound it we refuse to run it over the whole store (#313).
+      throw new QueryError('valid query refused as unbounded: add s, o, or rt to bound it');
     }
 
     const subjectStatement = buildSubjectStatement(subjects)
