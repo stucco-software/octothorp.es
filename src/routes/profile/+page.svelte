@@ -188,4 +188,39 @@
   {/if}
 {/if}
 
+{#if identity.instance}
+  <h2>Blocking this relay</h2>
+  <p>
+    To keep a page out of this relay ({identity.instance}), put this in the
+    <code>&lt;head&gt;</code> of the page:
+  </p>
+  <pre><code>&lt;meta name="octo-policy" content="no-index"&gt;</code></pre>
+  <p>
+    The explicit no-index overrides every automatic opt-in, including a page
+    that contains Octothorpes markup and the relay's active indexing mode. The tag
+    is not specific to this relay: any relay running the same indexer honors it.
+    The indexer has no markup that names a single relay.
+  </p>
+  <h3>Other ways to block</h3>
+  <ul>
+    <li>
+      <strong>Robots meta.</strong> <code>&lt;meta name="robots" content="noindex"&gt;</code>
+      (also <code>nofollow</code> or <code>none</code>) is honored only when the
+      relay finds the page itself, which happens in <code>active</code> indexing mode.
+      It is ignored when the page's owner asks for indexing.
+    </li>
+    <li>
+      <strong>User-Agent block.</strong> The relay fetches pages server-side and
+      identifies itself as <code>Octothorpes/&lt;version&gt; (+{identity.instance})</code>;
+      in active mode the string includes <code>(active;</code>. Refusing that
+      User-Agent at your web server or CDN blocks this relay specifically, and a
+      refused fetch fails the index request. Matching on <code>{identity.instance}</code>
+      targets this relay alone; matching on <code>Octothorpes</code> targets all of them.
+    </li>
+    <li>
+      <strong>robots.txt.</strong> The indexer does not read robots.txt, so it has no effect here.
+    </li>
+  </ul>
+{/if}
+
 </div>

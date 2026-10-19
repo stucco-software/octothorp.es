@@ -1411,3 +1411,9 @@ Profile schema failures now name the bad value, the allowed set, and a one-line 
 The eight builtin harmonizers are now JSON files under `packages/core/harmonizers/`, the same shape as site files (validated against `harmonizer.schema.json`, `$schema`-annotated), with a `{{instance}}` token resolved at registry build — in site files too. A site file in `api.harmonizers.dir` named after a builtin now replaces it, with a one-time boot warning (``site harmonizer `default` replaces builtin``); other collisions still throw. The resolved profile's `api.harmonizers.available` entries are now `{ name, source: builtin | declared }`. Parity with the old inline objects is pinned by fixtures captured pre-change (registry shape + extraction output). The schema's rule definition was broadened to cover JSON-mode shapes (`schema-org`'s string arrays and nested rule objects).
 
 **Files affected:** `packages/core/harmonizers/*.json` (new), `packages/core/{harmonizers.js,resolveProfile.js,client.js,harmonizer.schema.json,package.json}`, `src/lib/indexing.js`, `src/tests/builtinHarmonizers.test.js` (new), `src/tests/fixtures/builtin-harmonizers*` (new), `src/tests/{resolveProfile,profileEndpoints}.test.js`.
+
+## Relay profile page: how to block this relay (#320, 2026-10-19)
+
+`/profile` gains a "Blocking this relay" section: the `<meta name="octo-policy" content="no-index">` snippet, plus plain notes on what else is honored. The robots meta binds only active-mode crawls, a User-Agent block (`Octothorpes/... (+instance)`) targets one relay, and robots.txt is not read. No markup names a single relay; the page says so.
+
+**Files affected:** `src/routes/profile/+page.svelte`.
