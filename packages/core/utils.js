@@ -835,8 +835,15 @@ export const harmonizerId = (harmonizer, resolved) =>
 export function multipassToParams(multiPass) {
   if (!multiPass) return {};
 
+  // Prefer the MultiPass's own server; in a browser fall back to the page
+  // origin (matches the old shared-module behavior). In Node there is no
+  // sensible default, so omit server entirely — never emit the string "null"
+  // (which `new URL(import.meta.url).origin` returns for file:// URLs).
+  const server = multiPass.meta?.server
+    || (typeof window !== 'undefined' ? window.location.origin : undefined);
+
   return {
-    server: multiPass.meta?.server || new URL(import.meta.url).origin,
+    server,
     s: multiPass.subjects?.include?.join(',') || '',
     o: multiPass.objects?.include?.join(',') || '',
     nots: multiPass.subjects?.exclude?.join(',') || '',

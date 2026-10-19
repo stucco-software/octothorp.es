@@ -152,10 +152,23 @@ describe('multipass-utils', () => {
       expect(params.offset).toBe('0')
     })
 
-    it('should default server when meta.server is missing', () => {
+    it('should omit server when meta.server is missing (never the string "null")', () => {
       const mp = { ...validMultipass, meta: { ...validMultipass.meta, server: undefined } }
       const params = multipassToParams(mp)
-      expect(params.server).toBe(new URL(import.meta.url).origin)
+      expect(params.server).not.toBe('null')
+      expect(params.server).toBeUndefined()
+    })
+
+    it('should use window.location.origin as server fallback in browser contexts', () => {
+      const origWindow = globalThis.window
+      globalThis.window = { location: { origin: 'https://page.example' } }
+      try {
+        const mp = { ...validMultipass, meta: { ...validMultipass.meta, server: undefined } }
+        expect(multipassToParams(mp).server).toBe('https://page.example')
+      } finally {
+        if (origWindow === undefined) delete globalThis.window
+        else globalThis.window = origWindow
+      }
     })
 
     it('should return empty when for null dateRange', () => {
