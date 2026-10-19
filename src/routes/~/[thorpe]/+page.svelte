@@ -1,6 +1,18 @@
 <script type="text/javascript">
   import {arrayify} from "$lib/arrayify"
   export let data
+
+  // Local terms get a pretty /~/{term} link; anything else (term IRIs from
+  // other instances, non-term tag values) links to the tag URI itself.
+  function tagHref(tag) {
+    const term = tag.split('/~/')[1]
+    return term !== undefined ? `/~/${term}` : tag
+  }
+
+  function tagLabel(tag) {
+    const term = tag.split('/~/')[1]
+    return term !== undefined ? term : tag
+  }
 </script>
 
 <main class="container">
@@ -62,7 +74,7 @@
         {/if}
         <p>
           {#each arrayify(mark.tag) as tag}
-            <a href="/~/{tag.split('/~/')[1]}">#{tag.split('/~/')[1]}</a>
+            <a href={tagHref(tag)}>#{tagLabel(tag)}</a>
           {/each}
         </p>
 
