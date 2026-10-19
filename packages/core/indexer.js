@@ -694,14 +694,16 @@ export const createIndexer = (deps) => {
     `)
   }
 
+  // #213: the Backlink gate. True when the two pages share an origin, when the
+  // target origin has endorsed the linking origin (octo:endorses, written by
+  // recordEndorsements with canonical origins), or when a reciprocal mention
+  // exists. Reciprocal mentions never mint octo:endorses triples — they are a
+  // backlink signal only, consumed here at read time.
   const checkEndorsement = async (s, o, flag) => {
-    let oURL = new URL(o)
-    let sURL = new URL(s)
-
-    let oOrigin = oURL.origin
-    let sOrigin = sURL.origin
+    let oOrigin = storedOrigin(o)
+    let sOrigin = storedOrigin(s)
     if (flag === "Webring") {
-      sOrigin = sURL
+      sOrigin = new URL(s)
       console.log(`webring mode: ${sOrigin}`)
     }
 
@@ -713,10 +715,35 @@ export const createIndexer = (deps) => {
       return true
     }
     if (flag && flag !== "Webring") {
-      let isMentioned = await checkReciprocalMention(s, o, flag)
+      // Reciprocal check uses the real predicate, not the subtype flag.
+      let isMentioned = await checkReciprocalMention(s, o, p)
       if (isMentioned) {
         return true
       }
+    }
+    return false
+  }
+
+  // #213: consume friends.endorsed — the <link rel="octo:endorses"> declarations
+  // collected during HTML handling — by recording
+  // <sourceOrigin> octo:endorses <targetOrigin>, per-origin, deduped on re-index.
+  const recordEndorsements = async (s, targets = []) => {
+    const source = storedOrigin(s)
+    const targetOrigins = [...new Set(targets.map((t) => storedOrigin(t)))]
+      .filter((t) => t !== source)
+    const triples = []
+    for (const target of targetOrigins) {
+      const extant = await queryBoolean(`
+        ask {
+          <${source}> octo:endorses <${target}> .
+        }
+      `)
+      if (!extant) {
+        triples.push(`<${source}> octo:endorses <${target}> .`)
+      }
+    }
+    if (triples.length > 0) {
+      await insert(triples.join('\n'))
     }
   }
 
@@ -842,7 +869,20 @@ export const createIndexer = (deps) => {
       blocks.push(mentionTriples(subj, obj, now, { endorsed }))
     }
 
-    if (!isExtantbacklink) {
+    // #213: Backlink is the ONLY subtype gated by endorsement. A Backlink node
+    // is minted only when a reciprocal mention exists or the target origin has
+    // endorsed the linking origin (same-origin always passes). Bookmark, Cite,
+    // Link and the rest are not gated. The flat mention triple above is always
+    // written either way.
+    let mintBacklink = !isExtantbacklink
+    if (mintBacklink && subtype === 'Backlink') {
+      mintBacklink = Boolean(await checkEndorsement(subj, obj, subtype))
+      if (!mintBacklink) {
+        console.log(`backlink withheld: ${obj} has not reciprocated or endorsed ${subj}`)
+      }
+    }
+
+    if (mintBacklink) {
       terms.forEach((term, i) => {
         if (!termExists[i]) {
           blocks.push(termTriples(term, base, now))
@@ -960,6 +1000,11 @@ export const createIndexer = (deps) => {
         })
         await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
       }
+    }
+
+    // #213: record this page's octo:endorses declarations (per-origin, deduped).
+    if (friends.endorsed.length > 0 && /^https?:/.test(s)) {
+      await recordEndorsements(s, friends.endorsed)
     }
 
     // #191: give a newly registered origin its numeric alias. No-op unless the
@@ -1225,6 +1270,7 @@ export const createIndexer = (deps) => {
     originEndorsesOrigin,
     checkReciprocalMention,
     checkEndorsement,
+    recordEndorsements,
     webringMembers,
   }
 }

@@ -548,11 +548,12 @@ describe('Indexing Business Logic', () => {
   })
 
   describe('handleMention', () => {
-    it('should create mention and backlink when new', async () => {
+    it('should create mention and backlink when new (target endorses source, #213)', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
         .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(true)  // originEndorsesOrigin (gate passes)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention('https://example.com/page', 'https://other.com/page')
       // Single batched insert combining mention + backlink triples
@@ -567,6 +568,8 @@ describe('Indexing Business Logic', () => {
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(true)  // extantMention
         .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(false) // originEndorsesOrigin
+        .mockResolvedValueOnce(true)  // checkReciprocalMention (gate passes)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention('https://example.com/page', 'https://other.com/page')
       // Single batched insert with backlink only (no flat mention triple)
@@ -605,6 +608,116 @@ describe('Indexing Business Logic', () => {
       expect(triples).toContain('_:backlink rdf:type <octo:Bookmark>')
       expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/gadgets>`)
       expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/bikes>`)
+    })
+  })
+
+  // #213: endorsement gating. Backlink is the ONLY subtype gated; a Backlink
+  // node is minted on reciprocal mention OR target-endorses-source, never
+  // otherwise. friends.endorsed is consumed as per-origin octo:endorses
+  // triples, deduped on re-index; reciprocal mentions never mint them.
+  describe('endorsement gating (#213)', () => {
+    const s = 'https://example.com/page'
+    const o = 'https://other.com/page'
+
+    it('mints a Backlink on reciprocal mention (no endorsement)', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(false) // originEndorsesOrigin
+        .mockResolvedValueOnce(true)  // checkReciprocalMention
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink octo:url <https://other.com/page>')
+      expect(triples).toContain('_:backlink rdf:type <octo:Backlink>')
+      // The reciprocal ASK uses the real predicate, not the subtype name.
+      const reciprocal = mockQueryBoolean.mock.calls[4][0]
+      expect(reciprocal).toContain(`<${o}> octo:octothorpes <${s}>`)
+      // Ruling 4: reciprocity never mints octo:endorses.
+      expect(mockInsert.mock.calls.map(c => c[0]).join('\n')).not.toContain('octo:endorses')
+    })
+
+    it('mints a Backlink when the target origin endorsed the linking origin', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(true)  // originEndorsesOrigin
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o)
+      // Endorsement short-circuits: no reciprocal ASK.
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(4)
+      // Direction: target origin endorses linking origin.
+      expect(mockQueryBoolean.mock.calls[3][0])
+        .toContain('<https://other.com> octo:endorses <https://example.com>')
+      expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Backlink>')
+    })
+
+    it('withholds the Backlink when neither reciprocal nor endorsed; mention still written', async () => {
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o)
+      expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain(`<${s}> octo:octothorpes <${o}>`)
+      expect(triples).not.toContain('_:backlink')
+    })
+
+    it('does not gate non-Backlink subtypes (Bookmark/Cite/Link)', async () => {
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o, 'Bookmark')
+      // No gate reads beyond the three existence checks.
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Bookmark>')
+    })
+
+    it('same-origin mentions mint a Backlink without any gate reads', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, 'https://example.com/other')
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Backlink>')
+    })
+
+    it('ingestBlobject records octo:endorses per origin, deduped within a page', async () => {
+      mockQueryBoolean.mockResolvedValue(false)
+      mockQuery.mockResolvedValue({ results: { bindings: [] } })
+      mockInsert.mockResolvedValue({})
+      await indexer.ingestBlobject({
+        '@id': s,
+        title: 'Endorsing page',
+        octothorpes: [
+          { type: 'endorse', uri: 'https://friend.com/' },
+          { type: 'endorse', uri: 'https://friend.com/elsewhere' },
+          { type: 'endorse', uri: 'https://example.com/self' }, // own origin: skipped
+        ],
+        type: null,
+      }, { instance })
+      const inserts = mockInsert.mock.calls.map(c => c[0])
+      const endorses = inserts.filter(q => q.includes('octo:endorses'))
+      expect(endorses).toHaveLength(1)
+      const matches = endorses[0].match(/octo:endorses/g)
+      expect(matches).toHaveLength(1) // one triple per origin, not per link
+      expect(endorses[0]).toContain('<https://example.com> octo:endorses <https://friend.com>')
+    })
+
+    it('ingestBlobject skips octo:endorses already in the graph (dedup on re-index)', async () => {
+      mockQueryBoolean.mockResolvedValue(true) // page exists, endorses extant
+      mockQuery.mockResolvedValue({ results: { bindings: [] } })
+      mockInsert.mockResolvedValue({})
+      await indexer.ingestBlobject({
+        '@id': s,
+        title: 'Endorsing page',
+        octothorpes: [{ type: 'endorse', uri: 'https://friend.com/' }],
+        type: null,
+      }, { instance })
+      const inserts = mockInsert.mock.calls.map(c => c[0]).join('\n')
+      expect(inserts).not.toContain('octo:endorses')
     })
   })
 

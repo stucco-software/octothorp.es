@@ -1459,3 +1459,9 @@ Pages first seen as link targets got only `rdf:type octo:Page` from `mentionTrip
 Exact URL matching now widens each queried URI into its 4-variant equivalence class — `www.` and trailing slash toggled, nothing else (no other subdomain, no path/query normalization; hand-rolled, not `normalize-url`). New core helper `uriVariants(uri)` in `uri.js`; `formatUris` expands and dedupes, so exact subject AND object includes, exclusions, and `mode=all` (variants OR'd per input, inputs still AND'd) all inherit it. Term IRIs are exempt (`expand: false`). Exclusions also moved from a `VALUES`+`NOT IN` join (which leaked and duplicated rows with multi-row lists) to inline `NOT IN` lists, and exact object exclusion routes by type instead of term-ifying URLs. Stored triples keep the author's spelling; no migration.
 
 **Files affected:** `packages/core/{uri.js,queryBuilders.js,client.js}`, `src/tests/urlVariants.test.js` (new).
+
+## Endorsement gating wired into handleMention (#213, 2026-10-19)
+
+The dead wiring is live: a Backlink node is now minted only when a reciprocal mention exists or the target origin has endorsed the linking origin (same-origin always passes) — Bookmark/Cite/Link are not gated, and the flat mention triple is always written. `friends.endorsed` is consumed: `<link rel="octo:endorses">` declarations become `<sourceOrigin> octo:endorses <targetOrigin>` triples, per-origin, deduped on re-index (new `recordEndorsements`). Reciprocal mentions never mint `octo:endorses`. Also fixed: `checkEndorsement` passed the subtype as the reciprocal-ASK predicate (invalid SPARQL) and compared raw origins; it now uses `octo:octothorpes` and canonical origins. Behavior change: unreciprocated, unendorsed cross-origin Backlink-subtype mentions no longer produce a Backlink node (accepted consequence; smoketest backlinked goldens are empty, so no golden impact).
+
+**Files affected:** `packages/core/indexer.js`, `src/tests/indexing.test.js`.
