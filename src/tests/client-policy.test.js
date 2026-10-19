@@ -3,7 +3,9 @@ import { createClient, normalizeIndexingMode } from '../../packages/core/client.
 
 const insertSpy = vi.fn().mockResolvedValue(true)
 const querySpy = vi.fn().mockResolvedValue(true)
-const queryBooleanSpy = vi.fn().mockResolvedValue(true)
+// #310: the indexer ASKs for an octo:banned tombstone on every request. This
+// suite stubs ASKs as a blanket true ("verified"), so answer ban ASKs "no".
+const queryBooleanSpy = vi.fn(async (q) => !String(q).includes('octo:banned'))
 const queryArraySpy = vi.fn().mockResolvedValue({ results: { bindings: [] } })
 
 vi.mock('../../packages/core/sparqlClient.js', () => ({
@@ -53,7 +55,7 @@ describe('normalizeIndexingMode', () => {
 describe('createClient indexingMode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    queryBooleanSpy.mockResolvedValue(true)
+    queryBooleanSpy.mockImplementation(async (q) => !String(q).includes('octo:banned'))
     queryArraySpy.mockResolvedValue({ results: { bindings: [] } })
   })
 
