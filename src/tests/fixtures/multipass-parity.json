@@ -10454,103 +10454,13 @@
     }
   },
   "domains|posted|1": {
-    "meta": {
-      "title": "Get domains posted from http://a.test",
-      "description": "MultiPass auto generated from a request to the https://x.test/get API",
-      "server": "https://x.test/",
-      "author": "Octothorpes Protocol",
-      "image": "https://x.test/badge.png",
-      "version": "1",
-      "resultMode": "domains"
-    },
-    "subjects": {
-      "mode": "exact",
-      "include": [
-        "http://a.test"
-      ],
-      "exclude": []
-    },
-    "objects": {
-      "type": "none",
-      "mode": "fuzzy",
-      "include": [],
-      "exclude": []
-    },
-    "filters": {
-      "subtype": "",
-      "limitResults": "100",
-      "offsetResults": "0",
-      "dateRange": {},
-      "createdRange": null,
-      "indexedRange": null
-    }
+    "__error": "s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject."
   },
   "domains|posted|2": {
-    "meta": {
-      "title": "Get domains posted from http://a.test, http://b.test and not http://d.test",
-      "description": "MultiPass auto generated from a request to the https://x.test/get API",
-      "server": "https://x.test/",
-      "author": "Octothorpes Protocol",
-      "image": "https://x.test/badge.png",
-      "version": "1",
-      "resultMode": "domains"
-    },
-    "subjects": {
-      "mode": "exact",
-      "include": [
-        "http://a.test",
-        "http://b.test"
-      ],
-      "exclude": [
-        "http://d.test"
-      ]
-    },
-    "objects": {
-      "type": "none",
-      "mode": "exact",
-      "include": [],
-      "exclude": []
-    },
-    "filters": {
-      "subtype": "",
-      "limitResults": "100",
-      "offsetResults": "0",
-      "dateRange": {},
-      "createdRange": null,
-      "indexedRange": null
-    }
+    "__error": "s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject."
   },
   "domains|posted|3": {
-    "meta": {
-      "title": "Get domains posted from http://a.test/*",
-      "description": "MultiPass auto generated from a request to the https://x.test/get API",
-      "server": "https://x.test/",
-      "author": "Octothorpes Protocol",
-      "image": "https://x.test/badge.png",
-      "version": "1",
-      "resultMode": "domains"
-    },
-    "subjects": {
-      "mode": "fuzzy",
-      "include": [
-        "http://a.test/*"
-      ],
-      "exclude": []
-    },
-    "objects": {
-      "type": "none",
-      "mode": "fuzzy",
-      "include": [],
-      "exclude": []
-    },
-    "filters": {
-      "subtype": "",
-      "limitResults": "100",
-      "offsetResults": "0",
-      "dateRange": {},
-      "createdRange": null,
-      "indexedRange": null
-    }
+    "__error": "s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject."
   },
   "domains|posted|4": {
     "meta": {
@@ -10583,39 +10493,10 @@
     }
   },
   "domains|posted|5": {
-    "__error": "Invalid date filter format. Use: recent, after-DATE, before-DATE, or between-DATE-and-DATE"
+    "__error": "s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject."
   },
   "domains|posted|6": {
-    "meta": {
-      "title": "Get domains posted from http://a.test",
-      "description": "MultiPass auto generated from a request to the https://x.test/get API",
-      "server": "https://x.test/",
-      "author": "Octothorpes Protocol",
-      "image": "https://x.test/badge.png",
-      "version": "1",
-      "resultMode": "domains"
-    },
-    "subjects": {
-      "mode": "exact",
-      "include": [
-        "http://a.test"
-      ],
-      "exclude": []
-    },
-    "objects": {
-      "type": "none",
-      "mode": "all",
-      "include": [],
-      "exclude": []
-    },
-    "filters": {
-      "subtype": "",
-      "limitResults": "100",
-      "offsetResults": "0",
-      "dateRange": {},
-      "createdRange": null,
-      "indexedRange": null
-    }
+    "__error": "s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject."
   },
   "domains|all|0": {
     "meta": {
