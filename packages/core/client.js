@@ -25,7 +25,7 @@ export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES
 export { buildMultiPass, capLimit, LIMIT_CAP } from './multipass.js'
 export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes, findLinkType } from './linkTypes.js'
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
-export { createHarmonizerRegistry } from './harmonizers.js'
+export { createHarmonizerRegistry, interpolateInstance, BUILTIN_HARMONIZERS } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme, canonicalOrigin, originVariants } from './uri.js'
 export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin, isExcluded, originBanned, banOrigin, unbanOrigin, approveOrigin, createVerifiedOrigin, mintSiteNum, siteNumMintQuery, originBySiteNum } from './origin.js'
 export { userAgent, parseBindings, deslash, termIri, termName, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, parseMultipass, multipassToParams, extractWhatBy, getTitle, getUrl, formatDisplayDate, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
@@ -363,7 +363,7 @@ export const checkCoherence = ({
 export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
-  const registry = createHarmonizerRegistry(config.instance)
+  const registry = createHarmonizerRegistry(config.instance, { warn: config.warn ?? console.warn })
   // Snapshot before config.harmonizers register: everything here is core's own,
   // which #293's reverse checks exempt.
   const builtinHarmonizerNames = new Set(Object.keys(registry.list()))
@@ -394,8 +394,9 @@ export const createClient = (config) => {
   }
 
   // #217 wave 5: bulk registration is survivable, mirroring config.handlers
-  // above — a site harmonizer collision (same name as a core local) must not
-  // crash createClient at construction time. warn and skip it.
+  // above. A site harmonizer with a builtin's name REPLACES the builtin (#296;
+  // the registry warns once); any other failure must not crash createClient at
+  // construction time. warn and skip it.
   if (config.harmonizers) {
     for (const [name, harmonizer] of Object.entries(config.harmonizers)) {
       try {
@@ -519,7 +520,7 @@ export const createClient = (config) => {
         profile: config.profile,
         publisherNames: publisherRegistry.listPublishers(),
         handlerNames: handlerRegistry.listHandlers(),
-        harmonizerNames: registry.listHarmonizers?.() ?? [],
+        harmonizerNames: registry.listHarmonizerEntries?.() ?? registry.listHarmonizers?.() ?? [],
         linkTypes,
         routes,
         coherence,

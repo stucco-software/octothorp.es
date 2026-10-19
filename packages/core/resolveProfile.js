@@ -141,6 +141,17 @@ const expandFeeds = (feeds, { instance, terms }) =>
     }).filter(Boolean)
   )
 
+// Normalize api.harmonizers.available entries (#296): registry entries are
+// { name, source }; bare strings (legacy callers) project as { name } alone.
+const dedupeHarmonizerEntries = (entries) => {
+  const out = new Map()
+  for (const e of entries) {
+    const entry = typeof e === 'string' ? { name: e } : { name: e.name, ...(e.source ? { source: e.source } : {}) }
+    if (!out.has(entry.name)) out.set(entry.name, entry)
+  }
+  return [...out.values()]
+}
+
 /**
  * Project the resolved profile: authored declarations + loader defaults +
  * init-time discovery, merged. Never written to disk — it is a projection of
@@ -151,7 +162,9 @@ const expandFeeds = (feeds, { instance, terms }) =>
  * @param {Object} config.profile - a fully-populated getProfile() result.
  * @param {string[]} [config.publisherNames=[]] - builtin + discovered publisher names.
  * @param {string[]} [config.handlerNames=[]] - registered handler modes (builtin + discovered).
- * @param {string[]} [config.harmonizerNames=[]] - registered harmonizer names.
+ * @param {Array<string|{name:string, source?:string}>} [config.harmonizerNames=[]] -
+ *   registered harmonizer entries ({ name, source: 'builtin'|'declared' }).
+ *   Bare strings are tolerated and projected without a source marker.
  * @param {Array} [config.linkTypes] - the merged link-type table the client built at
  *   init. Omitted, it is recomputed from the authored profile — resolveProfile
  *   stays pure and callable on a profile no client ever saw.
@@ -241,7 +254,10 @@ export const resolveProfile = ({
         default: profile.api.handlers.default,
         available: [...new Set(handlerNames)],
       },
-      harmonizers: { available: [...new Set(harmonizerNames)] },
+      // Each entry carries `source: builtin | declared` (#296), same convention
+      // as linkTypes and vocabulary.namespaces. A site file that replaced a
+      // builtin by name shows as declared. Dedup is by name, first entry wins.
+      harmonizers: { available: dedupeHarmonizerEntries(harmonizerNames) },
       // PROJECTION ONLY — never authored. Core owns the query grammar, the
       // adapter owns the mount points; `routes` is the two of them composed, so
       // a consumer can form every query this client answers without reading

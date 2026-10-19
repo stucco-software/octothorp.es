@@ -1,0 +1,30 @@
+{
+  "$schema": "../harmonizer.schema.json",
+  "id": "{{instance}}harmonizer/openGraph",
+  "type": "harmonizer",
+  "title": "Opengraph Protocol Harmonizer",
+  "mode": "html",
+  "schema": {
+    "subject": {
+      "s": "source",
+      "title": [
+        {
+          "selector": "meta[property='og:title']",
+          "attribute": "content"
+        }
+      ],
+      "description": [
+        {
+          "selector": "meta[property='og:description']",
+          "attribute": "content"
+        }
+      ],
+      "image": [
+        {
+          "selector": "meta[property='og:image']",
+          "attribute": "content"
+        }
+      ]
+    }
+  }
+}

@@ -1,367 +1,62 @@
 import { normalizeEnvelope } from './envelope.js'
+// #296: builtins are flat JSON files — the SAME shape as a site harmonizer
+// under api.harmonizers.dir — shipped inside the core package. They validate
+// against harmonizer.schema.json and use the `{{instance}}` token wherever the
+// old inline objects interpolated `${instance}`.
+import defaultHarmonizer from './harmonizers/default.json' with { type: 'json' }
+import openGraph from './harmonizers/openGraph.json' with { type: 'json' }
+import keywords from './harmonizers/keywords.json' with { type: 'json' }
+import ghost from './harmonizers/ghost.json' with { type: 'json' }
+import schemaOrg from './harmonizers/schema-org.json' with { type: 'json' }
+import standardSite from './harmonizers/standardSite.json' with { type: 'json' }
+import rss from './harmonizers/rss.json' with { type: 'json' }
+import vevent from './harmonizers/vevent.json' with { type: 'json' }
+
+/** The builtin harmonizer DEFINITIONS, keyed by name, `{{instance}}` unresolved. */
+export const BUILTIN_HARMONIZERS = {
+  default: defaultHarmonizer,
+  openGraph,
+  keywords,
+  ghost,
+  'schema-org': schemaOrg,
+  standardSite,
+  rss,
+  vevent,
+}
 
 /**
- * Creates a harmonizer registry parameterized with instance URL.
+ * Resolve the `{{instance}}` token (#296 decision d) in every string of a
+ * harmonizer definition. Pure deep map; non-strings pass through.
+ * @param {*} value
  * @param {string} instance - The OP instance URL
+ * @returns {*}
+ */
+export const interpolateInstance = (value, instance) => {
+  if (typeof value === 'string') return value.replaceAll('{{instance}}', `${instance}`)
+  if (Array.isArray(value)) return value.map((v) => interpolateInstance(v, instance))
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, interpolateInstance(v, instance)]))
+  }
+  return value
+}
+
+/**
+ * Creates a harmonizer registry parameterized with instance URL. Builtins are
+ * loaded from the flat JSON files above with `{{instance}}` resolved at build.
+ * @param {string} instance - The OP instance URL
+ * @param {{ warn?: (message: string) => void }} [options]
  * @returns {{ getHarmonizer: Function, localHarmonizers: Object }}
  */
-export const createHarmonizerRegistry = (instance) => {
-  const baseId = `${instance}harmonizer/`
-
-  const localHarmonizers = {
-    "default": {
-          "id": `${baseId}default`,
-          "type": "harmonizer",
-          "title": "Default Octothorpe Harmonizer",
-          "mode": "html",
-          "schema" : {
-            "subject": {
-              "s": "source",
-              "title" : [
-                  {
-                    "selector": "title",
-                    "attribute": "textContent"
-                  }
-                ],
-              "description": [{
-                  "selector": "meta[name='description']",
-                  "attribute": "content"
-                }],
-              "image" :
-                [
-                  {
-                    "selector": "meta[property='og:image']",
-                    "attribute": "content"
-                  },
-                  {
-                    "selector": "link[rel='octo:image']",
-                    "attribute": "href"
-                  },
-                  {
-                    "selector": "[data-octo-image]",
-                    "attribute": "href"
-                  },
-                  {
-                    "selector": "[data-octo-image]",
-                    "attribute": "src"
-                  }
-              ],
-              "contact":
-                [{
-                  "selector": "meta[property='octo:contact']",
-                  "attribute": "content"
-                }],
-              "type":
-                [{
-                  "selector": "meta[property='octo:type']",
-                  "attribute": "content"
-                }],
-              "postDate":
-                [
-                  {
-                    "selector": "meta[property='article:published_time']",
-                    "attribute": "content"
-                  },
-                  {
-                    "selector": "time[datetime]",
-                    "attribute": "datetime"
-                  },
-                  {
-                    "selector": "meta[property='octo:postDate']",
-                    "attribute": "content"
-                  },
-                  {
-                    "selector": "[data-octodate]",
-                    "attribute": "data-octodate"
-                  }
-                ],
-              "indexPolicy":
-                [
-                  {
-                    "selector": "meta[name='octo-policy']",
-                    "attribute": "content"
-                  },
-                  {
-                    "selector": "link[rel='octo:index']",
-                    "attribute": "href"
-                  },
-                  {
-                    "selector": `link[rel='preload'][href*='${instance}']`,
-                    "attribute": "href"
-                  },
-                  {
-                    "selector": `img[src*='${instance}badge']`,
-                    "attribute": "src"
-                  }
-                ],
-              "indexHarmonizer":
-                [
-                  {
-                    "selector": "meta[name='octo-harmonizer']",
-                    "attribute": "content"
-                  },
-                  {
-                    "selector": "link[rel='octo:harmonizer']",
-                    "attribute": "href"
-                  }
-                ],
-              // Robots directives. Unlike every other subject property this is
-              // ARRAY-valued: a page may carry several robots metas and the
-              // refusal check in resolveIndexPolicy has to see all of them. The
-              // HTML handler keeps a small allow-list of array-valued subject
-              // props (SUBJECT_ARRAY_PROPS) so this one rule skips the
-              // "first non-empty value wins" scalar path.
-              "robots":
-                [
-                  {
-                    "selector": "meta[name='robots']",
-                    "attribute": "content"
-                  }
-                ]
-              },
-
-            "hashtag": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": "octo-thorpe",
-                    "attribute": "textContent"
-                  },
-                  {
-                    "selector": "a[rel~='octo:octothorpes']",
-                    "attribute": "href",
-                    "postProcess": {
-                      "method": "regex",
-                      "params": `${instance}~/([^/]+)`
-                    }
-                  },
-                  {
-                    "selector": "link[rel='octo:octothorpes']",
-                    "attribute": "href"
-                  }
-                ]
-              },
-            "link": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": `a[rel='octo:octothorpes']:not([href*='${instance}~/'])`,
-                    "attribute": "href",
-                    "terms": {
-                      "attribute": "data-octothorpes"
-                    }
-                  }
-                ]
-              },
-            "endorse": {
-              "s": "source",
-              "o": [
-                {
-                  "selector": `[rel~='octo:endorses']:not([href*='${instance}~/'])`,
-                  "attribute": "href",
-                  "terms": {
-                    "attribute": "data-octothorpes"
-                  }
-                }
-              ]
-            },
-              "bookmark": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": `[rel~='octo:bookmarks']:not([href*='${instance}~/'])`,
-                    "attribute": "href",
-                    "terms": {
-                      "attribute": "data-octothorpes"
-                    }
-                  }
-                ]
-              },
-              "cite": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": `[rel~='octo:cites']:not([href*='${instance}~/'])`,
-                    "attribute": "href",
-                    "terms": {
-                      "attribute": "data-octothorpes"
-                    }
-                  }
-                ]
-              },
-              "mention": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": `[rel~='octo:mentions']:not([href*='${instance}~/'])`,
-                    "attribute": "href",
-                    "terms": {
-                      "attribute": "data-octothorpes"
-                    }
-                  }
-                ]
-              },
-              "button": {
-                "s": "source",
-                "o": [
-                  {
-                    "selector": `[rel~='octo:button']`,
-                    "attribute": "href",
-                    "terms": {
-                      "attribute": "data-octothorpes"
-                    }
-                  }
-                ]
-              },
-              // Sanitized innerHTML of the first element marked as rich
-              // content. data-octo-content requires a value so other content
-              // types can be added later.
-              "documentRecord": {
-                "richContent": [
-                  {
-                    "selector": "[data-octo-content='rich'], [data-octo-content='rich-content'], .octo-content",
-                    "attribute": "innerHTML",
-                    "postProcess": { "method": "sanitizeHtml", "params": { "maxLength": 100000 } }
-                  }
-                ]
-              }
-            }
-      },
-      "openGraph": {
-        "id": `${baseId}openGraph`,
-        "type": "harmonizer",
-        "title": "Opengraph Protocol Harmonizer",
-        "mode": "html",
-        "schema" : {
-          "subject": {
-            "s": "source",
-            "title" : [
-                {
-                  "selector": "meta[property='og:title']",
-                  "attribute": "content"
-                  }
-              ],
-            "description": [{
-                "selector": "meta[property='og:description']",
-                "attribute": "content"
-              }],
-            "image" : [{
-                "selector": "meta[property='og:image']",
-                "attribute": "content"
-            }]
-        }
-      }
-    },
-    "keywords": {
-      "id": `${baseId}keywords`,
-      "type": "harmonizer",
-      "title": "Meta Kewords to Octothorpes Harmonizer",
-      "mode": "html",
-      "schema" : {
-        "hashtag": {
-          "s": "source",
-          "o": [{
-            "selector": "meta[name='keywords']",
-            "attribute": "content",
-            "postProcess": {
-              "method": "split",
-              "params": `,`
-            }
-          }]
-      }
-    }
-  },
-  "ghost": {
-    "id": `${baseId}ghost`,
-    "type": "harmonizer",
-    "title": "Ghost Tags to Octothorpes Harmonizer",
-    "mode": "html",
-    "schema" : {
-      "hashtag": {
-        "s": "source",
-        "o": [{
-          "selector": `a.gh-article-tag`,
-          "attribute": "textContent"
-        }]
-    }
+export const createHarmonizerRegistry = (instance, { warn = console.warn } = {}) => {
+  const localHarmonizers = {}
+  // name -> 'builtin' | 'declared', the resolved profile's `source` marker (#296 c).
+  const sources = {}
+  for (const [name, definition] of Object.entries(BUILTIN_HARMONIZERS)) {
+    // `$schema` is authoring metadata, not harmonizer data.
+    const { $schema, ...def } = interpolateInstance(definition, instance)
+    localHarmonizers[name] = def
+    sources[name] = 'builtin'
   }
-  },
-  "schema-org": {
-    "id": `${baseId}schema-org`,
-    "type": "harmonizer",
-    "title": "Schema.org JSON-LD Harmonizer",
-    "mode": "json",
-    "schema": {
-      "subject": {
-        "s": ["url", "@id"],
-        "title": ["name", "headline"],
-        "description": "description",
-        "image": [
-          { "path": "image", "filterResults": { "method": "startsWith", "params": "http" } },
-          "image.url"
-        ],
-        "postDate": ["datePublished", "dateCreated", "dateModified"]
-      },
-      "hashtag": {
-        "path": "keywords",
-        "postProcess": { "method": "split", "params": "," }
-      }
-    }
-  },
-  "standardSite": {
-    "id": `${baseId}standardSite`,
-    "type": "harmonizer",
-    "title": "Gets a documentRecord for extra content expected by the ATProto lexicon site.standard.document",
-    "mode": "html",
-    "schema" : {
-      "documentRecord": {
-        "textContent": [
-          { "selector": "article", "attribute": "textContent" },
-          { "selector": "main", "attribute": "textContent" },
-          { "selector": "body", "attribute": "textContent" }
-        ],
-        "site": [
-          { "selector": "link[rel='canonical']", "attribute": "href" }
-        ],
-        "path": [
-          { "selector": "link[rel='canonical']", "attribute": "href" }
-        ]
-      }
-  }
-  },
-  "rss": {
-    "id": `${baseId}rss`,
-    "type": "harmonizer",
-    "title": "RSS 2.0 Feed Harmonizer",
-    "mode": "xml",
-    "schema": {
-      "subject": {
-        "s": "rss.channel.link",
-        "title": "rss.channel.title",
-        "description": "rss.channel.description"
-      },
-      "link": { "o": "rss.channel.item.link" },
-      "hashtag": { "o": "rss.channel.item.category" }
-    }
-  },
-  "vevent": {
-    "id": `${baseId}vevent`,
-    "type": "harmonizer",
-    "title": "iCalendar VEVENT Harmonizer",
-    "mode": "calendar",
-    "schema": {
-      "subject": {
-        "s": "UID",
-        "title": "SUMMARY",
-        "description": "DESCRIPTION",
-        "startDate": "DTSTART",
-        "endDate": "DTEND",
-        "location": "LOCATION"
-      },
-      "hashtag": { "o": "CATEGORIES" }
-    }
-  }
-  };
 
   const getHarmonizer = async (id) => {
     if (!id || typeof id !== 'string') {
@@ -375,10 +70,15 @@ export const createHarmonizerRegistry = (instance) => {
   }
 
   const register = (name, harmonizer) => {
-    if (localHarmonizers[name]) throw new Error(`Harmonizer "${name}" already exists`)
-    const normalized = normalizeEnvelope(harmonizer)
+    const replacesBuiltin = sources[name] === 'builtin'
+    // A site file with a builtin's name REPLACES the builtin (#296 b); any
+    // other collision is still an authoring error.
+    if (localHarmonizers[name] && !replacesBuiltin) throw new Error(`Harmonizer "${name}" already exists`)
+    const normalized = normalizeEnvelope(interpolateInstance(harmonizer, instance))
     if (!normalized.mode) throw new Error('Harmonizer must have a mode field')
+    if (replacesBuiltin) warn(`site harmonizer \`${name}\` replaces builtin`)
     localHarmonizers[name] = normalized
+    sources[name] = 'declared'
   }
 
   const getHarmonizersForMode = (mode) => {
@@ -389,5 +89,10 @@ export const createHarmonizerRegistry = (instance) => {
 
   const listHarmonizers = () => Object.keys(localHarmonizers)
 
-  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode, listHarmonizers }
+  // For the resolved profile's api.harmonizers.available (#296 c): same
+  // { ..., source } convention as linkTypes and vocabulary.namespaces.
+  const listHarmonizerEntries = () =>
+    Object.keys(localHarmonizers).map((name) => ({ name, source: sources[name] }))
+
+  return { getHarmonizer, localHarmonizers, list: () => localHarmonizers, register, getHarmonizersForMode, listHarmonizers, listHarmonizerEntries }
 }

@@ -43,12 +43,13 @@
   },
   "definitions": {
     "section": {
-      "description": "One extraction section: field name -> rule. A rule is either a string (e.g. 's': 'source') or an array of rule objects whose keys are the handler's selector dialect.",
+      "description": "One extraction section: field name -> rule. A rule is a string (e.g. 's': 'source'), a rule object in the handler's dialect, or an array mixing the two (the json handler's 's': ['url', '@id'] and 'image': [{...}, 'image.url'] are both legal). Which keys a rule object carries belongs to the individual handler.",
       "type": "object",
       "additionalProperties": {
         "anyOf": [
           { "type": "string" },
-          { "type": "array", "items": { "type": "object", "minProperties": 1 } }
+          { "type": "object", "minProperties": 1 },
+          { "type": "array", "items": { "anyOf": [{ "type": "string" }, { "type": "object", "minProperties": 1 }] } }
         ]
       }
     }

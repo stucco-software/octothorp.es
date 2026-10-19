@@ -17,6 +17,7 @@
     "*.js",
     "ld/",
     "handlers/",
+    "harmonizers/",
     "bin/",
     "profile.schema.json",
     "harmonizer.schema.json"

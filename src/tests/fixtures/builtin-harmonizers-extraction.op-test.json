@@ -1,0 +1,150 @@
+{
+  "default": {
+    "@id": "source",
+    "title": "T1",
+    "description": "D1",
+    "image": "https://x.test/i.png",
+    "contact": "",
+    "type": "",
+    "postDate": "2024-01-02",
+    "indexPolicy": "https://op.test",
+    "indexHarmonizer": "",
+    "robots": [],
+    "documentRecord": {
+      "richContent": "<p>Rich <b>stuff</b></p>"
+    },
+    "octothorpes": [
+      "cats",
+      "dogs",
+      {
+        "type": "link",
+        "uri": "https://ext.test/post"
+      },
+      {
+        "type": "bookmark",
+        "uri": "https://ext.test/bm",
+        "terms": [
+          "save"
+        ]
+      }
+    ]
+  },
+  "openGraph": {
+    "@id": "source",
+    "title": "OG T",
+    "description": "OG D",
+    "image": "https://x.test/i.png",
+    "indexPolicy": "https://op.test",
+    "indexHarmonizer": "",
+    "robots": [],
+    "documentRecord": {
+      "richContent": "<p>Rich <b>stuff</b></p>"
+    },
+    "octothorpes": [
+      "cats",
+      "dogs",
+      {
+        "type": "link",
+        "uri": "https://ext.test/post"
+      },
+      {
+        "type": "bookmark",
+        "uri": "https://ext.test/bm",
+        "terms": [
+          "save"
+        ]
+      }
+    ]
+  },
+  "keywords": {
+    "@id": "source",
+    "title": "T1",
+    "description": "D1",
+    "image": "https://x.test/i.png",
+    "contact": "",
+    "type": "",
+    "postDate": "2024-01-02",
+    "indexPolicy": "https://op.test",
+    "indexHarmonizer": "",
+    "robots": [],
+    "documentRecord": {
+      "richContent": "<p>Rich <b>stuff</b></p>"
+    },
+    "octothorpes": [
+      "alpha",
+      " beta",
+      {
+        "type": "link",
+        "uri": "https://ext.test/post"
+      },
+      {
+        "type": "bookmark",
+        "uri": "https://ext.test/bm",
+        "terms": [
+          "save"
+        ]
+      }
+    ]
+  },
+  "ghost": {
+    "@id": "source",
+    "title": "T1",
+    "description": "D1",
+    "image": "https://x.test/i.png",
+    "contact": "",
+    "type": "",
+    "postDate": "2024-01-02",
+    "indexPolicy": "https://op.test",
+    "indexHarmonizer": "",
+    "robots": [],
+    "documentRecord": {
+      "richContent": "<p>Rich <b>stuff</b></p>"
+    },
+    "octothorpes": [
+      "ghosttag",
+      {
+        "type": "link",
+        "uri": "https://ext.test/post"
+      },
+      {
+        "type": "bookmark",
+        "uri": "https://ext.test/bm",
+        "terms": [
+          "save"
+        ]
+      }
+    ]
+  },
+  "standardSite": {
+    "@id": "source",
+    "title": "T1",
+    "description": "D1",
+    "image": "https://x.test/i.png",
+    "contact": "",
+    "type": "",
+    "postDate": "2024-01-02",
+    "indexPolicy": "https://op.test",
+    "indexHarmonizer": "",
+    "robots": [],
+    "documentRecord": {
+      "textContent": "Hello body text",
+      "site": "https://x.test/page",
+      "path": "https://x.test/page"
+    },
+    "octothorpes": [
+      "cats",
+      "dogs",
+      {
+        "type": "link",
+        "uri": "https://ext.test/post"
+      },
+      {
+        "type": "bookmark",
+        "uri": "https://ext.test/bm",
+        "terms": [
+          "save"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,396 @@
+{
+  "default": {
+    "id": "https://op.test/harmonizer/default",
+    "type": "harmonizer",
+    "title": "Default Octothorpe Harmonizer",
+    "mode": "html",
+    "schema": {
+      "subject": {
+        "s": "source",
+        "title": [
+          {
+            "selector": "title",
+            "attribute": "textContent"
+          }
+        ],
+        "description": [
+          {
+            "selector": "meta[name='description']",
+            "attribute": "content"
+          }
+        ],
+        "image": [
+          {
+            "selector": "meta[property='og:image']",
+            "attribute": "content"
+          },
+          {
+            "selector": "link[rel='octo:image']",
+            "attribute": "href"
+          },
+          {
+            "selector": "[data-octo-image]",
+            "attribute": "href"
+          },
+          {
+            "selector": "[data-octo-image]",
+            "attribute": "src"
+          }
+        ],
+        "contact": [
+          {
+            "selector": "meta[property='octo:contact']",
+            "attribute": "content"
+          }
+        ],
+        "type": [
+          {
+            "selector": "meta[property='octo:type']",
+            "attribute": "content"
+          }
+        ],
+        "postDate": [
+          {
+            "selector": "meta[property='article:published_time']",
+            "attribute": "content"
+          },
+          {
+            "selector": "time[datetime]",
+            "attribute": "datetime"
+          },
+          {
+            "selector": "meta[property='octo:postDate']",
+            "attribute": "content"
+          },
+          {
+            "selector": "[data-octodate]",
+            "attribute": "data-octodate"
+          }
+        ],
+        "indexPolicy": [
+          {
+            "selector": "meta[name='octo-policy']",
+            "attribute": "content"
+          },
+          {
+            "selector": "link[rel='octo:index']",
+            "attribute": "href"
+          },
+          {
+            "selector": "link[rel='preload'][href*='https://op.test/']",
+            "attribute": "href"
+          },
+          {
+            "selector": "img[src*='https://op.test/badge']",
+            "attribute": "src"
+          }
+        ],
+        "indexHarmonizer": [
+          {
+            "selector": "meta[name='octo-harmonizer']",
+            "attribute": "content"
+          },
+          {
+            "selector": "link[rel='octo:harmonizer']",
+            "attribute": "href"
+          }
+        ],
+        "robots": [
+          {
+            "selector": "meta[name='robots']",
+            "attribute": "content"
+          }
+        ]
+      },
+      "hashtag": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "octo-thorpe",
+            "attribute": "textContent"
+          },
+          {
+            "selector": "a[rel~='octo:octothorpes']",
+            "attribute": "href",
+            "postProcess": {
+              "method": "regex",
+              "params": "https://op.test/~/([^/]+)"
+            }
+          },
+          {
+            "selector": "link[rel='octo:octothorpes']",
+            "attribute": "href"
+          }
+        ]
+      },
+      "link": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "a[rel='octo:octothorpes']:not([href*='https://op.test/~/'])",
+            "attribute": "href",
+            "terms": {
+              "attribute": "data-octothorpes"
+            }
+          }
+        ]
+      },
+      "endorse": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "[rel~='octo:endorses']:not([href*='https://op.test/~/'])",
+            "attribute": "href",
+            "terms": {
+              "attribute": "data-octothorpes"
+            }
+          }
+        ]
+      },
+      "bookmark": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "[rel~='octo:bookmarks']:not([href*='https://op.test/~/'])",
+            "attribute": "href",
+            "terms": {
+              "attribute": "data-octothorpes"
+            }
+          }
+        ]
+      },
+      "cite": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "[rel~='octo:cites']:not([href*='https://op.test/~/'])",
+            "attribute": "href",
+            "terms": {
+              "attribute": "data-octothorpes"
+            }
+          }
+        ]
+      },
+      "mention": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "[rel~='octo:mentions']:not([href*='https://op.test/~/'])",
+            "attribute": "href",
+            "terms": {
+              "attribute": "data-octothorpes"
+            }
+          }
+        ]
+      },
+      "button": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "[rel~='octo:button']",
+            "attribute": "href",
+            "terms": {
+              "attribute": "data-octothorpes"
+            }
+          }
+        ]
+      },
+      "documentRecord": {
+        "richContent": [
+          {
+            "selector": "[data-octo-content='rich'], [data-octo-content='rich-content'], .octo-content",
+            "attribute": "innerHTML",
+            "postProcess": {
+              "method": "sanitizeHtml",
+              "params": {
+                "maxLength": 100000
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "openGraph": {
+    "id": "https://op.test/harmonizer/openGraph",
+    "type": "harmonizer",
+    "title": "Opengraph Protocol Harmonizer",
+    "mode": "html",
+    "schema": {
+      "subject": {
+        "s": "source",
+        "title": [
+          {
+            "selector": "meta[property='og:title']",
+            "attribute": "content"
+          }
+        ],
+        "description": [
+          {
+            "selector": "meta[property='og:description']",
+            "attribute": "content"
+          }
+        ],
+        "image": [
+          {
+            "selector": "meta[property='og:image']",
+            "attribute": "content"
+          }
+        ]
+      }
+    }
+  },
+  "keywords": {
+    "id": "https://op.test/harmonizer/keywords",
+    "type": "harmonizer",
+    "title": "Meta Kewords to Octothorpes Harmonizer",
+    "mode": "html",
+    "schema": {
+      "hashtag": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "meta[name='keywords']",
+            "attribute": "content",
+            "postProcess": {
+              "method": "split",
+              "params": ","
+            }
+          }
+        ]
+      }
+    }
+  },
+  "ghost": {
+    "id": "https://op.test/harmonizer/ghost",
+    "type": "harmonizer",
+    "title": "Ghost Tags to Octothorpes Harmonizer",
+    "mode": "html",
+    "schema": {
+      "hashtag": {
+        "s": "source",
+        "o": [
+          {
+            "selector": "a.gh-article-tag",
+            "attribute": "textContent"
+          }
+        ]
+      }
+    }
+  },
+  "schema-org": {
+    "id": "https://op.test/harmonizer/schema-org",
+    "type": "harmonizer",
+    "title": "Schema.org JSON-LD Harmonizer",
+    "mode": "json",
+    "schema": {
+      "subject": {
+        "s": [
+          "url",
+          "@id"
+        ],
+        "title": [
+          "name",
+          "headline"
+        ],
+        "description": "description",
+        "image": [
+          {
+            "path": "image",
+            "filterResults": {
+              "method": "startsWith",
+              "params": "http"
+            }
+          },
+          "image.url"
+        ],
+        "postDate": [
+          "datePublished",
+          "dateCreated",
+          "dateModified"
+        ]
+      },
+      "hashtag": {
+        "path": "keywords",
+        "postProcess": {
+          "method": "split",
+          "params": ","
+        }
+      }
+    }
+  },
+  "standardSite": {
+    "id": "https://op.test/harmonizer/standardSite",
+    "type": "harmonizer",
+    "title": "Gets a documentRecord for extra content expected by the ATProto lexicon site.standard.document",
+    "mode": "html",
+    "schema": {
+      "documentRecord": {
+        "textContent": [
+          {
+            "selector": "article",
+            "attribute": "textContent"
+          },
+          {
+            "selector": "main",
+            "attribute": "textContent"
+          },
+          {
+            "selector": "body",
+            "attribute": "textContent"
+          }
+        ],
+        "site": [
+          {
+            "selector": "link[rel='canonical']",
+            "attribute": "href"
+          }
+        ],
+        "path": [
+          {
+            "selector": "link[rel='canonical']",
+            "attribute": "href"
+          }
+        ]
+      }
+    }
+  },
+  "rss": {
+    "id": "https://op.test/harmonizer/rss",
+    "type": "harmonizer",
+    "title": "RSS 2.0 Feed Harmonizer",
+    "mode": "xml",
+    "schema": {
+      "subject": {
+        "s": "rss.channel.link",
+        "title": "rss.channel.title",
+        "description": "rss.channel.description"
+      },
+      "link": {
+        "o": "rss.channel.item.link"
+      },
+      "hashtag": {
+        "o": "rss.channel.item.category"
+      }
+    }
+  },
+  "vevent": {
+    "id": "https://op.test/harmonizer/vevent",
+    "type": "harmonizer",
+    "title": "iCalendar VEVENT Harmonizer",
+    "mode": "calendar",
+    "schema": {
+      "subject": {
+        "s": "UID",
+        "title": "SUMMARY",
+        "description": "DESCRIPTION",
+        "startDate": "DTSTART",
+        "endDate": "DTEND",
+        "location": "LOCATION"
+      },
+      "hashtag": {
+        "o": "CATEGORIES"
+      }
+    }
+  }
+}

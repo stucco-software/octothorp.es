@@ -43,7 +43,7 @@ describe('resolveProfile — discovery projection', () => {
   })
 
   it('lists registered harmonizers as a sibling block with no defaultHandler', () => {
-    expect(resolved().api.harmonizers.available).toEqual(['default', 'openGraph'])
+    expect(resolved().api.harmonizers.available).toEqual([{ name: 'default' }, { name: 'openGraph' }])
     expect(resolved().api.harmonizers.defaultHandler).toBeUndefined()
   })
 
@@ -51,10 +51,19 @@ describe('resolveProfile — discovery projection', () => {
     const out = resolveProfile({
       profile,
       handlerNames: ['html', 'csv', 'html', 'json'],
-      harmonizerNames: ['default', 'anchors', 'default', 'csv'],
+      harmonizerNames: [
+        { name: 'default', source: 'builtin' },
+        { name: 'anchors', source: 'declared' },
+        { name: 'default', source: 'builtin' },
+        { name: 'csv', source: 'declared' },
+      ],
     })
     expect(out.api.handlers.available).toEqual(['html', 'csv', 'json'])
-    expect(out.api.harmonizers.available).toEqual(['default', 'anchors', 'csv'])
+    expect(out.api.harmonizers.available).toEqual([
+      { name: 'default', source: 'builtin' },
+      { name: 'anchors', source: 'declared' },
+      { name: 'csv', source: 'declared' },
+    ])
   })
 
   it('drops every directory pointer from the public projection', () => {
@@ -217,7 +226,7 @@ describe('client.resolvedProfile()', () => {
   })
 
   it('includes registered harmonizer names', () => {
-    expect(mk().resolvedProfile().api.harmonizers.available).toContain('default')
+    expect(mk().resolvedProfile().api.harmonizers.available).toContainEqual({ name: 'default', source: 'builtin' })
   })
 
   it('includes builtin handler modes under api.handlers.available', () => {

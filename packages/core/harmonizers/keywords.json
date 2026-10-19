@@ -1,0 +1,23 @@
+{
+  "$schema": "../harmonizer.schema.json",
+  "id": "{{instance}}harmonizer/keywords",
+  "type": "harmonizer",
+  "title": "Meta Kewords to Octothorpes Harmonizer",
+  "mode": "html",
+  "schema": {
+    "subject": {},
+    "hashtag": {
+      "s": "source",
+      "o": [
+        {
+          "selector": "meta[name='keywords']",
+          "attribute": "content",
+          "postProcess": {
+            "method": "split",
+            "params": ","
+          }
+        }
+      ]
+    }
+  }
+}
