@@ -1453,3 +1453,9 @@ Pages first seen as link targets got only `rdf:type octo:Page` from `mentionTrip
 `?st=` sets `filters.subtype` directly, so harmonizer-written subtypes (`octo:Sameas`, `octo:Reply`, ...) are queryable without a declared `[by]` alias: `/get/pages/linked?s=...&st=Sameas`. It applies only to generic link `[by]` values — term/posted/webring queries and a conflicting typed alias (`cited?st=Sameas`) get a 400 QueryError; a redundant matching st is allowed. Values are validated as bare local names and case-normalized like write-side `resolveSubtype`. `st` is advertised in `GET_PARAMS`.
 
 **Files affected:** `packages/core/{multipass.js,apiGrammar.js}`, `src/lib/converters.js`, `src/tests/stParam.test.js` (new).
+
+## Link targets normalized on read: www / trailing-slash spellings are one URL (#276, 2026-10-19)
+
+Exact URL matching now widens each queried URI into its 4-variant equivalence class — `www.` and trailing slash toggled, nothing else (no other subdomain, no path/query normalization; hand-rolled, not `normalize-url`). New core helper `uriVariants(uri)` in `uri.js`; `formatUris` expands and dedupes, so exact subject AND object includes, exclusions, and `mode=all` (variants OR'd per input, inputs still AND'd) all inherit it. Term IRIs are exempt (`expand: false`). Exclusions also moved from a `VALUES`+`NOT IN` join (which leaked and duplicated rows with multi-row lists) to inline `NOT IN` lists, and exact object exclusion routes by type instead of term-ifying URLs. Stored triples keep the author's spelling; no migration.
+
+**Files affected:** `packages/core/{uri.js,queryBuilders.js,client.js}`, `src/tests/urlVariants.test.js` (new).
