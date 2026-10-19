@@ -133,6 +133,18 @@ describe('RDFa / harmonizer parity', () => {
     expect(triples).toContain(`<${termIri(instance, 'site changes')}>`)
     expect(triples).toContain(`<${termIri(instance, 'a|b')}>`)
   })
+
+  // #306: the RDFa path wrapped termIri in new URL().href, which
+  // percent-encodes non-ASCII (café -> caf%C3%A9) while the indexer stores it
+  // raw. termIri's form is canonical on both write paths now.
+  it('non-ASCII textContent term yields termIri\'s raw form, not new URL()\'s', () => {
+    const doc = new JSDOM(
+      `<html><body><span rel="octo:octothorpes">café</span></body></html>`
+    ).window.document
+    const triples = rdfa2triples({ doc, s: 'https://example.com/page', instance }).join('\n')
+    expect(triples).toContain(`<${instance}~/café>`)
+    expect(triples).not.toContain('caf%C3%A9')
+  })
 })
 
 // The read side of #285: a term's identity is its decoded name, and the IRI is

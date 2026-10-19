@@ -1441,3 +1441,9 @@ Term matching now folds case on read: the `/~/[term]` search page compares `LCAS
 Pages first seen as link targets got only `rdf:type octo:Page` from `mentionTriples`; the later real index skipped `createPage` because the node existed, so `octo:created` was never written and the page vanished from `everything/posted` outside `match=origin`. `ingestBlobject` now keys its exists-check on `octo:created` (ASK) instead of `rdf:type`, so `createPage` backfills the date on first real index. Write-side only; query patterns untouched (#282). Pages already in prod stores stay dateless until re-indexed — a possible cutover-chore migration, flagged in the report.
 
 **Files affected:** `packages/core/indexer.js`, `src/tests/indexing.test.js`.
+
+## Very-fuzzy matching finds percent-encoded terms; one write-side term encoding (#306, 2026-10-19)
+
+`very-fuzzy` `CONTAINS` ran raw query text against stored IRIs, so `site changes` could never match `~/site%20changes`. Read-side variants are now percent-encoded with termIri's rules (new `termIriSegment` helper), stacking with #253's case-folding; `fuzzy` and `very-fuzzy` lists also include the legacy `new URL()`-style non-ASCII spelling (`caf%c3%a9`) so pre-#306 RDFa-written data still matches. Write side unified: the RDFa path returns `termIri` directly instead of round-tripping through `new URL().href`, so both paths store non-ASCII raw (`café`). Legacy %-encoded non-ASCII terms stay readable but are a candidate cutover-chore migration.
+
+**Files affected:** `packages/core/{utils.js,queryBuilders.js,ld/rdfa2triples.js}`, `src/tests/{caseInsensitiveTerms,termIri}.test.js`.

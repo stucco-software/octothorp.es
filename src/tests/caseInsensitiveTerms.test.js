@@ -74,8 +74,11 @@ describe('#253 case-insensitive term matching', () => {
         mp({ type: 'termsOnly', mode: 'very-fuzzy', include: ['MyTag'], exclude: [] })
       )
       expect(q).toContain('CONTAINS(LCASE(STR(?o))')
-      expect(q).toContain('"my tag"')
+      // #306: substrings are compared against the stored IRI, which never
+      // contains a raw space — variants carry termIri's percent-encoding.
+      expect(q).toContain('"my%20tag"')
       expect(q).not.toContain('"My Tag"')
+      expect(q).not.toContain('"my tag"')
     })
 
     it('folds the exclude side too', async () => {
@@ -83,6 +86,47 @@ describe('#253 case-insensitive term matching', () => {
         mp({ type: 'termsOnly', mode: 'very-fuzzy', include: [], exclude: ['MyTag'] })
       )
       expect(q).toContain('CONTAINS(LCASE(STR(?o))')
+    })
+  })
+
+  // #306: very-fuzzy ran CONTAINS against the raw stored IRI, so a spaced
+  // query ("site changes") could never match the stored `~/site%20changes`.
+  // Search strings are now encoded with the same rules as termIri.
+  describe('#306 percent-encoded terms', () => {
+    it('very-fuzzy include encodes spaces like termIri', async () => {
+      const q = await builders.buildSimpleQuery(
+        mp({ type: 'termsOnly', mode: 'very-fuzzy', include: ['site changes'], exclude: [] })
+      )
+      expect(q).toContain('"site%20changes"')
+      expect(q).not.toContain('"site changes"')
+      // separator variants still present (encoded forms are unchanged)
+      expect(q).toContain('"site-changes"')
+      expect(q).toContain('"sitechanges"')
+    })
+
+    it('very-fuzzy exclude encodes spaces too', async () => {
+      const q = await builders.buildSimpleQuery(
+        mp({ type: 'termsOnly', mode: 'very-fuzzy', include: [], exclude: ['site changes'] })
+      )
+      expect(q).toContain('"site%20changes"')
+      expect(q).not.toContain('"site changes"')
+    })
+
+    it('very-fuzzy non-ASCII matches both raw and legacy %-encoded storage', async () => {
+      const q = await builders.buildSimpleQuery(
+        mp({ type: 'termsOnly', mode: 'very-fuzzy', include: ['café'], exclude: [] })
+      )
+      // canonical (termIri keeps non-ASCII raw) and legacy new URL() form
+      expect(q).toContain('"café"')
+      expect(q).toContain('"caf%c3%a9"')
+    })
+
+    it('fuzzy non-ASCII matches both raw and legacy %-encoded IRIs', async () => {
+      const q = await builders.buildSimpleQuery(
+        mp({ type: 'termsOnly', mode: 'fuzzy', include: ['café'], exclude: [] })
+      )
+      expect(q).toContain(`"${INSTANCE}~/café"`)
+      expect(q).toContain(`"${INSTANCE}~/caf%c3%a9"`)
     })
   })
 

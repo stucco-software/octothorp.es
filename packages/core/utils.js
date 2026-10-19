@@ -45,9 +45,20 @@ const TERM_IRI_ILLEGAL = /[\u0000- \u007F<>"{}|\\^`]|%(?![0-9A-Fa-f]{2})/g
  * @param {string} name - Term name
  * @returns {string} Term IRI (without angle brackets)
  */
+/**
+ * The encoded name segment of a term IRI: termIri's percent-encoding without
+ * the instance prefix (#306). Useful for substring (CONTAINS) comparisons
+ * against stored term IRIs, which never contain raw spaces or other
+ * IRI-illegal characters.
+ * @param {string} name - Term name
+ * @returns {string} Percent-encoded name segment
+ */
+export const termIriSegment = (name) =>
+  String(name).replace(TERM_IRI_ILLEGAL, (c) =>
+    c === '%' ? '%25' : encodeURIComponent(c))
+
 export const termIri = (instance, name) =>
-  `${instance}~/${String(name).replace(TERM_IRI_ILLEGAL, (c) =>
-    c === '%' ? '%25' : encodeURIComponent(c))}`
+  `${instance}~/${termIriSegment(name)}`
 
 /**
  * Inverse of termIri: the term's name from its IRI (#285). A term's identity

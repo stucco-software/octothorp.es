@@ -1,4 +1,4 @@
-import { getFuzzyTags, termIri } from './utils.js'
+import { getFuzzyTags, termIri, termIriSegment } from './utils.js'
 import { QueryError } from './errors.js'
 import { originVariants } from './uri.js'
 
@@ -306,11 +306,23 @@ export const createQueryBuilders = (instance, queryArray) => {
     return `${includeStatement}${excludeStatement}`
   }
 
+  // #306: legacy spelling of a term segment. The pre-#306 RDFa path routed
+  // term IRIs through new URL(), which percent-encodes non-ASCII (café ->
+  // caf%C3%A9) where termIri keeps it raw. Stored data may carry either form,
+  // so read-side lists include both when they differ.
+  const legacyEncodedForms = (segment) => {
+    const legacy = segment.replace(/[^\u0000-\u007F]/g, (c) => encodeURIComponent(c))
+    return legacy === segment ? [segment] : [segment, legacy]
+  }
+
   // #253: lowercased, deduped term-IRI string list for case-insensitive
   // comparison against LCASE(STR(?o)). Fuzzy variants cover separator styles;
   // LCASE covers casing, so any stored casing matches any query casing.
+  // #306: each variant also appears in its legacy %-encoded non-ASCII form.
   const lcaseTermIriList = (terms) =>
-    [...new Set(getFuzzyTags(terms).map((t) => termIri(instance, t).toLowerCase()))]
+    [...new Set(getFuzzyTags(terms)
+      .flatMap((t) => legacyEncodedForms(termIriSegment(t)))
+      .map((seg) => `${instance}~/${seg}`.toLowerCase()))]
       .map((iri) => `"${iri}"`)
       .join(', ')
 
@@ -324,8 +336,13 @@ export const createQueryBuilders = (instance, queryArray) => {
       output = getFuzzyTags(terms)
     }
     if (mode === "very-fuzzy") {
-      // #253: comparison side is LCASE'd, so only lowercase variants are needed
-      return [...new Set(getFuzzyTags(terms).map((t) => t.toLowerCase()))]
+      // #253: comparison side is LCASE'd, so only lowercase variants are needed.
+      // #306: CONTAINS runs against the stored IRI string, which is
+      // percent-encoded by termIri — encode variants the same way, and include
+      // the legacy %-encoded non-ASCII spelling for pre-#306 RDFa-written data.
+      return [...new Set(getFuzzyTags(terms)
+        .flatMap((t) => legacyEncodedForms(termIriSegment(t)))
+        .map((seg) => seg.toLowerCase()))]
     }
     else {
       output = output.map((item) => termIri(instance, item))
