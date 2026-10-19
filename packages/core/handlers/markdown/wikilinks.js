@@ -3,9 +3,9 @@
  *
  * Single-document scope ONLY. Parses body `[[wikilinks]]` into structured
  * extraction records. It does NOT resolve basenames to URLs, does not split
- * resolved/unresolved, and does not touch the graph — that is the deferred
- * whole-instance resolution pass (C12). The output shape below is designed to
- * carry everything C12 needs.
+ * resolved/unresolved, and does not touch the graph — resolution belongs to
+ * the Memex client project, not core (#289). The output shape below carries
+ * everything a downstream resolver needs.
  *
  * Grammar (Obsidian-style):
  *   [[target]]
@@ -23,8 +23,8 @@
  *   - same-document heading links `[[#Section]]` (no target)
  *   - empty / whitespace-only targets
  *
- * Output record (per occurrence — occurrences are NOT de-duplicated, so C12 can
- * ref-count for Obsidian-style resolvedLinks maps):
+ * Output record (per occurrence — occurrences are NOT de-duplicated, so a
+ * resolver can ref-count for Obsidian-style resolvedLinks maps):
  *   {
  *     target:   string   // authored path, no #heading / |alias, trailing .md stripped
  *     basename: string   // last path segment of target — the resolution key

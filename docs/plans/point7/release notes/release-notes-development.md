@@ -1381,3 +1381,9 @@ Query shapes with no subject and no object now cap `limit` at 400: `limit=no-lim
 Self-links across the SvelteKit pages are now relative, so they stay on whatever instance serves them (next.octothorp.es/~ previously linked back to octothorp.es). The /~ tag grid links by term name instead of the stored term IRI, and [thorpe] tag chips do the same. The register page's copyable badge embed (which must stay absolute, since it lives on other sites) is built from `profile.identity.instance`, threaded through `load()`. External links (docs.octothorp.es, GitHub, mailto, vocab) and debug fixtures were left as-is.
 
 **Files affected:** `src/routes/~/+page.svelte`, `src/routes/~/[thorpe]/+page.svelte`, `src/routes/register/{+page.server.js,+page.svelte}`, `src/routes/{about,ratbike,flyer}/+page.svelte`, `src/lib/components/Footer.svelte`.
+
+## Markdown handler: wikilink resolution removed, alias precedence fixed (#289, 2026-10-19)
+
+The declared-URI wikilink-resolution machinery (`buildTargetMap`, `AMBIGUOUS`, the `wikilinkTargets` option, resolution warnings) is deleted from the markdown handler — resolution belongs to the Memex client, not core. The handler is extraction-only: wikilinks stay on `output.wikilinks`, never become edges. Frontmatter `uri` → `@id` identity (#246) is kept. Bug fixed: an alias (`date`/`published`) appearing before an explicit canonical key (`postDate`) used to win on insertion order; explicit keys now always beat aliases.
+
+**Files affected:** `packages/core/handlers/markdown/{handler,wikilinks}.js`, `src/tests/{markdownHandler,markdownWikilinks}.test.js`.

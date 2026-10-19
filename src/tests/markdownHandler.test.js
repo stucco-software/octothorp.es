@@ -72,6 +72,16 @@ body`
     expect(blob.documentRecord?.date).toBeUndefined()
   })
 
+  it('lets an explicit canonical key beat an alias regardless of frontmatter order', async () => {
+    const md = `---
+date: "1999-01-01"
+postDate: "2026-01-02"
+---
+body`
+    const blob = await markdownHandler.harmonize(md)
+    expect(blob.postDate).toBe('2026-01-02')
+  })
+
   it('handles documents with no frontmatter', async () => {
     const blob = await markdownHandler.harmonize('# Heading\n\nno frontmatter at all')
     expect(blob['@id']).toBe('source')
