@@ -36,7 +36,7 @@ export const WHAT_GROUP_BY_VALUE = Object.fromEntries(
  *
  * Deliberately absent: `as` and the two route words, which are path segments
  * rather than params; `subtype`, which is derived from the link-type table
- * and is not an HTTP param (ad-hoc `?st=` is #200, unbuilt); and
+ * (`?st=` sets it ad-hoc on generic link [by] values, #200); and
  * `documentRecordSchema`/`namespaces`/`linkTypes`, which are programmatic-only
  * options an HTTP caller cannot set.
  * @type {string[]}
@@ -56,6 +56,7 @@ export const GET_PARAMS = [
   'offset',
   'rt',
   's',
+  'st',
   'when',
 ]
 

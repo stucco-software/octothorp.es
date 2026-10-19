@@ -1447,3 +1447,9 @@ Pages first seen as link targets got only `rdf:type octo:Page` from `mentionTrip
 `very-fuzzy` `CONTAINS` ran raw query text against stored IRIs, so `site changes` could never match `~/site%20changes`. Read-side variants are now percent-encoded with termIri's rules (new `termIriSegment` helper), stacking with #253's case-folding; `fuzzy` and `very-fuzzy` lists also include the legacy `new URL()`-style non-ASCII spelling (`caf%c3%a9`) so pre-#306 RDFa-written data still matches. Write side unified: the RDFa path returns `termIri` directly instead of round-tripping through `new URL().href`, so both paths store non-ASCII raw (`café`). Legacy %-encoded non-ASCII terms stay readable but are a candidate cutover-chore migration.
 
 **Files affected:** `packages/core/{utils.js,queryBuilders.js,ld/rdfa2triples.js}`, `src/tests/{caseInsensitiveTerms,termIri}.test.js`.
+
+## ?st= queries arbitrary relationship subtypes (#200, 2026-10-19)
+
+`?st=` sets `filters.subtype` directly, so harmonizer-written subtypes (`octo:Sameas`, `octo:Reply`, ...) are queryable without a declared `[by]` alias: `/get/pages/linked?s=...&st=Sameas`. It applies only to generic link `[by]` values — term/posted/webring queries and a conflicting typed alias (`cited?st=Sameas`) get a 400 QueryError; a redundant matching st is allowed. Values are validated as bare local names and case-normalized like write-side `resolveSubtype`. `st` is advertised in `GET_PARAMS`.
+
+**Files affected:** `packages/core/{multipass.js,apiGrammar.js}`, `src/lib/converters.js`, `src/tests/stParam.test.js` (new).

@@ -88,6 +88,27 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   subtype = linkType.subtype ?? ""
   objectType = OBJECT_TYPES[linkType.objects]
 
+  // #200: ?st= names a relationship subtype directly, so any harmonizer-written
+  // subtype (octo:Sameas, octo:Reply, ...) is queryable without a declared [by]
+  // alias. It applies only to generic link [by] values — term, posted, and
+  // webring queries have no subtyped relationship, and a typed alias already
+  // fixes the subtype, so those get an explicit rejection (same posture as
+  // #266/#313). Case is normalized the way the write path's resolveSubtype
+  // does: first letter uppercased.
+  if (options.st !== undefined) {
+    if (typeof options.st !== 'string' || !/^[A-Za-z][A-Za-z0-9]*$/.test(options.st)) {
+      throw new QueryError(`st=${options.st} is not a valid subtype name: use a bare octo local name like Sameas (letters and digits, starting with a letter)`)
+    }
+    const st = options.st.charAt(0).toUpperCase() + options.st.slice(1)
+    if (linkType.objects === 'terms' || linkType.objects === 'none' || linkType.subjects === 'byParent') {
+      throw new QueryError(`st does not apply to by=${matchByParams}: subtypes only exist on link relationships. Use a link by such as linked.`)
+    }
+    if (subtype && subtype !== st) {
+      throw new QueryError(`st=${st} conflicts with by=${matchByParams}, which already fixes the subtype to ${subtype}. Use a generic link by (linked) with st, or drop st.`)
+    }
+    subtype = st
+  }
+
   if (linkType.subjects === 'byParent') {
     // Webring membership: the subject side is resolved through a parent
     // rather than matched, so it bypasses the `match` handling below
