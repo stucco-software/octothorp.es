@@ -1,6 +1,28 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'path';
+import { existsSync, readdirSync, rmSync } from 'fs';
+
+const outDir = resolve(__dirname, 'static/components');
+
+/**
+ * static/components/ also holds hand-written demo HTML pages, so we can't use
+ * emptyOutDir. Instead, delete previous build output (hashed chunks included)
+ * before each build so stale content-hashed files don't accumulate (#254).
+ */
+function cleanComponentBuildOutput() {
+  return {
+    name: 'clean-component-build-output',
+    buildStart() {
+      if (!existsSync(outDir)) return;
+      for (const file of readdirSync(outDir)) {
+        if (file.endsWith('.js') || file.endsWith('.js.map')) {
+          rmSync(resolve(outDir, file));
+        }
+      }
+    }
+  };
+}
 
 /**
  * Vite configuration for building Svelte web components
@@ -8,6 +30,7 @@ import { resolve } from 'path';
  */
 export default defineConfig({
   plugins: [
+    cleanComponentBuildOutput(),
     svelte({
       compilerOptions: {
         // Enable custom element mode for web components
@@ -34,11 +57,14 @@ export default defineConfig({
     },
     // Output to static/components/ so it's served by SvelteKit
     outDir: 'static/components',
-    // Don't empty the entire directory (might have other static files)
+    // Never empty the whole directory: it also holds hand-written demo HTML.
+    // Stale JS/map cleanup is handled by cleanComponentBuildOutput above.
     emptyOutDir: false,
     // Optimize for production
     minify: 'terser',
-    sourcemap: true,
+    // No sourcemaps: static/ is served publicly and maps would expose the full
+    // component source. Flip to true locally if you need to debug a build.
+    sourcemap: false,
     rollupOptions: {
       // Don't bundle these - they're expected in the browser
       external: [],
