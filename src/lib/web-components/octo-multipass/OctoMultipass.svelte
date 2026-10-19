@@ -3,8 +3,8 @@
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
-  import { parseMultipass, multipassToParams, extractWhatBy } from '../shared/multipass-utils.js';
-  import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
+  import { parseMultipass, multipassToParams, extractWhatBy } from 'octothorpes';
+  import { getTitle, getUrl, formatDisplayDate as formatDate } from 'octothorpes';
   
   // Accept MultiPass as JSON string or object
   export let multipass = '';
@@ -50,7 +50,7 @@
     }
   });
   
-  // (Common display helpers imported from display-helpers.js)
+  // (Common display helpers imported from the octothorpes core package)
 </script>
 
 {#if !parsedMultiPass}

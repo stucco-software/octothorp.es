@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // display-helpers.js
 // ============================================================================
 
-import { getTitle, getUrl, formatDate } from '../lib/web-components/shared/display-helpers.js'
+import { getTitle, getUrl, formatDisplayDate as formatDate } from 'octothorpes'
 
 describe('display-helpers', () => {
   describe('getTitle', () => {
@@ -82,7 +82,7 @@ import {
   extractWhatBy,
   isValidMultipass,
   parseMultipass
-} from '../lib/web-components/shared/multipass-utils.js'
+} from 'octothorpes'
 
 const validMultipass = {
   meta: {
@@ -309,43 +309,45 @@ describe('multipass-utils', () => {
     })
   })
 
-  describe('isValidMultipass', () => {
-    it('should return true for valid multipass', () => {
-      expect(isValidMultipass(validMultipass)).toBe(true)
+  // Components now use the core validator, which returns { valid, error }
+  // instead of the old shared boolean.
+  describe('isValidMultipass (core)', () => {
+    it('should return valid for valid multipass', () => {
+      expect(isValidMultipass(validMultipass).valid).toBe(true)
     })
 
-    it('should return false for null', () => {
-      expect(isValidMultipass(null)).toBe(false)
+    it('should return invalid for null', () => {
+      expect(isValidMultipass(null).valid).toBe(false)
     })
 
-    it('should return false for non-objects', () => {
-      expect(isValidMultipass('string')).toBe(false)
-      expect(isValidMultipass(42)).toBe(false)
+    it('should return invalid for non-objects', () => {
+      expect(isValidMultipass('string').valid).toBe(false)
+      expect(isValidMultipass(42).valid).toBe(false)
     })
 
-    it('should return false when meta is missing', () => {
+    it('should return invalid when meta is missing', () => {
       const { meta, ...rest } = validMultipass
-      expect(isValidMultipass(rest)).toBe(false)
+      expect(isValidMultipass(rest).valid).toBe(false)
     })
 
-    it('should return false when meta.resultMode is missing', () => {
-      const mp = { ...validMultipass, meta: { server: 'x', version: '1' } }
-      expect(isValidMultipass(mp)).toBe(false)
+    it('should return invalid when meta.resultMode is missing', () => {
+      const mp = { ...validMultipass, meta: { title: 'x', server: 'x', version: '1' } }
+      expect(isValidMultipass(mp).valid).toBe(false)
     })
 
-    it('should return false when subjects.include is not an array', () => {
+    it('should return invalid when subjects.include is not an array', () => {
       const mp = { ...validMultipass, subjects: { ...validMultipass.subjects, include: 'not-array' } }
-      expect(isValidMultipass(mp)).toBe(false)
+      expect(isValidMultipass(mp).valid).toBe(false)
     })
 
-    it('should return false when objects.exclude is not an array', () => {
+    it('should return invalid when objects.exclude is not an array', () => {
       const mp = { ...validMultipass, objects: { ...validMultipass.objects, exclude: 'not-array' } }
-      expect(isValidMultipass(mp)).toBe(false)
+      expect(isValidMultipass(mp).valid).toBe(false)
     })
 
-    it('should return false when filters.limitResults is undefined', () => {
+    it('should return invalid when filters.limitResults is undefined', () => {
       const mp = { ...validMultipass, filters: { offsetResults: '0' } }
-      expect(isValidMultipass(mp)).toBe(false)
+      expect(isValidMultipass(mp).valid).toBe(false)
     })
   })
 

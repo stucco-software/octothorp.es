@@ -23,7 +23,7 @@
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
-  import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
+  import { getTitle, getUrl, formatDisplayDate as formatDate } from 'octothorpes';
   
   // ============================================================================
   // STANDARD PROPS
@@ -84,7 +84,7 @@
   // COMPONENT-SPECIFIC HELPERS - Add any custom helpers here
   // ============================================================================
 
-  // (Common helpers like getTitle, getUrl, formatDate are imported from display-helpers.js)
+  // (Common helpers like getTitle, getUrl, formatDate are imported from the octothorpes core package)
 
   // `pages/linked` is queried with o = the current page, so the object row IS
   // the page being asked about — a page is not its own backlink (#260). Nothing

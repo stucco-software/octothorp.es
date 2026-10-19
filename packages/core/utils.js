@@ -787,3 +787,178 @@ export const harmonizerId = (harmonizer, resolved) =>
   resolved?.['@id'] ??
   resolved?.title ??
   null
+
+// ---------------------------------------------------------------------------
+// MultiPass client helpers (#205)
+//
+// Moved from src/lib/web-components/shared/multipass-utils.js so web
+// components and other clients share one implementation. These are the
+// read-side complement of buildMultiPass: given a MultiPass object, recover
+// the /get/ endpoint and query params that reproduce it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Converts a MultiPass to /get/ API query parameters.
+ * @param {Object} multiPass - MultiPass object
+ * @returns {Object} Query parameters (server, s, o, nots, noto, match, limit, offset, when, rt, subtype)
+ */
+export function multipassToParams(multiPass) {
+  if (!multiPass) return {};
+
+  return {
+    server: multiPass.meta?.server || new URL(import.meta.url).origin,
+    s: multiPass.subjects?.include?.join(',') || '',
+    o: multiPass.objects?.include?.join(',') || '',
+    nots: multiPass.subjects?.exclude?.join(',') || '',
+    noto: multiPass.objects?.exclude?.join(',') || '',
+    match: determineMatch(multiPass),
+    limit: String(multiPass.filters?.limitResults || 10),
+    offset: String(multiPass.filters?.offsetResults || 0),
+    when: dateRangeToWhen(multiPass.filters?.dateRange),
+    rt: multiPass.filters?.relationTerms?.join(',') || '',
+    subtype: multiPass.filters?.subtype || '',
+  };
+}
+
+/**
+ * Extracts the /get/{what}/{by} endpoint segments from a MultiPass.
+ * @param {Object} multiPass - MultiPass object
+ * @returns {{what: string, by: string}}
+ */
+export function extractWhatBy(multiPass) {
+  if (!multiPass) return { what: 'pages', by: 'thorped' };
+
+  // Determine 'what' from resultMode
+  let what = 'pages';
+  if (multiPass.meta?.resultMode === 'blobjects') {
+    what = 'everything';
+  } else if (multiPass.meta?.resultMode === 'octothorpes') {
+    what = 'thorpes';
+  } else if (multiPass.meta?.resultMode === 'links') {
+    what = 'pages';
+  }
+
+  // Determine 'by' from object type and subtype
+  let by = 'thorped';
+
+  if (multiPass.objects?.type === 'termsOnly') {
+    by = 'thorped';
+  } else if (multiPass.filters?.subtype === 'Backlink') {
+    by = 'backlinked';
+  } else if (multiPass.filters?.subtype === 'Cite') {
+    by = 'cited';
+  } else if (multiPass.filters?.subtype === 'Bookmark') {
+    by = 'bookmarked';
+  } else if (multiPass.subjects?.mode === 'byParent') {
+    by = 'in-webring';
+  } else if (multiPass.objects?.type === 'notTerms') {
+    by = 'linked';
+  } else if (multiPass.objects?.type === 'none') {
+    by = 'posted';
+  } else {
+    // Default to linked if objects are present
+    by = 'linked';
+  }
+
+  return { what, by };
+}
+
+/** Maps subject/object modes back to a `match` param value. */
+function determineMatch(multiPass) {
+  const sMode = multiPass.subjects?.mode || 'auto';
+  const oMode = multiPass.objects?.mode || 'auto';
+
+  if (oMode === 'all') return 'all';
+  if (sMode === 'fuzzy' && oMode === 'auto') return 'fuzzy-s';
+  if (oMode === 'fuzzy' && sMode === 'auto') return 'fuzzy-o';
+  if (oMode === 'very-fuzzy') return 'very-fuzzy-o';
+  if (sMode === 'fuzzy' || oMode === 'fuzzy') return 'fuzzy';
+
+  return ''; // auto/exact
+}
+
+/** Converts a MultiPass dateRange back to a `when` param string. */
+function dateRangeToWhen(dateRange) {
+  if (!dateRange) return '';
+
+  const toDay = (timestamp) => new Date(timestamp).toISOString().split('T')[0];
+
+  if (dateRange.after && dateRange.before) {
+    return `between-${toDay(dateRange.after)}-and-${toDay(dateRange.before)}`;
+  } else if (dateRange.after) {
+    return `after-${toDay(dateRange.after)}`;
+  } else if (dateRange.before) {
+    return `before-${toDay(dateRange.before)}`;
+  }
+
+  return '';
+}
+
+/**
+ * Parses a MultiPass from a JSON string or object, validating its structure.
+ * @param {string|Object} input - JSON string or object
+ * @returns {Object|null} Parsed MultiPass or null if invalid
+ */
+export function parseMultipass(input) {
+  if (!input) return null;
+
+  try {
+    let parsed;
+
+    if (typeof input === 'string') {
+      parsed = JSON.parse(input);
+    } else if (typeof input === 'object') {
+      parsed = input;
+    } else {
+      return null;
+    }
+
+    const result = isValidMultipass(parsed);
+    if (!result.valid) {
+      console.warn('Invalid MultiPass structure:', result.error);
+      return null;
+    }
+
+    return parsed;
+  } catch (e) {
+    console.error('Failed to parse MultiPass:', e);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Display helpers (#205)
+//
+// Moved from src/lib/web-components/shared/display-helpers.js: tiny
+// formatting fallbacks for rendering API results.
+// ---------------------------------------------------------------------------
+
+/**
+ * Display-friendly title for an API result item.
+ * @param {Object} item
+ * @returns {string} title, @id, uri, term, or 'Untitled'
+ */
+export function getTitle(item) {
+  return item.title || item['@id'] || item.uri || item.term || 'Untitled';
+}
+
+/**
+ * URL for an API result item.
+ * @param {Object} item
+ * @returns {string} @id, uri, or '#'
+ */
+export function getUrl(item) {
+  return item['@id'] || item.uri || '#';
+}
+
+/**
+ * Formats a unix-ms timestamp (string or number) as a localized date.
+ * Named to avoid colliding with the publisher-side formatDate in publish.js.
+ * @param {string|number} timestamp
+ * @returns {string} locale date string, or '' if falsy
+ */
+export function formatDisplayDate(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(parseInt(timestamp));
+  return date.toLocaleDateString();
+}

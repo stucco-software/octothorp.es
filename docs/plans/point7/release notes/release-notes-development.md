@@ -1387,3 +1387,9 @@ Self-links across the SvelteKit pages are now relative, so they stay on whatever
 The declared-URI wikilink-resolution machinery (`buildTargetMap`, `AMBIGUOUS`, the `wikilinkTargets` option, resolution warnings) is deleted from the markdown handler — resolution belongs to the Memex client, not core. The handler is extraction-only: wikilinks stay on `output.wikilinks`, never become edges. Frontmatter `uri` → `@id` identity (#246) is kept. Bug fixed: an alias (`date`/`published`) appearing before an explicit canonical key (`postDate`) used to win on insertion order; explicit keys now always beat aliases.
 
 **Files affected:** `packages/core/handlers/markdown/{handler,wikilinks}.js`, `src/tests/{markdownHandler,markdownWikilinks}.test.js`.
+
+## Web components import core, shared duplicates deleted (#205, 2026-10-19)
+
+`shared/multipass-utils.js` and `shared/display-helpers.js` are deleted; their logic moved into `packages/core/utils.js` (`parseMultipass`, `multipassToParams`, `extractWhatBy`, `getTitle`, `getUrl`, `formatDisplayDate` — renamed to avoid the publisher `formatDate`) and all components import from `octothorpes`. `parseMultipass` now uses core's stricter `isValidMultipass` (requires `meta.title`, returns `{valid, error}`). `shared/octo-store.js` stays: it is Svelte-store fetch wiring with no core equivalent. Component build verified jsdom-free.
+
+**Files affected:** `packages/core/{utils,client}.js`, `src/lib/web-components/{octo-backlinks,octo-multipass,octo-multipass-loader,octo-thorpe}/*.svelte`, `src/lib/web-components/shared/` (two files deleted), `src/tests/web-components.test.js`, `static/components/*`.
