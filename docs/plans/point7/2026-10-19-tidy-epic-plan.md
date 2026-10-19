@@ -1,5 +1,7 @@
 # epic/0.7-tidy clear-out plan
 
+**Status 2026-10-19: COMPLETE on branch 07-tidy-batch** (24 commits, full suite 2054 passed / 13 skipped, whole-branch review done, 2 findings fixed). Remaining before issue close-out: batch golden regen against the post-cutover deployed baseline, then merge to development after the cutover per the merge-gate rule. Open rulings for Nim: Link→Backlink promotion under endorsement (#213 note), term-RSS case sensitivity (#253 note), replaced-builtin coherence exemption (#296 note), per-relay block markup as a new feature (#320 note).
+
 2026-10-19. Goal: close every open `epic/0.7-tidy` issue (22 at time of writing) on a new feature branch off `development`, while the v0.7 cutover runs in parallel. Execution: Fable orchestrates, subagents write all code, one issue (or one dependent pair) per dispatch, tests green before the next starts.
 
 **Branch:** `07-tidy-batch` off `development`. No worktree isolation (per standing rule).
@@ -55,6 +57,12 @@ All of these produce golden diffs — regenerate goldens once at the end of the 
 - **#213** — dispatch once the in-session rulings land.
 - **#289** — cruft removal + bug review of the markdown handler (`packages/core/handlers/markdown/`); report findings on the issue.
 - Relabel #312 out of the epic; file the deletion-semantics issue split from #253.
+
+## Cutover-chore candidates surfaced by this batch
+
+- **#311 backfill:** the fix is prospective; mention-first pages already in prod lack `octo:created` until re-indexed. Candidate one-off SPARQL update: `INSERT { ?p octo:created ?t } WHERE { ?p a octo:Page . FILTER NOT EXISTS { ?p octo:created ?x } }`, ideally seeding `?t` from min(`octo:indexed`). ~4 of 27 affected on the fly.dev store per the issue.
+
+- **#306 legacy IRIs:** terms written by the old RDFa path store %-encoded non-ASCII (`~/caf%C3%A9`); new writes store raw (`~/café`). Read-compat covers both; migrating the old spellings to canonical is a candidate chore.
 
 ## Sequencing with the cutover
 
