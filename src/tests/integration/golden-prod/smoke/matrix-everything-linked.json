@@ -211,6 +211,10 @@
     "octothorpes": [
       "demo",
       {
+        "uri": "https://indieweb.org",
+        "type": "Mention"
+      },
+      {
         "uri": "https://neocities.org",
         "type": "Link"
       },
@@ -363,7 +367,10 @@
         "uri": "https://octothorpes.neocities.org",
         "type": "Link"
       }
-    ]
+    ],
+    "documentRecord": {
+      "richContent": "\n  <h4>Stored as rich content</h4>\n  <p>This <em>paragraph</em> and its <a href=\"https://docs.octothorp.es\">link</a> are kept.</p>\n  <p>The onclick handler on this paragraph is stripped.</p>\n  \n  <p><a>This link keeps its text but loses its javascript: href.</a></p>\n"
+    }
   },
   {
     "@id": "https://nimdaghlian.github.io/devdemo/rss-feeds",
@@ -424,6 +431,25 @@
         "type": "Link"
       },
       "tags"
+    ]
+  },
+  {
+    "@id": "https://nimdaghlian.github.io/devdemo/term-with-space",
+    "title": "Terms With Spaces - OP DEV DEMO",
+    "description": "Octothorpe terms can contain spaces and other characters that aren't allowed raw in an IRI. OP percent-encodes them when it stores the term.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": 1791375600000,
+    "octothorpes": [
+      "demo",
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      },
+      "site changes"
     ]
   },
   {

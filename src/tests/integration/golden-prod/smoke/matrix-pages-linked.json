@@ -22,6 +22,13 @@
   },
   {
     "role": "object",
+    "uri": "https://indieweb.org",
+    "title": null,
+    "description": null,
+    "image": null
+  },
+  {
+    "role": "object",
     "uri": "https://neocities.org",
     "title": null,
     "description": null,
@@ -36,6 +43,13 @@
   },
   {
     "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
+    "title": "Backlinks - OP DEV DEMO",
+    "description": "The idea of a backlink is as old as the concept of a hyperlink, but they're not as widely implemented as one-way links.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "object",
     "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
     "title": "Backlinks - OP DEV DEMO",
     "description": "The idea of a backlink is as old as the concept of a hyperlink, but they're not as widely implemented as one-way links.",
@@ -161,10 +175,31 @@
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
   },
   {
+    "role": "object",
+    "uri": "https://nimdaghlian.github.io/devdemo/tags-and-octothorpes",
+    "title": "Tags and Octothorpes - OP DEV DEMO",
+    "description": "Octothorpes are like super-tags for websites. So they are designed to work seamlessly with any platform's normal method of tagging content.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
     "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/tags-only",
     "title": "Tags Only - OP DEV DEMO",
     "description": "This page is using tags in the traditional way, even though the pages linked here use those tags as octothorpes.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "object",
+    "uri": "https://nimdaghlian.github.io/devdemo/tags-only",
+    "title": "Tags Only - OP DEV DEMO",
+    "description": "This page is using tags in the traditional way, even though the pages linked here use those tags as octothorpes.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/term-with-space",
+    "title": "Terms With Spaces - OP DEV DEMO",
+    "description": "Octothorpe terms can contain spaces and other characters that aren't allowed raw in an IRI. OP percent-encodes them when it stores the term.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
   },
   {
