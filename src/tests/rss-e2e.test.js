@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const insertSpy = vi.fn().mockResolvedValue(true)
 const querySpy = vi.fn().mockResolvedValue(true)
-const queryBooleanSpy = vi.fn().mockResolvedValue(true)
+// A blanket `true` used to be a safe default for every ASK the core makes.
+// The #310 ban gate changed that: `true` for the octo:banned ASK means "this
+// origin is banned", so the indexer refuses before it reaches anything this
+// file is testing. Answer that one query false and leave the rest true.
+const notBanned = async (q) => !/octo:banned/.test(q)
+const queryBooleanSpy = vi.fn().mockImplementation(notBanned)
 const queryArraySpy = vi.fn().mockResolvedValue({ results: { bindings: [] } })
 
 vi.mock('../../packages/core/sparqlClient.js', () => ({
@@ -17,7 +22,7 @@ vi.mock('../../packages/core/sparqlClient.js', () => ({
 describe('end-to-end: RSS feed via indexSource', () => {
   beforeEach(() => {
     insertSpy.mockClear()
-    queryBooleanSpy.mockResolvedValue(true)
+    queryBooleanSpy.mockImplementation(notBanned)
     queryArraySpy.mockResolvedValue({ results: { bindings: [] } })
   })
 
