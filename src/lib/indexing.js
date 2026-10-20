@@ -87,7 +87,6 @@ export const {
   handleThorpe,
   handleMention,
   handleWebring,
-  ingestBlobject,
   isHarmonizerAllowed,
   checkIndexingRateLimit,
   parseRequestBody,
