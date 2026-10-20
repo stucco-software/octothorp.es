@@ -1,8 +1,15 @@
 {
   "name": "octothorpes",
-  "version": "0.5.5",
+  "version": "0.6.7",
   "type": "module",
   "description": "Core library for the Octothorpes Protocol",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stucco-software/octothorp.es.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://docs.octothorp.es",
+  "bugs": "https://github.com/stucco-software/octothorp.es/issues",
   "main": "client.js",
   "bin": {
     "octothorpes": "./bin/octothorpes.js"
@@ -17,7 +24,8 @@
     "ld/",
     "handlers/",
     "bin/",
-    "profile.schema.json"
+    "profile.schema.json",
+    "CHANGELOG.md"
   ],
   "dependencies": {
     "ajv": "^6.15.0",

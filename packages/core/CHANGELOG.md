@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.6.7
+
+Version sync release. The package tracked its own numbering until now (it was at
+0.5.5 while the protocol shipped v0.6.7), so this release aligns the two: from
+here the package version and the OP release tag are the same number, and 0.7
+will be the first across-the-board release. The package remains alpha until 0.7.
+
+Everything below shipped across 0.5.0 - 0.5.5 and in this release; those five
+versions were published without changelog entries, so their changes are recorded
+here collectively rather than split retroactively.
 
 ### Breaking
 
