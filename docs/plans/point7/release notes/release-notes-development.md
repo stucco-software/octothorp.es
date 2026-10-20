@@ -1363,3 +1363,15 @@ The pages list shows 100 per page (core's default limit), with Newer/Older links
 Verified origins get `octo:siteNum` (string, MAX+1, never reused, idempotent), minted by core `mintSiteNum` at the end of `ingestBlobject` (skipped for endorsement-only admissions) and in `createVerifiedOrigin`/`approveOrigin` (admin approve). `/domains/<digits>` 307-redirects to `/domains/<encoded-origin>` via `originBySiteNum`, 404 if unknown. The `/domains` list shows `#n` links. Existing origins get a number on their next index; there is no backfill. Concurrent mints can collide (accepted).
 
 **Files affected:** `packages/core/{origin.js,indexer.js,client.js,api.js}`, `src/lib/admin.js`, `src/routes/domains/{load.js,+page.svelte}`, `src/routes/domains/[uri]/{domain.js,+page.server.js,+server.js}`, `src/tests/{siteNum,exports,indexerEndorsement}.test.js`.
+
+## Production-safe indexing smoketest (2026-10-20)
+
+`npm run production-smoke -- --instance=<url>` runs the indexing smoketest cycle against a live relay: reindex the devdemo URL set, settle, capture, diff. Every database-touching phase is gone, so it reads no credentials — no wipe (`deleteOrigin` is not imported, `--wipe` aborts), no registration insert, no dump. Three guards: the target must be passed explicitly (the `instance` env var is ignored), `--wipe`/`--dump` abort, and a run with no goldens aborts before any network call. Fixtures live in `golden-prod/` and `captured-prod/` because production's store holds data the dev target does not. Aborts when every `/index` POST returns 401/403, which means the origin is not registered rather than that the deploy regressed.
+
+**Files affected:** `scripts/production-smoke.js` (new), `src/tests/integration/productionSmoke.test.js` (new), `src/tests/integration/golden-prod/`, `package.json`.
+
+## v0.6.7 cutover: main replaced by development (2026-10-20)
+
+`main` was replaced by `development` at `2262cb6` and tagged `v0.6.7`; the previous production code is archived at `archive/v0.6` (`151a3cb`), the only ref from which its 68 unique commits are reachable. The temporary tinylittleoffice demo was reverted first — it had become ungated when `877d633` dropped the `tlo_demo` flag, making the revert the only thing keeping it out of production. The TLO publisher spike was removed by deletion rather than by reverting merge `164d59e`, which also carries unrelated tracker and vocabulary-spec updates. The full demo is preserved on the pushed branch `tlo-demo-archive`. Two tests that stubbed `queryBoolean` with a blanket `true` were fixed: the #310 ban gate reads that as "origin is banned", so both threw before reaching what they test.
+
+**Files affected:** reverts of `34ab134`, `877d633`, `0fcc888`, `741de14`, `5b1f9b1`, `849ee2b`, `f9fd55c`, `8faa329`; `static/publishers/{_tlo,tlo-cal,tlo-doc}` and `src/tests/tloPublishers.test.js` deleted; `src/tests/{rss-e2e,client-policy}.test.js`; `scripts/ban-purge-check.js` recovered from main.
