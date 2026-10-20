@@ -1483,3 +1483,9 @@ Per the 2026-10-19 ruling: when a cross-origin generic `Link` passes the same `c
 The "Blocking this relay" section now displays the exact UA string the relay sends (computed server-side via core `userAgent()` with the profile's indexing mode + instance — e.g. `Octothorpes/0.5.5 (+https://octothorp.es/)`, with `(active; ` in active mode), plus nginx and Cloudflare one-liner block examples keyed on `+<instance>`.
 
 **Files affected:** `src/routes/profile/{+page.server.js,+page.svelte}`.
+
+## Builtin replacements lose the coherence exemption; creation-time warning pinned (#296 follow-up, 2026-10-19)
+
+Per the 2026-10-19 ruling: a site harmonizer that replaces a builtin by name is now treated as a site harmonizer by `checkCoherence`'s reverse checks — createClient derives the builtin-exempt set from `listHarmonizerEntries()` after registration (a replacement carries `source: 'declared'`), so e.g. a replacement `default` with unqueried subtypes or undeclared documentRecord keys warns like any site file. The existing register-time "site harmonizer `default` replaces builtin" warning was verified to fire during `createClient` boot and is now pinned by tests.
+
+**Files affected:** `packages/core/client.js`, `src/tests/harmonizerCoherence.test.js`.

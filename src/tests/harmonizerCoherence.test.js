@@ -187,6 +187,62 @@ describe("(b') a harmonizer documentRecord key the profile never declared", () =
   })
 })
 
+describe('a site harmonizer that REPLACES a builtin by name is a site harmonizer', () => {
+  // #296 follow-up ruling: the builtin-name exemption must not cover
+  // replacements. A replacement `default` is the site's file — its dropped or
+  // added sections warn like any other site harmonizer.
+  const replacementDefault = (schema) => ({
+    id: 'harmonizer/site-default',
+    type: 'harmonizer',
+    mode: 'html',
+    schema: { subject: { s: 'source' }, ...schema },
+  })
+
+  it('warns at client creation that the builtin is replaced', () => {
+    const { warn, lines } = capture()
+    build({ api: {}, harmonizers: { default: replacementDefault({}) }, warn })
+    expect(lines).toContain('site harmonizer `default` replaces builtin')
+  })
+
+  it("(a') warns when the replacement writes a subtype no link type queries", () => {
+    const { warn, lines } = capture()
+    build({
+      api: {},
+      harmonizers: {
+        default: replacementDefault({
+          review: { s: 'source', o: [{ selector: "[rel~='octo:reviews']", attribute: 'href' }] },
+        }),
+      },
+      warn,
+    })
+    expect(coherenceLines(lines)).toEqual([
+      '[profile] harmonizer "default" writes relationship subtype octo:Review that no link type queries; declare it in api.linkTypes to make it reachable',
+    ])
+  })
+
+  it("(b') warns when the replacement extracts undeclared documentRecord keys", () => {
+    const { warn, lines } = capture()
+    build({
+      api: {},
+      harmonizers: {
+        default: replacementDefault({
+          documentRecord: { foo: [{ selector: 'article', attribute: 'textContent' }] },
+        }),
+      },
+      warn,
+    })
+    expect(coherenceLines(lines)).toEqual([
+      '[profile] harmonizer "default" extracts documentRecord keys (foo) not declared in api.documentRecord; they are dropped at write time',
+    ])
+  })
+
+  it('listHarmonizerEntries reports the replacement as declared', () => {
+    const client = build({ api: {}, harmonizers: { default: replacementDefault({}) }, warn: () => {} })
+    const entries = client.resolvedProfile().api.harmonizers.available
+    expect(entries.find((e) => e.name === 'default')).toEqual({ name: 'default', source: 'declared' })
+  })
+})
+
 describe('builtins alone are coherent', () => {
   it('a client with no declarations and no site harmonizers warns about nothing', () => {
     const { warn, lines } = capture()

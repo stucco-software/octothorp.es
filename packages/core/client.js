@@ -365,9 +365,6 @@ export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
   const registry = createHarmonizerRegistry(config.instance, { warn: config.warn ?? console.warn })
-  // Snapshot before config.harmonizers register: everything here is core's own,
-  // which #293's reverse checks exempt.
-  const builtinHarmonizerNames = new Set(Object.keys(registry.list()))
   const policy = normalizeIndexingMode(config.indexingMode)
   // #217: the access gate is orthogonal to indexingMode. `access` says what gate
   // an index request must pass; `indexingMode` says what triggers indexing.
@@ -449,7 +446,16 @@ export const createClient = (config) => {
     linkTypes,
     documentRecord: config.profile?.api?.documentRecord ?? config.documentRecordSchema,
     harmonizers: registry.list(),
-    builtinHarmonizerNames,
+    // #296 follow-up ruling: ask the registry AFTER config.harmonizers
+    // registered. A site file that replaced a builtin by name now carries
+    // source 'declared', so #293's reverse checks treat it as a site
+    // harmonizer — a replacement's dropped sections warn like any site file.
+    builtinHarmonizerNames: new Set(
+      registry
+        .listHarmonizerEntries()
+        .filter((e) => e.source === 'builtin')
+        .map((e) => e.name)
+    ),
     warn: config.warn ?? console.warn,
   })
 
