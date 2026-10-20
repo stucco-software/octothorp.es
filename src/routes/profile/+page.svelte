@@ -210,12 +210,19 @@
       It is ignored when the page's owner asks for indexing.
     </li>
     <li>
-      <strong>User-Agent block.</strong> The relay fetches pages server-side and
-      identifies itself as <code>Octothorpes/&lt;version&gt; (+{identity.instance})</code>;
-      in active mode the string includes <code>(active;</code>. Refusing that
-      User-Agent at your web server or CDN blocks this relay specifically, and a
-      refused fetch fails the index request. Matching on <code>{identity.instance}</code>
-      targets this relay alone; matching on <code>Octothorpes</code> targets all of them.
+      <strong>User-Agent block.</strong> The relay fetches pages server-side.
+      This is the exact User-Agent string it sends:
+      <pre><code>{data.relayUserAgent}</code></pre>
+      (Relays in <code>active</code> indexing mode carry an <code>(active;</code>
+      marker before the instance URL; this string already reflects this relay's
+      mode.) Refusing that User-Agent at your web server or CDN blocks this
+      relay specifically, and a refused fetch fails the index request. For
+      example, in nginx:
+      <pre><code>if ($http_user_agent ~ "\+{identity.instance}") &#123; return 403; &#125;</code></pre>
+      or as a Cloudflare WAF expression:
+      <pre><code>(http.user_agent contains "+{identity.instance}")</code></pre>
+      Matching on <code>+{identity.instance}</code> targets this relay alone;
+      matching on <code>Octothorpes</code> targets all of them.
     </li>
     <li>
       <strong>robots.txt.</strong> The indexer does not read robots.txt, so it has no effect here.

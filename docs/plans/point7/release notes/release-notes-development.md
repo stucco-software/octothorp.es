@@ -1471,3 +1471,15 @@ The dead wiring is live: a Backlink node is now minted only when a reciprocal me
 Per the 2026-10-19 ruling: when a cross-origin generic `Link` passes the same `checkEndorsement` gate (target-endorses-source or reciprocal mention), a `Backlink` node is now minted alongside the normal Link node, in the same batched insert. Same-origin links are never promoted (origin equality is checked before the gate, since `checkEndorsement` passes same-origin for the Backlink subtype); Bookmark/Cite and harmonizer subtypes are untouched; the existing `extantBacklink` check dedupes re-indexes. Golden impact: both smoketest backlinked goldens stay empty — devdemo cross-links are same-origin and its external link targets are neither reciprocal nor endorsing.
 
 **Files affected:** `packages/core/indexer.js`, `src/tests/indexing.test.js`.
+
+## Term RSS feed matches the search page (#253 follow-up, 2026-10-19)
+
+`/~/[thorpe]/rss` now builds its query through `termFeedQuery`, which uses the same `caseInsensitiveTermClause` as the term search page, so the feed and the page render the same result set; full-URL params keep exact matching. The timestamp triple reads off the bound term IRI, following stored casing.
+
+**Files affected:** `src/routes/~/[thorpe]/rss/{+server.js,query.js (new)}`, `src/tests/termRssCaseInsensitive.test.js` (new).
+
+## Profile page shows the relay's literal User-Agent (#320 follow-up, 2026-10-19)
+
+The "Blocking this relay" section now displays the exact UA string the relay sends (computed server-side via core `userAgent()` with the profile's indexing mode + instance — e.g. `Octothorpes/0.5.5 (+https://octothorp.es/)`, with `(active; ` in active mode), plus nginx and Cloudflare one-liner block examples keyed on `+<instance>`.
+
+**Files affected:** `src/routes/profile/{+page.server.js,+page.svelte}`.
