@@ -19,6 +19,9 @@
     "smoketest:check:full": "node scripts/smoketest.js --full && vitest run src/tests/integration/smoketest.test.js",
     "smoketest:update": "node scripts/smoketest.js --update",
     "smoketest:update:full": "node scripts/smoketest.js --update --full",
+    "production-smoke": "node scripts/production-smoke.js",
+    "production-smoke:check": "node scripts/production-smoke.js && vitest run src/tests/integration/productionSmoke.test.js",
+    "production-smoke:update": "node scripts/production-smoke.js --update",
     "api-smoketest": "node scripts/api-smoketest.js",
     "api-smoketest:diff": "node scripts/api-smoketest.js --diff"
   },
