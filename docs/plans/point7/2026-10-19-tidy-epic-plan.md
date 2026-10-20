@@ -1,6 +1,6 @@
 # epic/0.7-tidy clear-out plan
 
-**Status 2026-10-19: COMPLETE on branch 07-tidy-batch** (24 commits, full suite 2054 passed / 13 skipped, whole-branch review done, 2 findings fixed). Remaining before issue close-out: batch golden regen against the post-cutover deployed baseline, then merge to development after the cutover per the merge-gate rule. Open rulings for Nim: Link→Backlink promotion under endorsement (#213 note), term-RSS case sensitivity (#253 note), replaced-builtin coherence exemption (#296 note), per-relay block markup as a new feature (#320 note).
+**Status 2026-10-19: COMPLETE on branch 07-tidy-batch** (24 commits, full suite 2054 passed / 13 skipped, whole-branch review done, 2 findings fixed). Remaining before issue close-out: batch golden regen against the post-cutover deployed baseline, then merge to development after the cutover per the merge-gate rule. Follow-up rulings all resolved 2026-10-19: Link→Backlink promotion under endorsement (d10a705), term-RSS mirrors search-page matching (3a97a03), profile page shows the relay's literal UA string + block examples (48e7b8e), and replaced builtins lose the coherence exemption + warn at client creation (#296 follow-up, in progress).
 
 2026-10-19. Goal: close every open `epic/0.7-tidy` issue (22 at time of writing) on a new feature branch off `development`, while the v0.7 cutover runs in parallel. Execution: Fable orchestrates, subagents write all code, one issue (or one dependent pair) per dispatch, tests green before the next starts.
 
