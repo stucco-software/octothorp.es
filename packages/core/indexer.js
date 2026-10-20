@@ -874,11 +874,23 @@ export const createIndexer = (deps) => {
     // endorsed the linking origin (same-origin always passes). Bookmark, Cite,
     // Link and the rest are not gated. The flat mention triple above is always
     // written either way.
+    //
+    // 2026-10-19 ruling: generic Links are PROMOTED — when the same gate passes
+    // for a cross-origin Link, a Backlink node is minted alongside the Link
+    // node. Same-origin is excluded here (checkEndorsement passes it for the
+    // Backlink subtype, but a site linking to itself is not a backlink), and
+    // Bookmark/Cite/harmonizer subtypes are never promoted.
     let mintBacklink = !isExtantbacklink
+    let promoteLink = false
     if (mintBacklink && subtype === 'Backlink') {
       mintBacklink = Boolean(await checkEndorsement(subj, obj, subtype))
       if (!mintBacklink) {
         console.log(`backlink withheld: ${obj} has not reciprocated or endorsed ${subj}`)
+      }
+    } else if (mintBacklink && subtype === 'Link' && storedOrigin(subj) !== storedOrigin(obj)) {
+      promoteLink = Boolean(await checkEndorsement(subj, obj, subtype))
+      if (promoteLink) {
+        console.log(`link promoted to backlink: ${obj} has reciprocated or endorsed ${subj}`)
       }
     }
 
@@ -890,6 +902,9 @@ export const createIndexer = (deps) => {
         blocks.push(usageTriples(term, base, now))
       })
       blocks.push(backlinkTriples(subj, obj, subtype, terms, base, now))
+      if (promoteLink) {
+        blocks.push(backlinkTriples(subj, obj, 'Backlink', terms, base, now))
+      }
     }
 
     if (blocks.length > 0) {

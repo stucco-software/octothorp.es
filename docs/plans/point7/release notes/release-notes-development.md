@@ -1465,3 +1465,9 @@ Exact URL matching now widens each queried URI into its 4-variant equivalence cl
 The dead wiring is live: a Backlink node is now minted only when a reciprocal mention exists or the target origin has endorsed the linking origin (same-origin always passes) — Bookmark/Cite/Link are not gated, and the flat mention triple is always written. `friends.endorsed` is consumed: `<link rel="octo:endorses">` declarations become `<sourceOrigin> octo:endorses <targetOrigin>` triples, per-origin, deduped on re-index (new `recordEndorsements`). Reciprocal mentions never mint `octo:endorses`. Also fixed: `checkEndorsement` passed the subtype as the reciprocal-ASK predicate (invalid SPARQL) and compared raw origins; it now uses `octo:octothorpes` and canonical origins. Behavior change: unreciprocated, unendorsed cross-origin Backlink-subtype mentions no longer produce a Backlink node (accepted consequence; smoketest backlinked goldens are empty, so no golden impact).
 
 **Files affected:** `packages/core/indexer.js`, `src/tests/indexing.test.js`.
+
+## Endorsed/reciprocal generic Links are promoted to Backlinks (#213, 2026-10-19)
+
+Per the 2026-10-19 ruling: when a cross-origin generic `Link` passes the same `checkEndorsement` gate (target-endorses-source or reciprocal mention), a `Backlink` node is now minted alongside the normal Link node, in the same batched insert. Same-origin links are never promoted (origin equality is checked before the gate, since `checkEndorsement` passes same-origin for the Backlink subtype); Bookmark/Cite and harmonizer subtypes are untouched; the existing `extantBacklink` check dedupes re-indexes. Golden impact: both smoketest backlinked goldens stay empty — devdemo cross-links are same-origin and its external link targets are neither reciprocal nor endorsing.
+
+**Files affected:** `packages/core/indexer.js`, `src/tests/indexing.test.js`.

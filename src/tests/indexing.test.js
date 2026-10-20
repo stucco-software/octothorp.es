@@ -684,6 +684,82 @@ describe('Indexing Business Logic', () => {
       expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Backlink>')
     })
 
+    // 2026-10-19 ruling: endorsed/reciprocal generic Links are PROMOTED — the
+    // normal Link node is written and a Backlink node is minted alongside it.
+    // Same-origin links are never promoted (a site linking to itself is not a
+    // backlink), and Bookmark/Cite stay unpromoted.
+    it('promotes a cross-origin Link to Backlink on reciprocal mention', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(false) // originEndorsesOrigin
+        .mockResolvedValueOnce(true)  // checkReciprocalMention
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o, 'Link')
+      expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
+      expect(triples).toContain('_:backlink rdf:type <octo:Backlink>')
+    })
+
+    it('promotes a cross-origin Link to Backlink when the target origin endorsed', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(false) // extantBacklink
+        .mockResolvedValueOnce(true)  // originEndorsesOrigin
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o, 'Link')
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(4)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
+      expect(triples).toContain('_:backlink rdf:type <octo:Backlink>')
+    })
+
+    it('does not promote an unendorsed, unreciprocated Link; Link node still written', async () => {
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o, 'Link')
+      // 3 existence checks + originEndorses + reciprocal = 5 gate reads
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(5)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
+      expect(triples).not.toContain('<octo:Backlink>')
+    })
+
+    it('never promotes a same-origin Link (no gate reads)', async () => {
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, 'https://example.com/other', 'Link')
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
+      expect(triples).not.toContain('<octo:Backlink>')
+    })
+
+    it('does not promote Bookmark or Cite subtypes', async () => {
+      mockQueryBoolean.mockResolvedValue(false)
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o, 'Cite')
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain('_:backlink rdf:type <octo:Cite>')
+      expect(triples).not.toContain('<octo:Backlink>')
+    })
+
+    it('skips Link promotion when a backlink node already exists (dedup)', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(true)  // extantMention
+        .mockResolvedValueOnce(true)  // extantBacklink
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o, 'Link')
+      // No gate reads, nothing to write.
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      expect(mockInsert).not.toHaveBeenCalled()
+    })
+
     it('ingestBlobject records octo:endorses per origin, deduped within a page', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockQuery.mockResolvedValue({ results: { bindings: [] } })
