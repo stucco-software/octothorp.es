@@ -18,6 +18,7 @@
     "ld/",
     "handlers/",
     "harmonizers/",
+    "publishers/",
     "bin/",
     "profile.schema.json",
     "harmonizer.schema.json"

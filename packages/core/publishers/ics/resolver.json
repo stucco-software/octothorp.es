@@ -1,0 +1,15 @@
+{
+  "context": "https://www.rfc-editor.org/rfc/rfc5545",
+  "id": "https://octothorp.es/publishers/ics",
+  "type": "resolver",
+  "schema": {
+    "uid": { "from": "@id", "required": true },
+    "summary": { "from": ["title", "@id"], "required": true },
+    "start": { "from": ["startDate", "date"], "required": true },
+    "end": { "from": "endDate" },
+    "description": { "from": "description" },
+    "location": { "from": "location" },
+    "url": { "from": "@id" },
+    "categories": { "from": "octothorpes", "postProcess": { "method": "extractTags" } }
+  }
+}

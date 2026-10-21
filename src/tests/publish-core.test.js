@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { resolve, publish, validateResolver, loadResolver } from '../../packages/core/publish.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from '../../packages/core/publishers.js'
 
@@ -314,10 +314,13 @@ describe('core publisher registry', () => {
       expect(resolveEnvelope(pub)).toEqual({ title: 'Default Feed' })
     })
 
-    it('should not allow overwriting a built-in publisher', () => {
-      const reg = createPublisherRegistry()
-      const fake = { resolver: {}, contentType: '', meta: {}, render: () => {} }
-      expect(() => reg.register('rss2', fake)).toThrow(/already registered/)
+    it('should replace a built-in publisher by name, with a warning (#323)', () => {
+      const warn = vi.fn()
+      const reg = createPublisherRegistry({ warn })
+      const fake = { resolver: {}, contentType: '', meta: { name: 'fake' }, render: () => {} }
+      reg.register('rss2', fake)
+      expect(reg.getPublisher('rss2').meta.name).toBe('fake')
+      expect(warn).toHaveBeenCalledWith('site publisher `rss2` replaces builtin')
     })
 
     it('should require resolver, contentType, and render', () => {

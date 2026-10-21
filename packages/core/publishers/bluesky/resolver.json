@@ -1,0 +1,12 @@
+{
+  "context": "https://bsky.app/",
+  "id": "https://octothorp.es/publishers/bluesky",
+  "type": "resolver",
+  "schema": {
+    "url": { "from": "@id", "required": true },
+    "title": { "from": ["title", "@id"], "required": true },
+    "description": { "from": "description" },
+    "tags": { "from": "octothorpes", "postProcess": { "method": "extractTags" } },
+    "createdAt": { "value": "now", "postProcess": { "method": "date", "params": "iso8601" } }
+  }
+}

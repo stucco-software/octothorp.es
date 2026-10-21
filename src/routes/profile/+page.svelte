@@ -150,8 +150,8 @@
   {#if api.publishers?.available?.length}
     <h3>Publishers</h3>
     <ul>
-      {#each api.publishers.available as name}
-        <li>{name}</li>
+      {#each api.publishers.available as pub}
+        <li>{typeof pub === 'string' ? pub : pub.name}{typeof pub === 'string' || !pub.source ? '' : ` (${pub.source})`}</li>
       {/each}
     </ul>
   {/if}
@@ -165,7 +165,7 @@
   {#if api.harmonizers?.available?.length}
     <h3>Harmonizers</h3>
     <ul>
-      <li><strong>Available:</strong> {api.harmonizers.available.join(', ')}</li>
+      <li><strong>Available:</strong> {api.harmonizers.available.map((h) => (typeof h === 'string' ? h : h.source ? `${h.name} (${h.source})` : h.name)).join(', ')}</li>
     </ul>
   {/if}
 {/if}

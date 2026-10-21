@@ -1489,3 +1489,19 @@ The "Blocking this relay" section now displays the exact UA string the relay sen
 Per the 2026-10-19 ruling: a site harmonizer that replaces a builtin by name is now treated as a site harmonizer by `checkCoherence`'s reverse checks — createClient derives the builtin-exempt set from `listHarmonizerEntries()` after registration (a replacement carries `source: 'declared'`), so e.g. a replacement `default` with unqueried subtypes or undeclared documentRecord keys warns like any site file. The existing register-time "site harmonizer `default` replaces builtin" warning was verified to fire during `createClient` boot and is now pinned by tests.
 
 **Files affected:** `packages/core/client.js`, `src/tests/harmonizerCoherence.test.js`.
+
+## Builtin publishers extracted to flat files; site files override builtins by name (#323, 2026-10-21)
+
+The four builtin publishers are now two-file modules under `packages/core/publishers/<name>/` — `resolver.json` (data) plus a plain-ESM `renderer.js` (code) — the same layout a site publisher uses under `api.publishers.dir`. `rss` stays an alias of `rss2`, so the registry still lists five names.
+
+Builtins are loaded with STATIC imports and assembled into `BUILTIN_PUBLISHERS`, never discovered by a loader walk. That is the load-bearing constraint: core keeps zero filesystem imports, and routing builtins through the adapter's walk would reintroduce the failure where site extensions vanished on Vercel because `@vercel/nft` cannot trace a runtime `readdir` of `static/`.
+
+A site publisher named after a builtin now replaces it with a one-time boot warning (``site publisher `rss2` replaces builtin``), mirroring #296 for harmonizers; the alias is untouched unless named directly. `api.publishers.available` entries carry `source: builtin | declared`, and `register()`'s flat/explicit wrapping moved into a shared `wrapPublisher`.
+
+Parity is exact: registry shape and resolve+render output were captured from the pre-change inline registry and the flat-file build reproduces both byte for byte (volatile `lastBuildDate`/`DTSTAMP` stamped). Regenerate with `node src/tests/fixtures/capture-builtin-publishers.mjs`.
+
+Live-verified on localhost: `/profile.json` marks the four builtins `builtin` and the four site publishers `declared`; `rss`, `ics`, `bluesky` and `standardSiteDocument` all return 200 with the right content type.
+
+Also fixed in passing: the profile page rendered `api.harmonizers.available` with `.join(', ')`, which printed `[object Object]` for every entry after #296 changed them to objects.
+
+**Files affected:** `packages/core/publishers/{rss2,standardSiteDocument,bluesky,ics}/{resolver.json,renderer.js}` (new), `packages/core/{publishers.js,client.js,resolveProfile.js,package.json,CHANGELOG.md}`, `src/routes/profile/+page.svelte`, `scripts/api-smoketest.js`, `src/tests/builtinPublishers.test.js` (new), `src/tests/fixtures/{capture-builtin-publishers.mjs,builtin-publishers.json,builtin-publishers-render.json}` (new), `src/tests/{resolveProfile,core,publisherDiscovery,publish-core}.test.js`.

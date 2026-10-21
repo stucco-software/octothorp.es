@@ -142,9 +142,10 @@ const expandFeeds = (feeds, { instance, terms }) =>
     }).filter(Boolean)
   )
 
-// Normalize api.harmonizers.available entries (#296): registry entries are
-// { name, source }; bare strings (legacy callers) project as { name } alone.
-const dedupeHarmonizerEntries = (entries) => {
+// Normalize api.{harmonizers,publishers}.available entries (#296, #323):
+// registry entries are { name, source }; bare strings (legacy callers) project
+// as { name } alone.
+const dedupeRegistryEntries = (entries) => {
   const out = new Map()
   for (const e of entries) {
     const entry = typeof e === 'string' ? { name: e } : { name: e.name, ...(e.source ? { source: e.source } : {}) }
@@ -162,6 +163,7 @@ const dedupeHarmonizerEntries = (entries) => {
  * @param {Object} config
  * @param {Object} config.profile - a fully-populated getProfile() result.
  * @param {string[]} [config.publisherNames=[]] - builtin + discovered publisher names.
+ * @param {{name: string, source?: string}[]} [config.publisherEntries=[]] - the same names with #323 source markers.
  * @param {string[]} [config.handlerNames=[]] - registered handler modes (builtin + discovered).
  * @param {Array<string|{name:string, source?:string}>} [config.harmonizerNames=[]] -
  *   registered harmonizer entries ({ name, source: 'builtin'|'declared' }).
@@ -183,6 +185,7 @@ const dedupeHarmonizerEntries = (entries) => {
 export const resolveProfile = ({
   profile,
   publisherNames = [],
+  publisherEntries = [],
   handlerNames = [],
   harmonizerNames = [],
   linkTypes,
@@ -248,7 +251,14 @@ export const resolveProfile = ({
       ...(coherence ? { coherence } : {}),
       // Directory pointers are authoring detail, not public data. What the
       // world gets is the list of names that actually resolved at init.
-      publishers: { available: [...new Set(publisherNames)].sort() },
+      // Each entry carries `source: builtin | declared` (#323), same convention
+      // as harmonizers. A site file that replaced a builtin by name shows as
+      // declared. `routes[].as` keeps the bare sorted names.
+      publishers: {
+        available: dedupeRegistryEntries(
+          publisherEntries.length ? publisherEntries : publisherNames
+        ).sort((a, b) => a.name.localeCompare(b.name)),
+      },
       // Three sibling registries. `default` is a handler mode, so it is
       // projected under handlers — never under harmonizers.
       handlers: {
@@ -258,7 +268,7 @@ export const resolveProfile = ({
       // Each entry carries `source: builtin | declared` (#296), same convention
       // as linkTypes and vocabulary.namespaces. A site file that replaced a
       // builtin by name shows as declared. Dedup is by name, first entry wins.
-      harmonizers: { available: dedupeHarmonizerEntries(harmonizerNames) },
+      harmonizers: { available: dedupeRegistryEntries(harmonizerNames) },
       // PROJECTION ONLY — never authored. Core owns the query grammar, the
       // adapter owns the mount points; `routes` is the two of them composed, so
       // a consumer can form every query this client answers without reading

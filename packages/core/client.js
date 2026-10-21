@@ -38,7 +38,7 @@ export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators 
 export { sanitizeHtml } from './sanitizeHtml.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
-export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
+export { createPublisherRegistry, resolveEnvelope, assertRequires, BUILTIN_PUBLISHERS } from './publishers.js'
 export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
@@ -502,7 +502,7 @@ export const createClient = (config) => {
     return { uri, indexed_at: Date.now() }
   }
 
-  const publisherRegistry = createPublisherRegistry()
+  const publisherRegistry = createPublisherRegistry({ warn: config.warn ?? console.warn })
 
   // #217 wave 3: bulk registration is survivable. register() stays strict for
   // direct programmatic use, but a single bad entry here (a builtin name
@@ -526,6 +526,7 @@ export const createClient = (config) => {
     ? resolveProfile({
         profile: config.profile,
         publisherNames: publisherRegistry.listPublishers(),
+        publisherEntries: publisherRegistry.listPublisherEntries?.() ?? [],
         handlerNames: handlerRegistry.listHandlers(),
         harmonizerNames: registry.listHarmonizerEntries?.() ?? registry.listHarmonizers?.() ?? [],
         linkTypes,

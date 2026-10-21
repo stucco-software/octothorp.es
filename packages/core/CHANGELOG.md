@@ -15,6 +15,9 @@
 - `api.linkTypes[].path` is removed (2026-09-16). It minted a `[what]`-slot route alias (`/get/items/posted`) that nothing used; `/get/<what>/<by>` is the only route form. The `options.subtype` override in `buildMultiPass`, which existed solely to serve that alias injection, is removed with it — a `by` word is now the only thing that sets a subtype filter. Declaring `path` is a validation error.
 - `mentioned` is no longer an alias of `linked` (#292). It is now the typed relationship `{ objects: 'notTerms', subtype: 'Mention', relationTerms: true }`, so `by=mentioned` returns only relationships written as `octo:Mention` instead of every link to a non-term object. `linked` remains the untyped superset. Existing `mentioned` queries narrow.
 - `api.publishers.named`, `api.handlers.named` and `api.harmonizers.named` are removed; the dirs plus the resolved `available` lists are the whole surface.
+- `api.publishers.available` entries are now `{ name, source: builtin | declared }` (#323), matching `api.harmonizers.available` (#296). Consumers reading bare strings break; `api.routes[].as` still carries plain sorted names.
+- A site publisher whose name matches a builtin now REPLACES the builtin with a one-time boot warning (``site publisher `rss2` replaces builtin``) instead of being rejected (#323). The old `Publisher "x" is already registered as a built-in` error is gone; non-builtin collisions now throw `Publisher "x" already exists`.
+- `createPublisherRegistry()` takes an options object (`{ warn }`) (#323).
 - `policies.labels[]` entries are now `{ id, name, description? }`, with `id` matching `^[A-Za-z][A-Za-z0-9_]*$`.
 - `schema` is no longer a builtin namespace. The builtins are `octo`, `rdf` and `rdfs`; declare `schema` in `vocabulary.namespaces` if you want it.
 - Authoring `api.routes` is a schema error. It is a resolved-only projection fed by `createClient({ routes })`.

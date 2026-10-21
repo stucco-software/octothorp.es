@@ -34,7 +34,10 @@ const resolved = () => resolveProfile({
 
 describe('resolveProfile — discovery projection', () => {
   it('lists the union of builtin and discovered publishers, deduped and sorted', () => {
-    expect(resolved().api.publishers.available).toEqual(['blarg', 'ics', 'readable', 'rss2'])
+    // Bare-string callers (no #323 source markers) project as { name } alone.
+    expect(resolved().api.publishers.available).toEqual([
+      { name: 'blarg' }, { name: 'ics' }, { name: 'readable' }, { name: 'rss2' },
+    ])
   })
 
   it('lists registered handler modes and keeps the default under handlers', () => {
@@ -221,8 +224,8 @@ describe('client.resolvedProfile()', () => {
 
   it('includes core builtin publishers and the injected ones', () => {
     const available = mk().resolvedProfile().api.publishers.available
-    expect(available).toContain('blarg')
-    expect(available).toContain('rss2')
+    expect(available).toContainEqual({ name: 'blarg', source: 'declared' })
+    expect(available).toContainEqual({ name: 'rss2', source: 'builtin' })
   })
 
   it('includes registered harmonizer names', () => {

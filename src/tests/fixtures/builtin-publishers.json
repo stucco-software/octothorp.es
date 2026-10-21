@@ -1,0 +1,271 @@
+{
+  "bluesky": {
+    "contentType": "application/json",
+    "meta": {
+      "name": "Bluesky Post",
+      "lexicon": "app.bsky.feed.post"
+    },
+    "envelope": null,
+    "requires": null,
+    "resolver": {
+      "context": "https://bsky.app/",
+      "id": "https://octothorp.es/publishers/bluesky",
+      "type": "resolver",
+      "schema": {
+        "url": {
+          "from": "@id",
+          "required": true
+        },
+        "title": {
+          "from": [
+            "title",
+            "@id"
+          ],
+          "required": true
+        },
+        "description": {
+          "from": "description"
+        },
+        "tags": {
+          "from": "octothorpes",
+          "postProcess": {
+            "method": "extractTags"
+          }
+        },
+        "createdAt": {
+          "value": "now",
+          "postProcess": {
+            "method": "date",
+            "params": "iso8601"
+          }
+        }
+      }
+    }
+  },
+  "ics": {
+    "contentType": "text/calendar",
+    "meta": {
+      "name": "iCalendar Feed",
+      "description": "Publishes dated blobjects as an iCalendar (.ics) VCALENDAR feed"
+    },
+    "envelope": {
+      "title": "Octothorpes Calendar"
+    },
+    "requires": null,
+    "resolver": {
+      "context": "https://www.rfc-editor.org/rfc/rfc5545",
+      "id": "https://octothorp.es/publishers/ics",
+      "type": "resolver",
+      "schema": {
+        "uid": {
+          "from": "@id",
+          "required": true
+        },
+        "summary": {
+          "from": [
+            "title",
+            "@id"
+          ],
+          "required": true
+        },
+        "start": {
+          "from": [
+            "startDate",
+            "date"
+          ],
+          "required": true
+        },
+        "end": {
+          "from": "endDate"
+        },
+        "description": {
+          "from": "description"
+        },
+        "location": {
+          "from": "location"
+        },
+        "url": {
+          "from": "@id"
+        },
+        "categories": {
+          "from": "octothorpes",
+          "postProcess": {
+            "method": "extractTags"
+          }
+        }
+      }
+    }
+  },
+  "rss": {
+    "contentType": "application/rss+xml",
+    "meta": {
+      "name": "RSS 2.0 Feed"
+    },
+    "envelope": {
+      "title": "Octothorpes Feed",
+      "description": "Links from the Octothorpes network",
+      "link": "https://octothorp.es/"
+    },
+    "requires": null,
+    "resolver": {
+      "context": "https://www.rssboard.org/rss-specification",
+      "id": "https://octothorp.es/publishers/rss2",
+      "type": "resolver",
+      "schema": {
+        "title": {
+          "from": [
+            "title",
+            "@id",
+            "uri"
+          ],
+          "required": true
+        },
+        "link": {
+          "from": [
+            "@id",
+            "uri"
+          ],
+          "required": true
+        },
+        "guid": {
+          "from": [
+            "@id",
+            "uri"
+          ]
+        },
+        "pubDate": {
+          "from": "date",
+          "postProcess": {
+            "method": "date",
+            "params": "rfc822"
+          },
+          "required": true
+        },
+        "description": {
+          "from": "description"
+        },
+        "image": {
+          "from": "image"
+        }
+      }
+    }
+  },
+  "rss2": {
+    "contentType": "application/rss+xml",
+    "meta": {
+      "name": "RSS 2.0 Feed"
+    },
+    "envelope": {
+      "title": "Octothorpes Feed",
+      "description": "Links from the Octothorpes network",
+      "link": "https://octothorp.es/"
+    },
+    "requires": null,
+    "resolver": {
+      "context": "https://www.rssboard.org/rss-specification",
+      "id": "https://octothorp.es/publishers/rss2",
+      "type": "resolver",
+      "schema": {
+        "title": {
+          "from": [
+            "title",
+            "@id",
+            "uri"
+          ],
+          "required": true
+        },
+        "link": {
+          "from": [
+            "@id",
+            "uri"
+          ],
+          "required": true
+        },
+        "guid": {
+          "from": [
+            "@id",
+            "uri"
+          ]
+        },
+        "pubDate": {
+          "from": "date",
+          "postProcess": {
+            "method": "date",
+            "params": "rfc822"
+          },
+          "required": true
+        },
+        "description": {
+          "from": "description"
+        },
+        "image": {
+          "from": "image"
+        }
+      }
+    }
+  },
+  "standardSiteDocument": {
+    "contentType": "application/json",
+    "meta": {
+      "name": "ATProto StandardSiteDocument",
+      "description": "Converts blobjects to site.standard.document format",
+      "lexicon": "site.standard.document"
+    },
+    "envelope": null,
+    "requires": null,
+    "resolver": {
+      "context": "https://standard.site/",
+      "id": "https://octothorp.es/publishers/standard-site.document",
+      "type": "resolver",
+      "meta": {
+        "name": "Standard Site Document",
+        "description": "Publishes rich content to site.standard.document with textContent, site, and path",
+        "lexicon": "site.standard.document"
+      },
+      "schema": {
+        "site": {
+          "from": [
+            "documentRecord.site",
+            "@id"
+          ],
+          "required": true
+        },
+        "path": {
+          "from": "documentRecord.path"
+        },
+        "title": {
+          "from": [
+            "title",
+            "@id"
+          ],
+          "required": true
+        },
+        "description": {
+          "from": "description"
+        },
+        "textContent": {
+          "from": "documentRecord.textContent"
+        },
+        "tags": {
+          "from": "octothorpes",
+          "postProcess": {
+            "method": "extractTags"
+          }
+        },
+        "publishedAt": {
+          "from": "date",
+          "postProcess": [
+            {
+              "method": "date",
+              "params": "iso8601"
+            },
+            {
+              "method": "default",
+              "params": "now"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -146,7 +146,7 @@ describe('createClient bulk publisher registration (#217 wave 3)', () => {
     sparql: { sparql_endpoint: 'http://0.0.0.0:7878' },
   }
 
-  it('survives a builtin name collision: warns, skips, keeps the rest', async () => {
+  it('a builtin name REPLACES the builtin and warns (#323), keeping the rest', async () => {
     const { createClient } = await import('../../packages/core/client.js')
     const warn = vi.fn()
     const op = createClient({
@@ -160,10 +160,11 @@ describe('createClient bulk publisher registration (#217 wave 3)', () => {
     const names = op.publisher.listPublishers()
     expect(names).toContain('blarg')
     expect(names).toContain('rss2')
-    // the builtin, not the colliding override
-    expect(op.publisher.getPublisher('rss2').meta.name).toBe('RSS 2.0 Feed')
+    // #323 (d): the site file wins, mirroring the harmonizer override in #296.
+    expect(op.publisher.getPublisher('rss2').meta.name).toBe('collides-with-builtin')
+    expect(op.publisher.listPublisherEntries()).toContainEqual({ name: 'rss2', source: 'declared' })
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0][0]).toMatch(/rss2/)
+    expect(warn.mock.calls[0][0]).toBe('site publisher `rss2` replaces builtin')
   })
 
   it('survives a malformed publisher module without throwing', async () => {

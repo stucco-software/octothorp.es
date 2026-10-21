@@ -1,0 +1,13 @@
+{
+  "context": "https://www.rssboard.org/rss-specification",
+  "id": "https://octothorp.es/publishers/rss2",
+  "type": "resolver",
+  "schema": {
+    "title": { "from": ["title", "@id", "uri"], "required": true },
+    "link": { "from": ["@id", "uri"], "required": true },
+    "guid": { "from": ["@id", "uri"] },
+    "pubDate": { "from": "date", "postProcess": { "method": "date", "params": "rfc822" }, "required": true },
+    "description": { "from": "description" },
+    "image": { "from": "image" }
+  }
+}

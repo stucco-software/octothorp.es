@@ -298,8 +298,12 @@ async function paginationCase(instance, host, budget) {
 
 /** 5. publishers: one request per advertised `as`, asserting content-type + parse. */
 function publisherCases(instance, profile, host) {
-  const available = profile?.api?.publishers?.available
-    ?? matrixFormats.filter((f) => f && f !== 'debug')
+  // #323: available entries are { name, source }; older relays advertise bare
+  // strings, so accept both spellings.
+  const available = (profile?.api?.publishers?.available
+    ?? matrixFormats.filter((f) => f && f !== 'debug'))
+    .map((e) => (typeof e === 'string' ? e : e?.name))
+    .filter(Boolean)
   return available.map((as) => ({
     section: 'publishers',
     name: `publisher-${as}`,
