@@ -74,7 +74,7 @@ describe('Indexing Business Logic', () => {
       )).toBe(true)
     })
 
-    it('should allow whitelisted domains', () => {
+    it('should allow allowed domains', () => {
       expect(isHarmonizerAllowed(
         'https://octothorp.es/harmonizer/custom',
         'https://example.com',
@@ -82,7 +82,7 @@ describe('Indexing Business Logic', () => {
       )).toBe(true)
     })
 
-    it('should allow whitelisted subdomains', () => {
+    it('should allow allowed subdomains', () => {
       expect(isHarmonizerAllowed(
         'https://blog.octothorp.es/harmonizer.json',
         'https://example.com',
@@ -90,7 +90,7 @@ describe('Indexing Business Logic', () => {
       )).toBe(true)
     })
 
-    it('should block non-whitelisted remote domains', () => {
+    it('should block non-allowed remote domains', () => {
       expect(isHarmonizerAllowed(
         'https://evil.com/harmonizer.json',
         'https://example.com',
@@ -1776,7 +1776,7 @@ describe('Indexing Business Logic', () => {
       ).rejects.toThrow('Remote harmonizers require a confirmed origin header.')
     })
 
-    it('Attack: remote harmonizer from non-whitelisted domain with spoofed origin', async () => {
+    it('Attack: remote harmonizer from non-allowed domain with spoofed origin', async () => {
       const mockVerifyOrigin = vi.fn().mockResolvedValue(true)
 
       global.fetch = vi.fn().mockResolvedValue({

@@ -1533,3 +1533,23 @@ Verified live: `/vocabulary` -> `200 text/html`, `/vocabulary.ttl` -> `200 text/
 Verified live: `/profile` renders `h1` -> identity card -> `Advanced` -> Policies/API/Vocabulary/Blocking, and `/profile.json` no longer carries `api.coherence`. Suite: 2082 passed, 12 skipped, 0 failed with the dev server up. The `profile-resolved` smoketest golden drops the `coherence` key in the batch-wide regen.
 
 **Files affected:** `src/routes/profile/+page.svelte`, `packages/core/{resolveProfile.js,client.js,CHANGELOG.md}`, `src/tests/harmonizerCoherence.test.js`.
+
+## access.whitelist renamed to access.allows, and allows gains terms (2026-10-22)
+
+Profile consistency cleanup: `policies.access.whitelist` is now `policies.access.allows`, so the two list objects read as a pair — `blocks` and `allows`, each carrying `domains` and `terms`. The old `whitelist` key is a schema error rather than a silent fallback, which is the point: a profile that still says `whitelist` fails loudly instead of quietly dropping its allowlist. `originWhitelisted` is renamed `originAllowed`, and the closed-mode refusal reads `Origin is not on this server's allowlist.`
+
+`allows.terms` is new, and mirrors `blocks.terms` in every respect but one. Semantics as implemented:
+
+- It is ORTHOGONAL to the registration mode, applying under `registered`, `open` and `closed` alike, exactly like `blocks.terms`.
+- Enforcement is at statement-write time during indexing: a term the list does not name has its octothorpe dropped while the rest of the page indexes normally.
+- An EMPTY list means UNRESTRICTED, never "allow nothing" — the asymmetry with the blocklist, since a relay with no allowlist must keep minting every term it is sent.
+- `blocks` WINS over `allows`: a term named by both is refused.
+- It is NOT retroactive and has no read-time counterpart, same as `blocks.terms`; existing terms stay (deletion is epic #271).
+
+Both lists share one normalizer (`normalizeTerm`), so casing and stray slashes cannot evade either, and the two decisions are composed in a single `termWritable(term, access)` that the indexer calls in place of `termBlocked`. `allows.terms` takes the same array-or-path form as every other list slot and is never warned on, because an empty list has no inert-configuration case. The schema test that previously asserted a terms allowlist was REJECTED now asserts the opposite, plus a new case pinning that `whitelist` is refused.
+
+The profile page's "Blocked terms" section became "Term gates", listing both lists with the blocks-wins rule stated.
+
+Suite: 2090 passed, 13 skipped, 0 failed. The 13 skipped are the live-server integration tests: the running dev server caches `profile.schema.json` as a JSON module, so it was still validating against the pre-rename schema and 500ing on every route until restarted — live verification of this change is still outstanding.
+
+**Files affected:** `packages/core/{profile.schema.json,access.js,profile.js,indexer.js,client.js,scaffold.js,origin.js,CHANGELOG.md}`, `octothorpes.json`, `profiles/bearblog/octothorpes.json`, `src/routes/profile/+page.svelte`, `src/tests/fixtures/profiles/document-record.json`, and the access/profile test files.

@@ -13,7 +13,7 @@ describe('src/lib/profile.js adapter', () => {
     }
     expect(p.policies.access.blocks.domains).toBeInstanceOf(Array)
     expect(p.policies.access.blocks.terms).toBeInstanceOf(Array)
-    expect(p.policies.access.whitelist.domains).toBeInstanceOf(Array)
+    expect(p.policies.access.allows.domains).toBeInstanceOf(Array)
     expect(p.api.handlers.default).toBeTypeOf('string')
     expect(p.api.harmonizers).toBeDefined()
     expect(p.vocabulary.octo).toBeTypeOf('string')

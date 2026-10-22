@@ -39,7 +39,7 @@ describe('/profile.json serves the resolved profile', () => {
     expect(['request', 'active']).toContain(body.policies.indexing.mode)
     expect(body.policies.access.blocks.domains).toBeInstanceOf(Array)
     expect(body.policies.access.blocks.terms).toBeInstanceOf(Array)
-    expect(body.policies.access.whitelist.domains).toBeInstanceOf(Array)
+    expect(body.policies.access.allows.domains).toBeInstanceOf(Array)
   })
 
   it('projects handlers and harmonizers as sibling blocks', async () => {

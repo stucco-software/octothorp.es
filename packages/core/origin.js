@@ -98,7 +98,7 @@ export const createVerifiedOrigin = async (origin, { insert, query }) => {
 
 /**
  * Admin approval: mark an origin verified. Under registration 'closed' this
- * has no effect on the gate (the whitelist decides) — callers surface that.
+ * has no effect on the gate (allows.domains decides) — callers surface that.
  */
 export const approveOrigin = async (origin, { insert, query }) => createVerifiedOrigin(origin, { insert, query })
 

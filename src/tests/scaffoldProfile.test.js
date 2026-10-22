@@ -29,10 +29,10 @@ describe('scaffoldProfile', () => {
     expect(() => createProfile({ profile, schema, warn: () => {} })).not.toThrow()
   })
 
-  it('emits blocks/whitelist stubs in the correct shape', () => {
+  it('emits blocks/allows stubs in the correct shape', () => {
     const profile = scaffoldProfile({ instance: 'https://example.test/' })
     expect(profile.policies.access.blocks).toEqual({ domains: [], terms: [] })
-    expect(profile.policies.access.whitelist).toEqual({ domains: [] })
+    expect(profile.policies.access.allows).toEqual({ domains: [], terms: [] })
   })
 
   it('does not leak defaults for unspecified sections', () => {
@@ -108,6 +108,6 @@ describe('octothorpes new (bin)', () => {
       '--stdout',
     ])
     expect(result.status).toBe(0)
-    expect(result.stderr.toString()).toMatch(/whitelist/i)
+    expect(result.stderr.toString()).toMatch(/allows\.domains/i)
   })
 })

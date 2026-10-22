@@ -30,7 +30,7 @@
         "domains": [],
         "terms": []
       },
-      "whitelist": {
+      "allows": {
         "domains": []
       },
       "endorsement": {

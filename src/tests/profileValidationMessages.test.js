@@ -34,7 +34,7 @@ describe('#287 hand-written schema error messages', () => {
     expect(msg).toContain('"registered"')
     expect(msg).toContain('"open"')
     expect(msg).toContain('"closed"')
-    // the why: invite was dropped because closed + whitelist IS invite-only
+    // the why: invite was dropped because closed + allows IS invite-only
     expect(msg).toMatch(/invite-only/)
   })
 

@@ -18,10 +18,12 @@ export const ACCESS_DEFAULTS = Object.freeze({
   //                    meaningful only under registration 'open'.
   //   blocks.terms   — TERM list, checked at STATEMENT-WRITE time in the
   //                    indexer, and applying in EVERY registration mode.
-  // whitelist carries `domains` only, on purpose: a terms allowlist is a
-  // different product decision with no current use case.
+  // `allows` mirrors it (renamed from `whitelist`, 2026-10-22) with the same
+  // two enforcement points: allows.domains at the gate under 'closed',
+  // allows.terms at statement-write time in every mode. An EMPTY allows.terms
+  // means unrestricted, never 'allow nothing'; blocks wins over allows.
   blocks: Object.freeze({ domains: [], terms: [] }),
-  whitelist: Object.freeze({ domains: [] }),
+  allows: Object.freeze({ domains: [], terms: [] }),
   // ENDORSEMENT is an admit-only second chance, tried after the registration
   // check fails and meaningful only under 'registered'. `sources` names (and
   // orders) the endorsers injected via createClient({ endorsers }); empty —
@@ -30,15 +32,15 @@ export const ACCESS_DEFAULTS = Object.freeze({
 })
 
 /**
- * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}, endorsement?:{sources?:string[]}}} [access]
- * @returns {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}, endorsement:{sources:string[]}}}
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, allows?:{domains?:string[],terms?:string[]}, endorsement?:{sources?:string[]}}} [access]
+ * @returns {{registration:string, blocks:{domains:string[],terms:string[]}, allows:{domains:string[],terms:string[]}, endorsement:{sources:string[]}}}
  */
 export const normalizeAccess = (access = {}) => {
   const registration = access.registration ?? ACCESS_DEFAULTS.registration
   if (!REGISTRATION_MODES.includes(registration)) {
     throw new Error(
       `Unknown access registration gate: "${registration}" (expected ${REGISTRATION_MODES.join(', ')}). ` +
-        `Note: 'invite' was removed — 'closed' plus a whitelist is invite-only.`
+        `Note: 'invite' was removed — 'closed' plus allows.domains is invite-only.`
     )
   }
   return {
@@ -47,7 +49,10 @@ export const normalizeAccess = (access = {}) => {
       domains: [...(access.blocks?.domains ?? [])],
       terms: [...(access.blocks?.terms ?? [])],
     },
-    whitelist: { domains: [...(access.whitelist?.domains ?? [])] },
+    allows: {
+      domains: [...(access.allows?.domains ?? [])],
+      terms: [...(access.allows?.terms ?? [])],
+    },
     endorsement: { sources: [...(access.endorsement?.sources ?? [])] },
   }
 }
@@ -89,17 +94,17 @@ export const originBlocked = (origin, domains = []) => {
 }
 
 /**
- * Origin-vs-origin comparison. NEVER compare full URLs here — a whitelist entry
- * with a path must still admit every path on that origin.
+ * Origin-vs-origin comparison. NEVER compare full URLs here — an allowlist
+ * entry with a path must still admit every path on that origin.
  *
  * Compares CANONICAL origins (#275): `https://www.foo.com` and
  * `https://foo.com` are the same entry. Scheme, port and non-www subdomains
  * still distinguish.
  *
  * @param {string} origin
- * @param {string[]} [domains] - access.whitelist.domains
+ * @param {string[]} [domains] - access.allows.domains
  */
-export const originWhitelisted = (origin, domains = []) => {
+export const originAllowed = (origin, domains = []) => {
   let target
   try {
     target = canonicalOrigin(new URL(origin).origin)
@@ -114,6 +119,14 @@ export const originWhitelisted = (origin, domains = []) => {
     }
   })
 }
+
+// Shared term normalization for both term lists. Surrounding slashes are
+// stripped before comparing so a trailing (or leading) '/' on either side of
+// the match can't evade a list — the indexer's deslash step would otherwise
+// turn '#someslur/' into the canonical '~/someslur' term after the exact-match
+// check already let it through.
+const normalizeTerm = (value) =>
+  String(value ?? '').trim().toLowerCase().replace(/^\/+|\/+$/g, '')
 
 /**
  * Case-insensitive exact match of a TERM name against the term blocklist.
@@ -137,15 +150,41 @@ export const termBlocked = (term, terms) => {
   // contract (there is no mode argument, because blocks.terms is
   // mode-independent), so the empty case is handled in the body instead.
   const list = terms ?? []
-  // Strip surrounding slashes before comparing so a trailing (or leading)
-  // '/' on either side of the match can't evade the blocklist — the indexer's
-  // deslash step would otherwise turn '#someslur/' into the canonical
-  // '~/someslur' term after the exact-match check already let it through.
-  const normalize = (value) => String(value ?? '').trim().toLowerCase().replace(/^\/+|\/+$/g, '')
-  const needle = normalize(term)
+  const needle = normalizeTerm(term)
   if (!needle) return false
-  return list.some((entry) => normalize(entry) === needle)
+  return list.some((entry) => normalizeTerm(entry) === needle)
 }
+
+/**
+ * Case-insensitive exact match of a TERM name against the term ALLOWLIST.
+ *
+ * Mirrors termBlocked, with one asymmetry that matters: an EMPTY list means
+ * UNRESTRICTED, not "allow nothing". A relay with no allows.terms must keep
+ * minting every term it is sent, so the empty case admits.
+ *
+ * Normalization is shared with termBlocked by construction — both call the same
+ * comparison — so a list cannot be evaded by casing or a stray slash.
+ *
+ * @param {string} term
+ * @param {string[]} [terms] - access.allows.terms
+ * @returns {boolean} true when the term may be written
+ */
+export const termAllowed = (term, terms) => {
+  const list = terms ?? []
+  if (list.length === 0) return true
+  return list.some((entry) => normalizeTerm(entry) === normalizeTerm(term))
+}
+
+/**
+ * Decide whether a term may be written, applying both lists. `blocks` wins:
+ * a term named by both is refused.
+ *
+ * @param {string} term
+ * @param {{blocks?:{terms?:string[]}, allows?:{terms?:string[]}}} access
+ * @returns {boolean}
+ */
+export const termWritable = (term, access = {}) =>
+  !termBlocked(term, access.blocks?.terms) && termAllowed(term, access.allows?.terms)
 
 /**
  * Filter the INJECTED endorsers down to the ones `access.endorsement.sources`
@@ -167,12 +206,12 @@ export const resolveEndorsers = (sources = [], endorsers = []) => {
 }
 
 /**
- * The ORIGIN gate. Reads access.blocks.domains and access.whitelist.domains;
- * it deliberately never consults access.blocks.terms, which is enforced
- * elsewhere and in every mode.
+ * The ORIGIN gate. Reads access.blocks.domains and access.allows.domains; it
+ * deliberately never consults the TERM lists (access.blocks.terms and
+ * access.allows.terms), which are enforced elsewhere and in every mode.
  *
  * @param {string} origin
- * @param {{registration:string, blocks:{domains:string[],terms:string[]}, whitelist:{domains:string[]}, endorsement?:{sources:string[]}}} access
+ * @param {{registration:string, blocks:{domains:string[],terms:string[]}, allows:{domains:string[],terms:string[]}, endorsement?:{sources:string[]}}} access
  * @param {() => Promise<boolean>} verifyRegistered - datastore verification,
  *   consulted ONLY in 'registered' mode.
  * @param {{endorsers?:{name:string,endorse:Function}[], blobject?:object|null, content?:string, contentType?:string, document?:object|null}} [endorsement]
@@ -182,7 +221,7 @@ export const resolveEndorsers = (sources = [], endorsers = []) => {
  * @returns {Promise<string|null>} null to admit, else a human-readable reason.
  */
 export const checkAccessGate = async (origin, access, verifyRegistered, endorsement) => {
-  const { registration, blocks, whitelist } = access
+  const { registration, blocks, allows } = access
 
   if (registration === 'open') {
     return originBlocked(origin, blocks.domains)
@@ -191,9 +230,9 @@ export const checkAccessGate = async (origin, access, verifyRegistered, endorsem
   }
 
   if (registration === 'closed') {
-    return originWhitelisted(origin, whitelist.domains)
+    return originAllowed(origin, allows.domains)
       ? null
-      : 'Origin is not on this server’s whitelist.'
+      : 'Origin is not on this server’s allowlist.'
   }
 
   // 'registered' — datastore verification first.
@@ -201,7 +240,7 @@ export const checkAccessGate = async (origin, access, verifyRegistered, endorsem
 
   // Stage 4: ENDORSEMENT, an admit-only second chance reached only when the
   // registration check above failed, and only in this mode — 'closed' stays
-  // strictly whitelist-only and 'open' returns long before here.
+  // strictly allowlist-only and 'open' returns long before here.
   //
   // Evaluated PER REQUEST; nothing is stored. An endorsed request is admitted,
   // which is not the same as the origin becoming registered: the next request

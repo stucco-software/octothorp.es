@@ -100,7 +100,7 @@ describe('coherence warnings — warn, never throw', () => {
     load(
       {
         registration: 'closed',
-        whitelist: { domains: ['https://friend.test'] },
+        allows: { domains: ['https://friend.test'], terms: [] },
         endorsement: { sources: ['client-endorsed'] },
       },
       [{ name: 'client-endorsed', endorse: async () => false }],

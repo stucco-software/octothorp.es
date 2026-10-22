@@ -5,7 +5,7 @@ import { _registrationFormState } from '../routes/register/+page.server.js'
 // policies.access.registration — the indexing gate enforced in core (Task 14) —
 // so the form can never contradict the gate it advertises.
 
-const access = { registration: 'registered', blocks: { domains: [], terms: [] }, whitelist: { domains: [] } }
+const access = { registration: 'registered', blocks: { domains: [], terms: [] }, allows: { domains: [], terms: [] } }
 vi.mock('$lib/profile.js', () => ({
   getProfile: () => ({
     identity: { instance: 'https://example.test/', name: 'Example' },
@@ -45,7 +45,7 @@ describe('/register load() derives its state from the gate', () => {
   beforeEach(() => {
     access.registration = 'registered'
     access.blocks.domains.length = 0
-    access.whitelist.domains.length = 0
+    access.allows.domains.length = 0
   })
 
   it('surfaces both the gate and the derived form state', async () => {
@@ -65,7 +65,7 @@ describe('/register submissions follow the derived state', () => {
   beforeEach(() => {
     access.registration = 'registered'
     access.blocks.domains.length = 0
-    access.whitelist.domains.length = 0
+    access.allows.domains.length = 0
   })
 
   it('registered: the submission proceeds past the gate check', async () => {
@@ -81,7 +81,7 @@ describe('/register submissions follow the derived state', () => {
     expect(res.data.registration).toBe('open')
   })
 
-  it('closed: the action refuses — the whitelist is admin-managed', async () => {
+  it('closed: the action refuses — the allows is admin-managed', async () => {
     access.registration = 'closed'
     const res = await submit()
     expect(res.status).toBe(403)

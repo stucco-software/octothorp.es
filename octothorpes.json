@@ -34,8 +34,9 @@
         "domains": ["example.com"],
         "terms": []
       },
-      "whitelist": {
-        "domains": []
+      "allows": {
+        "domains": [],
+        "terms": []
       }
     }
   },

@@ -48,7 +48,7 @@ export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
 export { buildVocabulary, vocabularyToJsonLd, vocabularyToTurtle, RANGE_TO_RDFS, BUILTIN_CLASSES, BUILTIN_PROPERTIES } from './vocabulary.js'
 export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer, validatePublisher } from './discover.js'
-export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate, resolveEndorsers } from './access.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originAllowed, termBlocked, termAllowed, termWritable, checkAccessGate, resolveEndorsers } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
@@ -177,9 +177,9 @@ export const normalizeIndexingMode = (mode) => {
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
  *   which is a no-op identical to prior behavior.
- * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}}} [config.access] -
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, allows?:{domains?:string[],terms?:string[]}}} [config.access] -
  *   The #217 access block. `registration` is the gate an index request must pass
- *   ('registered' | 'open' | 'closed'); `blocks.domains`/`whitelist.domains` modify it.
+ *   ('registered' | 'open' | 'closed'); `blocks.domains`/`allows.domains` modify it.
  *   `blocks.terms` is a separate, mode-independent write-time filter. Orthogonal to
  *   `config.indexingMode`, which says what TRIGGERS indexing rather than what gate it passes.
  * @param {{name:string, endorse:Function}[]} [config.endorsers] - Endorsement sources

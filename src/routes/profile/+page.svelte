@@ -97,30 +97,42 @@
   {#if access.badge}<li><strong>Badge:</strong> <a href={access.badge}>{access.badge}</a></li>{/if}
 </ul>
 
-{#if access.blocks?.domains?.length || access.whitelist?.domains?.length}
+{#if access.blocks?.domains?.length || access.allows?.domains?.length}
   <h4>Domain gates</h4>
   <ul>
     {#if access.blocks?.domains?.length}
       <li><strong>Blocked domains:</strong> {access.blocks.domains.join(', ')}</li>
     {/if}
-    {#if access.whitelist?.domains?.length}
-      <li><strong>Whitelisted domains:</strong> {access.whitelist.domains.join(', ')}</li>
+    {#if access.allows?.domains?.length}
+      <li><strong>Allowed domains:</strong> {access.allows.domains.join(', ')}</li>
     {/if}
   </ul>
 {/if}
 
-{#if access.blocks?.terms?.length}
-  <h4>Blocked terms</h4>
+{#if access.blocks?.terms?.length || access.allows?.terms?.length}
+  <h4>Term gates</h4>
   <p>
-    Term blocks are a separate mechanism from the gates above: they apply in
-    every indexing mode and are enforced when statements are written, not at
-    the index-request gate.
+    Term lists are a separate mechanism from the domain gates above: they apply
+    in every indexing mode and are enforced when statements are written, not at
+    the index-request gate. A blocked term is refused even if it is also
+    allowed.
   </p>
-  <ul>
-    {#each access.blocks.terms as term}
-      <li>{term}</li>
-    {/each}
-  </ul>
+  {#if access.blocks?.terms?.length}
+    <p><strong>Blocked terms</strong> — refused on this relay:</p>
+    <ul>
+      {#each access.blocks.terms as term}
+        <li>{term}</li>
+      {/each}
+    </ul>
+  {/if}
+  {#if access.allows?.terms?.length}
+    <p><strong>Allowed terms</strong> — this relay mints only these:</p>
+    <ul>
+      {#each access.allows.terms as term}
+        <li>{term}</li>
+      {/each}
+    </ul>
+  {/if}
 {/if}
 
 {#if api.routes || api.linkTypes?.length || api.documentRecord?.length || api.publishers?.available?.length || api.handlers || api.harmonizers?.available?.length}

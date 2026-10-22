@@ -89,7 +89,7 @@ describe('resolveProfile — policies pass through both axes', () => {
     // Always the EXPANDED arrays — a path-form authored list is read at load
     // time and only its contents reach the projection.
     expect(resolved().policies.access.blocks).toEqual({ domains: [], terms: [] })
-    expect(resolved().policies.access.whitelist).toEqual({ domains: [] })
+    expect(resolved().policies.access.allows).toEqual({ domains: [], terms: [] })
   })
 
   it('surfaces a path-form blocklist as its expanded contents, never the path', () => {

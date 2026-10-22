@@ -13,7 +13,7 @@
     "access": {
       "registration": "open",
       "blocks": { "domains": [], "terms": [] },
-      "whitelist": { "domains": [] }
+      "allows": { "domains": [] }
     }
   },
   "api": {

@@ -19,7 +19,7 @@ const fakeProfile = {
     access: {
       registration: 'registered',
       blocks: { domains: [], terms: [] },
-      whitelist: { domains: [] },
+      allows: { domains: [], terms: [] },
     },
   },
   vocabulary: { namespaces: [] },
