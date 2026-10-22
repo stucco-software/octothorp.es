@@ -91,7 +91,9 @@ describe('term IRIs in indexer SPARQL', () => {
     await indexer.createTerm('a>b c', { instance })
     for (const [q] of mockInsert.mock.calls) {
       expect(q).toContain(`<${instance}~/a%3Eb%20c>`)
-      expect(q).not.toContain('a>b c')
+      // The verbatim string appears only as the skos:prefLabel literal (#286),
+      // never in IRI position.
+      expect(q.replace(/"a>b c"/g, '')).not.toContain('a>b c')
     }
   })
 })

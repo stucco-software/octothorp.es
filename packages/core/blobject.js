@@ -135,7 +135,8 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
       }
       if (oType === "Term") {
         // Terms are listed by their decoded name, not their IRI spelling.
-        const termValue = termName(targetUrl);
+        // skos:prefLabel when bound (#286), else the decoded slug.
+        const termValue = binding.oLabel?.value ?? termName(targetUrl);
         if (!current.octothorpes.includes(termValue)) {
           current.octothorpes.push(termValue);
         }
