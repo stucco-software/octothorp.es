@@ -1505,3 +1505,9 @@ Live-verified on localhost: `/profile.json` marks the four builtins `builtin` an
 Also fixed in passing: the profile page rendered `api.harmonizers.available` with `.join(', ')`, which printed `[object Object]` for every entry after #296 changed them to objects.
 
 **Files affected:** `packages/core/publishers/{rss2,standardSiteDocument,bluesky,ics}/{resolver.json,renderer.js}` (new), `packages/core/{publishers.js,client.js,resolveProfile.js,package.json,CHANGELOG.md}`, `src/routes/profile/+page.svelte`, `scripts/api-smoketest.js`, `src/tests/builtinPublishers.test.js` (new), `src/tests/fixtures/{capture-builtin-publishers.mjs,builtin-publishers.json,builtin-publishers-render.json}` (new), `src/tests/{resolveProfile,core,publisherDiscovery,publish-core}.test.js`.
+
+## Integration/smoketest fixtures stop sending s= to domains/posted (#266 follow-up, 2026-10-21)
+
+Six live-server rows failed after #266 made `domains/posted` reject `s=`: the generic matrix in `integration.test.js` and the grammar sweep in `api-smoketest.js` both set `s` for every what/by pair. Both now omit it when `what === 'domains'`, and the integration matrix skips the `limit=1000` variation there since the shape is subject-less and falls under the #313 cap of 400. Suite: 2078 passed, 12 skipped, 0 failed with the dev server up.
+
+**Files affected:** `src/tests/integration.test.js`, `scripts/api-smoketest.js`.

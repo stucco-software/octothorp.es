@@ -216,7 +216,11 @@ function grammarCases(instance, profile, host, webringPage) {
   for (const what of whats) {
     for (const by of bys) {
       // in-webring is subject-scoped to a specific webring index page, not a host.
-      const params = new URLSearchParams({ s: by === 'in-webring' ? webringPage : host })
+      // #266: domains/posted rejects s= outright — it lists every domain posted
+      // to the relay, so there is no subject to scope it to.
+      const params = new URLSearchParams(
+        what === 'domains' ? {} : { s: by === 'in-webring' ? webringPage : host }
+      )
       if (TERM_BYS.has(by)) params.set('o', OBJECT_TERM)
       cases.push({
         section: 'grammar',

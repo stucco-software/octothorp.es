@@ -71,10 +71,13 @@ for (const what of whats) {
       }
 
       for (const extra of variations) {
+        // #266: domains/posted rejects s=, and subject-less shapes cap limit at
+        // 400 (#313), so the s= and limit=1000 variations don't apply to it.
+        if (what === 'domains' && extra.limit) continue
         const label = Object.keys(extra).length ? JSON.stringify(extra) : 'base'
 
         it(`should respond without error: ${label}`, skip(async () => {
-          const params = new URLSearchParams({ s: defaultS })
+          const params = new URLSearchParams(what === 'domains' ? {} : { s: defaultS })
           if (needsObject) params.set('o', defaultO)
           for (const [k, v] of Object.entries(extra)) params.set(k, v)
 
