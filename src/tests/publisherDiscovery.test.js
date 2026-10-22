@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { discoverPublishers } from 'octothorpes'
+import { discoverPublishers, validatePublisher } from 'octothorpes'
 
 const pub = (name) => ({ meta: { name }, contentType: 'text/html', render: () => '' })
 
@@ -69,6 +69,51 @@ describe('discoverPublishers (#217 wave 3)', () => {
     expect(publishers).toEqual({})
     expect(skipped[0].name).toBe('empty')
   })
+
+  // #287: boot-time shape validation — a wrong-shaped default export is
+  // rejected at discovery, naming the file and the field, instead of failing
+  // at publish time far from the authoring mistake.
+  it('skips a publisher without a render function, naming file and field', async () => {
+    const warn = vi.fn()
+    const { publishers, skipped } = await discoverPublishers({
+      ...base,
+      listEntries: async () => ['norender'],
+      loadPublisher: async () => ({ meta: { name: 'norender' } }),
+      warn,
+    })
+    expect(publishers).toEqual({})
+    expect(skipped[0].name).toBe('norender')
+    expect(skipped[0].reason).toMatch(/render/)
+    expect(warn.mock.calls[0][0]).toMatch(/norender/)
+    expect(warn.mock.calls[0][0]).toMatch(/render/)
+  })
+
+  it('skips a flat resolver publisher that declares an id but no schema', async () => {
+    const { skipped } = await discoverPublishers({
+      ...base,
+      listEntries: async () => ['noschema'],
+      loadPublisher: async () => ({ id: 'https://x.test/publishers/noschema', render: () => '' }),
+    })
+    expect(skipped[0].name).toBe('noschema')
+    expect(skipped[0].reason).toMatch(/schema/)
+  })
+})
+
+describe('validatePublisher (#287)', () => {
+  it('accepts a flat resolver publisher and a minimal meta+render stub', () => {
+    expect(validatePublisher({ id: 'https://x.test/p', schema: {}, contentType: 'text/html', render: () => '' })).toEqual([])
+    expect(validatePublisher({ meta: { name: 'stub' }, render: () => '' })).toEqual([])
+  })
+
+  it('rejects non-objects and missing render', () => {
+    expect(validatePublisher(undefined).length).toBeGreaterThan(0)
+    expect(validatePublisher({ meta: {} }).join(' ')).toMatch(/render/)
+  })
+
+  it('rejects an explicit-shape publisher whose resolver lacks id or schema', () => {
+    const problems = validatePublisher({ resolver: { id: 'https://x.test/p' }, render: () => '' })
+    expect(problems.join(' ')).toMatch(/resolver/)
+  })
 })
 
 describe('SvelteKit publisher discovery adapter', () => {
@@ -101,7 +146,7 @@ describe('createClient bulk publisher registration (#217 wave 3)', () => {
     sparql: { sparql_endpoint: 'http://0.0.0.0:7878' },
   }
 
-  it('survives a builtin name collision: warns, skips, keeps the rest', async () => {
+  it('a builtin name REPLACES the builtin and warns (#323), keeping the rest', async () => {
     const { createClient } = await import('../../packages/core/client.js')
     const warn = vi.fn()
     const op = createClient({
@@ -115,10 +160,11 @@ describe('createClient bulk publisher registration (#217 wave 3)', () => {
     const names = op.publisher.listPublishers()
     expect(names).toContain('blarg')
     expect(names).toContain('rss2')
-    // the builtin, not the colliding override
-    expect(op.publisher.getPublisher('rss2').meta.name).toBe('RSS 2.0 Feed')
+    // #323 (d): the site file wins, mirroring the harmonizer override in #296.
+    expect(op.publisher.getPublisher('rss2').meta.name).toBe('collides-with-builtin')
+    expect(op.publisher.listPublisherEntries()).toContainEqual({ name: 'rss2', source: 'declared' })
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0][0]).toMatch(/rss2/)
+    expect(warn.mock.calls[0][0]).toBe('site publisher `rss2` replaces builtin')
   })
 
   it('survives a malformed publisher module without throwing', async () => {

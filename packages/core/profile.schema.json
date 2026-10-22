@@ -140,7 +140,7 @@
               "type": "string"
             },
             "blocks": {
-              "description": "Public blocklists, in two independent kinds with two DIFFERENT enforcement points. `domains` is the origin blocklist and is MEANINGFUL FOR THE INDEXING GATE ONLY when registration is 'open' (allow all except these) — enforced at the access gate in the indexing path. It is still consulted outside 'open' mode by the /register form's short-circuit, which checks it under every registration mode. `terms` is a term blocklist and is ORTHOGONAL TO THE REGISTRATION MODE: it applies under 'registered', 'open' and 'closed' alike, because a relay wants to refuse a slur term regardless of how its origin gate is configured; enforcement is at WRITE time during indexing, dropping the offending statement while the rest of the page indexes normally (the page is NOT rejected wholesale). Advertised deliberately; private blocks are the client's own business, rolled outside the profile. Validation guidance: a non-empty blocks.domains under any mode other than 'open' is a configuration error worth warning on — for the INDEXING GATE, 'registered' and 'closed' already exclude unlisted origins, so the list is inert there and misleadingly advertised (even though the /register form still consults it). blocks.terms carries NO such restriction and is never warned on. NOT RETROACTIVE: statements already written about a term that is later added to blocks.terms are not removed — retroactive removal is deletion work and belongs to epic #271. Read-time filtering (refusing to SERVE a blocked term's page) is deliberately not implemented; this is write-time only.",
+              "description": "Public blocklists, in two independent kinds with two DIFFERENT enforcement points. `domains` is the origin blocklist and is MEANINGFUL FOR THE INDEXING GATE ONLY when registration is 'open' (allow all except these) — enforced at the access gate in the indexing path. It is still consulted outside 'open' mode by the /register form's short-circuit, which checks it under every registration mode. `terms` is a term blocklist and is ORTHOGONAL TO THE REGISTRATION MODE: it applies under 'registered', 'open' and 'closed' alike, because a relay wants to refuse a slur term regardless of how its origin gate is configured; enforcement is at WRITE time during indexing, dropping the offending statement while the rest of the page indexes normally (the page is NOT rejected wholesale). Advertised deliberately; private blocks are the client's own business, rolled outside the profile. Validation guidance: a non-empty blocks.domains under any mode other than 'open' is a configuration error worth warning on — for the INDEXING GATE, 'registered' and 'closed' already exclude unlisted origins, so the list is inert there and misleadingly advertised (even though the /register form still consults it). blocks.terms carries NO such restriction and is never warned on. NOT RETROACTIVE: statements already written about a term that is later added to blocks.terms are not removed — retroactive removal is deletion work and belongs to epic #271. Read-time filtering (refusing to SERVE a blocked term's page) is deliberately not implemented; this is write-time only. `blocks` wins over `allows`: a term named by both lists is refused.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
@@ -162,13 +162,21 @@
                 }
               }
             },
-            "whitelist": {
-              "description": "Public allowlist. MEANINGFUL ONLY when registration is 'closed' (index nothing except these), where it declares this relay's curated scope. Shaped as an object for symmetry with blocks, but carries `domains` ONLY: a terms allowlist is a different product decision with no current use case, so it is deliberately absent rather than reserved. Validation guidance: registration 'closed' with an empty whitelist.domains is a configuration error worth warning on — the relay can index nothing at all.",
+            "allows": {
+              "description": "Public allowlists, the mirror of `blocks` and renamed from `whitelist` (2026-10-22) so the two read as a pair. `domains` is MEANINGFUL ONLY when registration is 'closed' (index nothing except these), where it declares this relay's curated scope. `terms` is ORTHOGONAL TO THE REGISTRATION MODE, exactly like blocks.terms: a non-empty list means this relay mints only the terms it names, under 'registered', 'open' and 'closed' alike, enforced at WRITE time during indexing by dropping the offending statement while the rest of the page indexes normally. An EMPTY terms list means no term restriction, never 'allow nothing'. blocks wins over allows: a term on both lists is refused. Validation guidance: registration 'closed' with an empty allows.domains is a configuration error worth warning on — the relay can index nothing at all; allows.terms carries no such restriction and is never warned on. NOT RETROACTIVE: terms already written that a later allows.terms would exclude are not removed (deletion is epic #271), and there is no read-time filter.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "domains": {
                   "description": "Origin allowlist: either an inline array of strings, or a string path to a JSON file containing an array of strings, expanded by the loader exactly like blocks.domains.",
+                  "oneOf": [
+                    { "type": "array", "items": { "type": "string" } },
+                    { "type": "string" }
+                  ],
+                  "default": []
+                },
+                "terms": {
+                  "description": "Term allowlist: same array-or-path form and same expansion rules as domains. Applies in ALL registration modes. Non-empty, it is a curated term vocabulary — a harmonized blobject carrying an octothorpe this list does not name has that statement dropped at write time, while sibling statements on the same page still index. Empty means unrestricted.",
                   "oneOf": [
                     { "type": "array", "items": { "type": "string" } },
                     { "type": "string" }

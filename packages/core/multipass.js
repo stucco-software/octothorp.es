@@ -2,6 +2,30 @@ import { getUnixDateFromString, cleanInputs, areUrlsFuzzy, parseDateStrings } fr
 import { BUILTIN_LINK_TYPES, OBJECT_TYPES, findLinkType } from './linkTypes.js'
 import { QueryError } from './errors.js'
 
+/** Max page size for query shapes nothing else bounds (#313; reused by #266). */
+export const LIMIT_CAP = 400
+
+/**
+ * Enforces the page-size cap on query shapes that nothing else bounds
+ * (no subject, no object). `no-limit` and `0` — which suppress the SPARQL
+ * LIMIT entirely — are refused, as is any limit over the cap. Bounded
+ * shapes should not pass through here; `no-limit` stays legal on them.
+ * @param {string|number} [limit] - raw limit param; undefined falls back to the default page size (100)
+ * @param {number} [cap] - max page size, defaults to LIMIT_CAP
+ * @returns {string} the validated limit
+ * @throws {QueryError} naming the cap when the limit is missing a bound or exceeds it
+ */
+export const capLimit = (limit, cap = LIMIT_CAP) => {
+  const n = parseInt(limit ?? '100', 10)
+  if (limit === 'no-limit' || isNaN(n) || n <= 0) {
+    throw new QueryError(`limit=${limit} is not allowed on a query with no subject or object: nothing else bounds it. Pass limit=${cap} or less (the cap is ${cap}).`)
+  }
+  if (n > cap) {
+    throw new QueryError(`limit=${n} exceeds the cap of ${cap} for a query with no subject or object. Pass limit=${cap} or less and page with offset.`)
+  }
+  return String(n)
+}
+
 /**
  * Builds a MultiPass configuration from plain parameters.
  * Framework-agnostic equivalent of getMultiPassFromParams.
@@ -34,6 +58,14 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
   let subtype = ""
 
   let matchByParams = by ?? 'termsOnly'
+
+  // #266: domains/posted is single-purpose — the domains posted to this relay.
+  // s= never filtered it; accepting it silently read as a broken filter, so it
+  // is rejected outright. (domains/in-webring resolves s byParent and keeps it.)
+  // With s and o both empty the #313 cap below bounds the result set.
+  if (resultParams === 'domains' && matchByParams === 'posted' && (subjects.length || notSubjects.length)) {
+    throw new QueryError('s is not a filter on domains/posted: it lists every domain posted to this relay. Drop s and not-s, or use pages/posted to filter by subject.')
+  }
   let objectType = "all"
   let relationTerms = undefined
 
@@ -55,6 +87,27 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
 
   subtype = linkType.subtype ?? ""
   objectType = OBJECT_TYPES[linkType.objects]
+
+  // #200: ?st= names a relationship subtype directly, so any harmonizer-written
+  // subtype (octo:Sameas, octo:Reply, ...) is queryable without a declared [by]
+  // alias. It applies only to generic link [by] values — term, posted, and
+  // webring queries have no subtyped relationship, and a typed alias already
+  // fixes the subtype, so those get an explicit rejection (same posture as
+  // #266/#313). Case is normalized the way the write path's resolveSubtype
+  // does: first letter uppercased.
+  if (options.st !== undefined) {
+    if (typeof options.st !== 'string' || !/^[A-Za-z][A-Za-z0-9]*$/.test(options.st)) {
+      throw new QueryError(`st=${options.st} is not a valid subtype name: use a bare octo local name like Sameas (letters and digits, starting with a letter)`)
+    }
+    const st = options.st.charAt(0).toUpperCase() + options.st.slice(1)
+    if (linkType.objects === 'terms' || linkType.objects === 'none' || linkType.subjects === 'byParent') {
+      throw new QueryError(`st does not apply to by=${matchByParams}: subtypes only exist on link relationships. Use a link by such as linked.`)
+    }
+    if (subtype && subtype !== st) {
+      throw new QueryError(`st=${st} conflicts with by=${matchByParams}, which already fixes the subtype to ${subtype}. Use a generic link by (linked) with st, or drop st.`)
+    }
+    subtype = st
+  }
 
   if (linkType.subjects === 'byParent') {
     // Webring membership: the subject side is resolved through a parent
@@ -158,6 +211,13 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
     }
   }
 
+  // #313: a shape with no subject and no object has nothing but LIMIT bounding
+  // it, so the default becomes a cap there — `no-limit`/`0` and anything over
+  // LIMIT_CAP are refused. Shapes with an s or o keep `no-limit` working.
+  const limitResults = (s.length === 0 && o.length === 0)
+    ? capLimit(limitParams)
+    : limitParams
+
   // Set resultMode
   let resultMode = resultParams
   switch (resultParams) {
@@ -247,7 +307,7 @@ export const buildMultiPass = (what, by, options = {}, instance) => {
     filters: {
       subtype: subtype,
       relationTerms: relationTerms,
-      limitResults: limitParams,
+      limitResults: limitResults,
       offsetResults: offsetParams,
       dateRange: dateFilter,
       createdRange: Object.keys(createdFilter).length ? createdFilter : null,

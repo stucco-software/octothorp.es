@@ -8,7 +8,7 @@ import {
   verifiedOrigin,
   checkIndexingRateLimit,
   originBlocked,
-  originWhitelisted,
+  originAllowed,
 } from 'octothorpes'
 import { createIndexer } from '../../packages/core/indexer.js'
 
@@ -227,14 +227,14 @@ describe('access-gate list matchers treat www spellings as one site', () => {
     expect(originBlocked('https://wwwfoo.com', ['www.foo.com'])).toBe(false)
   })
 
-  it('a whitelist entry admits either spelling', () => {
-    expect(originWhitelisted('https://www.friend.test', ['https://friend.test'])).toBe(true)
-    expect(originWhitelisted('https://friend.test', ['https://www.friend.test/'])).toBe(true)
+  it('an allows entry admits either spelling', () => {
+    expect(originAllowed('https://www.friend.test', ['https://friend.test'])).toBe(true)
+    expect(originAllowed('https://friend.test', ['https://www.friend.test/'])).toBe(true)
   })
 
-  it('a whitelist entry still distinguishes scheme and subdomain', () => {
-    expect(originWhitelisted('http://www.friend.test', ['https://friend.test'])).toBe(false)
-    expect(originWhitelisted('https://blog.friend.test', ['https://friend.test'])).toBe(false)
+  it('an allows entry still distinguishes scheme and subdomain', () => {
+    expect(originAllowed('http://www.friend.test', ['https://friend.test'])).toBe(false)
+    expect(originAllowed('https://blog.friend.test', ['https://friend.test'])).toBe(false)
   })
 })
 
@@ -335,12 +335,12 @@ describe('indexer: www and bare spellings verify against one registration', () =
     ).rejects.toThrow(/not registered/i)
   })
 
-  it('closed: a whitelist entry for foo.com admits a www.foo.com page', async () => {
+  it('closed: an allows entry for foo.com admits a www.foo.com page', async () => {
     const queryBoolean = verifiedStore()
     const indexer = makeIndexer({
       pageId: 'https://wwwreg-f.test/page',
       queryBoolean,
-      access: { registration: 'closed', whitelist: { domains: ['https://wwwreg-f.test'] } },
+      access: { registration: 'closed', allows: { domains: ['https://wwwreg-f.test'] } },
     })
     await indexer.handler('https://www.wwwreg-f.test/page', 'default', null, { instance, queryBoolean })
     expect(inserted()).toContain('~/cats')

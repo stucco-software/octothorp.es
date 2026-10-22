@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // #275 at the /register seam: the submitted domain is stored in one canonical
 // spelling, and the ban / verified lookups match any spelling of the same site.
 
-const access = { registration: 'registered', blocks: { domains: [], terms: [] }, whitelist: { domains: [] } }
+const access = { registration: 'registered', blocks: { domains: [], terms: [] }, allows: { domains: [], terms: [] } }
 vi.mock('$lib/profile.js', () => ({
   getProfile: () => ({
     identity: { instance: 'https://example.test/', name: 'Example', contact: { email: 'admin@example.test' } },

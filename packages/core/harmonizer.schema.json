@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://octothorp.es/harmonizer.schema.json",
+  "title": "OP Harmonizer (declarative)",
+  "description": "A harmonizer DEFINITION: declarative JSON that selects fields out of a source document. A local file under api.harmonizers.dir is the same shape as a harmonizer fetched over HTTP, so this schema covers both. A harmonizer names the HANDLER it runs under via `mode`; it carries no code. Validation here is deliberately dialect-agnostic: each extraction rule must be a selector string or an array of rule objects, but the KEYS inside a rule object (selector/attribute, column, ...) belong to the individual handler and are not constrained here.",
+  "type": "object",
+  "required": ["id", "title", "mode", "schema"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "//": {
+      "description": "Authoring comment. Ignored by the loader.",
+      "type": "string"
+    },
+    "id": {
+      "description": "Stable identifier for this harmonizer (conventionally a URL or 'harmonizer/<name>'). Site harmonizers are KEYED by file basename at discovery; the id is identity, not the lookup key.",
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "description": "Artifact kind. Always 'harmonizer' — a definition claiming another type is a category error. Discovery stamps the value when absent.",
+      "type": "string",
+      "enum": ["harmonizer"]
+    },
+    "title": {
+      "description": "Human-readable name, shown in listings.",
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "description": "The HANDLER this harmonizer runs under (e.g. 'html', 'csv'). Not resolved at load time: discovery order between handlers.dir and harmonizers.dir is not guaranteed, and an unknown mode falls through to the registry's default-handler dispatch.",
+      "type": "string",
+      "minLength": 1
+    },
+    "schema": {
+      "description": "The extraction map. `subject` is required — it is the section every handler reads; additional top-level sections (e.g. 'hashtag') are typed statement groups the handler may consume.",
+      "type": "object",
+      "required": ["subject"],
+      "properties": {
+        "subject": { "$ref": "#/definitions/section" }
+      },
+      "additionalProperties": { "$ref": "#/definitions/section" }
+    }
+  },
+  "definitions": {
+    "section": {
+      "description": "One extraction section: field name -> rule. A rule is a string (e.g. 's': 'source'), a rule object in the handler's dialect, or an array mixing the two (the json handler's 's': ['url', '@id'] and 'image': [{...}, 'image.url'] are both legal). Which keys a rule object carries belongs to the individual handler.",
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          { "type": "string" },
+          { "type": "object", "minProperties": 1 },
+          { "type": "array", "items": { "anyOf": [{ "type": "string" }, { "type": "object", "minProperties": 1 }] } }
+        ]
+      }
+    }
+  }
+}

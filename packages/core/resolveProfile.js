@@ -25,6 +25,7 @@ export const DEFAULT_ROUTES = {
   domains: '/domains',
   rss: '/rss',
   badge: '/badge',
+  vocabulary: '/vocabulary',
 }
 
 /**
@@ -141,6 +142,18 @@ const expandFeeds = (feeds, { instance, terms }) =>
     }).filter(Boolean)
   )
 
+// Normalize api.{harmonizers,publishers}.available entries (#296, #323):
+// registry entries are { name, source }; bare strings (legacy callers) project
+// as { name } alone.
+const dedupeRegistryEntries = (entries) => {
+  const out = new Map()
+  for (const e of entries) {
+    const entry = typeof e === 'string' ? { name: e } : { name: e.name, ...(e.source ? { source: e.source } : {}) }
+    if (!out.has(entry.name)) out.set(entry.name, entry)
+  }
+  return [...out.values()]
+}
+
 /**
  * Project the resolved profile: authored declarations + loader defaults +
  * init-time discovery, merged. Never written to disk — it is a projection of
@@ -150,16 +163,14 @@ const expandFeeds = (feeds, { instance, terms }) =>
  * @param {Object} config
  * @param {Object} config.profile - a fully-populated getProfile() result.
  * @param {string[]} [config.publisherNames=[]] - builtin + discovered publisher names.
+ * @param {{name: string, source?: string}[]} [config.publisherEntries=[]] - the same names with #323 source markers.
  * @param {string[]} [config.handlerNames=[]] - registered handler modes (builtin + discovered).
- * @param {string[]} [config.harmonizerNames=[]] - registered harmonizer names.
+ * @param {Array<string|{name:string, source?:string}>} [config.harmonizerNames=[]] -
+ *   registered harmonizer entries ({ name, source: 'builtin'|'declared' }).
+ *   Bare strings are tolerated and projected without a source marker.
  * @param {Array} [config.linkTypes] - the merged link-type table the client built at
  *   init. Omitted, it is recomputed from the authored profile — resolveProfile
  *   stays pure and callable on a profile no client ever saw.
- * @param {Object} [config.coherence] - the #293 coherence report the client computed
- *   at init ({ uncapturedLinkTypes, uncapturedDocumentRecord, unqueriedSubtypes,
- *   undeclaredDocumentRecord }). PROJECTION ONLY — never authored; `api` is a
- *   closed schema, so an authored `api.coherence` is a schema error. Omitted,
- *   the key is absent from the resolved profile.
  * @param {Record<string,string>} [config.routes] - the adapter's mount table
  *   ({ get, index, profile, ... } -> URL template). Omitted, the SvelteKit
  *   relay's DEFAULT_ROUTES stand in, so a client that passes nothing still
@@ -169,11 +180,11 @@ const expandFeeds = (feeds, { instance, terms }) =>
 export const resolveProfile = ({
   profile,
   publisherNames = [],
+  publisherEntries = [],
   handlerNames = [],
   harmonizerNames = [],
   linkTypes,
   routes,
-  coherence,
 } = {}) => {
   // Normalize here as well as in the loader: this function is pure and may be
   // called on a profile the loader never touched.
@@ -228,20 +239,26 @@ export const resolveProfile = ({
       // most of them. Same `source` convention as vocabulary.namespaces.
       linkTypes: mergedLinkTypes,
       documentRecord: profile.api.documentRecord,
-      // PROJECTION ONLY, like `routes` below: what the client observed when it
-      // crossed the declared table against the harmonizers that actually
-      // registered (#293). Absent when no client computed one.
-      ...(coherence ? { coherence } : {}),
       // Directory pointers are authoring detail, not public data. What the
       // world gets is the list of names that actually resolved at init.
-      publishers: { available: [...new Set(publisherNames)].sort() },
+      // Each entry carries `source: builtin | declared` (#323), same convention
+      // as harmonizers. A site file that replaced a builtin by name shows as
+      // declared. `routes[].as` keeps the bare sorted names.
+      publishers: {
+        available: dedupeRegistryEntries(
+          publisherEntries.length ? publisherEntries : publisherNames
+        ).sort((a, b) => a.name.localeCompare(b.name)),
+      },
       // Three sibling registries. `default` is a handler mode, so it is
       // projected under handlers — never under harmonizers.
       handlers: {
         default: profile.api.handlers.default,
         available: [...new Set(handlerNames)],
       },
-      harmonizers: { available: [...new Set(harmonizerNames)] },
+      // Each entry carries `source: builtin | declared` (#296), same convention
+      // as linkTypes and vocabulary.namespaces. A site file that replaced a
+      // builtin by name shows as declared. Dedup is by name, first entry wins.
+      harmonizers: { available: dedupeRegistryEntries(harmonizerNames) },
       // PROJECTION ONLY — never authored. Core owns the query grammar, the
       // adapter owns the mount points; `routes` is the two of them composed, so
       // a consumer can form every query this client answers without reading

@@ -19,41 +19,74 @@
   <h1>{identity.name}</h1>
 {/if}
 {#if identity.description}
-  <p>{identity.description}</p>
+  <p class="lede">{identity.description}</p>
 {/if}
+
+<!-- #325: the server identity card. This is the part a stranger needs —
+     who runs this relay, how to reach them, and whether they can index with
+     it. Everything machine-facing moved into the Advanced section below. -->
+<div class="identity-card">
+  <dl>
+    {#if identity.instance}
+      <dt>Instance</dt>
+      <dd><a href={identity.instance}>{identity.instance}</a></dd>
+    {/if}
+    {#if identity.contact?.email || identity.contact?.bluesky}
+      <dt>Contact</dt>
+      <dd>
+        {#if identity.contact?.email}<a href="mailto:{identity.contact.email}">{identity.contact.email}</a>{/if}
+        {#if identity.contact?.email && identity.contact?.bluesky} &middot; {/if}
+        {#if identity.contact?.bluesky}{identity.contact.bluesky}{/if}
+      </dd>
+    {/if}
+    {#if access.registration}
+      <dt>Who can index here</dt>
+      <dd>{access.registration}</dd>
+    {/if}
+    {#if indexing.mode}
+      <dt>Indexing is triggered by</dt>
+      <dd>{indexing.mode}</dd>
+    {/if}
+    {#if identity.terms}
+      <dt>Term prefix</dt>
+      <dd><a href={identity.terms}>{identity.terms}</a></dd>
+    {/if}
+    {#if identity.rules}
+      <dt>Rules</dt>
+      <dd><a href={identity.rules}>{identity.rules}</a></dd>
+    {/if}
+  </dl>
+</div>
+
 <p>
-  This is the <a href="/profile.json">machine-readable profile</a> for this
-  Octothorpes Protocol client, rendered as a page.
+  Full detail is in the <a href="/profile.json">machine-readable profile</a>, or
+  in the <a href="#advanced">Advanced</a> section below.
 </p>
 
-{#if identity.instance || identity.contact || identity.feeds || identity.images}
-  <h2>Identity</h2>
+{#if identity.images && Object.keys(identity.images).length}
+  <h3>Images</h3>
   <ul>
-    {#if identity.instance}<li><strong>Instance:</strong> {identity.instance}</li>{/if}
-    {#if identity.contact?.email}<li><strong>Contact:</strong> <a href="mailto:{identity.contact.email}">{identity.contact.email}</a></li>{/if}
-    {#if identity.contact?.bluesky}<li><strong>Bluesky:</strong> {identity.contact.bluesky}</li>{/if}
-    {#if identity.terms}<li><strong>Term prefix:</strong> <a href={identity.terms}>{identity.terms}</a></li>{/if}
-    {#if identity.rules}<li><strong>Rules:</strong> <a href={identity.rules}>{identity.rules}</a></li>{/if}
+    {#each Object.entries(identity.images) as [slot, url]}
+      <li><strong>{slot}:</strong> <a href={url}>{url}</a></li>
+    {/each}
   </ul>
-  {#if identity.images && Object.keys(identity.images).length}
-    <h3>Images</h3>
-    <ul>
-      {#each Object.entries(identity.images) as [slot, url]}
-        <li><strong>{slot}:</strong> <a href={url}>{url}</a></li>
-      {/each}
-    </ul>
-  {/if}
-  {#if identity.feeds && Object.keys(identity.feeds).length}
-    <h3>Feeds</h3>
-    <ul>
-      {#each Object.entries(identity.feeds) as [slot, value]}
-        <li><strong>{slot}:</strong> {Array.isArray(value) ? value.join(', ') : value}</li>
-      {/each}
-    </ul>
-  {/if}
+{/if}
+{#if identity.feeds && Object.keys(identity.feeds).length}
+  <h3>Feeds</h3>
+  <ul>
+    {#each Object.entries(identity.feeds) as [slot, value]}
+      <li><strong>{slot}:</strong> {Array.isArray(value) ? value.join(', ') : value}</li>
+    {/each}
+  </ul>
 {/if}
 
-<h2>Policies</h2>
+<h2 id="advanced">Advanced</h2>
+<p>
+  The machine-facing surface of this relay: its policies in full, the API it
+  serves, the vocabulary it uses, and how to keep a page out of it.
+</p>
+
+<h3>Policies</h3>
 <p>Two separate policy axes: what triggers indexing, and what an index request
   must pass to be accepted.</p>
 <ul>
@@ -64,36 +97,48 @@
   {#if access.badge}<li><strong>Badge:</strong> <a href={access.badge}>{access.badge}</a></li>{/if}
 </ul>
 
-{#if access.blocks?.domains?.length || access.whitelist?.domains?.length}
-  <h3>Domain gates</h3>
+{#if access.blocks?.domains?.length || access.allows?.domains?.length}
+  <h4>Domain gates</h4>
   <ul>
     {#if access.blocks?.domains?.length}
       <li><strong>Blocked domains:</strong> {access.blocks.domains.join(', ')}</li>
     {/if}
-    {#if access.whitelist?.domains?.length}
-      <li><strong>Whitelisted domains:</strong> {access.whitelist.domains.join(', ')}</li>
+    {#if access.allows?.domains?.length}
+      <li><strong>Allowed domains:</strong> {access.allows.domains.join(', ')}</li>
     {/if}
   </ul>
 {/if}
 
-{#if access.blocks?.terms?.length}
-  <h3>Blocked terms</h3>
+{#if access.blocks?.terms?.length || access.allows?.terms?.length}
+  <h4>Term gates</h4>
   <p>
-    Term blocks are a separate mechanism from the gates above: they apply in
-    every indexing mode and are enforced when statements are written, not at
-    the index-request gate.
+    Term lists are a separate mechanism from the domain gates above: they apply
+    in every indexing mode and are enforced when statements are written, not at
+    the index-request gate. A blocked term is refused even if it is also
+    allowed.
   </p>
-  <ul>
-    {#each access.blocks.terms as term}
-      <li>{term}</li>
-    {/each}
-  </ul>
+  {#if access.blocks?.terms?.length}
+    <p><strong>Blocked terms</strong> — refused on this relay:</p>
+    <ul>
+      {#each access.blocks.terms as term}
+        <li>{term}</li>
+      {/each}
+    </ul>
+  {/if}
+  {#if access.allows?.terms?.length}
+    <p><strong>Allowed terms</strong> — this relay mints only these:</p>
+    <ul>
+      {#each access.allows.terms as term}
+        <li>{term}</li>
+      {/each}
+    </ul>
+  {/if}
 {/if}
 
 {#if api.routes || api.linkTypes?.length || api.documentRecord?.length || api.publishers?.available?.length || api.handlers || api.harmonizers?.available?.length}
-  <h2>API</h2>
+  <h3>API</h3>
   {#if api.routes}
-    <h3>Routes</h3>
+    <h4>Routes</h4>
     <p>
       Where this client serves each endpoint, and — for <code>/get</code> — every word
       and query param a request may use. This block is a projection: core supplies the
@@ -118,7 +163,7 @@
     </ul>
   {/if}
   {#if api.linkTypes?.length}
-    <h3>Link types</h3>
+    <h4>Link types</h4>
     <p>
       The <code>by</code> words this client answers to. Each is a bundle: a query word, the
       relationship subtype it filters on, and what may sit on the object side.
@@ -139,7 +184,7 @@
     </ul>
   {/if}
   {#if api.documentRecord?.length}
-    <h3>Document record</h3>
+    <h4>Document record</h4>
     <p>Declared non-canonical predicates projected onto the blobject read surface.</p>
     <ul>
       {#each api.documentRecord as dr}
@@ -148,35 +193,35 @@
     </ul>
   {/if}
   {#if api.publishers?.available?.length}
-    <h3>Publishers</h3>
+    <h4>Publishers</h4>
     <ul>
-      {#each api.publishers.available as name}
-        <li>{name}</li>
+      {#each api.publishers.available as pub}
+        <li>{typeof pub === 'string' ? pub : pub.name}{typeof pub === 'string' || !pub.source ? '' : ` (${pub.source})`}</li>
       {/each}
     </ul>
   {/if}
   {#if api.handlers?.default || api.handlers?.available?.length}
-    <h3>Handlers</h3>
+    <h4>Handlers</h4>
     <ul>
       {#if api.handlers.default}<li><strong>Default:</strong> {api.handlers.default}</li>{/if}
       {#if api.handlers.available?.length}<li><strong>Available:</strong> {api.handlers.available.join(', ')}</li>{/if}
     </ul>
   {/if}
   {#if api.harmonizers?.available?.length}
-    <h3>Harmonizers</h3>
+    <h4>Harmonizers</h4>
     <ul>
-      <li><strong>Available:</strong> {api.harmonizers.available.join(', ')}</li>
+      <li><strong>Available:</strong> {api.harmonizers.available.map((h) => (typeof h === 'string' ? h : h.source ? `${h.name} (${h.source})` : h.name)).join(', ')}</li>
     </ul>
   {/if}
 {/if}
 
 {#if vocab.octo || vocab.namespaces?.length}
-  <h2>Vocabulary</h2>
+  <h3>Vocabulary</h3>
   {#if vocab.octo}
     <p><strong>Octo term prefix:</strong> <code>{vocab.octo}</code></p>
   {/if}
   {#if vocab.namespaces?.length}
-    <h3>Namespaces</h3>
+    <h4>Namespaces</h4>
     <ul>
       {#each vocab.namespaces as ns}
         <li>
@@ -188,4 +233,68 @@
   {/if}
 {/if}
 
+{#if identity.instance}
+  <h3>Blocking this relay</h3>
+  <p>
+    To keep a page out of this relay ({identity.instance}), put this in the
+    <code>&lt;head&gt;</code> of the page:
+  </p>
+  <pre><code>&lt;meta name="octo-policy" content="no-index"&gt;</code></pre>
+  <p>
+    The explicit no-index overrides every automatic opt-in, including a page
+    that contains Octothorpes markup and the relay's active indexing mode. The tag
+    is not specific to this relay: any relay running the same indexer honors it.
+    The indexer has no markup that names a single relay.
+  </p>
+  <h4>Other ways to block</h4>
+  <ul>
+    <li>
+      <strong>Robots meta.</strong> <code>&lt;meta name="robots" content="noindex"&gt;</code>
+      (also <code>nofollow</code> or <code>none</code>) is honored only when the
+      relay finds the page itself, which happens in <code>active</code> indexing mode.
+      It is ignored when the page's owner asks for indexing.
+    </li>
+    <li>
+      <strong>User-Agent block.</strong> The relay fetches pages server-side.
+      This is the exact User-Agent string it sends:
+      <pre><code>{data.relayUserAgent}</code></pre>
+      (Relays in <code>active</code> indexing mode carry an <code>(active;</code>
+      marker before the instance URL; this string already reflects this relay's
+      mode.) Refusing that User-Agent at your web server or CDN blocks this
+      relay specifically, and a refused fetch fails the index request. For
+      example, in nginx:
+      <pre><code>if ($http_user_agent ~ "\+{identity.instance}") &#123; return 403; &#125;</code></pre>
+      or as a Cloudflare WAF expression:
+      <pre><code>(http.user_agent contains "+{identity.instance}")</code></pre>
+      Matching on <code>+{identity.instance}</code> targets this relay alone;
+      matching on <code>Octothorpes</code> targets all of them.
+    </li>
+    <li>
+      <strong>robots.txt.</strong> The indexer does not read robots.txt, so it has no effect here.
+    </li>
+  </ul>
+{/if}
+
 </div>
+
+<style>
+  .lede { font-size: 1.1rem; }
+  .identity-card {
+    border: 1px solid currentColor;
+    border-radius: 0.4rem;
+    padding: 0.5rem 1rem;
+    margin: 1rem 0;
+  }
+  .identity-card dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0.5rem 0;
+  }
+  .identity-card dt { font-weight: bold; }
+  .identity-card dd { margin: 0; word-break: break-word; }
+  @media (max-width: 30rem) {
+    .identity-card dl { grid-template-columns: 1fr; }
+    .identity-card dd { margin-bottom: 0.5rem; }
+  }
+</style>

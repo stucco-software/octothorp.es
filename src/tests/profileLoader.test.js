@@ -20,7 +20,7 @@ const fixture = () => ({
     terms: 'https://authored.test/~/',
     feeds: { thorpes: ['cats'] },
   },
-  policies: { access: { registration: 'closed', whitelist: { domains: ['https://friend.test'] } } },
+  policies: { access: { registration: 'closed', allows: { domains: ['https://friend.test'], terms: [] } } },
   api: { publishers: { dir: './src/lib/publishers' } },
   vocabulary: {
     namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true }],
@@ -48,7 +48,7 @@ describe('createProfile — defaults filling', () => {
     expect(p.policies.indexing.mode).toBe('request')
     expect(p.policies.access.registration).toBe('registered')
     expect(p.policies.access.blocks).toEqual({ domains: [], terms: [] })
-    expect(p.policies.access.whitelist).toEqual({ domains: [] })
+    expect(p.policies.access.allows).toEqual({ domains: [], terms: [] })
     expect(p.api.linkTypes).toEqual([])
     expect(p.api.documentRecord).toEqual([])
     expect(p.api.publishers.dir).toBeNull()
@@ -100,7 +100,7 @@ describe('createProfile — defaults filling', () => {
     const p = load(fixture())
     expect(p.identity.name).toBe('Fixture Relay')
     expect(p.policies.access.registration).toBe('closed')
-    expect(p.policies.access.whitelist).toEqual({ domains: ['https://friend.test'] })
+    expect(p.policies.access.allows).toEqual({ domains: ['https://friend.test'], terms: [] })
     expect(p.identity.feeds.thorpes).toEqual(['cats'])
     expect(p.vocabulary.namespaces).toHaveLength(1)
     expect(p.vocabulary.namespaces[0].import).toBe(true)
@@ -147,7 +147,7 @@ describe('createProfile — blocklist expansion', () => {
     expect(p.policies.access.blocks.domains).toEqual(['bad.test', 'worse.test'])
   })
 
-  it('expands every array-or-path slot, including whitelist.domains', () => {
+  it('expands every array-or-path slot, including allows.domains', () => {
     const readFile = vi.fn((path) =>
       JSON.stringify(path.includes('terms') ? ['someslur'] : ['https://friend.test'])
     )
@@ -155,13 +155,22 @@ describe('createProfile — blocklist expansion', () => {
       withAccess({
         registration: 'closed',
         blocks: { terms: './blocklists/terms.json' },
-        whitelist: { domains: './blocklists/allow.json' },
+        allows: { domains: './blocklists/allow.json' },
       }),
       {},
       readFile
     )
     expect(p.policies.access.blocks.terms).toEqual(['someslur'])
-    expect(p.policies.access.whitelist.domains).toEqual(['https://friend.test'])
+    expect(p.policies.access.allows.domains).toEqual(['https://friend.test'])
+  })
+
+  it('expands allows.terms from a path, exactly like blocks.terms', () => {
+    const p = load(
+      withAccess({ allows: { terms: './allowlists/terms.json' } }),
+      {},
+      (path) => (path.includes('terms.json') ? '["cats","dogs"]' : '[]')
+    )
+    expect(p.policies.access.allows.terms).toEqual(['cats', 'dogs'])
   })
 
   it('surfaces the expanded array, never the path', () => {
@@ -259,13 +268,22 @@ describe('createProfile — access-gate coherence warnings', () => {
   it('warns when blocks.domains is set outside open mode (it is inert there)', () => {
     expect(warned({ policies: { access: { registration: 'registered', blocks: { domains: ['bad.test'] } } } }))
       .toMatch(/blocks\.domains/i)
-    expect(warned({ policies: { access: { registration: 'closed', blocks: { domains: ['bad.test'] }, whitelist: { domains: ['https://f.test'] } } } }))
+    expect(warned({ policies: { access: { registration: 'closed', blocks: { domains: ['bad.test'] }, allows: { domains: ['https://f.test'] } } } }))
       .toMatch(/blocks\.domains/i)
   })
 
   it('does not warn about blocks.domains in open mode', () => {
     expect(warned({ policies: { access: { registration: 'open', blocks: { domains: ['bad.test'] } } } }))
       .not.toMatch(/blocks/i)
+  })
+
+  it('NEVER warns about allows.terms either — empty means unrestricted', () => {
+    for (const registration of ['registered', 'open', 'closed']) {
+      const warning = warned({
+        policies: { access: { registration, allows: { domains: ['https://friend.test'], terms: ['cats'] } } },
+      })
+      expect(warning ?? '', registration).not.toMatch(/allows\.terms/)
+    }
   })
 
   it('NEVER warns about blocks.terms — it applies in every registration mode', () => {
@@ -277,19 +295,19 @@ describe('createProfile — access-gate coherence warnings', () => {
           access: {
             registration,
             blocks: { terms: ['someslur'] },
-            whitelist: { domains: ['https://f.test'] },
+            allows: { domains: ['https://f.test'] },
           },
         },
       })).not.toMatch(/terms/i)
     }
   })
 
-  it('warns when closed mode has an empty whitelist.domains (nothing can be indexed)', () => {
-    expect(warned({ policies: { access: { registration: 'closed' } } })).toMatch(/whitelist/i)
+  it('warns when closed mode has an empty allows.domains (nothing can be indexed)', () => {
+    expect(warned({ policies: { access: { registration: 'closed' } } })).toMatch(/allows.domains/i)
   })
 
   it('does not warn on a coherent closed configuration', () => {
-    expect(warned({ policies: { access: { registration: 'closed', whitelist: { domains: ['https://f.test'] } } } }))
+    expect(warned({ policies: { access: { registration: 'closed', allows: { domains: ['https://f.test'] } } } }))
       .toBe('')
   })
 

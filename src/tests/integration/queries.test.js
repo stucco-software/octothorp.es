@@ -10,9 +10,18 @@ describe('buildQueries smoke tier (default)', () => {
   const qs = buildQueries(manifest)
 
   it('returns one query per what/by combo plus completeness', () => {
-    // 19 combos (whats×bys minus domains-only-posted restriction) + 1 completeness
+    // 20 combos (whats×bys; domains appears only with posted) + 1 completeness
     expect(qs.length).toBeGreaterThan(10)
     expect(qs.length).toBeLessThan(30)
+  })
+
+  it('includes domains/posted: subject-less and clean-db-only (#266)', () => {
+    const d = qs.find((q) => q.name === 'matrix-domains-posted')
+    expect(d).toBeTruthy()
+    expect(d.cleanDbOnly).toBe(true)
+    expect(d.path).not.toContain('s=')
+    const others = qs.filter((q) => q.name.startsWith('matrix-domains-') && q.name !== 'matrix-domains-posted')
+    expect(others).toHaveLength(0) // domains stays posted-only
   })
 
   it('smoke queries have no extras in their names (no -recent, -1000, etc.)', () => {

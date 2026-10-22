@@ -3,7 +3,7 @@
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
-  import { parseMultipass, multipassToParams, extractWhatBy } from '../shared/multipass-utils.js';
+  import { parseMultipass, multipassToParams, extractWhatBy } from 'octothorpes';
 
   // Props
   export let render = 'list';  // list, cards, compact

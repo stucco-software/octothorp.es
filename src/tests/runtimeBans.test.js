@@ -93,7 +93,7 @@ describe('indexing gate refuses banned origins in every mode', () => {
   for (const access of [
     { registration: 'open' },
     { registration: 'registered' },
-    { registration: 'closed', whitelist: { domains: ['https://banned.test'] } },
+    { registration: 'closed', allows: { domains: ['https://banned.test'] } },
   ]) {
     it(`${access.registration}: 403-mapped ban refusal`, async () => {
       const queryBoolean = banAsk(['https://banned.test'])

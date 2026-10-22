@@ -12,7 +12,7 @@
 
 <h2>Tag freely, tag often</h2>
 
-<p>Octothorpes is a protocol, not a platform. So what goes on the network is up to you. We have a newsletter and an official hashtag for <a href="https://octothorp.es/~/octothorpe-news">#octothorpes-news</a> and some social media accounts where we'll be sharing updates to the project as well as cool stuff we see and find on the network, but beyond that, what one might find clicking on any octothorpe will be up to those of you who choose to octothorpe your posts. If you want to organize any sort of hashtag-based project or campaign and want help in spreading the idea, get in touch. Otherwise... browse and discover!</p>
+<p>Octothorpes is a protocol, not a platform. So what goes on the network is up to you. We have a newsletter and an official hashtag for <a href="/~/octothorpe-news">#octothorpes-news</a> and some social media accounts where we'll be sharing updates to the project as well as cool stuff we see and find on the network, but beyond that, what one might find clicking on any octothorpe will be up to those of you who choose to octothorpe your posts. If you want to organize any sort of hashtag-based project or campaign and want help in spreading the idea, get in touch. Otherwise... browse and discover!</p>
 
 <h3>Then what?</h3>
 
@@ -40,11 +40,11 @@
 
 <p>Q: How do I start using Octothorpes?</p>
 
-<p>A: First, <a href="https://octothorp.es/register">request to register</a> your domain. Then, check out the <a href="https://demo.ideastore.dev/quickstart">quickstart</a> guide. If you still have questions, hit us up on <a href="https://hachyderm.io/@octothorpes">Mastodon</a>,  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a> or <a href="mailto:info@octothorp.es">email</a>.</p>
+<p>A: First, <a href="/register">request to register</a> your domain. Then, check out the <a href="https://demo.ideastore.dev/quickstart">quickstart</a> guide. If you still have questions, hit us up on <a href="https://hachyderm.io/@octothorpes">Mastodon</a>,  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a> or <a href="mailto:info@octothorp.es">email</a>.</p>
 
 <p>Q: Can I still register?</p>
 
-<p>A: <a href="https://octothorp.es/register">If this page</a> says you can, you can. If this says you can't, we're at capacity.</p>
+<p>A: <a href="/register">If this page</a> says you can, you can. If this says you can't, we're at capacity.</p>
 
 <p>Q: You mention Rings. Can I start my own Web Ring or convert my existing one?</p>
 
@@ -68,7 +68,7 @@
 
 <p>Q: How can I find out what's going on with Octothorpes?</p>
 
-<p>A: Join the <a href="https://octothorpe-news.beehiiv.com/subscribe" target="_blank">newsletter</a> follow <a href="https://octothorp.es/~/octothorpe-news">#octothorpe-news</a>, or <a href="https://octothorp.es/~/ratbike-news">#ratbike-news</a> and find us on  <a href="https://hachyderm.io/@octothorpes">Mastodon</a> or  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a>.</p>
+<p>A: Join the <a href="https://octothorpe-news.beehiiv.com/subscribe" target="_blank">newsletter</a> follow <a href="/~/octothorpe-news">#octothorpe-news</a>, or <a href="/~/ratbike-news">#ratbike-news</a> and find us on  <a href="https://hachyderm.io/@octothorpes">Mastodon</a> or  <a href="https://bsky.app/profile/octothorpes.bsky.social">Bluesky</a>.</p>
 
 <p>Q: Who are you guys?</p>
 

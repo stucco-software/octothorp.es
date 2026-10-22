@@ -5,7 +5,7 @@
 // delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
-import { normalizeAccess, checkAccessGate, termBlocked } from './access.js'
+import { normalizeAccess, checkAccessGate, termWritable } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
@@ -694,14 +694,16 @@ export const createIndexer = (deps) => {
     `)
   }
 
+  // #213: the Backlink gate. True when the two pages share an origin, when the
+  // target origin has endorsed the linking origin (octo:endorses, written by
+  // recordEndorsements with canonical origins), or when a reciprocal mention
+  // exists. Reciprocal mentions never mint octo:endorses triples — they are a
+  // backlink signal only, consumed here at read time.
   const checkEndorsement = async (s, o, flag) => {
-    let oURL = new URL(o)
-    let sURL = new URL(s)
-
-    let oOrigin = oURL.origin
-    let sOrigin = sURL.origin
+    let oOrigin = storedOrigin(o)
+    let sOrigin = storedOrigin(s)
     if (flag === "Webring") {
-      sOrigin = sURL
+      sOrigin = new URL(s)
       console.log(`webring mode: ${sOrigin}`)
     }
 
@@ -713,10 +715,35 @@ export const createIndexer = (deps) => {
       return true
     }
     if (flag && flag !== "Webring") {
-      let isMentioned = await checkReciprocalMention(s, o, flag)
+      // Reciprocal check uses the real predicate, not the subtype flag.
+      let isMentioned = await checkReciprocalMention(s, o, p)
       if (isMentioned) {
         return true
       }
+    }
+    return false
+  }
+
+  // #213: consume friends.endorsed — the <link rel="octo:endorses"> declarations
+  // collected during HTML handling — by recording
+  // <sourceOrigin> octo:endorses <targetOrigin>, per-origin, deduped on re-index.
+  const recordEndorsements = async (s, targets = []) => {
+    const source = storedOrigin(s)
+    const targetOrigins = [...new Set(targets.map((t) => storedOrigin(t)))]
+      .filter((t) => t !== source)
+    const triples = []
+    for (const target of targetOrigins) {
+      const extant = await queryBoolean(`
+        ask {
+          <${source}> octo:endorses <${target}> .
+        }
+      `)
+      if (!extant) {
+        triples.push(`<${source}> octo:endorses <${target}> .`)
+      }
+    }
+    if (triples.length > 0) {
+      await insert(triples.join('\n'))
     }
   }
 
@@ -842,7 +869,32 @@ export const createIndexer = (deps) => {
       blocks.push(mentionTriples(subj, obj, now, { endorsed }))
     }
 
-    if (!isExtantbacklink) {
+    // #213: Backlink is the ONLY subtype gated by endorsement. A Backlink node
+    // is minted only when a reciprocal mention exists or the target origin has
+    // endorsed the linking origin (same-origin always passes). Bookmark, Cite,
+    // Link and the rest are not gated. The flat mention triple above is always
+    // written either way.
+    //
+    // 2026-10-19 ruling: generic Links are PROMOTED — when the same gate passes
+    // for a cross-origin Link, a Backlink node is minted alongside the Link
+    // node. Same-origin is excluded here (checkEndorsement passes it for the
+    // Backlink subtype, but a site linking to itself is not a backlink), and
+    // Bookmark/Cite/harmonizer subtypes are never promoted.
+    let mintBacklink = !isExtantbacklink
+    let promoteLink = false
+    if (mintBacklink && subtype === 'Backlink') {
+      mintBacklink = Boolean(await checkEndorsement(subj, obj, subtype))
+      if (!mintBacklink) {
+        console.log(`backlink withheld: ${obj} has not reciprocated or endorsed ${subj}`)
+      }
+    } else if (mintBacklink && subtype === 'Link' && storedOrigin(subj) !== storedOrigin(obj)) {
+      promoteLink = Boolean(await checkEndorsement(subj, obj, subtype))
+      if (promoteLink) {
+        console.log(`link promoted to backlink: ${obj} has reciprocated or endorsed ${subj}`)
+      }
+    }
+
+    if (mintBacklink) {
       terms.forEach((term, i) => {
         if (!termExists[i]) {
           blocks.push(termTriples(term, base, now))
@@ -850,6 +902,9 @@ export const createIndexer = (deps) => {
         blocks.push(usageTriples(term, base, now))
       })
       blocks.push(backlinkTriples(subj, obj, subtype, terms, base, now))
+      if (promoteLink) {
+        blocks.push(backlinkTriples(subj, obj, 'Backlink', terms, base, now))
+      }
     }
 
     if (blocks.length > 0) {
@@ -890,8 +945,17 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     const s = harmed['@id']
 
-    let isExtantPage = await extantPage(s)
-    if (!isExtantPage) {
+    // #311: key the exists-check on octo:created, not rdf:type. Pages first
+    // seen as link targets get only `rdf:type octo:Page` from mentionTriples;
+    // an rdf:type check would skip createPage forever and the page would never
+    // gain octo:created, dropping it from posted queries. createPage
+    // re-asserts the (idempotent) type triple alongside the backfilled date.
+    const hasCreated = await queryBoolean(`
+      ask {
+        <${s}> octo:created ?t .
+      }
+    `)
+    if (!hasCreated) {
       await createPage(s)
     }
 
@@ -913,7 +977,7 @@ export const createIndexer = (deps) => {
     })
     // Term blocklist (#217). SECOND enforcement point, and deliberately NOT
     // gated on the registration mode: a relay refuses a blocked term under
-    // 'registered', 'open' and 'closed' alike.
+    // 'registered', 'open' and 'closed' alike — as does allows.terms.
     //
     // Statement-level, not page-level: the offending octothorpe is dropped and
     // the rest of the page indexes normally. The page is never rejected
@@ -922,12 +986,15 @@ export const createIndexer = (deps) => {
     // NOT retroactive — statements already written about a newly-blocked term
     // stay in the graph; removing them is epic #271. There is no read-time
     // counterpart either; this is write-time only.
-    const blockedTerms = (accessOverride ?? access).blocks?.terms ?? []
+    // Both TERM lists, one decision (`termWritable`): blocks refuses, a
+    // non-empty allows.terms restricts to a curated vocabulary, and blocks
+    // wins over allows. An empty allows.terms is unrestricted.
+    const termAccess = accessOverride ?? access
     const termNameOf = (o) => (typeof o === 'string' ? o : (o?.type === 'hashtag' ? o.uri : null))
     const admittedOctothorpes = uniqueOctothorpes.filter((o) => {
       const name = termNameOf(o)
-      if (name === null || !termBlocked(name, blockedTerms)) return true
-      console.warn(`[index] term "${name}" is blocked by this server; statement dropped`)
+      if (name === null || termWritable(name, termAccess)) return true
+      console.warn(`[index] term "${name}" is not writable on this server; statement dropped`)
       return false
     })
 
@@ -945,12 +1012,17 @@ export const createIndexer = (deps) => {
       } else {
         friends.linked.push(octoURI)
         const terms = (octothorpe.terms || []).filter((t) => {
-          if (!termBlocked(t, blockedTerms)) return true
-          console.warn(`[index] term "${t}" is blocked by this server; statement dropped`)
+          if (termWritable(t, termAccess)) return true
+          console.warn(`[index] term "${t}" is not writable on this server; statement dropped`)
           return false
         })
         await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
       }
+    }
+
+    // #213: record this page's octo:endorses declarations (per-origin, deduped).
+    if (friends.endorsed.length > 0 && /^https?:/.test(s)) {
+      await recordEndorsements(s, friends.endorsed)
     }
 
     // #191: give a newly registered origin its numeric alias. No-op unless the
@@ -1079,7 +1151,7 @@ export const createIndexer = (deps) => {
     // 5. Access gate (#217). registration decides WHICH check runs:
     //    'registered' -> datastore verification (verifyOrigin dep, injectable)
     //    'open'       -> no verification; blocks.domains applies
-    //    'closed'     -> whitelist.domains only
+    //    'closed'     -> allows.domains only
     // Independent of policyMode/indexingMode, which decides what TRIGGERS
     // indexing rather than what gate it must pass. An injected verifyOrigin
     // (the badge route's `async () => true`) still wins inside 'registered' —
@@ -1216,6 +1288,7 @@ export const createIndexer = (deps) => {
     originEndorsesOrigin,
     checkReciprocalMention,
     checkEndorsement,
+    recordEndorsements,
     webringMembers,
   }
 }

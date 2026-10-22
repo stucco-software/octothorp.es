@@ -1,12 +1,8 @@
 /**
- * #249: definition envelopes (harmonizers, publishers/resolvers) use plain
- * `id`/`type` keys — definitions are not linked data. Legacy `@`-form keys are
- * accepted only at system boundaries (registry register(), remoteHarmonizer(),
- * loadResolver()) and normalized here; everything downstream sees plain keys.
- * `@context` maps to plain `context`: on resolvers it is definition metadata
- * (the external spec a mapping targets); on harmonizers nothing reads it.
- * Top-level keys only — nested schema `from: '@id'` refs point at blobject
- * properties and are untouched.
+  This is just to make modern OP backwards compatible
+  with the earlier stub of JSON-LD-like schemas for harmonizers and other
+  objects that used @-labeled keys. As of OP 0.7, harmonizers, blobjects, and publishers
+  no longer use @ in keys
  */
 export const normalizeEnvelope = (def) => {
   if (!def || typeof def !== 'object' || Array.isArray(def)) return def

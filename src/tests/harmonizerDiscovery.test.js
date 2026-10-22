@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { discoverHarmonizers, validateHarmonizer, createHarmonizerRegistry } from 'octothorpes'
 
 const def = (mode = 'html') => ({
@@ -24,6 +25,37 @@ describe('validateHarmonizer', () => {
     // Discovery order between handlers.dir and harmonizers.dir is not
     // guaranteed; an unknown mode falls through to default dispatch.
     expect(validateHarmonizer(def('not-a-registered-mode'))).toEqual([])
+  })
+
+  // #287: validation is schema-driven (harmonizer.schema.json), not just a
+  // presence check — malformed shapes fail at load time, not extraction time.
+  it('accepts the shipped site harmonizers, authoring comment and all', () => {
+    const anchors = JSON.parse(
+      readFileSync(new URL('../../static/harmonizers/anchors.json', import.meta.url), 'utf8')
+    )
+    expect(validateHarmonizer(anchors)).toEqual([])
+  })
+
+  it('rejects a wrong `type` with the allowed value', () => {
+    const problems = validateHarmonizer({ ...def(), type: 'publisher' })
+    expect(problems.join(' ')).toMatch(/"harmonizer"/)
+  })
+
+  it('rejects a schema.subject that is not an object, naming the field', () => {
+    const problems = validateHarmonizer({ ...def(), schema: { subject: 5 } })
+    expect(problems.join(' ')).toMatch(/schema\.subject/)
+  })
+
+  it('rejects a malformed extraction rule, naming the field', () => {
+    const problems = validateHarmonizer({
+      ...def(),
+      schema: { subject: { s: 'source', title: 5 } },
+    })
+    expect(problems.join(' ')).toMatch(/schema\.subject\.title/)
+  })
+
+  it('rejects an empty mode string', () => {
+    expect(validateHarmonizer(def('')).length).toBeGreaterThan(0)
   })
 })
 

@@ -27,7 +27,7 @@
 <script>
   import { onMount } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
-  import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
+  import { getTitle, getUrl, formatDisplayDate as formatDate } from 'octothorpes';
   
   // ============================================================================
   // STANDARD PROPS - Copy these for every component
@@ -73,7 +73,7 @@
   // COMPONENT-SPECIFIC HELPERS - Add any custom helpers here
   // ============================================================================
   
-  // Common display helpers (getTitle, getUrl, formatDate) are imported from display-helpers.js
+  // Common display helpers (getTitle, getUrl, formatDate) are imported from the octothorpes core package
   // Add component-specific helper functions here if needed
 </script>
 

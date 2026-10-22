@@ -17,14 +17,18 @@
   "exports": {
     ".": "./client.js",
     "./profile.schema.json": "./profile.schema.json",
+    "./harmonizer.schema.json": "./harmonizer.schema.json",
     "./handlers/*": "./handlers/*"
   },
   "files": [
     "*.js",
     "ld/",
     "handlers/",
+    "harmonizers/",
+    "publishers/",
     "bin/",
     "profile.schema.json",
+    "harmonizer.schema.json",
     "CHANGELOG.md"
   ],
   "dependencies": {

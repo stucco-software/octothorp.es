@@ -43,7 +43,7 @@ describe('authored profile schema (#217 Rev 2)', () => {
           registration: 'open',
           badge: '/badge.png',
           blocks: { domains: ['bad.test'], terms: ['someslur'] },
-          whitelist: { domains: [] },
+          allows: { domains: [], terms: [] },
         },
       },
       api: {
@@ -79,7 +79,7 @@ describe('authored profile schema (#217 Rev 2)', () => {
   })
 
   it("rejects the dropped 'invite' registration value", () => {
-    // 'closed' + whitelist IS invite-only; there is no alias or shim.
+    // 'closed' + allows IS invite-only; there is no alias or shim.
     expect(validate({ policies: { access: { registration: 'invite' } } })).toBe(false)
   })
 
@@ -108,27 +108,32 @@ describe('authored profile schema (#217 Rev 2)', () => {
     }
   })
 
-  it('accepts blocks/whitelist sub-keys as either an array of strings or a path string', () => {
+  it('accepts blocks/allows sub-keys as either an array of strings or a path string', () => {
     // Blocklists get long and are often maintained as a separate, sometimes
     // shared, file — so both value forms are first-class in the contract.
     expect(validate({ policies: { access: { blocks: { domains: ['bad.test'] } } } })).toBe(true)
     expect(validate({ policies: { access: { blocks: { domains: './blocklists/domains.json' } } } })).toBe(true)
     expect(validate({ policies: { access: { blocks: { terms: ['someslur'] } } } })).toBe(true)
     expect(validate({ policies: { access: { blocks: { terms: './blocklists/terms.json' } } } })).toBe(true)
-    expect(validate({ policies: { access: { whitelist: { domains: ['https://friend.test'] } } } })).toBe(true)
-    expect(validate({ policies: { access: { whitelist: { domains: './allow.json' } } } })).toBe(true)
+    expect(validate({ policies: { access: { allows: { domains: ['https://friend.test'], terms: [] } } } })).toBe(true)
+    expect(validate({ policies: { access: { allows: { domains: './allow.json' } } } })).toBe(true)
   })
 
-  it('rejects the OLD flat array form of blocks and whitelist', () => {
+  it('rejects the OLD flat array form of blocks and allows', () => {
     expect(validate({ policies: { access: { blocks: ['bad.test'] } } })).toBe(false)
-    expect(validate({ policies: { access: { whitelist: ['https://friend.test'] } } })).toBe(false)
+    expect(validate({ policies: { access: { allows: ['https://friend.test'] } } })).toBe(false)
   })
 
-  it('rejects unknown sub-keys, and a terms allowlist in particular', () => {
-    // A terms ALLOWLIST is a different product decision with no current use
-    // case — deliberately absent from whitelist rather than reserved.
-    expect(validate({ policies: { access: { whitelist: { terms: ['ok'] } } } })).toBe(false)
+  it('accepts a terms allowlist on allows, and rejects unknown sub-keys', () => {
+    // A terms allowlist is supported as of the 2026-10-22 rename: `allows`
+    // mirrors `blocks`, both carrying domains and terms.
+    expect(validate({ policies: { access: { allows: { terms: ['ok'] } } } })).toBe(true)
+    expect(validate({ policies: { access: { allows: { hosts: [] } } } })).toBe(false)
     expect(validate({ policies: { access: { blocks: { hosts: [] } } } })).toBe(false)
+  })
+
+  it('rejects the old `whitelist` key outright', () => {
+    expect(validate({ policies: { access: { whitelist: { domains: [] } } } })).toBe(false)
   })
 
   it('rejects a non-string item inside either list form', () => {

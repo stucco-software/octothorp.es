@@ -11,7 +11,7 @@
 // Two deliberate exceptions, for authorial convenience (not defaults, just
 // stubs to fill in):
 //   1. `identity` always emits all seven keys (see deriveIdentity below).
-//   2. `policies.access.blocks`/`whitelist` always emit their stub shape.
+//   2. `policies.access.blocks`/`allows` always emit their stub shape.
 
 /**
  * Derive the `terms` prefix from `instance` per the schema's own description:
@@ -66,7 +66,7 @@ export const scaffoldProfile = ({
     policies: {
       access: {
         blocks: { domains: [], terms: [] },
-        whitelist: { domains: [] },
+        allows: { domains: [], terms: [] },
       },
     },
   }

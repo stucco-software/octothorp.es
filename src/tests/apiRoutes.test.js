@@ -115,7 +115,10 @@ describe('WHAT_VALUES is the same source api.js switches on', () => {
       try {
         // A subject is supplied because several builders refuse a query with
         // no axis at all; that refusal is unrelated to `what` admission.
-        await api.get(what, 'posted', { s: 'https://example.test/page' })
+        // domains/posted is the exception: it rejects s= outright (#266), so
+        // it is probed subject-less (the #313 default limit bounds it).
+        const options = what === 'domains' ? {} : { s: 'https://example.test/page' }
+        await api.get(what, 'posted', options)
         return true
       } catch (e) {
         if (e.message.startsWith('unknown what:')) return false

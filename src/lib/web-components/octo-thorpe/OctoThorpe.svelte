@@ -3,7 +3,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import { createOctoQuery } from '../shared/octo-store.js';
-  import { getTitle, getUrl, formatDate } from '../shared/display-helpers.js';
+  import { getTitle, getUrl, formatDisplayDate as formatDate } from 'octothorpes';
 
   // API Configuration
   export let server = new URL(import.meta.url).origin;
@@ -125,7 +125,7 @@
     }
   });
 
-  // (Common display helpers imported from display-helpers.js)
+  // (Common display helpers imported from the octothorpes core package)
 </script>
 
 {#if render === 'count'}

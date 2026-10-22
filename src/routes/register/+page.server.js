@@ -125,7 +125,7 @@ const alertAdmin = async ({domain, email}) => {
 
 export async function load() {
   const { profile, registration, formState } = gate()
-  return { serverName: profile.identity.name, registration, formState }
+  return { serverName: profile.identity.name, instance: profile.identity.instance, registration, formState }
 }
 
 export const actions = {

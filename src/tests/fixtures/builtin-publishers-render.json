@@ -1,0 +1,107 @@
+{
+  "bluesky": {
+    "items": [
+      {
+        "url": "https://example.com/a",
+        "title": "A page & \"quoted\" <tag>",
+        "description": "First item, with; commas, and\nnewlines",
+        "createdAt": "{DATE}"
+      }
+    ],
+    "output": [
+      {
+        "$type": "app.bsky.feed.post",
+        "text": "A page & \"quoted\" <tag>\n\nFirst item, with; commas, and\nnewlines\n\nhttps://example.com/a",
+        "createdAt": "{DATE}",
+        "facets": [
+          {
+            "index": {
+              "byteStart": 65,
+              "byteEnd": 86
+            },
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://example.com/a"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ics": {
+    "items": [
+      {
+        "uid": "https://example.com/a",
+        "summary": "A page & \"quoted\" <tag>",
+        "start": "2026-03-04T05:06:07.000Z",
+        "end": "2026-03-05",
+        "description": "First item, with; commas, and\nnewlines",
+        "location": "Somewhere, NY",
+        "url": "https://example.com/a"
+      }
+    ],
+    "output": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Octothorpes//OP ICS Publisher//EN\r\nCALSCALE:GREGORIAN\r\nX-WR-CALNAME:Octothorpes Calendar\r\nBEGIN:VEVENT\r\nUID:https://example.com/a\r\nDTSTAMP:{DATE}\r\nDTSTART:20260304T050607Z\r\nDTEND;VALUE=DATE:20260305\r\nSUMMARY:A page & \"quoted\" <tag>\r\nDESCRIPTION:First item\\, with\\; commas\\, and\\nnewlines\r\nLOCATION:Somewhere\\, NY\r\nURL:https://example.com/a\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+  },
+  "rss": {
+    "items": [
+      {
+        "title": "A page & \"quoted\" <tag>",
+        "link": "https://example.com/a",
+        "guid": "https://example.com/a",
+        "pubDate": "Wed, 04 Mar 2026 05:06:07 GMT",
+        "description": "First item, with; commas, and\nnewlines",
+        "image": "https://example.com/a.png"
+      },
+      {
+        "title": "Row with date",
+        "link": "https://example.com/c",
+        "guid": "https://example.com/c",
+        "pubDate": "Fri, 02 Jan 2026 03:04:05 GMT"
+      }
+    ],
+    "output": "\n  <rss\n    xmlns:atom=\"http://www.w3.org/2005/Atom\"\n    version=\"2.0\">\n    <channel>\n      <title>Octothorpes Feed</title>\n      <link>https://octothorp.es/</link>\n      <atom:link href=\"https://octothorp.es/\" rel=\"self\" type=\"application/rss+xml\" />\n      <description>Links from the Octothorpes network</description>\n      <pubDate>Wed, 04 Mar 2026 05:06:07 GMT</pubDate>\n      <lastBuildDate>{DATE}</lastBuildDate>\n      \n  <item>\n  <title>A page &amp; &quot;quoted&quot; &lt;tag&gt;</title>\n  <description>First item, with; commas, and\nnewlines</description>\n  <guid isPermaLink=\"true\">https://example.com/a</guid>\n  <pubDate>Wed, 04 Mar 2026 05:06:07 GMT</pubDate>\n  <link>https://example.com/a</link>\n  <enclosure url=\"https://example.com/a.png\" type=\"image/jpeg\" />\n</item>\n  <item>\n  <title>Row with date</title>\n  \n  <guid isPermaLink=\"true\">https://example.com/c</guid>\n  <pubDate>Fri, 02 Jan 2026 03:04:05 GMT</pubDate>\n  <link>https://example.com/c</link>\n  \n</item>\n    </channel>\n  </rss>\n"
+  },
+  "rss2": {
+    "items": [
+      {
+        "title": "A page & \"quoted\" <tag>",
+        "link": "https://example.com/a",
+        "guid": "https://example.com/a",
+        "pubDate": "Wed, 04 Mar 2026 05:06:07 GMT",
+        "description": "First item, with; commas, and\nnewlines",
+        "image": "https://example.com/a.png"
+      },
+      {
+        "title": "Row with date",
+        "link": "https://example.com/c",
+        "guid": "https://example.com/c",
+        "pubDate": "Fri, 02 Jan 2026 03:04:05 GMT"
+      }
+    ],
+    "output": "\n  <rss\n    xmlns:atom=\"http://www.w3.org/2005/Atom\"\n    version=\"2.0\">\n    <channel>\n      <title>Octothorpes Feed</title>\n      <link>https://octothorp.es/</link>\n      <atom:link href=\"https://octothorp.es/\" rel=\"self\" type=\"application/rss+xml\" />\n      <description>Links from the Octothorpes network</description>\n      <pubDate>Wed, 04 Mar 2026 05:06:07 GMT</pubDate>\n      <lastBuildDate>{DATE}</lastBuildDate>\n      \n  <item>\n  <title>A page &amp; &quot;quoted&quot; &lt;tag&gt;</title>\n  <description>First item, with; commas, and\nnewlines</description>\n  <guid isPermaLink=\"true\">https://example.com/a</guid>\n  <pubDate>Wed, 04 Mar 2026 05:06:07 GMT</pubDate>\n  <link>https://example.com/a</link>\n  <enclosure url=\"https://example.com/a.png\" type=\"image/jpeg\" />\n</item>\n  <item>\n  <title>Row with date</title>\n  \n  <guid isPermaLink=\"true\">https://example.com/c</guid>\n  <pubDate>Fri, 02 Jan 2026 03:04:05 GMT</pubDate>\n  <link>https://example.com/c</link>\n  \n</item>\n    </channel>\n  </rss>\n"
+  },
+  "standardSiteDocument": {
+    "items": [
+      {
+        "site": "https://example.com/",
+        "path": "/a",
+        "title": "A page & \"quoted\" <tag>",
+        "description": "First item, with; commas, and\nnewlines",
+        "textContent": "Body text",
+        "publishedAt": "{DATE}"
+      }
+    ],
+    "output": [
+      {
+        "site": "https://example.com/",
+        "path": "/a",
+        "title": "A page & \"quoted\" <tag>",
+        "description": "First item, with; commas, and\nnewlines",
+        "textContent": "Body text",
+        "publishedAt": "{DATE}"
+      }
+    ]
+  }
+}

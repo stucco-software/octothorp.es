@@ -32,9 +32,10 @@ for (const [mode, siteHandler] of Object.entries(siteHandlers)) {
 }
 const harmonizerRegistry = createHarmonizerRegistry(instance)
 // #217 wave 5: site harmonizers discovered from api.harmonizers.dir layer on
-// top of the builtins, same survivable pattern as the handler loop above — a
-// site harmonizer reusing a builtin name must warn and skip, not crash module
-// evaluation of this adapter (and every route that imports it).
+// top of the builtins, same survivable pattern as the handler loop above. A
+// site harmonizer with a builtin's name REPLACES the builtin (#296; the
+// registry warns once at boot); any other failure warns and skips rather than
+// crashing module evaluation of this adapter (and every route that imports it).
 for (const [name, siteHarmonizer] of Object.entries(siteHarmonizers)) {
   try {
     harmonizerRegistry.register(name, siteHarmonizer)

@@ -1,0 +1,20 @@
+{
+  "$schema": "../harmonizer.schema.json",
+  "id": "{{instance}}harmonizer/vevent",
+  "type": "harmonizer",
+  "title": "iCalendar VEVENT Harmonizer",
+  "mode": "calendar",
+  "schema": {
+    "subject": {
+      "s": "UID",
+      "title": "SUMMARY",
+      "description": "DESCRIPTION",
+      "startDate": "DTSTART",
+      "endDate": "DTEND",
+      "location": "LOCATION"
+    },
+    "hashtag": {
+      "o": "CATEGORIES"
+    }
+  }
+}

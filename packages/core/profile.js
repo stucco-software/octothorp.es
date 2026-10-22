@@ -68,14 +68,88 @@ const normalizeDocumentRecordRange = (profile) => {
   return { ...profile, api: { ...profile.api, documentRecord: normalized } }
 }
 
+// #287: schema failures speak to the author. ajv 6 dataPath (".a.b[0].c") ->
+// dotted field name; "(root)" for the top level.
+const dottedPath = (dataPath) =>
+  dataPath ? dataPath.replace(/\['([^']*)'\]/g, '.$1').replace(/^\./, '') : '(root)'
+
+// First sentence of a schema `description`, for fields without a hand-written
+// message. Capped: several profile descriptions are essays, and an error is
+// not the place to reprint one.
+const firstSentence = (text) => {
+  if (typeof text !== 'string' || !text) return ''
+  const idx = text.indexOf('. ')
+  const sentence = idx === -1 ? text : text.slice(0, idx + 1)
+  return sentence.length > 220 ? '' : sentence.trim()
+}
+
+/**
+ * Hand-written messages for the fields a human is likely to get wrong (#287):
+ * each states the bad value, the permitted values, and a one-line why — the
+ * same standard the coherence warnings below already meet. Keyed by ajv 6
+ * dataPath; everything else goes through the generic formatter.
+ */
+const HANDWRITTEN_SCHEMA_MESSAGES = {
+  '.policies.access.registration': (e) =>
+    `policies.access.registration is ${JSON.stringify(e.data)} — allowed values are "registered" (the default: the source origin must be verified in this client's datastore), "open" (no gate; anything may be indexed except blocks.domains), and "closed" (strictly allowlist-only via allows.domains). "invite" was dropped from this enum: "closed" plus allows.domains IS invite-only`,
+  '.policies.indexing.mode': (e) =>
+    `policies.indexing.mode is ${JSON.stringify(e.data)} — allowed values are "request" (the default: index only when asked via /index) and "active" (this client crawls on its own schedule). The gate a request must pass is the separate axis policies.access.registration`,
+  '.identity.terms': (e) =>
+    `identity.terms is ${JSON.stringify(e.data)} but must be a URI or relative URI reference — it is the octothorpe Term URI prefix minted into the graph (convention: instance + "~/"), never the terms-of-service link (that is identity.rules)`,
+}
+
+const formatSchemaError = (e) => {
+  const handWritten = HANDWRITTEN_SCHEMA_MESSAGES[e.dataPath]
+  if (handWritten) return handWritten(e)
+  const path = dottedPath(e.dataPath)
+  const why = (text) => {
+    const s = firstSentence(text)
+    return s ? ` (${s})` : ''
+  }
+  switch (e.keyword) {
+    case 'enum':
+      return `${path} is ${JSON.stringify(e.data)} — allowed values: ${e.params.allowedValues
+        .map((v) => JSON.stringify(v))
+        .join(', ')}${why(e.parentSchema?.description)}`
+    case 'required': {
+      const prop = e.params.missingProperty
+      return `${path} is missing required property "${prop}"${why(e.parentSchema?.properties?.[prop]?.description)}`
+    }
+    case 'additionalProperties':
+      return `${path} has unknown property "${e.params.additionalProperty}" — not part of the profile schema`
+    case 'pattern':
+      return `${path} is ${JSON.stringify(e.data)}, which does not match ${e.params.pattern}${why(e.parentSchema?.description)}`
+    case 'oneOf':
+    case 'anyOf':
+      return `${path} matches none of its allowed forms${why(e.parentSchema?.description)}`
+    default:
+      return `${path} ${e.message}`
+  }
+}
+
 const validateAgainstSchema = (profile, schema) => {
-  const ajv = new Ajv({ allErrors: true })
+  const ajv = new Ajv({ allErrors: true, verbose: true })
   const validate = ajv.compile(schema)
   if (!validate(profile)) {
-    const details = (validate.errors || [])
-      .map((e) => `${e.instancePath || '(root)'} ${e.message}`)
-      .join('; ')
-    throw new Error(`Profile failed schema validation: ${details}`)
+    const errors = validate.errors || []
+    // Collapse oneOf/anyOf branch noise: when a field fails a branch keyword,
+    // report only the combined message for that field, not every branch's
+    // type error.
+    const branchPaths = new Set(
+      errors.filter((e) => e.keyword === 'oneOf' || e.keyword === 'anyOf').map((e) => e.dataPath)
+    )
+    const details = []
+    const seen = new Set()
+    for (const e of errors) {
+      if (branchPaths.has(e.dataPath) && e.keyword !== 'oneOf' && e.keyword !== 'anyOf') continue
+      if (e.dataPath && [...branchPaths].some((p) => p && e.dataPath.startsWith(`${p}[`))) continue
+      const msg = formatSchemaError(e)
+      if (!seen.has(msg)) {
+        seen.add(msg)
+        details.push(msg)
+      }
+    }
+    throw new Error(`Profile failed schema validation: ${details.join('; ')}`)
   }
 }
 
@@ -115,13 +189,15 @@ export const PROFILE_DEFAULTS = Object.freeze({
     // list, gated at the access check and meaningful only under 'open'.
     // blocks.terms is the TERM list, enforced at statement-write time during
     // indexing and orthogonal to the registration mode entirely.
-    // whitelist carries `domains` only — a terms allowlist is a different
-    // product decision with no current use case.
+    // `allows` mirrors blocks (renamed from `whitelist`, 2026-10-22) with the
+    // same split: allows.domains gates origins under 'closed', allows.terms is
+    // a curated term vocabulary enforced at write time in every mode. Empty
+    // allows.terms means unrestricted; blocks wins over allows.
     access: {
       registration: 'registered',
       badge: null,
       blocks: { domains: [], terms: [] },
-      whitelist: { domains: [] },
+      allows: { domains: [], terms: [] },
       // Admit-only second chance, tried after the registration check fails and
       // meaningful only under 'registered'. Empty = stage off, which is why an
       // absent endorsement block leaves every existing profile unchanged.
@@ -286,14 +362,15 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
     domains: expandList(access.blocks?.domains, 'blocks.domains', readFile),
     terms: expandList(access.blocks?.terms, 'blocks.terms', readFile),
   }
-  access.whitelist = {
-    domains: expandList(access.whitelist?.domains, 'whitelist.domains', readFile),
+  access.allows = {
+    domains: expandList(access.allows?.domains, 'allows.domains', readFile),
+    terms: expandList(access.allows?.terms, 'allows.terms', readFile),
   }
   access.endorsement = { sources: [...(access.endorsement?.sources ?? [])] }
 
   // Coherence warnings, not errors: the profile is schema-valid but the
   // combination is inert or self-defeating.
-  const { registration, blocks, whitelist } = access
+  const { registration, blocks, allows } = access
   if (registration !== 'open' && blocks.domains.length > 0) {
     warn(
       `[profile] policies.access.blocks.domains is non-empty but registration is "${registration}" — the ORIGIN blocklist only applies in "open" mode for the INDEXING GATE and is inert there; it is still consulted by the /register form's short-circuit under every mode`
@@ -302,16 +379,19 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   // NOTE: blocks.terms is deliberately NOT warned on. It is orthogonal to the
   // registration mode and applies under 'registered', 'open' and 'closed'
   // alike — a relay refuses a slur term however its origin gate is configured.
-  if (registration === 'closed' && whitelist.domains.length === 0) {
+  if (registration === 'closed' && allows.domains.length === 0) {
     warn(
-      '[profile] policies.access.registration is "closed" with an empty whitelist.domains — this client can index nothing at all'
+      '[profile] policies.access.registration is "closed" with an empty allows.domains — this client can index nothing at all'
     )
   }
+  // NOTE: allows.terms is deliberately NOT warned on either, for the same
+  // reason as blocks.terms: it is orthogonal to the registration mode. An
+  // empty list means unrestricted, so there is no inert-configuration case.
 
   // Endorsement coherence, same warn-never-throw contract as blocks.domains
   // above. The stage is admit-only and tried after the registration check
   // fails, so it has nothing to do under 'open' (no gate to fail) or 'closed'
-  // (whitelist-only by definition).
+  // (allowlist-only by definition).
   const endorsementSources = access.endorsement.sources
   if (endorsementSources.length > 0 && registration !== 'registered') {
     warn(

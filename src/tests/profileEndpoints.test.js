@@ -39,7 +39,7 @@ describe('/profile.json serves the resolved profile', () => {
     expect(['request', 'active']).toContain(body.policies.indexing.mode)
     expect(body.policies.access.blocks.domains).toBeInstanceOf(Array)
     expect(body.policies.access.blocks.terms).toBeInstanceOf(Array)
-    expect(body.policies.access.whitelist.domains).toBeInstanceOf(Array)
+    expect(body.policies.access.allows.domains).toBeInstanceOf(Array)
   })
 
   it('projects handlers and harmonizers as sibling blocks', async () => {
@@ -80,7 +80,13 @@ describe('#217 wave 5: discovery shows up in the projection, not the authored fi
 
   it('lists both demo harmonizers among available harmonizers', async () => {
     const body = await (await GET()).json()
-    expect(body.api.harmonizers.available).toEqual(expect.arrayContaining(['csv', 'anchors', 'default']))
+    expect(body.api.harmonizers.available).toEqual(
+      expect.arrayContaining([
+        { name: 'csv', source: 'declared' },
+        { name: 'anchors', source: 'declared' },
+        { name: 'default', source: 'builtin' },
+      ])
+    )
   })
 
   it('none of those names appear in the authored octothorpes.json', () => {

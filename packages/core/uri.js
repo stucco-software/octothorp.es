@@ -68,6 +68,46 @@ export const originVariants = (uri) => {
   return [...new Set([canonical, `${canonical}/`, withWww, `${withWww}/`])]
 }
 
+/**
+ * Every spelling of a full URL accepted as the same page (#276): the author's
+ * spelling plus its `www.` and trailing-slash variants, original first. Link
+ * targets are stored as written; exact-match reads widen to this class so a
+ * query for `url.com` matches targets stored as `www.url.com`, `url.com/` and
+ * `www.url.com/`, and vice versa.
+ *
+ * Scope is deliberately narrow — the `www.` host label and a trailing slash
+ * ONLY. No other subdomain, no path normalization, no query-param sorting, no
+ * utm stripping (which is why this is hand-rolled, not `normalize-url`). The
+ * slash toggle is skipped when the URL carries a query or fragment, where the
+ * string's last character is not a path boundary. Non-HTTP(S) inputs are
+ * returned as-is.
+ *
+ * @param {string} uri
+ * @returns {string[]} 1, 2, or 4 spellings, deduped, original first
+ */
+export const uriVariants = (uri) => {
+  let scheme
+  try {
+    scheme = getScheme(uri)
+  } catch {
+    return [uri]
+  }
+  if (scheme !== 'http' && scheme !== 'https') return [uri]
+
+  const prefix = `${scheme}://`
+  const rest = uri.slice(prefix.length)
+  // toggle only a leading `www.` label, never a www-prefixed host (wwwfoo.com)
+  const hosts = rest.startsWith('www.')
+    ? [rest, rest.slice(4)]
+    : [rest, `www.${rest}`]
+  const hasQueryOrFragment = /[?#]/.test(rest)
+  const variants = hosts.flatMap((r) => {
+    if (hasQueryOrFragment) return [r]
+    return r.endsWith('/') ? [r, r.slice(0, -1)] : [r, `${r}/`]
+  })
+  return [...new Set(variants.map((r) => `${prefix}${r}`))]
+}
+
 export const validateSameOrigin = (parsedUri, requestingOrigin) => {
   if (parsedUri.scheme === 'http' || parsedUri.scheme === 'https') {
     // Compare canonical origins, so a site serving both www.foo.com and

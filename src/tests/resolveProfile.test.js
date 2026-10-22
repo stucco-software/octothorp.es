@@ -34,7 +34,10 @@ const resolved = () => resolveProfile({
 
 describe('resolveProfile — discovery projection', () => {
   it('lists the union of builtin and discovered publishers, deduped and sorted', () => {
-    expect(resolved().api.publishers.available).toEqual(['blarg', 'ics', 'readable', 'rss2'])
+    // Bare-string callers (no #323 source markers) project as { name } alone.
+    expect(resolved().api.publishers.available).toEqual([
+      { name: 'blarg' }, { name: 'ics' }, { name: 'readable' }, { name: 'rss2' },
+    ])
   })
 
   it('lists registered handler modes and keeps the default under handlers', () => {
@@ -43,7 +46,7 @@ describe('resolveProfile — discovery projection', () => {
   })
 
   it('lists registered harmonizers as a sibling block with no defaultHandler', () => {
-    expect(resolved().api.harmonizers.available).toEqual(['default', 'openGraph'])
+    expect(resolved().api.harmonizers.available).toEqual([{ name: 'default' }, { name: 'openGraph' }])
     expect(resolved().api.harmonizers.defaultHandler).toBeUndefined()
   })
 
@@ -51,10 +54,19 @@ describe('resolveProfile — discovery projection', () => {
     const out = resolveProfile({
       profile,
       handlerNames: ['html', 'csv', 'html', 'json'],
-      harmonizerNames: ['default', 'anchors', 'default', 'csv'],
+      harmonizerNames: [
+        { name: 'default', source: 'builtin' },
+        { name: 'anchors', source: 'declared' },
+        { name: 'default', source: 'builtin' },
+        { name: 'csv', source: 'declared' },
+      ],
     })
     expect(out.api.handlers.available).toEqual(['html', 'csv', 'json'])
-    expect(out.api.harmonizers.available).toEqual(['default', 'anchors', 'csv'])
+    expect(out.api.harmonizers.available).toEqual([
+      { name: 'default', source: 'builtin' },
+      { name: 'anchors', source: 'declared' },
+      { name: 'csv', source: 'declared' },
+    ])
   })
 
   it('drops every directory pointer from the public projection', () => {
@@ -77,7 +89,7 @@ describe('resolveProfile — policies pass through both axes', () => {
     // Always the EXPANDED arrays — a path-form authored list is read at load
     // time and only its contents reach the projection.
     expect(resolved().policies.access.blocks).toEqual({ domains: [], terms: [] })
-    expect(resolved().policies.access.whitelist).toEqual({ domains: [] })
+    expect(resolved().policies.access.allows).toEqual({ domains: [], terms: [] })
   })
 
   it('surfaces a path-form blocklist as its expanded contents, never the path', () => {
@@ -212,12 +224,12 @@ describe('client.resolvedProfile()', () => {
 
   it('includes core builtin publishers and the injected ones', () => {
     const available = mk().resolvedProfile().api.publishers.available
-    expect(available).toContain('blarg')
-    expect(available).toContain('rss2')
+    expect(available).toContainEqual({ name: 'blarg', source: 'declared' })
+    expect(available).toContainEqual({ name: 'rss2', source: 'builtin' })
   })
 
   it('includes registered harmonizer names', () => {
-    expect(mk().resolvedProfile().api.harmonizers.available).toContain('default')
+    expect(mk().resolvedProfile().api.harmonizers.available).toContainEqual({ name: 'default', source: 'builtin' })
   })
 
   it('includes builtin handler modes under api.handlers.available', () => {

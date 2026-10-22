@@ -4,8 +4,10 @@ import {
   ACCESS_DEFAULTS,
   normalizeAccess,
   originBlocked,
-  originWhitelisted,
+  originAllowed,
   termBlocked,
+  termAllowed,
+  termWritable,
   checkAccessGate,
   resolveEndorsers,
 } from 'octothorpes'
@@ -19,7 +21,7 @@ describe('normalizeAccess', () => {
     expect(normalizeAccess()).toEqual({
       registration: 'registered',
       blocks: { domains: [], terms: [] },
-      whitelist: { domains: [] },
+      allows: { domains: [], terms: [] },
       endorsement: { sources: [] },
     })
     expect(ACCESS_DEFAULTS.registration).toBe('registered')
@@ -29,13 +31,13 @@ describe('normalizeAccess', () => {
     expect(normalizeAccess({ blocks: { terms: ['someslur'] } })).toEqual({
       registration: 'registered',
       blocks: { domains: [], terms: ['someslur'] },
-      whitelist: { domains: [] },
+      allows: { domains: [], terms: [] },
       endorsement: { sources: [] },
     })
   })
 
   it('copies the lists rather than aliasing the caller\'s arrays', () => {
-    const input = { blocks: { domains: ['bad.test'], terms: [] }, whitelist: { domains: [] } }
+    const input = { blocks: { domains: ['bad.test'], terms: [] }, allows: { domains: [], terms: [] } }
     const out = normalizeAccess(input)
     out.blocks.domains.push('mutated.test')
     expect(input.blocks.domains).toEqual(['bad.test'])
@@ -79,17 +81,17 @@ describe('originBlocked', () => {
   })
 })
 
-describe('originWhitelisted', () => {
+describe('originAllowed', () => {
   it('compares origins, not full URLs', () => {
-    expect(originWhitelisted('https://friend.test', ['https://friend.test/some/path'])).toBe(true)
+    expect(originAllowed('https://friend.test', ['https://friend.test/some/path'])).toBe(true)
   })
 
   it('rejects an unlisted origin', () => {
-    expect(originWhitelisted('https://stranger.test', ['https://friend.test'])).toBe(false)
+    expect(originAllowed('https://stranger.test', ['https://friend.test'])).toBe(false)
   })
 
   it('distinguishes scheme and port', () => {
-    expect(originWhitelisted('http://friend.test', ['https://friend.test'])).toBe(false)
+    expect(originAllowed('http://friend.test', ['https://friend.test'])).toBe(false)
   })
 })
 
@@ -120,15 +122,15 @@ describe('checkAccessGate', () => {
     expect(await checkAccessGate('https://fine.test', access, verifyTrue)).toBeNull()
   })
 
-  it('closed: admits only whitelisted origins, ignoring verification', async () => {
-    const access = normalizeAccess({ registration: 'closed', whitelist: { domains: ['https://friend.test'] } })
+  it('closed: admits only allowed origins, ignoring verification', async () => {
+    const access = normalizeAccess({ registration: 'closed', allows: { domains: ['https://friend.test'], terms: [] } })
     expect(await checkAccessGate('https://friend.test', access, verifyFalse)).toBeNull()
-    expect(await checkAccessGate('https://stranger.test', access, verifyTrue)).toMatch(/whitelist/i)
+    expect(await checkAccessGate('https://stranger.test', access, verifyTrue)).toMatch(/allowlist/i)
   })
 
-  it('closed with an empty whitelist admits nothing', async () => {
+  it('closed with an empty allowlist admits nothing', async () => {
     const access = normalizeAccess({ registration: 'closed' })
-    expect(await checkAccessGate('https://anyone.test', access, verifyTrue)).toMatch(/whitelist/i)
+    expect(await checkAccessGate('https://anyone.test', access, verifyTrue)).toMatch(/allowlist/i)
   })
 
   it('blocks.domains is inert outside open mode', async () => {
@@ -279,7 +281,7 @@ describe('checkAccessGate — endorsement (stage 4)', () => {
 
     const closed = normalizeAccess({ registration: 'closed', endorsement: { sources: ['client-endorsed'] } })
     expect(await checkAccessGate('https://anyone.test', closed, verifyFalse, endorsement(endorsers)))
-      .toMatch(/whitelist/i)
+      .toMatch(/allowlist/i)
 
     expect(endorse).not.toHaveBeenCalled()
   })
@@ -437,17 +439,17 @@ describe('the access gate, wired into the indexer', () => {
     expect(inserted()).toContain('~/cats')
   })
 
-  it('closed: rejects an unwhitelisted origin with a whitelist reason', async () => {
+  it('closed: rejects an disallowed origin with an allowlist reason', async () => {
     const { indexer } = makeIndexer({ registration: 'closed' }, ['cats'], 'https://closedmode-a.test/page')
     await expect(
       indexer.handler('https://closedmode-a.test/page', 'default', null, baseConfig)
-    ).rejects.toThrow(/whitelist/i)
+    ).rejects.toThrow(/allowlist/i)
   })
 
-  it('closed: indexes a whitelisted origin', async () => {
+  it('closed: indexes a allowed origin', async () => {
     const { indexer } = makeIndexer({
       registration: 'closed',
-      whitelist: { domains: ['https://closedmode-b.test'] },
+      allows: { domains: ['https://closedmode-b.test'] },
     }, ['cats'], 'https://closedmode-b.test/page')
     await indexer.handler('https://closedmode-b.test/page', 'default', null, baseConfig)
     expect(inserted()).toContain('~/cats')
@@ -479,6 +481,84 @@ describe('the access gate, wired into the indexer', () => {
         verifyOrigin: async () => false,
       })
     ).rejects.toThrow(/not registered/i)
+  })
+})
+
+describe('#327 term lists see through percent-encoding', () => {
+  // The encoded and decoded spellings are the SAME TERM in the store:
+  // termIri('site changes') and termIri('site%20changes') both produce
+  // `~/site%20changes`, because TERM_IRI_ILLEGAL preserves an already-valid
+  // escape. A list that compared raw strings was therefore evadable by writing
+  // the octothorpe in link form.
+  it('blocks the encoded spelling of a blocked term', () => {
+    expect(termBlocked('site%20changes', ['site changes'])).toBe(true)
+    expect(termBlocked('site changes', ['site%20changes'])).toBe(true)
+  })
+
+  it('blocks an encoded spelling regardless of case', () => {
+    expect(termBlocked('SITE%20CHANGES', ['site changes'])).toBe(true)
+  })
+
+  it('does NOT conflate a doubly-encoded name with the single-encoded one', () => {
+    // `site%2520changes` is a DIFFERENT term: its IRI is `~/site%2520changes`.
+    // Over-decoding here would block a term the relay never named.
+    expect(termBlocked('site%2520changes', ['site changes'])).toBe(false)
+  })
+
+  it('treats a percent-encoded non-ASCII name as the distinct term it is today', () => {
+    // termIriSegment leaves non-ASCII literal (an IRI may carry raw UTF-8), so
+    // `~/montréal` and `~/montr%C3%A9al` are genuinely different IRIs in the
+    // store right now — the legacy spellings #306 notes for the cutover. The
+    // list follows the store rather than guessing, and will follow it again
+    // for free once those IRIs are normalized, since both sides derive from
+    // termIriSegment.
+    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(false)
+    expect(termBlocked('montréal', ['montréal'])).toBe(true)
+    expect(termBlocked('MONTR%C3%A9AL', ['montr%C3%A9al'])).toBe(true)
+  })
+
+  it('applies the same canonicalization to the allowlist', () => {
+    expect(termAllowed('site%20changes', ['site changes'])).toBe(true)
+    expect(termAllowed('other%20term', ['site changes'])).toBe(false)
+  })
+
+  it('never throws on a malformed escape, it compares the raw text', () => {
+    // decodeURIComponent('%zz') raises; a bad escape must not take down an
+    // index call.
+    expect(() => termBlocked('bad%zz', ['bad%zz'])).not.toThrow()
+    expect(termBlocked('bad%zz', ['bad%zz'])).toBe(true)
+  })
+})
+
+describe('termAllowed / termWritable — the allows.terms half', () => {
+  it('an EMPTY allowlist is unrestricted, not "allow nothing"', () => {
+    // The asymmetry with termBlocked that matters: a relay with no
+    // allows.terms must keep minting every term it is sent.
+    expect(termAllowed('anything', [])).toBe(true)
+    expect(termAllowed('anything')).toBe(true)
+  })
+
+  it('a non-empty allowlist admits only what it names', () => {
+    expect(termAllowed('cats', ['cats', 'dogs'])).toBe(true)
+    expect(termAllowed('birds', ['cats', 'dogs'])).toBe(false)
+  })
+
+  it('normalizes exactly like the blocklist — casing and stray slashes', () => {
+    expect(termAllowed('  Cats ', ['cats'])).toBe(true)
+    expect(termAllowed('cats/', ['cats'])).toBe(true)
+    expect(termAllowed('cats', ['/cats'])).toBe(true)
+  })
+
+  it('blocks wins over allows for a term on both lists', () => {
+    const access = { blocks: { terms: ['cats'] }, allows: { terms: ['cats'] } }
+    expect(termWritable('cats', access)).toBe(false)
+  })
+
+  it('termWritable applies both lists together', () => {
+    expect(termWritable('cats', { allows: { terms: ['cats'] } })).toBe(true)
+    expect(termWritable('dogs', { allows: { terms: ['cats'] } })).toBe(false)
+    expect(termWritable('dogs', { blocks: { terms: ['cats'] } })).toBe(true)
+    expect(termWritable('dogs', {})).toBe(true)
   })
 })
 
@@ -525,9 +605,9 @@ describe('blocks.terms drops statements at write time, in every mode', () => {
     expect(out).not.toContain('someslur')
   })
 
-  it('closed: the same drop happens for a whitelisted origin', async () => {
+  it('closed: the same drop happens for an allowed origin', async () => {
     const { indexer } = makeIndexer(
-      { registration: 'closed', blocks, whitelist: { domains: ['https://terms-closed.test'] } },
+      { registration: 'closed', blocks, allows: { domains: ['https://terms-closed.test'] } },
       ['cats', 'someslur'],
       'https://terms-closed.test/page'
     )
@@ -535,6 +615,56 @@ describe('blocks.terms drops statements at write time, in every mode', () => {
     const out = inserted()
     expect(out).toContain('~/cats')
     expect(out).not.toContain('someslur')
+  })
+
+  it('#327: the link-form (encoded) spelling of a blocked term is dropped too', async () => {
+    // What the harmonizer captures from `href=".../~/site%20changes"` is the
+    // encoded segment verbatim, which mints the SAME term as the text form.
+    const { indexer } = makeIndexer(
+      { registration: 'open', blocks: { terms: ['site changes'] } },
+      ['site%20changes', 'cats'],
+      'https://terms-encoded.test/page'
+    )
+    await indexer.handler('https://terms-encoded.test/page', 'default', null, baseConfig)
+    const out = inserted()
+    expect(out).toContain('~/cats')
+    expect(out).not.toContain('site%20changes')
+  })
+
+  it('allows.terms restricts minting to the curated vocabulary, in every mode', async () => {
+    const { indexer } = makeIndexer(
+      { registration: 'open', allows: { domains: [], terms: ['cats'] } },
+      ['cats', 'dogs'],
+      'https://terms-allow.test/page'
+    )
+    await indexer.handler('https://terms-allow.test/page', 'default', null, baseConfig)
+    const out = inserted()
+    expect(out).toContain('~/cats')
+    expect(out).not.toContain('~/dogs')
+  })
+
+  it('an empty allows.terms leaves every term writable', async () => {
+    const { indexer } = makeIndexer(
+      { registration: 'open', allows: { domains: [], terms: [] } },
+      ['cats', 'dogs'],
+      'https://terms-unrestricted.test/page'
+    )
+    await indexer.handler('https://terms-unrestricted.test/page', 'default', null, baseConfig)
+    const out = inserted()
+    expect(out).toContain('~/cats')
+    expect(out).toContain('~/dogs')
+  })
+
+  it('a term on BOTH lists is refused — blocks wins', async () => {
+    const { indexer } = makeIndexer(
+      { registration: 'open', blocks: { terms: ['cats'] }, allows: { domains: [], terms: ['cats', 'dogs'] } },
+      ['cats', 'dogs'],
+      'https://terms-both.test/page'
+    )
+    await indexer.handler('https://terms-both.test/page', 'default', null, baseConfig)
+    const out = inserted()
+    expect(out).not.toContain('~/cats')
+    expect(out).toContain('~/dogs')
   })
 
   it('a page whose ONLY octothorpe is blocked still indexes as a document', async () => {

@@ -1,3 +1,6 @@
+import Ajv from 'ajv'
+import harmonizerSchema from './harmonizer.schema.json' with { type: 'json' }
+
 /**
  * Init-time publisher discovery (#217). Framework-agnostic: the directory walk
  * itself is injected, so this works under SvelteKit/Vite, plain node (Memex),
@@ -39,6 +42,10 @@ export const discoverPublishers = async ({ dir, listEntries, loadPublisher, warn
     try {
       const publisher = await loadPublisher(dir, name)
       if (!publisher) throw new Error('module has no default export')
+      // #287: boot-time shape check, so a wrong-shaped export fails HERE —
+      // named by file and field — instead of at publish time.
+      const problems = validatePublisher(publisher)
+      if (problems.length) throw new Error(problems.join('; '))
       publishers[name] = publisher
     } catch (e) {
       skipped.push({ name, reason: e.message })
@@ -48,6 +55,42 @@ export const discoverPublishers = async ({ dir, listEntries, loadPublisher, warn
 
   return { publishers, skipped }
 }
+
+const PUBLISHER_SHAPE =
+  'publisher must default-export an object with a render(items, feedMeta) function; a flat resolver publisher additionally carries { id, schema, contentType }'
+
+/**
+ * Shape check for a site publisher's default export (#287). Mirrors the
+ * registry contract in publishers.js register(): `render` is the one hard
+ * requirement (a meta+render stub is a legitimate registration); a FLAT
+ * resolver (top-level `id`) or an explicit `resolver` block must also carry a
+ * schema object, or resolve() has nothing to map fields with.
+ *
+ * @param {Object} publisher - the module's default export
+ * @returns {string[]} problems; empty means valid
+ */
+export const validatePublisher = (publisher) => {
+  if (!publisher || typeof publisher !== 'object' || Array.isArray(publisher)) {
+    return [`default export is not an object — ${PUBLISHER_SHAPE}`]
+  }
+  const problems = []
+  if (typeof publisher.render !== 'function') {
+    problems.push(`missing \`render\` function — ${PUBLISHER_SHAPE}`)
+  }
+  if (publisher.id && !isObject(publisher.schema)) {
+    problems.push(
+      `declares a resolver id ("${publisher.id}") but no \`schema\` object — a flat resolver publisher needs both { id, schema }`
+    )
+  }
+  if (publisher.resolver !== undefined) {
+    if (!isObject(publisher.resolver) || !publisher.resolver.id || !isObject(publisher.resolver.schema)) {
+      problems.push('`resolver` must be an object carrying { id, schema }')
+    }
+  }
+  return problems
+}
+
+const isObject = (v) => v != null && typeof v === 'object' && !Array.isArray(v)
 
 const HANDLER_SHAPE = 'handler must export { mode, contentTypes, harmonize }'
 
@@ -114,16 +157,64 @@ export const discoverHandlers = async ({ dir, listEntries, loadHandler, warn = c
  * @returns {string[]} problems; empty means valid
  */
 export const validateHarmonizer = (definition) => {
+  if (!definition || typeof definition !== 'object' || Array.isArray(definition)) return ['not an object']
+  if (!validateHarmonizerCompiled) {
+    validateHarmonizerCompiled = new Ajv({ allErrors: true, verbose: true }).compile(harmonizerSchema)
+  }
+  if (validateHarmonizerCompiled(definition)) return []
+  return formatHarmonizerErrors(validateHarmonizerCompiled.errors || [])
+}
+
+let validateHarmonizerCompiled = null
+
+// ajv 6 dataPath (".schema.subject") -> dotted field name ("schema.subject").
+const fieldName = (dataPath) =>
+  dataPath ? dataPath.replace(/\['([^']*)'\]/g, '.$1').replace(/^\./, '') : '(root)'
+
+/**
+ * Turn ajv's error list into the human problem strings discoverHarmonizers
+ * reports. Keeps the legacy `missing <field>` phrasing for required fields,
+ * collapses anyOf branch noise to one message per field, and names the field
+ * on every message so a skipped-file warning reads as "file X, field Y, why".
+ */
+const formatHarmonizerErrors = (errors) => {
   const problems = []
-  if (!definition || typeof definition !== 'object') return ['not an object']
-  if (!definition.id) problems.push('missing id')
-  if (!definition.title) problems.push('missing title')
-  // `mode` is the HANDLER reference. Not resolved here: discovery order between
-  // handlers.dir and harmonizers.dir is not guaranteed, and an unknown mode
-  // falls through to the registry's normal default-handler dispatch.
-  if (typeof definition.mode !== 'string' || !definition.mode) problems.push('missing mode')
-  if (!definition.schema || typeof definition.schema.subject !== 'object') {
-    problems.push('missing schema.subject')
+  const anyOfPaths = new Set(errors.filter((e) => e.keyword === 'anyOf').map((e) => e.dataPath))
+  const seen = new Set()
+  const push = (msg) => {
+    if (!seen.has(msg)) { seen.add(msg); problems.push(msg) }
+  }
+  for (const e of errors) {
+    const field = fieldName(e.dataPath)
+    switch (e.keyword) {
+      case 'required': {
+        const prop = e.params.missingProperty
+        // A missing `schema` block and a missing `schema.subject` are the same
+        // authoring mistake; name the unit the handler actually reads.
+        push(prop === 'schema' || e.dataPath === '.schema' ? 'missing schema.subject' : `missing ${prop}`)
+        break
+      }
+      case 'enum':
+        push(`${field} is ${JSON.stringify(e.data)} — allowed values: ${e.params.allowedValues.map((v) => JSON.stringify(v)).join(', ')}`)
+        break
+      case 'minLength':
+      case 'type':
+        if (anyOfPaths.has(e.dataPath)) break // branch noise; the anyOf message covers it
+        if (['.id', '.title', '.mode'].includes(e.dataPath)) {
+          push(`${field} must be a non-empty string`)
+        } else if (e.dataPath === '.schema.subject' || e.dataPath === '.schema') {
+          push(`${field} must be an object of extraction rules`)
+        } else {
+          push(`${field} ${e.message}`)
+        }
+        break
+      case 'anyOf':
+        push(`${field} must be a selector string or an array of selector-rule objects`)
+        break
+      default:
+        if (anyOfPaths.has(e.dataPath)) break
+        push(`${field} ${e.message}`)
+    }
   }
   return problems
 }

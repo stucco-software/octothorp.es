@@ -1,6 +1,6 @@
-import { getFuzzyTags, termIri } from './utils.js'
+import { getFuzzyTags, termIri, termIriSegment } from './utils.js'
 import { QueryError } from './errors.js'
-import { originVariants } from './uri.js'
+import { originVariants, uriVariants } from './uri.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -145,10 +145,21 @@ export const buildDocumentRecordClauses = (schema = []) => {
  */
 export const createQueryBuilders = (instance, queryArray) => {
 
-  // Formats URIs as SPARQL records
-  const formatUris = uris => uris.map(uri =>
-    uri.startsWith('<') ? uri : `<${uri}>`
-  ).join(' ')
+  // Formats URIs as SPARQL records. By default each URI is widened to its
+  // www / trailing-slash spellings (#276) so exact subject/object matching
+  // treats all four forms of a page as one URL; term IRIs opt out via
+  // expand: false (their spelling is canonical, #285/#306). The whole list is
+  // deduped — variant sets overlap by construction, and duplicate VALUES rows
+  // would produce duplicate solutions.
+  const formatUris = (uris, { expand = true } = {}) => [...new Set(
+    uris.flatMap((uri) => {
+      const raw = uri.startsWith('<') && uri.endsWith('>') ? uri.slice(1, -1) : uri
+      return expand ? uriVariants(raw) : [raw]
+    })
+  )].map((u) => `<${u}>`).join(' ')
+
+  // A formatUris list rendered for FILTER(... NOT IN (...)): comma-separated.
+  const notInList = (formatted) => formatted.trim().split(/\s+/).join(', ')
 
   // Builds the appropriate subject statement according to subject mode
   function buildSubjectStatement(blob) {
@@ -195,7 +206,10 @@ export const createQueryBuilders = (instance, queryArray) => {
                  FILTER(!CONTAINS(STR(?s), ?excludedSubjects))`
           break
         case 'exact':
-          excludeStatement = `VALUES ?excludedSubjects { ${formatUris(excludeList)} } FILTER(?s NOT IN (?excludedSubjects))`
+          // #276: inline NOT IN list, not a VALUES join — a VALUES row per
+          // variant would cross-join every solution against every row, leaking
+          // excluded rows back in (and duplicating the rest).
+          excludeStatement = `FILTER(?s NOT IN (${notInList(formatUris(excludeList))}))`
           break
         case 'byParent':
         // TKTK no idea if this works until we have multiple webrings
@@ -246,8 +260,9 @@ export const createQueryBuilders = (instance, queryArray) => {
           break
         case 'fuzzy':
           if (type === "termsOnly") {
-            const processedInclude = processTermObjects(includeList, "fuzzy")
-            includeStatement = `VALUES ?o { ${processedInclude} }`
+            // #253: fold case on read — compare LCASE'd IRIs instead of
+            // enumerating cased variants, so any stored casing matches.
+            includeStatement = `FILTER(LCASE(STR(?o)) IN (${lcaseTermIriList(includeList)}))`
           }
           else {
             includeStatement = `VALUES ?objList { ${includeList.map(o => `"${o}"`).join(' ')} }
@@ -257,21 +272,22 @@ export const createQueryBuilders = (instance, queryArray) => {
         case 'very-fuzzy':
           const veryFuzzyInclude = processTermObjects(includeList, "very-fuzzy")
           includeStatement = `VALUES ?objList { ${veryFuzzyInclude.map(o => `"${o}"`).join(' ')} }
-                   FILTER(CONTAINS(STR(?o), ?objList))`
+                   FILTER(CONTAINS(LCASE(STR(?o)), ?objList))`
           break
-        case 'all':
-          let allUris
-          if (type === "termsOnly") {
-            allUris = processTermObjects(includeList)
-          } else {
-            allUris = formatUris(includeList)
-          }
-          includeStatement = `VALUES ?o { ${allUris} }`
-          const uriList = allUris.split(' ')
-          includeStatement += uriList.map(uri =>
-            `\nFILTER EXISTS { ?s octo:octothorpes ${uri} . }`
+        case 'all': {
+          // #276: variants of ONE input are OR'd (any spelling of the page
+          // counts as having it); distinct inputs stay AND'd, one FILTER EXISTS
+          // per input, not per variant.
+          const groups = includeList.map((item) =>
+            type === "termsOnly"
+              ? formatUris([termIri(instance, item)], { expand: false })
+              : formatUris([item]))
+          includeStatement = `VALUES ?o { ${[...new Set(groups.flatMap((g) => g.split(' ')))].join(' ')} }`
+          includeStatement += groups.map((g, i) =>
+            `\nFILTER EXISTS { VALUES ?allMatch${i} { ${g} } ?s octo:octothorpes ?allMatch${i} . }`
           ).join('')
           break
+        }
         default:
           includeStatement = ''
       }
@@ -279,14 +295,20 @@ export const createQueryBuilders = (instance, queryArray) => {
 
     if (excludeList?.length) {
       switch (mode) {
-        case 'exact':
-          excludeStatement = `VALUES ?excludedObjects { ${processTermObjects(excludeList)} } FILTER(?o NOT IN (?excludedObjects))`
+        case 'exact': {
+          // #276: route by type like the include path — URL targets must not be
+          // term-ified, and must exclude all www / trailing-slash spellings.
+          // Inline NOT IN, not a VALUES join (see subject exclusion).
+          const excluded = type === "termsOnly"
+            ? processTermObjects(excludeList)
+            : formatUris(excludeList)
+          excludeStatement = `FILTER(?o NOT IN (${notInList(excluded)}))`
           break
+        }
         case 'fuzzy':
           if (type === "termsOnly") {
-            const processedExclude = processTermObjects(excludeList, "fuzzy")
-            excludeStatement = `VALUES ?excludedObjList { ${processedExclude.map(o => `"${o}"`).join(' ')} }
-                   FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+            // #253: case-insensitive exclusion, mirror of the include path
+            excludeStatement = `FILTER(LCASE(STR(?o)) NOT IN (${lcaseTermIriList(excludeList)}))`
           }
           else {
             excludeStatement = `VALUES ?excludedObjList { ${excludeList.map(o => `"${o}"`).join(' ')} }
@@ -296,7 +318,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         case 'very-fuzzy':
           const veryFuzzyExclude = processTermObjects(excludeList, "very-fuzzy")
           excludeStatement = `VALUES ?excludedObjList { ${veryFuzzyExclude.map(o => `"${o}"`).join(' ')} }
-                   FILTER(!CONTAINS(STR(?o), ?excludedObjList))`
+                   FILTER(!CONTAINS(LCASE(STR(?o)), ?excludedObjList))`
           break
         default:
           excludeStatement = ''
@@ -305,6 +327,26 @@ export const createQueryBuilders = (instance, queryArray) => {
 
     return `${includeStatement}${excludeStatement}`
   }
+
+  // #306: legacy spelling of a term segment. The pre-#306 RDFa path routed
+  // term IRIs through new URL(), which percent-encodes non-ASCII (café ->
+  // caf%C3%A9) where termIri keeps it raw. Stored data may carry either form,
+  // so read-side lists include both when they differ.
+  const legacyEncodedForms = (segment) => {
+    const legacy = segment.replace(/[^\u0000-\u007F]/g, (c) => encodeURIComponent(c))
+    return legacy === segment ? [segment] : [segment, legacy]
+  }
+
+  // #253: lowercased, deduped term-IRI string list for case-insensitive
+  // comparison against LCASE(STR(?o)). Fuzzy variants cover separator styles;
+  // LCASE covers casing, so any stored casing matches any query casing.
+  // #306: each variant also appears in its legacy %-encoded non-ASCII form.
+  const lcaseTermIriList = (terms) =>
+    [...new Set(getFuzzyTags(terms)
+      .flatMap((t) => legacyEncodedForms(termIriSegment(t)))
+      .map((seg) => `${instance}~/${seg}`.toLowerCase()))]
+      .map((iri) => `"${iri}"`)
+      .join(', ')
 
   // Converts terms to URIs and will getFuzzyTags when mode is fuzzy
   function processTermObjects(terms, mode="exact") {
@@ -316,12 +358,19 @@ export const createQueryBuilders = (instance, queryArray) => {
       output = getFuzzyTags(terms)
     }
     if (mode === "very-fuzzy") {
-      output = getFuzzyTags(terms)
-      return output
+      // #253: comparison side is LCASE'd, so only lowercase variants are needed.
+      // #306: CONTAINS runs against the stored IRI string, which is
+      // percent-encoded by termIri — encode variants the same way, and include
+      // the legacy %-encoded non-ASCII spelling for pre-#306 RDFa-written data.
+      return [...new Set(getFuzzyTags(terms)
+        .flatMap((t) => legacyEncodedForms(termIriSegment(t)))
+        .map((seg) => seg.toLowerCase()))]
     }
     else {
       output = output.map((item) => termIri(instance, item))
-      return formatUris(output)
+      // expand: false — term IRIs have one canonical spelling; www/slash
+      // widening (#276) applies to page URLs only.
+      return formatUris(output, { expand: false })
     }
   }
 
@@ -375,7 +424,9 @@ export const createQueryBuilders = (instance, queryArray) => {
     // subtype FILTER EXISTS is itself a bounding constraint, so admit it as one
     // (mirrors the relationTerms allowance) rather than rejecting as unbounded.
     if (!hasSubjects && !hasObjects && !(filters.relationTerms?.length > 0) && !filters.subtype) {
-      throw new QueryError('query needs s, o, or rt');
+      // Not a validity problem: the query is well-formed, but with nothing to
+      // bound it we refuse to run it over the whole store (#313).
+      throw new QueryError('valid query refused as unbounded: add s, o, or rt to bound it');
     }
 
     const subjectStatement = buildSubjectStatement(subjects)
@@ -708,6 +759,8 @@ export const createQueryBuilders = (instance, queryArray) => {
     buildDomainQuery,
     prepEverything,
     getStatements,
+    buildSubjectStatement,
+    buildObjectStatement,
     testQueryFromMultiPass,
     buildDocumentRecordClauses,
   }

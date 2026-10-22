@@ -64,7 +64,7 @@
     <div class="column">
       <a
         class="thorpe"
-        href="{tag.term}">
+        href="/~/{encodeURIComponent(tag.name)}">
         #{tag.name}
       </a>
     </div>

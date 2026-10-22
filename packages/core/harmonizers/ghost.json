@@ -1,0 +1,19 @@
+{
+  "$schema": "../harmonizer.schema.json",
+  "id": "{{instance}}harmonizer/ghost",
+  "type": "harmonizer",
+  "title": "Ghost Tags to Octothorpes Harmonizer",
+  "mode": "html",
+  "schema": {
+    "subject": {},
+    "hashtag": {
+      "s": "source",
+      "o": [
+        {
+          "selector": "a.gh-article-tag",
+          "attribute": "textContent"
+        }
+      ]
+    }
+  }
+}

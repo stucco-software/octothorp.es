@@ -216,7 +216,11 @@ function grammarCases(instance, profile, host, webringPage) {
   for (const what of whats) {
     for (const by of bys) {
       // in-webring is subject-scoped to a specific webring index page, not a host.
-      const params = new URLSearchParams({ s: by === 'in-webring' ? webringPage : host })
+      // #266: domains/posted rejects s= outright — it lists every domain posted
+      // to the relay, so there is no subject to scope it to.
+      const params = new URLSearchParams(
+        what === 'domains' ? {} : { s: by === 'in-webring' ? webringPage : host }
+      )
       if (TERM_BYS.has(by)) params.set('o', OBJECT_TERM)
       cases.push({
         section: 'grammar',
@@ -298,8 +302,12 @@ async function paginationCase(instance, host, budget) {
 
 /** 5. publishers: one request per advertised `as`, asserting content-type + parse. */
 function publisherCases(instance, profile, host) {
-  const available = profile?.api?.publishers?.available
-    ?? matrixFormats.filter((f) => f && f !== 'debug')
+  // #323: available entries are { name, source }; older relays advertise bare
+  // strings, so accept both spellings.
+  const available = (profile?.api?.publishers?.available
+    ?? matrixFormats.filter((f) => f && f !== 'debug'))
+    .map((e) => (typeof e === 'string' ? e : e?.name))
+    .filter(Boolean)
   return available.map((as) => ({
     section: 'publishers',
     name: `publisher-${as}`,

@@ -16,9 +16,15 @@ const getO = (node, instance) => {
   try {
     url = new URL(o)
   } catch (e) {
-    o.startsWith('/')
-      ? url = new URL(`${instance}${o.replace('/', '')}`)
-      : url = new URL(termIri(instance, o))
+    if (o.startsWith('/')) {
+      url = new URL(`${instance}${o.replace('/', '')}`)
+    } else {
+      // #306: return termIri's form directly. Wrapping it in new URL().href
+      // percent-encoded non-ASCII (café -> caf%C3%A9), diverging from the
+      // indexer, which stores termIri's raw form. termIri output is always a
+      // valid IRI, so no URL round-trip is needed.
+      return termIri(instance, o)
+    }
   }
   return url.href
 }

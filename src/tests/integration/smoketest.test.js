@@ -30,6 +30,12 @@ describe('devdemo smoketest: captured vs golden', () => {
     return
   }
   for (const q of queries) {
+    // clean-db-only entries (#266) are captured only by a full wipe+reindex
+    // cycle; standalone runs against a dirty store skip them rather than fail.
+    if (q.cleanDbOnly && !existsSync(join(capturedDir, `${q.name}.${ext(q)}`))) {
+      it.skip(`${q.name} (clean-db-only; not captured in this run)`, () => {})
+      continue
+    }
     it(`${q.name} matches golden`, () => {
       const golden = read(goldenDir, q)
       const captured = read(capturedDir, q)

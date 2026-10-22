@@ -2,18 +2,15 @@ import { queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
 import { json, error } from '@sveltejs/kit'
 import { rss, termIri } from "octothorpes"
+import { termFeedQuery } from './query.js'
 
 const instance = getProfile().identity.instance
 
 export async function GET({ request, params }) {
   const thorpe = params.thorpe
 
-  const sr = await queryArray(`
-    SELECT * {
-     ?s octo:octothorpes <${termIri(instance, thorpe)}> .
-     optional { ?s <${termIri(instance, thorpe)}> ?t . }
-    }
-  `)
+  // #253: same matching as the search page — case-insensitive on term names.
+  const sr = await queryArray(termFeedQuery(instance, thorpe))
   const items = sr.results.bindings
     .map(b => {
       return {

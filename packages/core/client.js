@@ -22,13 +22,13 @@ export { createSparqlClient } from './sparqlClient.js'
 export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'
-export { buildMultiPass } from './multipass.js'
+export { buildMultiPass, capLimit, LIMIT_CAP } from './multipass.js'
 export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes, findLinkType } from './linkTypes.js'
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
-export { createHarmonizerRegistry } from './harmonizers.js'
-export { parseUri, validateSameOrigin, getScheme, canonicalOrigin, originVariants } from './uri.js'
+export { createHarmonizerRegistry, interpolateInstance, BUILTIN_HARMONIZERS } from './harmonizers.js'
+export { parseUri, validateSameOrigin, getScheme, canonicalOrigin, originVariants, uriVariants } from './uri.js'
 export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin, isExcluded, originBanned, banOrigin, unbanOrigin, approveOrigin, createVerifiedOrigin, mintSiteNum, siteNumMintQuery, originBySiteNum } from './origin.js'
-export { userAgent, parseBindings, deslash, termIri, termName, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
+export { userAgent, parseBindings, deslash, termIri, termName, caseInsensitiveTermClause, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, parseMultipass, multipassToParams, extractWhatBy, getTitle, getUrl, formatDisplayDate, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'
 export { normalizeEnvelope } from './envelope.js'
@@ -38,7 +38,7 @@ export { remoteHarmonizer, mergeSchemas, processValue, filterValues, validators 
 export { sanitizeHtml } from './sanitizeHtml.js'
 export { createEnrichBlobjectTargets } from './blobject.js'
 export { publish, resolve, validateResolver, loadResolver, resolveFrom, resolvePath, applyPostProcess, formatDate, encodeValue, extractTags } from './publish.js'
-export { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
+export { createPublisherRegistry, resolveEnvelope, assertRequires, BUILTIN_PUBLISHERS } from './publishers.js'
 export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
@@ -46,8 +46,9 @@ export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
-export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer } from './discover.js'
-export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originWhitelisted, termBlocked, checkAccessGate, resolveEndorsers } from './access.js'
+export { buildVocabulary, vocabularyToJsonLd, vocabularyToTurtle, RANGE_TO_RDFS, BUILTIN_CLASSES, BUILTIN_PROPERTIES } from './vocabulary.js'
+export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer, validatePublisher } from './discover.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originAllowed, termBlocked, termAllowed, termWritable, checkAccessGate, resolveEndorsers } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is
@@ -176,9 +177,9 @@ export const normalizeIndexingMode = (mode) => {
  *   The #216 documentRecord schema. Forwarded to the internal indexer for persistence and used as the
  *   default for `get()` reads (a per-call `documentRecordSchema` option still wins). Undefined by default,
  *   which is a no-op identical to prior behavior.
- * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, whitelist?:{domains?:string[]}}} [config.access] -
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, allows?:{domains?:string[],terms?:string[]}}} [config.access] -
  *   The #217 access block. `registration` is the gate an index request must pass
- *   ('registered' | 'open' | 'closed'); `blocks.domains`/`whitelist.domains` modify it.
+ *   ('registered' | 'open' | 'closed'); `blocks.domains`/`allows.domains` modify it.
  *   `blocks.terms` is a separate, mode-independent write-time filter. Orthogonal to
  *   `config.indexingMode`, which says what TRIGGERS indexing rather than what gate it passes.
  * @param {{name:string, endorse:Function}[]} [config.endorsers] - Endorsement sources
@@ -363,10 +364,7 @@ export const checkCoherence = ({
 export const createClient = (config) => {
   const sparqlConfig = normalizeSparqlConfig(config.sparql)
   const sparql = createSparqlClient(sparqlConfig)
-  const registry = createHarmonizerRegistry(config.instance)
-  // Snapshot before config.harmonizers register: everything here is core's own,
-  // which #293's reverse checks exempt.
-  const builtinHarmonizerNames = new Set(Object.keys(registry.list()))
+  const registry = createHarmonizerRegistry(config.instance, { warn: config.warn ?? console.warn })
   const policy = normalizeIndexingMode(config.indexingMode)
   // #217: the access gate is orthogonal to indexingMode. `access` says what gate
   // an index request must pass; `indexingMode` says what triggers indexing.
@@ -394,8 +392,9 @@ export const createClient = (config) => {
   }
 
   // #217 wave 5: bulk registration is survivable, mirroring config.handlers
-  // above — a site harmonizer collision (same name as a core local) must not
-  // crash createClient at construction time. warn and skip it.
+  // above. A site harmonizer with a builtin's name REPLACES the builtin (#296;
+  // the registry warns once); any other failure must not crash createClient at
+  // construction time. warn and skip it.
   if (config.harmonizers) {
     for (const [name, harmonizer] of Object.entries(config.harmonizers)) {
       try {
@@ -442,12 +441,22 @@ export const createClient = (config) => {
   const linkTypes = mergeLinkTypes(config.profile?.api?.linkTypes ?? config.linkTypes)
 
   // #293: gentle coherence check, once, after harmonizer discovery and the
-  // link-type merge. Advisory only — see checkCoherence.
+  // link-type merge. Advisory only — see checkCoherence. Internal: exposed on
+  // the client object, never in the resolved profile (#325).
   const coherence = checkCoherence({
     linkTypes,
     documentRecord: config.profile?.api?.documentRecord ?? config.documentRecordSchema,
     harmonizers: registry.list(),
-    builtinHarmonizerNames,
+    // #296 follow-up ruling: ask the registry AFTER config.harmonizers
+    // registered. A site file that replaced a builtin by name now carries
+    // source 'declared', so #293's reverse checks treat it as a site
+    // harmonizer — a replacement's dropped sections warn like any site file.
+    builtinHarmonizerNames: new Set(
+      registry
+        .listHarmonizerEntries()
+        .filter((e) => e.source === 'builtin')
+        .map((e) => e.name)
+    ),
     warn: config.warn ?? console.warn,
   })
 
@@ -494,7 +503,7 @@ export const createClient = (config) => {
     return { uri, indexed_at: Date.now() }
   }
 
-  const publisherRegistry = createPublisherRegistry()
+  const publisherRegistry = createPublisherRegistry({ warn: config.warn ?? console.warn })
 
   // #217 wave 3: bulk registration is survivable. register() stays strict for
   // direct programmatic use, but a single bad entry here (a builtin name
@@ -518,11 +527,11 @@ export const createClient = (config) => {
     ? resolveProfile({
         profile: config.profile,
         publisherNames: publisherRegistry.listPublishers(),
+        publisherEntries: publisherRegistry.listPublisherEntries?.() ?? [],
         handlerNames: handlerRegistry.listHandlers(),
-        harmonizerNames: registry.listHarmonizers?.() ?? [],
+        harmonizerNames: registry.listHarmonizerEntries?.() ?? registry.listHarmonizers?.() ?? [],
         linkTypes,
         routes,
-        coherence,
       })
     : null
 
@@ -635,5 +644,9 @@ export const createClient = (config) => {
     sparql,
     api,
     resolvedProfile,
+    // #325: the #293 coherence report is INTERNAL — operator-debugging output
+    // about this relay's own misconfiguration, deliberately not projected into
+    // the public profile. Boot warnings already fired; this is the reader.
+    coherence,
   }
 }

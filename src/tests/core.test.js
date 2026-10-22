@@ -340,7 +340,7 @@ describe('custom publishers via createClient', () => {
     expect(op.publisher.getPublisher('semble')).toBeDefined()
   })
 
-  it('does not clobber built-in publishers — collision is warned and skipped', () => {
+  it('a site publisher named after a builtin replaces it with a warning (#323)', () => {
     const warn = vi.fn()
     const op = createClient({
       instance: 'http://localhost:5173/',
@@ -348,8 +348,10 @@ describe('custom publishers via createClient', () => {
       publishers: { rss2: semble },
       warn
     })
-    expect(op.publisher.getPublisher('rss2').meta?.name).not.toBe(semble.meta.name)
-    expect(warn).toHaveBeenCalled()
+    expect(op.publisher.getPublisher('rss2').meta?.name).toBe(semble.meta.name)
+    // The untouched alias still resolves to the builtin RSS renderer.
+    expect(op.publisher.getPublisher('rss').meta?.name).toBe('RSS 2.0 Feed')
+    expect(warn).toHaveBeenCalledWith('site publisher `rss2` replaces builtin')
   })
 
   it('op.publish merges envelope overrides (canonical pubDefs keys) for rss', async () => {
