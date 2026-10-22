@@ -1590,3 +1590,16 @@ One honest limit, pinned by a test: `~/montréal` and `~/montr%C3%A9al` are genu
 Behavior change worth noting before deploy: an existing `blocks.terms` list may begin matching link-form octothorpes it previously admitted. Nothing already written is removed — this is prospective, like the rest of the term gating.
 
 **Files affected:** `packages/core/{access.js,CHANGELOG.md}`, `src/tests/accessGate.test.js`.
+
+## 07-tidy-batch merged into development (2026-10-22)
+
+Merge commit `9f32411`, no fast-forward. Five textual conflicts, all from both branches editing the same tails: `.gitignore` (kept both ignores), `packages/core/package.json` `files` (union — `harmonizer.schema.json` and `CHANGELOG.md`), the release notes (both blocks kept, development's 2026-10-20 entries slotted into date order ahead of the branch's 10-21/10-22 ones), and `src/tests/{client-policy,rss-e2e}.test.js`, where both branches had independently fixed the same #310 blanket-true ASK stub — development's named `notBanned` helper won.
+
+Two SEMANTIC conflicts git could not see, caught by the suite rather than by the merge:
+
+1. `src/tests/extensionDiscovery.test.js` expected the `tlo-cal`/`tlo-doc` publishers, which development deleted in the pre-cutover TLO revert. The expectation is now `['readable', 'semble']`.
+2. `src/tests/integration/productionSmoke.test.js` has no clean-db guard, so #266's restored `matrix-domains-posted` entry demanded a golden that cannot exist — production-smoke is credential-free by design and NEVER wipes. It now skips `cleanDbOnly` entries the way `smoketest.test.js` does.
+
+Suite on the merge result: 2075 passed, 13 skipped, 0 failed, with the live-server integration tests executing (163 passed).
+
+**Files affected:** `src/tests/extensionDiscovery.test.js`, `src/tests/integration/productionSmoke.test.js`, plus the five conflict resolutions.

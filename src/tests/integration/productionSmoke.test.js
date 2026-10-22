@@ -36,6 +36,14 @@ describe('production smoketest: captured vs golden', () => {
     return
   }
   for (const q of queries) {
+    // clean-db-only entries (#266) need a wipe+reindex cycle to capture, and
+    // production-smoke is credential-free by design — it NEVER wipes. So these
+    // can only ever be skipped here; the guard still honors a capture if one
+    // is ever forced in, matching smoketest.test.js.
+    if (q.cleanDbOnly && !existsSync(join(capturedDir, `${q.name}.${ext(q)}`))) {
+      it.skip(`${q.name} (clean-db-only; production-smoke never wipes)`, () => {})
+      continue
+    }
     it(`${q.name} matches golden`, () => {
       const golden = read(goldenDir, q)
       const captured = read(capturedDir, q)

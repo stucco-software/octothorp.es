@@ -31,7 +31,9 @@ describe('#300 bundled extension discovery (adapter path)', () => {
 
   it('discovers the static publishers by directory name, skipping _example', async () => {
     const { publishers, skippedPublishers } = await import('$lib/publishers/index.js')
-    expect(Object.keys(publishers).sort()).toEqual(['readable', 'semble', 'tlo-cal', 'tlo-doc'])
+    // The tlo-* publishers were deleted before the v0.6.7 cutover; this list is
+    // whatever static/publishers/ actually holds, minus the _example skip.
+    expect(Object.keys(publishers).sort()).toEqual(['readable', 'semble'])
     expect(typeof publishers.semble.render).toBe('function')
     expect(skippedPublishers).toEqual([])
   })
