@@ -171,11 +171,6 @@ const dedupeRegistryEntries = (entries) => {
  * @param {Array} [config.linkTypes] - the merged link-type table the client built at
  *   init. Omitted, it is recomputed from the authored profile — resolveProfile
  *   stays pure and callable on a profile no client ever saw.
- * @param {Object} [config.coherence] - the #293 coherence report the client computed
- *   at init ({ uncapturedLinkTypes, uncapturedDocumentRecord, unqueriedSubtypes,
- *   undeclaredDocumentRecord }). PROJECTION ONLY — never authored; `api` is a
- *   closed schema, so an authored `api.coherence` is a schema error. Omitted,
- *   the key is absent from the resolved profile.
  * @param {Record<string,string>} [config.routes] - the adapter's mount table
  *   ({ get, index, profile, ... } -> URL template). Omitted, the SvelteKit
  *   relay's DEFAULT_ROUTES stand in, so a client that passes nothing still
@@ -190,7 +185,6 @@ export const resolveProfile = ({
   harmonizerNames = [],
   linkTypes,
   routes,
-  coherence,
 } = {}) => {
   // Normalize here as well as in the loader: this function is pure and may be
   // called on a profile the loader never touched.
@@ -245,10 +239,6 @@ export const resolveProfile = ({
       // most of them. Same `source` convention as vocabulary.namespaces.
       linkTypes: mergedLinkTypes,
       documentRecord: profile.api.documentRecord,
-      // PROJECTION ONLY, like `routes` below: what the client observed when it
-      // crossed the declared table against the harmonizers that actually
-      // registered (#293). Absent when no client computed one.
-      ...(coherence ? { coherence } : {}),
       // Directory pointers are authoring detail, not public data. What the
       // world gets is the list of names that actually resolved at init.
       // Each entry carries `source: builtin | declared` (#323), same convention

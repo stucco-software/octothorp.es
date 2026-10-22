@@ -441,7 +441,8 @@ export const createClient = (config) => {
   const linkTypes = mergeLinkTypes(config.profile?.api?.linkTypes ?? config.linkTypes)
 
   // #293: gentle coherence check, once, after harmonizer discovery and the
-  // link-type merge. Advisory only — see checkCoherence.
+  // link-type merge. Advisory only — see checkCoherence. Internal: exposed on
+  // the client object, never in the resolved profile (#325).
   const coherence = checkCoherence({
     linkTypes,
     documentRecord: config.profile?.api?.documentRecord ?? config.documentRecordSchema,
@@ -531,7 +532,6 @@ export const createClient = (config) => {
         harmonizerNames: registry.listHarmonizerEntries?.() ?? registry.listHarmonizers?.() ?? [],
         linkTypes,
         routes,
-        coherence,
       })
     : null
 
@@ -644,5 +644,9 @@ export const createClient = (config) => {
     sparql,
     api,
     resolvedProfile,
+    // #325: the #293 coherence report is INTERNAL — operator-debugging output
+    // about this relay's own misconfiguration, deliberately not projected into
+    // the public profile. Boot warnings already fired; this is the reader.
+    coherence,
   }
 }

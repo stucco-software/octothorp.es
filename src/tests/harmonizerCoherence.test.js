@@ -265,13 +265,13 @@ describe('builtins alone are coherent', () => {
   })
 })
 
-describe('api.coherence is a projection', () => {
-  it('appears on the resolved profile with the four lists', () => {
+describe('coherence is internal, never public (#325)', () => {
+  it('is reachable on the client with the four lists', () => {
     const client = build({
       api: { linkTypes: [{ by: 'reviewed', subtype: 'Review' }] },
       warn: () => {},
     })
-    expect(client.resolvedProfile().api.coherence).toEqual({
+    expect(client.coherence).toEqual({
       uncapturedLinkTypes: [expect.objectContaining({ by: 'reviewed', subtype: 'Review' })],
       uncapturedDocumentRecord: [],
       unqueriedSubtypes: [],
@@ -279,7 +279,17 @@ describe('api.coherence is a projection', () => {
     })
   })
 
-  it('is absent when resolveProfile is called without one', () => {
+  it('never reaches the public profile', () => {
+    // Operator-debugging output about this relay's own misconfiguration: it
+    // would tell the world which declared link types return nothing.
+    const client = build({
+      api: { linkTypes: [{ by: 'reviewed', subtype: 'Review' }] },
+      warn: () => {},
+    })
+    expect('coherence' in client.resolvedProfile().api).toBe(false)
+  })
+
+  it('is absent from resolveProfile output', () => {
     const profile = createProfile({ profile: { identity: { instance }, api: {} }, schema }).getProfile()
     expect('coherence' in resolveProfile({ profile }).api).toBe(false)
   })

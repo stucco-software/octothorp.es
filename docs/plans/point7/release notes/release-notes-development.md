@@ -1523,3 +1523,13 @@ Per the 2026-10-22 ruling (separate paths, not a query parameter), the two seria
 Verified live: `/vocabulary` -> `200 text/html`, `/vocabulary.ttl` -> `200 text/turtle`, `/vocabulary.jsonld` -> `200 application/ld+json`.
 
 **Files affected:** `src/routes/vocabulary/{+server.js,render.js (new)}`, `src/routes/vocabulary.ttl/+server.js` (new), `src/routes/vocabulary.jsonld/+server.js` (new), `src/tests/vocabularyRoutes.test.js` (new).
+
+## /profile leads with a server identity card; api.coherence goes internal (#325, 2026-10-22)
+
+`/profile` now opens with an identity card — instance, contact, who can index here, indexing trigger, term prefix, rules — and everything machine-facing moved under one `Advanced` heading: policies in full, the API surface, the vocabulary, and the "Blocking this relay" section (moved there per the 2026-10-22 ruling). The former top-level sections are demoted one heading level inside Advanced, so the page is one `h1`, a card, and one `h2` a stranger can skip. Content is unchanged apart from the arrangement; the card's grid collapses to one column under 30rem.
+
+`api.coherence` no longer appears in the resolved profile. The #293 check still runs once at client init and still warns, but the four lists (`uncapturedLinkTypes`, `uncapturedDocumentRecord`, `unqueriedSubtypes`, `undeclaredDocumentRecord`) are operator-debugging output about the relay's own misconfiguration — publishing them tells the world which declared link types return nothing. The report is now reachable as `client.coherence` for internal use, and authoring `api.coherence` remains a schema error.
+
+Verified live: `/profile` renders `h1` -> identity card -> `Advanced` -> Policies/API/Vocabulary/Blocking, and `/profile.json` no longer carries `api.coherence`. Suite: 2082 passed, 12 skipped, 0 failed with the dev server up. The `profile-resolved` smoketest golden drops the `coherence` key in the batch-wide regen.
+
+**Files affected:** `src/routes/profile/+page.svelte`, `packages/core/{resolveProfile.js,client.js,CHANGELOG.md}`, `src/tests/harmonizerCoherence.test.js`.
