@@ -37,8 +37,9 @@
         ],
         "terms": []
       },
-      "whitelist": {
-        "domains": []
+      "allows": {
+        "domains": [],
+        "terms": []
       },
       "endorsement": {
         "sources": []
@@ -155,21 +156,36 @@
         "range": "literal"
       }
     ],
-    "coherence": {
-      "uncapturedLinkTypes": [],
-      "uncapturedDocumentRecord": [],
-      "unqueriedSubtypes": [],
-      "undeclaredDocumentRecord": []
-    },
     "publishers": {
       "available": [
-        "bluesky",
-        "ics",
-        "readable",
-        "rss",
-        "rss2",
-        "semble",
-        "standardSiteDocument"
+        {
+          "name": "bluesky",
+          "source": "builtin"
+        },
+        {
+          "name": "ics",
+          "source": "builtin"
+        },
+        {
+          "name": "readable",
+          "source": "declared"
+        },
+        {
+          "name": "rss",
+          "source": "builtin"
+        },
+        {
+          "name": "rss2",
+          "source": "builtin"
+        },
+        {
+          "name": "semble",
+          "source": "declared"
+        },
+        {
+          "name": "standardSiteDocument",
+          "source": "builtin"
+        }
       ]
     },
     "handlers": {
@@ -187,16 +203,46 @@
     },
     "harmonizers": {
       "available": [
-        "anchors",
-        "csv",
-        "default",
-        "ghost",
-        "keywords",
-        "openGraph",
-        "rss",
-        "schema-org",
-        "standardSite",
-        "vevent"
+        {
+          "name": "anchors",
+          "source": "declared"
+        },
+        {
+          "name": "csv",
+          "source": "declared"
+        },
+        {
+          "name": "default",
+          "source": "builtin"
+        },
+        {
+          "name": "ghost",
+          "source": "builtin"
+        },
+        {
+          "name": "keywords",
+          "source": "builtin"
+        },
+        {
+          "name": "openGraph",
+          "source": "builtin"
+        },
+        {
+          "name": "rss",
+          "source": "builtin"
+        },
+        {
+          "name": "schema-org",
+          "source": "builtin"
+        },
+        {
+          "name": "standardSite",
+          "source": "builtin"
+        },
+        {
+          "name": "vevent",
+          "source": "builtin"
+        }
       ]
     },
     "routes": {
@@ -255,6 +301,7 @@
           "offset",
           "rt",
           "s",
+          "st",
           "when"
         ],
         "match": [
@@ -288,6 +335,9 @@
       },
       "badge": {
         "template": "/badge"
+      },
+      "vocabulary": {
+        "template": "/vocabulary"
       }
     }
   },

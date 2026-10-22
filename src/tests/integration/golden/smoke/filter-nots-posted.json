@@ -8,6 +8,13 @@
   },
   {
     "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/backlinked-page",
+    "title": "Backlinks - OP DEV DEMO",
+    "description": "The idea of a backlink is as old as the concept of a hyperlink, but they're not as widely implemented as one-way links.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/badge-indexing",
     "title": "Button-Based Indexing - OP DEV DEMO",
     "description": "OP can index a page triggered by loading a special version of our site button.",
@@ -109,6 +116,20 @@
     "uri": "https://nimdaghlian.github.io/devdemo/rss-feeds",
     "title": "Fun with RSS - OP DEV DEMO",
     "description": "The OP API outputs RSS for almost any query. Here are some combinations worth bookmarking.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/tags-and-octothorpes",
+    "title": "Tags and Octothorpes - OP DEV DEMO",
+    "description": "Octothorpes are like super-tags for websites. So they are designed to work seamlessly with any platform's normal method of tagging content.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/tags-only",
+    "title": "Tags Only - OP DEV DEMO",
+    "description": "This page is using tags in the traditional way, even though the pages linked here use those tags as octothorpes.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
   },
   {

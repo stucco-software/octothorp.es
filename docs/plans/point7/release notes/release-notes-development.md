@@ -1603,3 +1603,23 @@ Two SEMANTIC conflicts git could not see, caught by the suite rather than by the
 Suite on the merge result: 2075 passed, 13 skipped, 0 failed, with the live-server integration tests executing (163 passed).
 
 **Files affected:** `src/tests/extensionDiscovery.test.js`, `src/tests/integration/productionSmoke.test.js`, plus the five conflict resolutions.
+
+## Batch golden regen against the deployed post-merge baseline (2026-10-22)
+
+`development` was pushed and deployed to next.octothorp.es (confirmed by the two new routes answering: `/vocabulary.ttl` and `/profile.schema.json` went 404 -> 200), then the goldens were re-blessed from a clean store: `--dump --wipe --reindex`, then `--update --clean-db`, then a fresh `--capture --clean-db` re-verified them (25/25).
+
+Seven goldens changed and one is new, all accounted for:
+
+- `profile-resolved.json` — three expected shifts and nothing else: `whitelist` -> `allows` (now carrying `terms`), `api.coherence` gone (#325), and `api.publishers.available` entries carrying `source` (#323).
+- `matrix-domains-posted.json` — NEW, the clean-db-only capture restored in #266.
+- `completeness-all-pages`, `filter-nots-posted`, `matrix-everything-posted`, `matrix-pages-posted`, and both RSS goldens — pure additions (no deletions), gaining `backlinked-page`, `tags-and-octothorpes` and `tags-only`. These are mention-first pages that previously had no `octo:created` and so never appeared in `posted` results: #311 landing is what put them there.
+
+Also confirmed live on next: all 10 harmonizers resolve with `source` markers (`anchors` and `csv` included), which clears the #300 deployed-discovery regression the profile-resolved golden had been left encoding.
+
+api-smoketest against next: 206 requests, 159 ok, 47 empty, 0 slow, 0 error, 0 5xx.
+
+**One expected casualty of the wipe, not a regression:** `integration.test.js > webring queries > in-webring should return member pages` now fails. It asserts against `https://demo.ideastore.dev/demo-webring` and member pages on neocities/bearblog/wordpress — external data the wipe removed and the devdemo manifest does not reseed. The devdemo webring page has no indexed members either, so this test cannot pass against a freshly wiped store. It is one of the known seeding failures the staging-fixture plan tracks (docs/plans/point7/2026-06-15-integration-test-cycle.md), and it needs a seeded fixture rather than a code fix.
+
+**Observation worth a ticket, not fixed here:** `static/components/octo-thorpe-demo.html` loads `https://octothorp.es/components/octo-thorpe.js` — a hardcoded production URL in a demo page, so the demo on next exercises production's component build. #228 covered the SvelteKit templates, not the static demo pages.
+
+**Files affected:** `src/tests/integration/golden/smoke/` (7 updated, `matrix-domains-posted.json` new).

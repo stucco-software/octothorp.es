@@ -19,6 +19,22 @@
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
+  <title>Tags Only - OP DEV DEMO</title>
+  <description>This page is using tags in the traditional way, even though the pages linked here use those tags as octothorpes.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/tags-only</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo/tags-only</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
+  <title>Tags and Octothorpes - OP DEV DEMO</title>
+  <description>Octothorpes are like super-tags for websites. So they are designed to work seamlessly with any platform&apos;s normal method of tagging content.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/tags-and-octothorpes</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo/tags-and-octothorpes</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
   <title>Fun with RSS - OP DEV DEMO</title>
   <description>The OP API outputs RSS for almost any query. Here are some combinations worth bookmarking.</description>
   <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/rss-feeds</guid>
@@ -120,6 +136,14 @@
   <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/badge-indexing</guid>
   <pubDate>{DATE}</pubDate>
   <link>https://nimdaghlian.github.io/devdemo/badge-indexing</link>
+  <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
+</item>
+  <item>
+  <title>Backlinks - OP DEV DEMO</title>
+  <description>The idea of a backlink is as old as the concept of a hyperlink, but they&apos;re not as widely implemented as one-way links.</description>
+  <guid isPermaLink="true">https://nimdaghlian.github.io/devdemo/backlinked-page</guid>
+  <pubDate>{DATE}</pubDate>
+  <link>https://nimdaghlian.github.io/devdemo/backlinked-page</link>
   <enclosure url="https://nimdaghlian.github.io/devdemo/assets/octomark.png" type="image/jpeg" />
 </item>
   <item>
