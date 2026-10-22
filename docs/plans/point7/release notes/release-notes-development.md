@@ -1567,3 +1567,15 @@ In-repo profiles keep pointing `$schema` at the relative path (`./packages/core/
 Verified live: both paths return `200 application/json; charset=utf-8` with the correct `$id`, and the served profile schema carries the renamed `access.allows` slot.
 
 **Files affected:** `src/routes/profile.schema.json/+server.js` (new), `src/routes/harmonizer.schema.json/+server.js` (new), `src/tests/schemaRoutes.test.js` (new).
+
+## Term lists see through percent-encoding (#327, 2026-10-22)
+
+`blocks.terms` and `allows.terms` compared raw text, so the encoded spelling of a listed term evaded them. The spellings are not merely similar — they are the SAME TERM in the store: `termIriSegment` encodes a space to `%20` and preserves an already-valid escape, so the names `site changes` and `site%20changes` both mint `~/site%20changes`. Reproduced against the real harmonizer: `<a rel="octo:octothorpes" href="{instance}~/site%20changes">` is captured as the literal name `site%20changes`, which is exactly how an author would have slipped a listed term past the gate in link form.
+
+Both lists now canonicalize FORWARD — name to IRI segment, lowercased — on entries and inputs alike, so they compare what the store actually keys on. Canonicalizing forward rather than decoding is the part that matters: a doubly-encoded `site%2520changes` remains its own term rather than being over-decoded into a term the relay never named, and a malformed escape (`bad%zz`) is left as-is instead of throwing the way `decodeURIComponent` would. A value that arrives as a full term IRI reduces through `termName` first, decoded exactly once, the same way the read path reads a term back.
+
+One honest limit, pinned by a test: `~/montréal` and `~/montr%C3%A9al` are genuinely different IRIs in the store today — the legacy non-ASCII spellings noted as a #306 cutover chore — and the lists follow the store rather than guessing. When those IRIs are normalized, the comparison follows for free, since both sides derive from `termIriSegment`.
+
+Behavior change worth noting before deploy: an existing `blocks.terms` list may begin matching link-form octothorpes it previously admitted. Nothing already written is removed — this is prospective, like the rest of the term gating.
+
+**Files affected:** `packages/core/{access.js,CHANGELOG.md}`, `src/tests/accessGate.test.js`.

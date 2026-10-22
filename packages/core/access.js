@@ -8,6 +8,7 @@
  */
 
 import { canonicalOrigin } from './uri.js'
+import { termIriSegment, termName } from './utils.js'
 
 export const REGISTRATION_MODES = Object.freeze(['registered', 'open', 'closed'])
 
@@ -120,13 +121,30 @@ export const originAllowed = (origin, domains = []) => {
   })
 }
 
-// Shared term normalization for both term lists. Surrounding slashes are
-// stripped before comparing so a trailing (or leading) '/' on either side of
-// the match can't evade a list — the indexer's deslash step would otherwise
-// turn '#someslur/' into the canonical '~/someslur' term after the exact-match
-// check already let it through.
-const normalizeTerm = (value) =>
-  String(value ?? '').trim().toLowerCase().replace(/^\/+|\/+$/g, '')
+// Shared term normalization for both term lists. A term's identity in the
+// store is its IRI, so both lists compare the IRI SEGMENT a name would mint
+// (#327) rather than the raw text. That closes two evasions at once:
+//
+//   - Surrounding slashes: the indexer's deslash step would otherwise turn
+//     '#someslur/' into the canonical '~/someslur' term after an exact-match
+//     check already let it through.
+//   - Percent-encoding: 'site changes' and 'site%20changes' are the SAME term,
+//     because termIriSegment preserves an already-valid escape and encodes a
+//     space to '%20'. A list comparing raw text was evadable by writing the
+//     octothorpe in link form, where the harmonizer captures the encoded
+//     segment verbatim.
+//
+// Canonicalizing FORWARD (name -> segment) rather than decoding is what keeps
+// a doubly-encoded name distinct: 'site%2520changes' is its own term, and
+// over-decoding would block a term the relay never named. A malformed escape
+// is left as-is by termIriSegment, so nothing throws.
+const normalizeTerm = (value) => {
+  const raw = String(value ?? '').trim().replace(/^\/+|\/+$/g, '')
+  // A full term IRI reduces to its name first, decoded exactly once, the same
+  // way the read path reads a term back.
+  const name = raw.includes('/~/') ? termName(raw) : raw
+  return termIriSegment(name).toLowerCase()
+}
 
 /**
  * Case-insensitive exact match of a TERM name against the term blocklist.

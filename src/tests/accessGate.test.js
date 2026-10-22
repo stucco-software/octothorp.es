@@ -484,6 +484,52 @@ describe('the access gate, wired into the indexer', () => {
   })
 })
 
+describe('#327 term lists see through percent-encoding', () => {
+  // The encoded and decoded spellings are the SAME TERM in the store:
+  // termIri('site changes') and termIri('site%20changes') both produce
+  // `~/site%20changes`, because TERM_IRI_ILLEGAL preserves an already-valid
+  // escape. A list that compared raw strings was therefore evadable by writing
+  // the octothorpe in link form.
+  it('blocks the encoded spelling of a blocked term', () => {
+    expect(termBlocked('site%20changes', ['site changes'])).toBe(true)
+    expect(termBlocked('site changes', ['site%20changes'])).toBe(true)
+  })
+
+  it('blocks an encoded spelling regardless of case', () => {
+    expect(termBlocked('SITE%20CHANGES', ['site changes'])).toBe(true)
+  })
+
+  it('does NOT conflate a doubly-encoded name with the single-encoded one', () => {
+    // `site%2520changes` is a DIFFERENT term: its IRI is `~/site%2520changes`.
+    // Over-decoding here would block a term the relay never named.
+    expect(termBlocked('site%2520changes', ['site changes'])).toBe(false)
+  })
+
+  it('treats a percent-encoded non-ASCII name as the distinct term it is today', () => {
+    // termIriSegment leaves non-ASCII literal (an IRI may carry raw UTF-8), so
+    // `~/montréal` and `~/montr%C3%A9al` are genuinely different IRIs in the
+    // store right now — the legacy spellings #306 notes for the cutover. The
+    // list follows the store rather than guessing, and will follow it again
+    // for free once those IRIs are normalized, since both sides derive from
+    // termIriSegment.
+    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(false)
+    expect(termBlocked('montréal', ['montréal'])).toBe(true)
+    expect(termBlocked('MONTR%C3%A9AL', ['montr%C3%A9al'])).toBe(true)
+  })
+
+  it('applies the same canonicalization to the allowlist', () => {
+    expect(termAllowed('site%20changes', ['site changes'])).toBe(true)
+    expect(termAllowed('other%20term', ['site changes'])).toBe(false)
+  })
+
+  it('never throws on a malformed escape, it compares the raw text', () => {
+    // decodeURIComponent('%zz') raises; a bad escape must not take down an
+    // index call.
+    expect(() => termBlocked('bad%zz', ['bad%zz'])).not.toThrow()
+    expect(termBlocked('bad%zz', ['bad%zz'])).toBe(true)
+  })
+})
+
 describe('termAllowed / termWritable — the allows.terms half', () => {
   it('an EMPTY allowlist is unrestricted, not "allow nothing"', () => {
     // The asymmetry with termBlocked that matters: a relay with no
@@ -569,6 +615,20 @@ describe('blocks.terms drops statements at write time, in every mode', () => {
     const out = inserted()
     expect(out).toContain('~/cats')
     expect(out).not.toContain('someslur')
+  })
+
+  it('#327: the link-form (encoded) spelling of a blocked term is dropped too', async () => {
+    // What the harmonizer captures from `href=".../~/site%20changes"` is the
+    // encoded segment verbatim, which mints the SAME term as the text form.
+    const { indexer } = makeIndexer(
+      { registration: 'open', blocks: { terms: ['site changes'] } },
+      ['site%20changes', 'cats'],
+      'https://terms-encoded.test/page'
+    )
+    await indexer.handler('https://terms-encoded.test/page', 'default', null, baseConfig)
+    const out = inserted()
+    expect(out).toContain('~/cats')
+    expect(out).not.toContain('site%20changes')
   })
 
   it('allows.terms restricts minting to the curated vocabulary, in every mode', async () => {
