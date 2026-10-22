@@ -1553,3 +1553,17 @@ The profile page's "Blocked terms" section became "Term gates", listing both lis
 Suite: 2090 passed, 13 skipped, 0 failed. The 13 skipped are the live-server integration tests: the running dev server caches `profile.schema.json` as a JSON module, so it was still validating against the pre-rename schema and 500ing on every route until restarted — live verification of this change is still outstanding.
 
 **Files affected:** `packages/core/{profile.schema.json,access.js,profile.js,indexer.js,client.js,scaffold.js,origin.js,CHANGELOG.md}`, `octothorpes.json`, `profiles/bearblog/octothorpes.json`, `src/routes/profile/+page.svelte`, `src/tests/fixtures/profiles/document-record.json`, and the access/profile test files.
+
+## Schema documents are served at their $id (2026-10-22)
+
+`profile.schema.json` declares `"$id": "https://octothorp.es/profile.schema.json"` and `harmonizer.schema.json` the equivalent, but neither URL served anything — 404 on production, on next, and locally. `$id` is a schema's published identity, so an operator authoring a profile outside this repo had nothing to point `$schema` at.
+
+Both are now served from the core package's own copy, so the file and its advertised identity cannot disagree. Responses are CORS-open (`Access-Control-Allow-Origin: *`), because editors and validators fetch a schema cross-origin, and carry `Cache-Control: public, max-age=3600`. Content type is `application/json` rather than `application/schema+json`: every tool parses the former, not all of them handle the latter.
+
+`api.routes` is deliberately untouched — the schema URL is discoverable from the `$schema`/`$id` pair, and expanding the resolved profile's shape for it would shift the goldens again for nothing.
+
+In-repo profiles keep pointing `$schema` at the relative path (`./packages/core/profile.schema.json`). That is on purpose: a served URL would validate branch work against whatever production last deployed.
+
+Verified live: both paths return `200 application/json; charset=utf-8` with the correct `$id`, and the served profile schema carries the renamed `access.allows` slot.
+
+**Files affected:** `src/routes/profile.schema.json/+server.js` (new), `src/routes/harmonizer.schema.json/+server.js` (new), `src/tests/schemaRoutes.test.js` (new).
