@@ -505,14 +505,12 @@ describe('#327 term lists see through percent-encoding', () => {
     expect(termBlocked('site%2520changes', ['site changes'])).toBe(false)
   })
 
-  it('treats a percent-encoded non-ASCII name as the distinct term it is today', () => {
-    // termIriSegment leaves non-ASCII literal (an IRI may carry raw UTF-8), so
-    // `~/montréal` and `~/montr%C3%A9al` are genuinely different IRIs in the
-    // store right now — the legacy spellings #306 notes for the cutover. The
-    // list follows the store rather than guessing, and will follow it again
-    // for free once those IRIs are normalized, since both sides derive from
-    // termIriSegment.
-    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(false)
+  it('treats a percent-encoded non-ASCII name as the same single-spelling term (#328)', () => {
+    // The single-spelling policy (#328/#329): a term's identity is the decoded
+    // string a human typed, so the encoded and raw spellings of a non-ASCII
+    // name are ONE term. An operator who lists `montréal` blocks both — the
+    // non-ASCII gap #327 deliberately left open is closed.
+    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(true)
     expect(termBlocked('montréal', ['montréal'])).toBe(true)
     expect(termBlocked('MONTR%C3%A9AL', ['montr%C3%A9al'])).toBe(true)
   })

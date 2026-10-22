@@ -328,22 +328,15 @@ export const createQueryBuilders = (instance, queryArray) => {
     return `${includeStatement}${excludeStatement}`
   }
 
-  // #306: legacy spelling of a term segment. The pre-#306 RDFa path routed
-  // term IRIs through new URL(), which percent-encodes non-ASCII (café ->
-  // caf%C3%A9) where termIri keeps it raw. Stored data may carry either form,
-  // so read-side lists include both when they differ.
-  const legacyEncodedForms = (segment) => {
-    const legacy = segment.replace(/[^\u0000-\u007F]/g, (c) => encodeURIComponent(c))
-    return legacy === segment ? [segment] : [segment, legacy]
-  }
-
   // #253: lowercased, deduped term-IRI string list for case-insensitive
   // comparison against LCASE(STR(?o)). Fuzzy variants cover separator styles;
   // LCASE covers casing, so any stored casing matches any query casing.
-  // #306: each variant also appears in its legacy %-encoded non-ASCII form.
+  // #328: a term has ONE canonical segment (termIriSegment). The legacy
+  // %-encoded non-ASCII spelling minted by the pre-#306 RDFa path is no
+  // longer bridged; stragglers normalize on re-index.
   const lcaseTermIriList = (terms) =>
     [...new Set(getFuzzyTags(terms)
-      .flatMap((t) => legacyEncodedForms(termIriSegment(t)))
+      .map((t) => termIriSegment(t))
       .map((seg) => `${instance}~/${seg}`.toLowerCase()))]
       .map((iri) => `"${iri}"`)
       .join(', ')
@@ -359,11 +352,11 @@ export const createQueryBuilders = (instance, queryArray) => {
     }
     if (mode === "very-fuzzy") {
       // #253: comparison side is LCASE'd, so only lowercase variants are needed.
-      // #306: CONTAINS runs against the stored IRI string, which is
-      // percent-encoded by termIri — encode variants the same way, and include
-      // the legacy %-encoded non-ASCII spelling for pre-#306 RDFa-written data.
+      // #306/#328: CONTAINS runs against the stored IRI string, which is
+      // percent-encoded by termIri — encode variants the same way. One
+      // canonical spelling only; legacy encoded forms are not bridged.
       return [...new Set(getFuzzyTags(terms)
-        .flatMap((t) => legacyEncodedForms(termIriSegment(t)))
+        .map((t) => termIriSegment(t))
         .map((seg) => seg.toLowerCase()))]
     }
     else {

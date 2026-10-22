@@ -112,21 +112,22 @@ describe('#253 case-insensitive term matching', () => {
       expect(q).not.toContain('"site changes"')
     })
 
-    it('very-fuzzy non-ASCII matches both raw and legacy %-encoded storage', async () => {
+    it('very-fuzzy non-ASCII matches only the canonical raw spelling (#328)', async () => {
       const q = await builders.buildSimpleQuery(
         mp({ type: 'termsOnly', mode: 'very-fuzzy', include: ['café'], exclude: [] })
       )
-      // canonical (termIri keeps non-ASCII raw) and legacy new URL() form
+      // termIri keeps non-ASCII raw; the legacy new URL() %-encoded spelling
+      // is no longer bridged — stragglers normalize on re-index.
       expect(q).toContain('"café"')
-      expect(q).toContain('"caf%c3%a9"')
+      expect(q).not.toContain('"caf%c3%a9"')
     })
 
-    it('fuzzy non-ASCII matches both raw and legacy %-encoded IRIs', async () => {
+    it('fuzzy non-ASCII matches only the canonical raw IRI (#328)', async () => {
       const q = await builders.buildSimpleQuery(
         mp({ type: 'termsOnly', mode: 'fuzzy', include: ['café'], exclude: [] })
       )
       expect(q).toContain(`"${INSTANCE}~/café"`)
-      expect(q).toContain(`"${INSTANCE}~/caf%c3%a9"`)
+      expect(q).not.toContain(`"${INSTANCE}~/caf%c3%a9"`)
     })
   })
 

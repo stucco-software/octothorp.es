@@ -121,9 +121,10 @@ export const originAllowed = (origin, domains = []) => {
   })
 }
 
-// Shared term normalization for both term lists. A term's identity in the
-// store is its IRI, so both lists compare the IRI SEGMENT a name would mint
-// (#327) rather than the raw text. That closes two evasions at once:
+// Shared term normalization for both term lists. A term's identity is the
+// string a human typed — the prefLabel-canonical form (#329) — so both lists
+// compare the DECODED canonical name, not the raw text and not the encoded
+// IRI segment. That closes three evasions at once (#327, #328):
 //
 //   - Surrounding slashes: the indexer's deslash step would otherwise turn
 //     '#someslur/' into the canonical '~/someslur' term after an exact-match
@@ -133,17 +134,21 @@ export const originAllowed = (origin, domains = []) => {
 //     space to '%20'. A list comparing raw text was evadable by writing the
 //     octothorpe in link form, where the harmonizer captures the encoded
 //     segment verbatim.
+//   - Non-ASCII encoding: 'montréal' and 'montr%C3%A9al' are one term under
+//     the single-spelling policy (#328); an operator listing the typed name
+//     blocks both spellings.
 //
-// Canonicalizing FORWARD (name -> segment) rather than decoding is what keeps
-// a doubly-encoded name distinct: 'site%2520changes' is its own term, and
-// over-decoding would block a term the relay never named. A malformed escape
-// is left as-is by termIriSegment, so nothing throws.
+// Canonicalizing THROUGH the segment (name -> segment -> decode once) keeps a
+// doubly-encoded name distinct: 'site%2520changes' canonicalizes to the name
+// 'site%20changes', its own term, so over-decoding never blocks a term the
+// relay never named. A malformed escape is encoded, not decoded, by
+// termIriSegment, so nothing throws.
 const normalizeTerm = (value) => {
   const raw = String(value ?? '').trim().replace(/^\/+|\/+$/g, '')
   // A full term IRI reduces to its name first, decoded exactly once, the same
   // way the read path reads a term back.
   const name = raw.includes('/~/') ? termName(raw) : raw
-  return termIriSegment(name).toLowerCase()
+  return termName(`/~/${termIriSegment(name)}`).toLowerCase()
 }
 
 /**
