@@ -1511,3 +1511,15 @@ Also fixed in passing: the profile page rendered `api.harmonizers.available` wit
 Six live-server rows failed after #266 made `domains/posted` reject `s=`: the generic matrix in `integration.test.js` and the grammar sweep in `api-smoketest.js` both set `s` for every what/by pair. Both now omit it when `what === 'domains'`, and the integration matrix skips the `limit=1000` variation there since the shape is subject-less and falls under the #313 cap of 400. Suite: 2078 passed, 12 skipped, 0 failed with the dev server up.
 
 **Files affected:** `src/tests/integration.test.js`, `scripts/api-smoketest.js`.
+
+## /vocabulary gains format paths; the HTML links work again (#324, 2026-10-22)
+
+The HTML view's "Turtle" and "JSON-LD" links pointed at `/vocabulary` itself with only a `type` attribute, which browsers ignore when deciding what to request, so clicking either one reloaded the HTML page. Content negotiation by `Accept` header was working the whole time; there was simply no way for a link to ask.
+
+Per the 2026-10-22 ruling (separate paths, not a query parameter), the two serializations now have their own routes — `/vocabulary.ttl` and `/vocabulary.jsonld` — and the visible links plus both `<link rel="alternate">` tags point at them. `/vocabulary` keeps negotiating on `Accept` exactly as before. Rendering and both response helpers moved to `src/routes/vocabulary/render.js`, shared by all three routes, so the negotiated and direct paths cannot drift.
+
+`api.routes.vocabulary` still advertises the single canonical `/vocabulary`: the serializations are discoverable from the document's own `rel="alternate"` tags, which is the standard mechanism, and expanding the profile shape for them would buy nothing.
+
+Verified live: `/vocabulary` -> `200 text/html`, `/vocabulary.ttl` -> `200 text/turtle`, `/vocabulary.jsonld` -> `200 application/ld+json`.
+
+**Files affected:** `src/routes/vocabulary/{+server.js,render.js (new)}`, `src/routes/vocabulary.ttl/+server.js` (new), `src/routes/vocabulary.jsonld/+server.js` (new), `src/tests/vocabularyRoutes.test.js` (new).
