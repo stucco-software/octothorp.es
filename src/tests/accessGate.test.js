@@ -515,6 +515,19 @@ describe('#327 term lists see through percent-encoding', () => {
     expect(termBlocked('MONTR%C3%A9AL', ['montr%C3%A9al'])).toBe(true)
   })
 
+  it('montréal in blocks.terms blocks BOTH spellings (#329 — closes #327 open half)', () => {
+    // The gate compares the prefLabel-canonical (decoded) form, so the
+    // operator types the human string once and the encoded link-form spelling
+    // cannot evade it.
+    expect(termBlocked('montréal', ['montréal'])).toBe(true)
+    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(true)
+    // And symmetrically when the list entry is the encoded spelling.
+    expect(termBlocked('montréal', ['montr%C3%A9al'])).toBe(true)
+    // The allowlist shares the normalization.
+    expect(termAllowed('montr%C3%A9al', ['montréal'])).toBe(true)
+    expect(termAllowed('montréal', ['café'])).toBe(false)
+  })
+
   it('applies the same canonicalization to the allowlist', () => {
     expect(termAllowed('site%20changes', ['site changes'])).toBe(true)
     expect(termAllowed('other%20term', ['site changes'])).toBe(false)
