@@ -27,7 +27,7 @@ export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
 export { createHarmonizerRegistry, interpolateInstance, BUILTIN_HARMONIZERS } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme, canonicalOrigin, originVariants, uriVariants } from './uri.js'
-export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin, isExcluded, originBanned, banOrigin, unbanOrigin, approveOrigin, createVerifiedOrigin, mintSiteNum, siteNumMintQuery, originBySiteNum } from './origin.js'
+export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin, isExcluded, originBanned, banOrigin, unbanOrigin, approveOrigin, createVerifiedOrigin, mintSiteNum, siteNumMintQuery, originBySiteNum, requestRegistration, requestedOrigins, clearRegistrationRequest } from './origin.js'
 export { userAgent, parseBindings, deslash, termIri, termName, caseInsensitiveTermClause, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, parseMultipass, multipassToParams, extractWhatBy, getTitle, getUrl, formatDisplayDate, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
 export { rss } from './rssify.js'
 export { arrayify } from './arrayify.js'

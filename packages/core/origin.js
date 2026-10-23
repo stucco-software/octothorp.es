@@ -99,8 +99,68 @@ export const createVerifiedOrigin = async (origin, { insert, query }) => {
 /**
  * Admin approval: mark an origin verified. Under registration 'closed' this
  * has no effect on the gate (allows.domains decides) — callers surface that.
+ * Approval REPLACES any pending registration request (#321): the
+ * octo:requested triple is deleted, no residue.
  */
-export const approveOrigin = async (origin, { insert, query }) => createVerifiedOrigin(origin, { insert, query })
+export const approveOrigin = async (origin, { insert, query }) => {
+  const result = await createVerifiedOrigin(origin, { insert, query })
+  if (query) await clearRegistrationRequest(origin, { query })
+  return result
+}
+
+/**
+ * Record a registration request (#321 stub): one `octo:requested "true"`
+ * triple per origin (filter not exists over every spelling, same dedupe
+ * convention as #275 variant matching). Never writes for a banned origin;
+ * a verified origin is a no-op.
+ * @param {string} origin - canonical origin
+ * @param {{queryBoolean:Function, query:Function}} deps
+ * @returns {Promise<'banned'|'already-verified'|'requested'>}
+ */
+export const requestRegistration = async (origin, { queryBoolean, query }) => {
+  if (await originBanned(origin, { queryBoolean })) return 'banned'
+  if (await verifyApprovedDomain(origin, { queryBoolean })) return 'already-verified'
+  await query(`
+    insert {
+      <${origin}> rdf:type <octo:Origin> .
+      <${origin}> octo:requested "true" .
+    }
+    where {
+      filter not exists {
+        values ?origin { ${variantValues(origin)} }
+        ?origin octo:requested "true" .
+      }
+    }
+  `)
+  return 'requested'
+}
+
+/**
+ * Origins with a pending registration request (#321), for the admin queue
+ * and the requested-origins feed.
+ * @param {{queryArray:Function}} deps
+ * @returns {Promise<string[]>}
+ */
+export const requestedOrigins = async ({ queryArray }) => {
+  const res = await queryArray(`
+    select distinct ?origin where { ?origin octo:requested "true" . }
+  `)
+  return (res?.results?.bindings ?? []).map((b) => b.origin.value)
+}
+
+/**
+ * Delete a registration request triple on every spelling (#321). Used by
+ * dismiss, and by approve so acting on a request leaves no residue. Ban needs
+ * no call: banOrigin's purge already strips every origin triple.
+ * @param {string} origin - canonical origin
+ * @param {{query:Function}} deps
+ */
+export const clearRegistrationRequest = async (origin, { query }) => {
+  await query(`
+    delete { ?origin octo:requested ?r . }
+    where { values ?origin { ${variantValues(origin)} } ?origin octo:requested ?r . }
+  `)
+}
 
 /**
  * Build the SPARQL Update that gives an origin its numeric alias (#191):
