@@ -40,7 +40,13 @@ describe('#191 siteNum minting', () => {
     const query = vi.fn()
     await createVerifiedOrigin('https://b.test', { insert, query })
     await approveOrigin('https://c.test', { insert, query })
-    expect(query.mock.calls.map(c => c[0])).toEqual([siteNumMintQuery('https://b.test'), siteNumMintQuery('https://c.test')])
+    const calls = query.mock.calls.map(c => c[0])
+    expect(calls[0]).toBe(siteNumMintQuery('https://b.test'))
+    expect(calls[1]).toBe(siteNumMintQuery('https://c.test'))
+    // #321: approve also clears any pending registration request.
+    expect(calls[2]).toContain('delete { ?origin octo:requested ?r . }')
+    expect(calls[2]).toContain('<https://c.test>')
+    expect(calls).toHaveLength(3)
   })
 })
 
