@@ -18,6 +18,7 @@ vi.mock('$lib/sparql.js', () => {
   return {
     queryBoolean: vi.fn(async (q) => q.includes('octo:banned') ? has(h.banned, q) : has(h.verified, q)),
     query: vi.fn(async () => true),
+    queryArray: vi.fn(async () => ({ results: { bindings: [] } })),
     insert: vi.fn(async () => true)
   }
 })
@@ -142,12 +143,12 @@ describe('POST /admin/unban', () => {
 })
 
 describe('/admin form', () => {
-  it('load reports configured and approveDisabled', () => {
-    expect(load()).toMatchObject({ configured: true, approveDisabled: false })
+  it('load reports configured and approveDisabled', async () => {
+    expect(await load()).toMatchObject({ configured: true, approveDisabled: false, requested: [] })
     h.access.registration = 'closed'
-    expect(load().approveDisabled).toBe(true)
+    expect((await load()).approveDisabled).toBe(true)
     h.config.admin_secret = ''
-    expect(load().configured).toBe(false)
+    expect((await load()).configured).toBe(false)
   })
 
   it('503 / 401 / 400 guard', async () => {
