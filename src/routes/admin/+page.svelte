@@ -47,4 +47,27 @@
       {/if}
     </form>
   </section>
+
+  <section class="dotgrid">
+    <h2>Requested origins</h2>
+    {#if data.requested?.length}
+      <ul>
+        {#each data.requested as origin}
+          <li>
+            <form method="POST" use:enhance>
+              <input type="hidden" name="domain" value={origin}>
+              <a href={origin} rel="noreferrer">{origin}</a>
+              <input required type="password" name="secret" autocomplete="off"
+                placeholder="Admin Secret">
+              <button formaction="?/approve" disabled={data.approveDisabled}>Approve</button>
+              <button formaction="?/ban">Ban</button>
+              <button formaction="?/dismiss">Dismiss</button>
+            </form>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p><span>No pending requests.</span></p>
+    {/if}
+  </section>
 {/if}

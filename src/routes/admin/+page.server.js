@@ -1,13 +1,15 @@
 import { fail } from '@sveltejs/kit'
 import {
   adminConfigured, checkAdminSecret, parseAdminDomain, approveDisabled,
-  adminApprove, adminBan, adminUnban, STILL_BLOCKED_NOTE, CLOSED_NOTE
+  adminApprove, adminBan, adminUnban, adminRequestedOrigins, adminDismissRequest,
+  STILL_BLOCKED_NOTE, CLOSED_NOTE
 } from '$lib/admin.js'
 
-export const load = () => ({
+export const load = async () => ({
   configured: adminConfigured(),
   approveDisabled: approveDisabled(),
-  closedNote: CLOSED_NOTE
+  closedNote: CLOSED_NOTE,
+  requested: adminConfigured() ? await adminRequestedOrigins() : []
 })
 
 // 503 when admin_secret is unset, 401 on a bad secret, 400 on a bad domain.
@@ -46,5 +48,12 @@ export const actions = {
     const head = status === 'not-banned' ? `${domain} is not banned` : `Unbanned ${domain}`
     if (stillBlocked) return { domain, stillBlocked, message: `${head}, but ${STILL_BLOCKED_NOTE}.` }
     return { domain, message: `${head}.` }
+  },
+
+  dismiss: async ({ request }) => {
+    const checked = guard(await request.formData())
+    if (checked.status) return checked
+    await adminDismissRequest(checked.domain)
+    return { domain: checked.domain, message: `Dismissed the request from ${checked.domain}.` }
   }
 }

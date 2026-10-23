@@ -1,7 +1,7 @@
 // Thin SvelteKit adapter for the /admin surfaces (#310). Auth, domain parsing
 // and dep injection only -- ban/unban/approve logic lives in packages/core/origin.js.
 import { admin_secret } from '$lib/config.js'
-import { query, queryBoolean, insert } from '$lib/sparql.js'
+import { query, queryBoolean, queryArray, insert } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
 import {
   canonicalOrigin,
@@ -11,7 +11,9 @@ import {
   banOrigin,
   unbanOrigin,
   approveOrigin,
-  verifyApprovedDomain
+  verifyApprovedDomain,
+  requestedOrigins,
+  clearRegistrationRequest
 } from 'octothorpes'
 
 // Constant-time string compare to avoid token timing leaks.
@@ -85,6 +87,15 @@ export const adminUnban = async (domain) => {
     queryBoolean
   })
   return { status: wasBanned ? 'unbanned' : 'not-banned', stillBlocked: sources.includes('profile') }
+}
+
+// Origins with a pending registration request (#321), for the admin queue.
+export const adminRequestedOrigins = () => requestedOrigins({ queryArray })
+
+// Dismiss a registration request: delete the octo:requested triple, nothing else.
+export const adminDismissRequest = async (domain) => {
+  await clearRegistrationRequest(domain, { query })
+  return 'dismissed'
 }
 
 export const STILL_BLOCKED_NOTE = 'still blocked by profile — edit octothorpes.json'
