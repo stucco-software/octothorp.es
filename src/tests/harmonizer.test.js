@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { remoteHarmonizer } from 'octothorpes'
+import { remoteHarmonizer, resolveSubtype } from 'octothorpes'
 import htmlHandler from '../../packages/core/handlers/html/handler.js'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
 
@@ -372,6 +372,62 @@ describe('External Harmonizer Support', () => {
       expect(mention).toBeDefined()
       expect(mention.uri).toBe('https://example.org/x')
       expect(mention.terms).toEqual(['a', 'b'])
+    })
+
+    // Aliasing: an author declares that two urls are the same resource with
+    // rel="octo:aliases" (the verb, matching bookmarks/cites/mentions). The
+    // schema key is `aliasOf`, which resolveSubtype capitalises to octo:AliasOf
+    // — the subtype the `aliased` link type declared in octothorpes.json queries.
+    it('should extract an alias from an octo:aliases link element', async () => {
+      const htmlWithAlias = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Test Page</title>
+            <link rel="octo:aliases" href="https://rentry.co/abc/raw">
+          </head>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithAlias)
+
+      const alias = result.octothorpes.find(o => o.type === 'aliasOf')
+      expect(alias).toBeDefined()
+      expect(alias.uri).toBe('https://rentry.co/abc/raw')
+    })
+
+    it('should extract an alias from an octo:aliases meta element', async () => {
+      const htmlWithAliasMeta = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Test Page</title>
+            <meta property="octo:aliases" content="https://rentry.co/abc/raw">
+          </head>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithAliasMeta)
+
+      const alias = result.octothorpes.find(o => o.type === 'aliasOf')
+      expect(alias).toBeDefined()
+      expect(alias.uri).toBe('https://rentry.co/abc/raw')
+    })
+
+    it('should carry terms on an alias and resolve to the AliasOf subtype', async () => {
+      const htmlWithAliasTerms = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Test Page</title></head>
+          <body>
+            <a rel="octo:aliases" href="https://example.org/mirror" data-octothorpes="notes,mirror">Mirror</a>
+          </body>
+        </html>
+      `
+      const result = await harmonizeSource(htmlWithAliasTerms)
+
+      const alias = result.octothorpes.find(o => o.type === 'aliasOf')
+      expect(alias).toBeDefined()
+      expect(alias.terms).toEqual(['notes', 'mirror'])
+      expect(resolveSubtype(alias.type)).toBe('AliasOf')
     })
 
     it('should extract terms from citation links', async () => {
