@@ -1623,3 +1623,22 @@ api-smoketest against next: 206 requests, 159 ok, 47 empty, 0 slow, 0 error, 0 5
 **Observation worth a ticket, not fixed here:** `static/components/octo-thorpe-demo.html` loads `https://octothorp.es/components/octo-thorpe.js` — a hardcoded production URL in a demo page, so the demo on next exercises production's component build. #228 covered the SvelteKit templates, not the static demo pages.
 
 **Files affected:** `src/tests/integration/golden/smoke/` (7 updated, `matrix-domains-posted.json` new).
+
+## Aliasing: the `aliased` link type and `octo:Alias` (2026-10-26)
+
+Content-embedded aliasing works without a custom harmonizer. An author declares that two urls are the same resource with either form:
+
+    <link rel="octo:aliases" href="https://rentry.co/abc/raw">
+    <meta property="octo:aliases" content="https://rentry.co/abc/raw">
+
+Query it at `/get/everything/aliased` or `/get/everything/linked?st=alias`. The declaration alone makes the route real — the merged link-type table drives the `by` axis and the subtype filter, and `/vocabulary` picks the class up as `subClassOf octo:Link` automatically.
+
+Renamed before shipping: the first cut was `aliasOf` / `octo:AliasOf`, which carried an internal capital no other subtype has. Under #332 (three capitalization schemes for one relationship name) it is now `alias` / `octo:Alias` — the bookmark/cite/mention shape exactly, so `resolveSubtype`'s first-letter capitalisation is the only transform and nothing was added to #332's surface. Pre-alpha and the emitter and declaration landed the same day, so no store outside a local test store held an `octo:AliasOf` triple; no migration.
+
+The `#296` registry-parity test now pins loss rather than growth: every section captured from the pre-`#296` inline registry must still be present and byte-identical, while a builtin gaining a new section passes. Without this, any future builtin harmonizer rule fails that test.
+
+Filed, not fixed: **#331** — `extantBacklink` asks whether *any* blank-node relationship exists between a subject and object, with no `rdf:type` clause, so the first relationship class to land on a pair blocks every other. A pair already carrying a `Link` can never gain a `Bookmark`, `Cite` or `Alias`, and `handleMention` returns without an error or a log line. Blocked on #270: the RDF-star migration replaces the blank-node existence check outright.
+
+Suite: 2073 passed, 16 skipped, 0 failed (integration auto-skipped, dev server down).
+
+**Files affected:** `octothorpes.json`, `packages/core/harmonizers/default.json`, `src/tests/harmonizer.test.js`, `src/tests/harmonizerCoherence.test.js`, `src/tests/builtinHarmonizers.test.js`.
