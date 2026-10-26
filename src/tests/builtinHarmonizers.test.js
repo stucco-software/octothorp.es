@@ -41,7 +41,21 @@ describe('#296 builtin harmonizers as flat JSON files', () => {
       // EMPTY subject, which the handlers treat identically (extraction parity
       // is pinned separately below).
       const expected = { ...legacy, schema: { subject: {}, ...legacy.schema } }
-      expect(registered[name], name).toEqual(expected)
+      const actual = registered[name]
+      expect(actual, name).toBeDefined()
+
+      // Non-schema fields must match the capture exactly.
+      const { schema: actualSchema, ...actualMeta } = actual
+      const { schema: expectedSchema, ...expectedMeta } = expected
+      expect(actualMeta, name).toEqual(expectedMeta)
+
+      // The fixture is a frozen pre-#296 capture, so it pins LOSS, not growth:
+      // every legacy section must still be present and byte-identical, while a
+      // builtin gaining a NEW section (e.g. `alias`, added with the octo:aliases
+      // rule) is a legitimate change that must not fail this parity check.
+      for (const [section, rules] of Object.entries(expectedSchema)) {
+        expect(actualSchema[section], `${name}.${section}`).toEqual(rules)
+      }
     }
   })
 

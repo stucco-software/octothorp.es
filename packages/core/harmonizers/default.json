@@ -183,6 +183,22 @@
         }
       ]
     },
+    "alias": {
+      "s": "source",
+      "o": [
+        {
+          "selector": "[rel~='octo:aliases']:not([href*='{{instance}}~/'])",
+          "attribute": "href",
+          "terms": {
+            "attribute": "data-octothorpes"
+          }
+        },
+        {
+          "selector": "meta[property='octo:aliases']",
+          "attribute": "content"
+        }
+      ]
+    },
     "button": {
       "s": "source",
       "o": [

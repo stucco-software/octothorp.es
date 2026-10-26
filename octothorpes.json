@@ -42,7 +42,9 @@
   },
 
   "api": {
-    "linkTypes": [],
+    "linkTypes": [
+      { "by": "aliased", "subtype": "Alias", "label": "Alias" }
+    ],
     "documentRecord": [{ "predicate": "richContent", "range": "literal" }],
     "publishers": {
       "dir": "./static/publishers"
