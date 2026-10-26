@@ -261,8 +261,8 @@ describe('builtins alone are coherent', () => {
     // The declared `richContent` documentRecord predicate is captured by the
     // default harmonizer (`data-octo-content="rich"` / `.octo-content`), so
     // nothing is left to warn about for documentRecord. The declared `aliased`
-    // link type (octo:AliasOf) is captured by the default harmonizer's
-    // `aliasOf` section (rel="octo:aliases"), so it does not warn either.
+    // link type (octo:Alias) is captured by the default harmonizer's
+    // `alias` section (rel="octo:aliases"), so it does not warn either.
     expect(coherenceLines(lines)).toEqual([])
   })
 })

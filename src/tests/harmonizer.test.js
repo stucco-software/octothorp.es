@@ -375,9 +375,11 @@ describe('External Harmonizer Support', () => {
     })
 
     // Aliasing: an author declares that two urls are the same resource with
-    // rel="octo:aliases" (the verb, matching bookmarks/cites/mentions). The
-    // schema key is `aliasOf`, which resolveSubtype capitalises to octo:AliasOf
-    // — the subtype the `aliased` link type declared in octothorpes.json queries.
+    // rel="octo:aliases", exactly the bookmarks/cites/mentions shape — plural
+    // verb in markup, singular key, first-letter-capitalised class. #332 is the
+    // reason the key is `alias` and not `aliasOf`: one lowercase word adds no
+    // fourth case scheme. resolveSubtype yields octo:Alias, the subtype the
+    // `aliased` link type declared in octothorpes.json queries.
     it('should extract an alias from an octo:aliases link element', async () => {
       const htmlWithAlias = `
         <!DOCTYPE html>
@@ -390,7 +392,7 @@ describe('External Harmonizer Support', () => {
       `
       const result = await harmonizeSource(htmlWithAlias)
 
-      const alias = result.octothorpes.find(o => o.type === 'aliasOf')
+      const alias = result.octothorpes.find(o => o.type === 'alias')
       expect(alias).toBeDefined()
       expect(alias.uri).toBe('https://rentry.co/abc/raw')
     })
@@ -407,12 +409,12 @@ describe('External Harmonizer Support', () => {
       `
       const result = await harmonizeSource(htmlWithAliasMeta)
 
-      const alias = result.octothorpes.find(o => o.type === 'aliasOf')
+      const alias = result.octothorpes.find(o => o.type === 'alias')
       expect(alias).toBeDefined()
       expect(alias.uri).toBe('https://rentry.co/abc/raw')
     })
 
-    it('should carry terms on an alias and resolve to the AliasOf subtype', async () => {
+    it('should carry terms on an alias and resolve to the Alias subtype', async () => {
       const htmlWithAliasTerms = `
         <!DOCTYPE html>
         <html>
@@ -424,10 +426,10 @@ describe('External Harmonizer Support', () => {
       `
       const result = await harmonizeSource(htmlWithAliasTerms)
 
-      const alias = result.octothorpes.find(o => o.type === 'aliasOf')
+      const alias = result.octothorpes.find(o => o.type === 'alias')
       expect(alias).toBeDefined()
       expect(alias.terms).toEqual(['notes', 'mirror'])
-      expect(resolveSubtype(alias.type)).toBe('AliasOf')
+      expect(resolveSubtype(alias.type)).toBe('Alias')
     })
 
     it('should extract terms from citation links', async () => {

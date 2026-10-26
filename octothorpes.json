@@ -43,7 +43,7 @@
 
   "api": {
     "linkTypes": [
-      { "by": "aliased", "subtype": "AliasOf", "label": "Alias of" }
+      { "by": "aliased", "subtype": "Alias", "label": "Alias" }
     ],
     "documentRecord": [{ "predicate": "richContent", "range": "literal" }],
     "publishers": {

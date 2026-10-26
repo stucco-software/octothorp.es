@@ -51,7 +51,7 @@ describe('#296 builtin harmonizers as flat JSON files', () => {
 
       // The fixture is a frozen pre-#296 capture, so it pins LOSS, not growth:
       // every legacy section must still be present and byte-identical, while a
-      // builtin gaining a NEW section (e.g. `aliasOf`, added with the octo:aliases
+      // builtin gaining a NEW section (e.g. `alias`, added with the octo:aliases
       // rule) is a legitimate change that must not fail this parity check.
       for (const [section, rules] of Object.entries(expectedSchema)) {
         expect(actualSchema[section], `${name}.${section}`).toEqual(rules)

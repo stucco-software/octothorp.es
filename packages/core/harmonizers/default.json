@@ -183,7 +183,7 @@
         }
       ]
     },
-    "aliasOf": {
+    "alias": {
       "s": "source",
       "o": [
         {
