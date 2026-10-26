@@ -49,6 +49,14 @@
   "api": {
     "linkTypes": [
       {
+        "by": "aliased",
+        "objects": "notTerms",
+        "subtype": "Alias",
+        "relationTerms": true,
+        "label": "Alias",
+        "source": "declared"
+      },
+      {
         "by": "all",
         "objects": "none",
         "subtype": null,
@@ -262,6 +270,7 @@
           "whatever"
         ],
         "by": [
+          "aliased",
           "all",
           "backlinked",
           "bookmarked",
