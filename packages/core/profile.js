@@ -195,6 +195,9 @@ export const PROFILE_DEFAULTS = Object.freeze({
     // allows.terms means unrestricted; blocks wins over allows.
     access: {
       registration: 'registered',
+      // Anchored-submission gate (no-auth client tier). 'never' is the default
+      // so existing relays see no change; orthogonal to registration.
+      submissions: 'never',
       badge: null,
       blocks: { domains: [], terms: [] },
       // allows.schemes (#241): non-http(s) URI schemes this client's subjects

@@ -135,6 +135,12 @@
               "enum": ["registered", "open", "closed"],
               "default": "registered"
             },
+            "submissions": {
+              "description": "Whether this relay accepts blobject submissions from client anchors (no-auth client tier). Orthogonal to registration: registration gates index requests by origin, submissions governs the anchored-submission path. 'never' (default): submissions are refused and every existing relay behaves exactly as before. 'registered': submissions are accepted only from anchor origins verified in this client's datastore. 'open': submissions are accepted from any anchor origin.",
+              "type": "string",
+              "enum": ["never", "registered", "open"],
+              "default": "never"
+            },
             "badge": {
               "description": "Path to the badge image OP uses operationally (e.g. #168: badge triggers a registration request). Operational, not identity — identity imagery is identity.images.",
               "type": "string"

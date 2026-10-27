@@ -254,6 +254,26 @@ describe('createProfile — validation and guards', () => {
   })
 })
 
+describe('createProfile — policies.access.submissions', () => {
+  it('defaults to "never" when absent', () => {
+    const p = load({}, withInstance)
+    expect(p.policies.access.submissions).toBe('never')
+  })
+
+  it('accepts each value of the enum', () => {
+    for (const submissions of ['never', 'registered', 'open']) {
+      const p = load({ policies: { access: { submissions } } }, withInstance)
+      expect(p.policies.access.submissions, submissions).toBe(submissions)
+    }
+  })
+
+  it('rejects a value outside the enum with the friendly enum message', () => {
+    expect(() => load({ policies: { access: { submissions: 'invite' } } }, withInstance)).toThrow(
+      /policies\.access\.submissions is "invite" — allowed values: "never", "registered", "open"/
+    )
+  })
+})
+
 describe('createProfile — access-gate coherence warnings', () => {
   const warned = (authored) => {
     const warn = vi.fn()
