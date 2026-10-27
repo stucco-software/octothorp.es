@@ -9,13 +9,23 @@
  * Tokens are never written to the store.
  */
 
-import { createHash, timingSafeEqual } from 'node:crypto'
-
 const FETCH_TIMEOUT_MS = 5000
 const MAX_BODY_BYTES = 4096
 const HASH_RE = /^[0-9a-f]{64}$/
 
-const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest()
+// Web Crypto (Node 18+ and browsers); no node builtins so the module is bundle-safe.
+const sha256 = async (text) =>
+  new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
+
+const hexToBytes = (hex) => Uint8Array.from(hex.match(/../g), (b) => parseInt(b, 16))
+
+// Fixed-length XOR-accumulate compare; lengths checked first.
+function constantTimeEqual(a, b) {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i]
+  return diff === 0
+}
 
 // Read at most MAX_BODY_BYTES; null if the body is larger.
 async function readLimited(res) {
@@ -35,7 +45,10 @@ async function readLimited(res) {
       }
       chunks.push(value)
     }
-    return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString('utf8')
+    const all = new Uint8Array(total)
+    let offset = 0
+    for (const c of chunks) { all.set(c, offset); offset += c.byteLength }
+    return new TextDecoder().decode(all)
   }
   const text = await res.text()
   return text.length > MAX_BODY_BYTES ? null : text
@@ -45,7 +58,7 @@ async function readLimited(res) {
  * Fetch the anchor's expected token HASH. Never throws, never hangs. Redirects
  * are not followed (an anchor must not bounce the relay elsewhere), and the
  * body is size-capped.
- * @returns {Promise<{hash: Buffer}|{reason: 'unreachable'|'no-wellknown'}>}
+ * @returns {Promise<{hash: Uint8Array}|{reason: 'unreachable'|'no-wellknown'}>}
  */
 async function fetchExpected(anchor, fetchImpl, timeoutMs) {
   const controller = new AbortController()
@@ -66,7 +79,7 @@ async function fetchExpected(anchor, fetchImpl, timeoutMs) {
     } catch { return { reason: 'no-wellknown' } }
     const h = body?.submissionTokenHash
     if (typeof h !== 'string' || !HASH_RE.test(h.toLowerCase())) return { reason: 'no-wellknown' }
-    return { hash: Buffer.from(h.toLowerCase(), 'hex') }
+    return { hash: hexToBytes(h.toLowerCase()) }
   } catch {
     return { reason: 'unreachable' }
   } finally {
@@ -110,7 +123,7 @@ export async function verifyAnchorSubmission({
   const { value } = entry
   if ('reason' in value) return { ok: false, reason: value.reason }
   // Constant-time compare of sha256(presented) against the published hash.
-  if (typeof token !== 'string' || !timingSafeEqual(sha256(token), value.hash)) {
+  if (typeof token !== 'string' || !constantTimeEqual(await sha256(token), value.hash)) {
     return { ok: false, reason: 'token-mismatch' }
   }
   return { ok: true }
