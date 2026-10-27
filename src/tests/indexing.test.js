@@ -755,9 +755,16 @@ describe('Indexing Business Logic', () => {
         .mockResolvedValueOnce(true)  // extantBacklink
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o, 'Link')
-      // No gate reads, nothing to write.
+      // No gate reads. No mention or backlink rewrite either — the only write
+      // is the idempotent subject-type backfill (#241): subjects stored before
+      // mentionTriples typed them are invisible to /get (`?s rdf:type
+      // ?pageType` is required), and re-linking is how old data heals.
       expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
-      expect(mockInsert).not.toHaveBeenCalled()
+      expect(mockInsert).toHaveBeenCalledTimes(1)
+      const triples = mockInsert.mock.calls[0][0]
+      expect(triples).toContain(`<${s}> rdf:type <octo:Page>`)
+      expect(triples).not.toContain('_:backlink')
+      expect(triples).not.toContain('octo:hasPart')
     })
 
     it('ingestBlobject records octo:endorses per origin, deduped within a page', async () => {
