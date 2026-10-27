@@ -10,9 +10,16 @@
 
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*$/
 
-// Dot segments would be collapsed by URL normalization and escape /.op/.
+// Dot segments (even as %2E, per WHATWG URL) are collapsed by normalization and
+// would escape /.op/. Escape them with a leading "~" (which encodeURIComponent
+// leaves alone): "." -> "~.", "~.." -> "~~..". decodeSegment strips one "~".
+const DOT_LIKE = /^~*\.{1,2}$/
 const encodeSegment = (seg) =>
-  seg === '.' ? '%2E' : seg === '..' ? '%2E%2E' : encodeURIComponent(seg)
+  DOT_LIKE.test(seg) ? '~' + seg : encodeURIComponent(seg)
+const decodeSegment = (seg) => {
+  const d = decodeURIComponent(seg)
+  return /^~+\.{1,2}$/.test(d) ? d.slice(1) : d
+}
 
 /**
  * @param {string} anchor - bare lowercase host (e.g. "notes.example.com"); not validated
@@ -54,7 +61,7 @@ export const unscopeIri = (anchor, scopedIri) => {
   }
   let remainder
   try {
-    remainder = rest.slice(slash + 1).split('/').map(decodeURIComponent).join('/')
+    remainder = rest.slice(slash + 1).split('/').map(decodeSegment).join('/')
   } catch {
     throw new Error(`unscopeIri: malformed scoped IRI: ${scopedIri}`)
   }
