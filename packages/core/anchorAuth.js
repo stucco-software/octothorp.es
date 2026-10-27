@@ -44,6 +44,7 @@ async function fetchExpected(anchor, fetchImpl, timeoutMs) {
  * @param {number} [args.cooldown=300] - Cache TTL in seconds (mirrors indexing.cooldown)
  * @param {number} [args.timeoutMs=5000] - Fetch timeout
  * @param {() => number} [args.now=Date.now]
+ * @param {number} [args.maxEntries=1000] - Cache size bound (oldest evicted)
  * @returns {Promise<{ok: true}|{ok: false, reason: 'unreachable'|'no-wellknown'|'token-mismatch'}>}
  */
 export async function verifyAnchorSubmission({
@@ -54,11 +55,18 @@ export async function verifyAnchorSubmission({
   cooldown = 300,
   timeoutMs = FETCH_TIMEOUT_MS,
   now = Date.now,
+  maxEntries = 1000,
 }) {
   let entry = cache?.get(anchor)
   if (!entry || entry.expires <= now()) {
     entry = { value: await fetchExpected(anchor, fetchImpl, timeoutMs), expires: now() + cooldown * 1000 }
-    if (cache && cooldown > 0) cache.set(anchor, entry)
+    if (cache && cooldown > 0) {
+      // Bound memory: evict oldest-inserted entries (Map keeps insertion order).
+      if (!cache.has(anchor)) {
+        while (cache.size >= maxEntries) cache.delete(cache.keys().next().value)
+      }
+      cache.set(anchor, entry)
+    }
   }
   const { value } = entry
   if ('reason' in value) return { ok: false, reason: value.reason }

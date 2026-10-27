@@ -28,7 +28,9 @@ const harmonizerWhitelist = [
 // Shared across indexers so one anchor has one cache entry (keys are lowercase).
 const anchorAuthCache = new Map()
 // Bare lowercase host[:port]; anything else could break out of a SPARQL IRI.
-const ANCHOR_RE = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/
+// Requires a dotted public-style name: no IP literals, no single-label hosts
+// (localhost), no port, so a submission cannot aim the relay's fetch inward.
+const ANCHOR_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$/
 
 const indexingRateLimitMap = new Map()
 const MAX_INDEXING_REQUESTS = 10
@@ -1111,12 +1113,13 @@ export const createIndexer = (deps) => {
   // restriction. Opaque URIs are then scoped under the anchor and the anchor
   // `octo:claims` each scoped IRI. Raw opaque IRIs never reach the store.
   //
-  // opts: { anchor, token, submissions?, access?, instance?, fetchImpl? }
-  // `submissions` / `access` override the createIndexer deps per call.
+  // opts: { anchor, token, instance?, fetchImpl? }
   const submitBlobject = async (blobject, opts = {}) => {
-    const { anchor: rawAnchor, token, submissions: submissionsOverride, access: accessOverride, instance: inst, fetchImpl } = opts
-    const mode = submissionsOverride ?? submissionsConfig ?? 'never'
-    const effectiveAccess = accessOverride ? normalizeAccess(accessOverride) : access
+    // Config comes from createIndexer deps ONLY: no per-call submissions/access
+    // override, so a route forwarding request values cannot weaken the gates.
+    const { anchor: rawAnchor, token, instance: inst, fetchImpl } = opts
+    const mode = submissionsConfig ?? 'never'
+    const effectiveAccess = access
 
     // Gate 1: the knob. Nothing is fetched or written when it is "never".
     if (mode !== 'registered' && mode !== 'open') {
@@ -1173,7 +1176,15 @@ export const createIndexer = (deps) => {
     const scope = (uri) => {
       let scheme
       try { scheme = getScheme(uri) } catch { scheme = null }
-      if (scheme === 'http' || scheme === 'https') return uri
+      if (scheme === 'http' || scheme === 'https') {
+        // Normalize through URL so nothing hostile reaches a SPARQL <IRI>.
+        let href
+        try { href = new URL(uri).href } catch { href = null }
+        if (!href || /[<>"{}|\\^`\s]/.test(href)) {
+          throw new Error(`Submission rejected: invalid URI ${JSON.stringify(uri)}`)
+        }
+        return href
+      }
       try {
         const out = scopeIri(anchor, uri)
         scoped.add(out)
@@ -1194,9 +1205,10 @@ export const createIndexer = (deps) => {
     const { type: _type, ...rest } = blobject
     const submitted = { ...rest, '@id': scopedSubject, octothorpes }
 
-    await ingestBlobject(submitted, { instance: inst, access: effectiveAccess, claimed: true })
-
+    // Claims first: a claim with no data is harmless, but data with no claim
+    // would be unattributed if the ingest failed midway.
     await insert([...scoped].map((iri) => `<${anchorOrigin}> octo:claims <${iri}> .`).join('\n'))
+    await ingestBlobject(submitted, { instance: inst, access: effectiveAccess, claimed: true })
   }
 
   const handler = async (uri, harmonizer, requestingOrigin, config) => {

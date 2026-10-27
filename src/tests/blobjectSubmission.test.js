@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createIndexer } from '../../packages/core/indexer.js'
+import { verifyAnchorSubmission } from '../../packages/core/anchorAuth.js'
 
 // No-auth client tier, Task B4: the blobject submission gate. A client
 // harmonizes locally and submits blobject JSON with { anchor, token }; the
@@ -215,5 +216,75 @@ describe('blocks and rate', () => {
     }
     await expect(indexer.submitBlobject(blob(), { anchor, token: 'tok', fetchImpl }))
       .rejects.toThrow(/Rate limit/)
+  })
+})
+
+describe('hostile input and hardening', () => {
+  const run = (b, anchor = freshAnchor(), indexer = makeIndexer()) =>
+    indexer.submitBlobject(b, { anchor, token: 'tok', fetchImpl: wellKnown() })
+
+  it('a hostile http(s) object URI is safely encoded, never raw', async () => {
+    const evil = 'https://x.test/> . <https://victim> octo:verified "true" . <'
+    await run(blob({ octothorpes: [{ type: 'link', uri: evil }] }))
+    const out = inserted()
+    expect(out).not.toContain('<https://victim>')
+    expect(out).not.toMatch(/<[^>]*[ "][^>]*>/)
+    expect(out).toContain('https://x.test/%3E%20.%20%3Chttps://victim%3E')
+  })
+
+  it('an unparseable http(s) object URI rejects the whole submission with no insert', async () => {
+    await expect(run(blob({ octothorpes: [{ type: 'link', uri: 'https://' }] }))).rejects.toThrow(/invalid URI/)
+    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockQuery).not.toHaveBeenCalled()
+  })
+
+  it('hostile hashtag terms cannot inject triples (encoded in the term IRI)', async () => {
+    await run(blob({ octothorpes: [{ type: 'hashtag', uri: 'a> . <https://victim> octo:verified "true" . <b' }, 'x> <y'] }))
+    const out = inserted()
+    expect(out).not.toContain('<https://victim>')
+    expect(out).not.toMatch(/<[^>]*[ "][^>]*>/)
+  })
+
+  it('writes claims BEFORE ingest data', async () => {
+    await run(blob())
+    const first = mockInsert.mock.calls[0][0]
+    expect(first).toContain('octo:claims')
+    expect(first).not.toContain('octo:octothorpes')
+  })
+
+  it('rejects IP-literal and single-label anchors before any fetch', async () => {
+    for (const a of ['127.0.0.1', '10.0.0.5', '[::1]', '::1', 'localhost', 'host:8080', 'a.b.1']) {
+      const fetchImpl = wellKnown()
+      await expect(makeIndexer().submitBlobject(blob(), { anchor: a, token: 'tok', fetchImpl }))
+        .rejects.toThrow(/anchor/)
+      expect(fetchImpl).not.toHaveBeenCalled()
+    }
+  })
+
+  it('anchorAuth cache is bounded', async () => {
+    const cache = new Map()
+    const fetchImpl = wellKnown()
+    for (let i = 0; i < 10; i++) {
+      await verifyAnchorSubmission({ anchor: `h${i}.example.test`, token: 'tok', fetchImpl, cache, cooldown: 300, maxEntries: 3 })
+    }
+    expect(cache.size).toBe(3)
+    expect(cache.has('h9.example.test')).toBe(true)
+    expect(cache.has('h0.example.test')).toBe(false)
+  })
+
+  it('per-call submissions/access overrides are ignored', async () => {
+    const indexer = makeIndexer({ submissions: 'never' })
+    await expect(indexer.submitBlobject(blob(), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown(), submissions: 'open' }))
+      .rejects.toThrow(/submissions/)
+    const open = makeIndexer()
+    await expect(open.submitBlobject(blob({ '@id': 'zotero://a/b' }), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown(), access: { allows: { schemes: ['zotero'] } } }))
+      .rejects.toThrow(/not declared/)
+  })
+
+  it('a scoped subject linking to an http(s) Webring writes no membership', async () => {
+    const queryBoolean = vi.fn(async (q) => q.includes('<octo:Webring>'))
+    const indexer = makeIndexer({ queryBoolean })
+    await run(blob({ octothorpes: [{ type: 'link', uri: 'https://ring.test/' }] }), freshAnchor(), indexer)
+    expect(inserted()).not.toContain('hasMember')
   })
 })
