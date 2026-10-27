@@ -101,6 +101,29 @@ const buildProfile = () => ([
   { name: 'profile-resolved', path: '/profile.json', raw: true },
 ])
 
+// Cross-origin captures over the seeded secondary origins (#334). Each carries
+// `scopeHosts`: the hosts whose pages the smoketest seeds, so enrichment on
+// those object rows is real asserted state while enrichment on anything else
+// (e.g. unseeded demo.ideastore.dev pages that neocities links to) is still
+// nulled per #258. Without per-query scoping, the primary-only default would
+// null the seeded neocities rows and the captures would pin nothing.
+const DEVDEMO_HOME = 'https://nimdaghlian.github.io/devdemo'
+const NEOCITIES = 'https://octothorpes.neocities.org'
+const WEBRING_INDEX = 'https://demo.ideastore.dev/demo-webring'
+const buildSecondary = () => {
+  const scopeHosts = ['nimdaghlian.github.io', 'octothorpes.neocities.org', 'demo.ideastore.dev']
+  return [
+    // (a) Backlink endorsed by the devdemo origin: neocities -> devdemo home.
+    { name: 'secondary-backlinked-neocities', path: `/get/everything/backlinked/debug?s=${NEOCITIES}`, scopeHosts },
+    // (a') the same pair seen from the devdemo side
+    { name: 'secondary-backlinked-devdemo-home', path: `/get/everything/backlinked/debug?s=${DEVDEMO_HOME}`, scopeHosts },
+    // (b) webring membership: neocities is a member of the demo webring
+    { name: 'secondary-in-webring', path: `/get/pages/in-webring/debug?s=${WEBRING_INDEX}`, scopeHosts },
+    // (c) neocities' outbound links; the devdemo pair must carry type Backlink
+    { name: 'secondary-linked-neocities', path: `/get/everything/linked/debug?s=${NEOCITIES}`, scopeHosts },
+  ]
+}
+
 export const buildQueries = (manifest, { tier = 'smoke' } = {}) => [
   ...buildMatrix({ full: tier === 'full' }),
   ...buildRss(),
@@ -108,4 +131,5 @@ export const buildQueries = (manifest, { tier = 'smoke' } = {}) => [
   ...buildCompleteness(),
   ...buildFilters(),
   ...buildProfile(),
+  ...buildSecondary(),
 ]

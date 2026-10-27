@@ -51,18 +51,20 @@ const hostOf = (uri) => {
  * @param {*} value - parsed JSON payload (typically an array of records)
  * @param {{ instanceOrigin?: string, scopeHost?: string }} opts
  *   instanceOrigin - e.g. "http://localhost:5173" (no trailing slash)
- *   scopeHost      - host of the origin under test, e.g. "nimdaghlian.github.io".
- *                    When set, enrichment on object rows outside it is nulled.
+ *   scopeHost      - host (or array of hosts) of the origin(s) under test, e.g.
+ *                    "nimdaghlian.github.io". Pass several for captures that
+ *                    span seeded secondary origins (#334). When set, enrichment on object rows outside it is nulled.
  * @returns {*} normalized deep copy
  */
 export const normalize = (value, opts = {}) => {
   const { instanceOrigin, scopeHost } = opts
 
+  const scopeHosts = [].concat(scopeHost || [])
   const isOutOfScopeObjectRow = (node) =>
-    scopeHost &&
+    scopeHosts.length > 0 &&
     node.role === 'object' &&
     typeof node.uri === 'string' &&
-    hostOf(node.uri) !== scopeHost
+    !scopeHosts.includes(hostOf(node.uri))
 
   const walk = (node) => {
     if (Array.isArray(node)) {
