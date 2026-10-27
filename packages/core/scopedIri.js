@@ -10,8 +10,12 @@
 
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*$/
 
+// Dot segments would be collapsed by URL normalization and escape /.op/.
+const encodeSegment = (seg) =>
+  seg === '.' ? '%2E' : seg === '..' ? '%2E%2E' : encodeURIComponent(seg)
+
 /**
- * @param {string} anchor - anchor host (e.g. "notes.example.com")
+ * @param {string} anchor - bare lowercase host (e.g. "notes.example.com"); not validated
  * @param {string} rawUri - raw opaque URI of the form "<scheme>://<remainder>"
  * @returns {string} scoped https IRI
  */
@@ -22,7 +26,12 @@ export const scopeIri = (anchor, rawUri) => {
     throw new Error(`scopeIri: not a scheme://remainder URI: ${rawUri}`)
   }
   const remainder = rawUri.slice(idx + 3)
-  const encoded = remainder.split('/').map(encodeURIComponent).join('/')
+  let encoded
+  try {
+    encoded = remainder.split('/').map(encodeSegment).join('/')
+  } catch {
+    throw new Error(`scopeIri: cannot encode (malformed Unicode): ${rawUri}`)
+  }
   return `https://${anchor}/.op/${scheme}/${encoded}`
 }
 
@@ -43,6 +52,11 @@ export const unscopeIri = (anchor, scopedIri) => {
   if (slash === -1 || !SCHEME_RE.test(scheme)) {
     throw new Error(`unscopeIri: malformed scoped IRI: ${scopedIri}`)
   }
-  const remainder = rest.slice(slash + 1).split('/').map(decodeURIComponent).join('/')
+  let remainder
+  try {
+    remainder = rest.slice(slash + 1).split('/').map(decodeURIComponent).join('/')
+  } catch {
+    throw new Error(`unscopeIri: malformed scoped IRI: ${scopedIri}`)
+  }
   return `${scheme}://${remainder}`
 }

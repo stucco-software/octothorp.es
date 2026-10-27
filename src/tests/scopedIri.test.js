@@ -14,11 +14,27 @@ describe('scopedIri', () => {
     'x-thing://',
     'x-thing://a//b',
     'web+app://%41/%2F/100%',
+    'x://../../evil',
+    'x://a/./b',
+    'x://a/../b',
     'a.b-c+d1://q?x=1#y?z',
   ]
 
   it.each(samples)('round-trips exactly: %s', (raw) => {
     expect(unscopeIri(anchor, scopeIri(anchor, raw))).toBe(raw)
+  })
+
+  it.each(samples)('stays under /.op/ after URL normalization: %s', (raw) => {
+    expect(new URL(scopeIri(anchor, raw)).pathname.startsWith('/.op/')).toBe(true)
+  })
+
+  it('does not collide dot-segment URIs', () => {
+    expect(new URL(scopeIri(anchor, 'x://a/../b')).href).not.toBe(new URL(scopeIri(anchor, 'x://b')).href)
+  })
+
+  it('wraps decode/encode errors', () => {
+    expect(() => unscopeIri(anchor, `https://${anchor}/.op/x/%E0%A4%A`)).toThrow(/malformed/)
+    expect(() => scopeIri(anchor, 'x://\ud800')).toThrow(/malformed/)
   })
 
   it('produces https://<anchor>/.op/<scheme>/<remainder> with scheme visible', () => {
