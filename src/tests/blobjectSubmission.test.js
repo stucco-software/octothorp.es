@@ -337,6 +337,19 @@ describe('final-review hardening', () => {
     expect(mockInsert).not.toHaveBeenCalled()
   })
 
+  it('a non-string uri-range documentRecord value rejects the whole submission (array bypass)', async () => {
+    const indexer = makeIndexer({ documentRecordSchema: [{ predicate: 'contentUrl', range: 'uri' }] })
+    await expect(run(blob({ documentRecord: { contentUrl: ['file:///etc/passwd'] } }), indexer)).rejects.toThrow(/Submission rejected.*string URI/)
+    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockQuery).not.toHaveBeenCalled()
+  })
+
+  it('non-uri-range non-string documentRecord values pass through unchanged', async () => {
+    const indexer = makeIndexer({ documentRecordSchema: [{ predicate: 'pages', range: 'number' }, { predicate: 'contentUrl', range: 'uri' }] })
+    await run(blob({ documentRecord: { pages: 12, contentUrl: '' } }), indexer)
+    expect(inserted()).toContain('"12"^^')
+  })
+
   it('an opaque OBJECT with an undeclared scheme rejects the whole submission', async () => {
     await expect(run(blob({ octothorpes: [{ type: 'link', uri: 'file:///x' }] }))).rejects.toThrow(/not declared/)
     expect(mockInsert).not.toHaveBeenCalled()

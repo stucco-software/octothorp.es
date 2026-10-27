@@ -1226,7 +1226,12 @@ export const createIndexer = (deps) => {
       documentRecord = { ...documentRecord }
       for (const entry of documentRecordSchema) {
         const v = documentRecord[entry.predicate]
-        if (entry.range === 'uri' && typeof v === 'string' && v !== '') documentRecord[entry.predicate] = scope(v)
+        if (entry.range !== 'uri' || v === undefined || v === null || v === '') continue
+        // recordDocumentRecord String()-coerces values, so a non-string would dodge scoping.
+        if (typeof v !== 'string') {
+          throw new Error(`Submission rejected: documentRecord.${entry.predicate} must be a string URI.`)
+        }
+        documentRecord[entry.predicate] = scope(v)
       }
     }
     const { type: _type, ...rest } = blobject
