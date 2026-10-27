@@ -61,6 +61,16 @@ describe('createIndexer indexingMode', () => {
     expect(mockInsert).toHaveBeenCalled()
   })
 
+  it('active: indexes the page but mints NO octo:verified origin', async () => {
+    servePage(optIn + '<link rel="octo:octothorpes" href="#cats">')
+    const indexer = makeIndexer({ indexingMode: 'active' })
+    await indexer.handler(freshUri(), 'default', null, config)
+    const written = [...mockInsert.mock.calls, ...mockQuery.mock.calls].map((c) => c[0]).join('\n')
+    expect(written).toContain('octo:hasPart')
+    expect(written).not.toContain('octo:verified')
+    expect(written).not.toContain('<octo:Origin>')
+  })
+
   it('active: a page that opted out is still refused', async () => {
     servePage('<meta name="robots" content="noindex">')
     const indexer = makeIndexer({ indexingMode: 'active' })

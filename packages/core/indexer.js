@@ -48,7 +48,15 @@ const subtypeMap = {
   Button: 'Button',
 }
 
-export const resolveSubtype = (type) => subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))
+const SAFE_SUBTYPE = /^[A-Za-z][A-Za-z0-9_-]*$/
+export const resolveSubtype = (type) => {
+  const out = typeof type === 'string' ? (subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))) : null
+  // The result lands inside `rdf:type <octo:${subtype}>`; anything that is not a plain class name is an injection vector.
+  if (!out || !SAFE_SUBTYPE.test(out)) throw new Error('Invalid relationship type.')
+  return out
+}
+// Relationship types a no-auth submission may use (built-ins only).
+const SUBMISSION_TYPES = new Set([...Object.keys(subtypeMap), 'link', 'Link', 'backlink', 'Backlink'])
 
 ////////// stateless exports (no deps, safe to export directly) //////////
 
@@ -1114,6 +1122,7 @@ export const createIndexer = (deps) => {
   // `octo:claims` each scoped IRI. Raw opaque IRIs never reach the store.
   //
   // opts: { anchor, token, instance?, fetchImpl? }
+  const submissionCooldowns = new Map()
   const submitBlobject = async (blobject, opts = {}) => {
     // Config comes from createIndexer deps ONLY: no per-call submissions/access
     // override, so a route forwarding request values cannot weaken the gates.
@@ -1173,7 +1182,10 @@ export const createIndexer = (deps) => {
     // Scope every opaque URI; http(s) objects pass through. Anything that
     // cannot be scoped rejects the whole submission before a write.
     const scoped = new Set()
-    const scope = (uri) => {
+    const declared = effectiveAccess.allows.schemes
+    const scope = (rawUri) => {
+      // One canonical form for claim and data: the ingest paths deslash, so deslash first.
+      const uri = deslash(rawUri)
       let scheme
       try { scheme = getScheme(uri) } catch { scheme = null }
       if (scheme === 'http' || scheme === 'https') {
@@ -1184,6 +1196,9 @@ export const createIndexer = (deps) => {
           throw new Error(`Submission rejected: invalid URI ${JSON.stringify(uri)}`)
         }
         return href
+      }
+      if (!declared.includes(scheme)) {
+        throw new Error(`Submission rejected: URI scheme "${scheme}:" is not declared in policies.access.allows.schemes on this server.`)
       }
       try {
         const out = scopeIri(anchor, uri)
@@ -1200,13 +1215,39 @@ export const createIndexer = (deps) => {
       if (o.type === 'hashtag') return [o]
       // endorse declarations are an origin concept; not accepted from submissions
       if (o.type === 'endorse') return []
+      if (!SUBMISSION_TYPES.has(o.type)) {
+        throw new Error('Submission rejected: invalid relationship type.')
+      }
       return [{ ...o, uri: scope(o.uri) }]
     })
+    // uri-range documentRecord values are written as IRIs: opaque ones must be scoped too.
+    let documentRecord = blobject.documentRecord
+    if (documentRecord && typeof documentRecord === 'object' && Array.isArray(documentRecordSchema)) {
+      documentRecord = { ...documentRecord }
+      for (const entry of documentRecordSchema) {
+        const v = documentRecord[entry.predicate]
+        if (entry.range === 'uri' && typeof v === 'string' && v !== '') documentRecord[entry.predicate] = scope(v)
+      }
+    }
     const { type: _type, ...rest } = blobject
-    const submitted = { ...rest, '@id': scopedSubject, octothorpes }
+    const submitted = { ...rest, '@id': scopedSubject, octothorpes, ...(documentRecord ? { documentRecord } : {}) }
 
     // Claims first: a claim with no data is harmless, but data with no claim
     // would be unattributed if the ingest failed midway.
+    // Per-(anchor, subject) cooldown (indexing.cooldown), after all validation
+    // so a rejected payload does not start the clock.
+    if (cooldownSeconds > 0) {
+      const nowMs = Date.now()
+      if (submissionCooldowns.size > 5000) {
+        for (const [k, t] of submissionCooldowns) if (t <= nowMs) submissionCooldowns.delete(k)
+      }
+      const key = `${anchor}|${scopedSubject}`
+      if ((submissionCooldowns.get(key) ?? 0) > nowMs) {
+        throw new Error('This subject was recently submitted. Please try again later.')
+      }
+      submissionCooldowns.set(key, nowMs + cooldownSeconds * 1000)
+    }
+
     await insert([...scoped].map((iri) => `<${anchorOrigin}> octo:claims <${iri}> .`).join('\n'))
     await ingestBlobject(submitted, { instance: inst, access: effectiveAccess, claimed: true })
   }
@@ -1416,7 +1457,10 @@ export const createIndexer = (deps) => {
     const blobject = harmonizer === policyHarmonizer
       ? policyBlobject
       : await dispatch(source, harmonizer, parsed.normalized, ua)
-    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed })
+    // Active mode (crawler-initiated) never mints octo:verified origins: it skips
+    // registration, so it must not manufacture it either (treated like an
+    // endorsement-only admission).
+    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
   }
 
   return {

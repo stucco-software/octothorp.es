@@ -26,7 +26,11 @@ export const createRemoteClient = (opts = {}) => {
 
   const request = async (url, init) => {
     const res = await fetchImpl(url, init)
-    if (!res.ok) throw new Error(`Relay request failed: ${res.status} ${url}`)
+    if (!res.ok) {
+      let detail = ''
+      try { detail = (await res.text?.() ?? res.statusText ?? '').toString().slice(0, 500) } catch { detail = res.statusText ?? '' }
+      throw new Error(`Relay request failed: ${res.status} ${url}${detail ? ` - ${detail}` : ''}`)
+    }
     return res.json()
   }
 

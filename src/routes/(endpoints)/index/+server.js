@@ -42,7 +42,7 @@ export const _mapErrorToStatus = (message) => {
 // Blobject submission gate errors are plain Errors (deferred: typed errors),
 // so match on message. Order matters: rate first, then 400 shape errors.
 export const _mapSubmissionErrorToStatus = (message) => {
-  if (message.includes('Rate limit')) return 429
+  if (message.includes('Rate limit') || message.includes('recently submitted')) return 429
   if (message.includes('does not accept blobject submissions')) return 403 // submissions: never
   if (message.includes('Anchor is not registered')) return 403
   if (message.includes('blocked or banned')) return 403
@@ -108,7 +108,10 @@ export async function POST({ request }) {
         return json({ ok: true, ...(peek.uri ? { uri: peek.uri } : {}) }, { status: 200 })
       } catch (e) {
         console.error('blobject submission error:', e)
-        return error(_mapSubmissionErrorToStatus(e.message), e.message)
+        // One external message for every auth failure (no reachability oracle);
+        // the specific reason stays in the log above.
+        const msg = e.message.includes('Anchor auth failed') ? 'Anchor authentication failed.' : e.message
+        return error(_mapSubmissionErrorToStatus(e.message), msg)
       }
     }
   }

@@ -2,32 +2,71 @@
  * Stateless anchor auth for the no-auth client tier.
  *
  * An anchor proves it consents to a submission by serving
- * `https://<anchor>/.well-known/octothorpes` as JSON `{ "submissionToken": "<string>" }`.
- * The relay fetches that document on each submission (cached in memory for the
- * indexing cooldown) and compares. Tokens are never written to the store.
+ * `https://<anchor>/.well-known/octothorpes` as JSON `{ "submissionTokenHash": "<sha256 hex of the token>" }`.
+ * The relay fetches that document (cached in memory for the indexing cooldown)
+ * and compares sha256(presented token) in constant time. The document is
+ * public, so it carries only the hash; there is no plaintext fallback.
+ * Tokens are never written to the store.
  */
 
+import { createHash, timingSafeEqual } from 'node:crypto'
+
 const FETCH_TIMEOUT_MS = 5000
+const MAX_BODY_BYTES = 4096
+const HASH_RE = /^[0-9a-f]{64}$/
+
+const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest()
+
+// Read at most MAX_BODY_BYTES; null if the body is larger.
+async function readLimited(res) {
+  const declared = Number(res.headers?.get?.('content-length'))
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return null
+  if (res.body?.getReader) {
+    const reader = res.body.getReader()
+    const chunks = []
+    let total = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_BODY_BYTES) {
+        try { await reader.cancel() } catch { /* ignore */ }
+        return null
+      }
+      chunks.push(value)
+    }
+    return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString('utf8')
+  }
+  const text = await res.text()
+  return text.length > MAX_BODY_BYTES ? null : text
+}
 
 /**
- * Fetch the anchor's expected token. Never throws, never hangs.
- * @returns {Promise<{token: string}|{reason: 'unreachable'|'no-wellknown'}>}
+ * Fetch the anchor's expected token HASH. Never throws, never hangs. Redirects
+ * are not followed (an anchor must not bounce the relay elsewhere), and the
+ * body is size-capped.
+ * @returns {Promise<{hash: Buffer}|{reason: 'unreachable'|'no-wellknown'}>}
  */
 async function fetchExpected(anchor, fetchImpl, timeoutMs) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await Promise.race([
-      fetchImpl(`https://${anchor}/.well-known/octothorpes`, { signal: controller.signal }),
+      fetchImpl(`https://${anchor}/.well-known/octothorpes`, { signal: controller.signal, redirect: 'manual' }),
       new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('timeout')))),
     ])
-    if (!res.ok) return { reason: 'no-wellknown' }
-    let body
-    try { body = await res.json() } catch { return { reason: 'no-wellknown' } }
-    if (!body || typeof body.submissionToken !== 'string' || body.submissionToken === '') {
+    if (!res.ok || res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
       return { reason: 'no-wellknown' }
     }
-    return { token: body.submissionToken }
+    let body
+    try {
+      const text = await readLimited(res)
+      if (text === null) return { reason: 'no-wellknown' }
+      body = JSON.parse(text)
+    } catch { return { reason: 'no-wellknown' } }
+    const h = body?.submissionTokenHash
+    if (typeof h !== 'string' || !HASH_RE.test(h.toLowerCase())) return { reason: 'no-wellknown' }
+    return { hash: Buffer.from(h.toLowerCase(), 'hex') }
   } catch {
     return { reason: 'unreachable' }
   } finally {
@@ -70,6 +109,9 @@ export async function verifyAnchorSubmission({
   }
   const { value } = entry
   if ('reason' in value) return { ok: false, reason: value.reason }
-  if (typeof token !== 'string' || token !== value.token) return { ok: false, reason: 'token-mismatch' }
+  // Constant-time compare of sha256(presented) against the published hash.
+  if (typeof token !== 'string' || !timingSafeEqual(sha256(token), value.hash)) {
+    return { ok: false, reason: 'token-mismatch' }
+  }
   return { ok: true }
 }

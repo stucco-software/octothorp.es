@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createIndexer } from '../../packages/core/indexer.js'
+import { createHash } from 'node:crypto'
+import { createIndexer, resolveSubtype } from '../../packages/core/indexer.js'
 import { verifyAnchorSubmission } from '../../packages/core/anchorAuth.js'
 
 // No-auth client tier, Task B4: the blobject submission gate. A client
@@ -17,17 +18,20 @@ const freshAnchor = () => `notes${++anchorSeq}.example.test`
 
 const wellKnown = (token = 'tok') => vi.fn(async () => ({
   ok: true,
-  json: async () => ({ submissionToken: token }),
+  status: 200,
+  headers: { get: () => null },
+  text: async () => JSON.stringify({ submissionTokenHash: createHash('sha256').update(token).digest('hex') }),
 }))
 
-const makeIndexer = ({ queryBoolean = vi.fn(async () => false), access, submissions = 'open', cooldown = 0 } = {}) =>
+const makeIndexer = ({ queryBoolean = vi.fn(async () => false), access, submissions = 'open', cooldown = 0, documentRecordSchema } = {}) =>
   createIndexer({
     insert: mockInsert,
     query: mockQuery,
     queryBoolean,
     queryArray: mockQueryArray,
     instance,
-    access: { allows: { schemes: ['obsidian'] }, ...access },
+    access: { allows: { schemes: ['obsidian', 'zotero'] }, ...access },
+    documentRecordSchema,
     submissions,
     cooldown,
   })
@@ -116,7 +120,7 @@ describe('gate 2: anchor auth', () => {
     const anchor = freshAnchor()
     await indexer.submitBlobject(blob(), { anchor: anchor.toUpperCase(), token: 'tok', fetchImpl })
     expect(fetchImpl.mock.calls[0][0]).toBe(`https://${anchor}/.well-known/octothorpes`)
-    await indexer.submitBlobject(blob(), { anchor, token: 'tok', fetchImpl })
+    await indexer.submitBlobject(blob({ '@id': 'obsidian://other' }), { anchor, token: 'tok', fetchImpl })
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 })
@@ -131,7 +135,7 @@ describe('gate 3: subject restriction', () => {
 
   it('rejects an undeclared scheme', async () => {
     const indexer = makeIndexer()
-    await expect(indexer.submitBlobject(blob({ '@id': 'zotero://select/items/9' }), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown() }))
+    await expect(indexer.submitBlobject(blob({ '@id': 'file:///notes/9' }), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown() }))
       .rejects.toThrow(/not declared/)
     expect(mockInsert).not.toHaveBeenCalled()
   })
@@ -185,7 +189,7 @@ describe('scoping and writes', () => {
   })
 
   it('an unscopeable object rejects the whole submission', async () => {
-    const indexer = makeIndexer()
+    const indexer = makeIndexer({ access: { allows: { schemes: ['obsidian', 'mailto'] } } })
     await expect(indexer.submitBlobject(blob({ octothorpes: [{ type: 'link', uri: 'mailto:x@y.test' }] }), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown() }))
       .rejects.toThrow(/scope/)
     expect(mockInsert).not.toHaveBeenCalled()
@@ -277,7 +281,7 @@ describe('hostile input and hardening', () => {
     await expect(indexer.submitBlobject(blob(), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown(), submissions: 'open' }))
       .rejects.toThrow(/submissions/)
     const open = makeIndexer()
-    await expect(open.submitBlobject(blob({ '@id': 'zotero://a/b' }), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown(), access: { allows: { schemes: ['zotero'] } } }))
+    await expect(open.submitBlobject(blob({ '@id': 'file:///a/b' }), { anchor: freshAnchor(), token: 'tok', fetchImpl: wellKnown(), access: { allows: { schemes: ['file'] } } }))
       .rejects.toThrow(/not declared/)
   })
 
@@ -286,5 +290,88 @@ describe('hostile input and hardening', () => {
     const indexer = makeIndexer({ queryBoolean })
     await run(blob({ octothorpes: [{ type: 'link', uri: 'https://ring.test/' }] }), freshAnchor(), indexer)
     expect(inserted()).not.toContain('hasMember')
+  })
+})
+
+describe('final-review hardening', () => {
+  const run = (b, indexer = makeIndexer(), anchor = freshAnchor()) =>
+    indexer.submitBlobject(b, { anchor, token: 'tok', fetchImpl: wellKnown() })
+
+  it('rejects an injected octothorpe type with no write at all (claims included)', async () => {
+    const evil = 'x> . <https://victim.test> <octo:verified> "true" . _:z <octo:y'
+    await expect(run(blob({ octothorpes: [{ type: evil, uri: 'https://a.test/' }] }))).rejects.toThrow(/relationship type/)
+    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockQuery).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-string type', async () => {
+    await expect(run(blob({ octothorpes: [{ type: { a: 1 }, uri: 'https://a.test/' }] }))).rejects.toThrow(/relationship type/)
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('resolveSubtype refuses output that is not a safe class name', () => {
+    expect(() => resolveSubtype('x> . <y')).toThrow(/relationship type/)
+    expect(() => resolveSubtype(42)).toThrow(/relationship type/)
+    expect(resolveSubtype('bookmark')).toBe('Bookmark')
+    expect(resolveSubtype('alias')).toBe('Alias')
+  })
+
+  it('accepts known types case-insensitively (link, Bookmark)', async () => {
+    await run(blob({ octothorpes: [{ type: 'Bookmark', uri: 'https://a.test/' }, { type: 'link', uri: 'https://b.test/' }] }))
+    expect(inserted()).toContain('octo:Bookmark')
+  })
+
+  it('scopes opaque documentRecord uri-range values; no raw opaque IRI is written', async () => {
+    const indexer = makeIndexer({ documentRecordSchema: [{ predicate: 'contentUrl', range: 'uri' }] })
+    const anchor = freshAnchor()
+    await run(blob({ documentRecord: { contentUrl: 'obsidian://open?vault=v&file=z' } }), indexer, anchor)
+    const out = inserted()
+    expect(out).not.toMatch(/obsidian:\/\//)
+    expect(out).toContain(`https://${anchor}/.op/obsidian/`)
+    expect(out).toContain(`<https://${anchor}> octo:claims <https://${anchor}/.op/obsidian/open%3Fvault%3Dv%26file%3Dz>`)
+  })
+
+  it('rejects an undeclared-scheme documentRecord uri value with no write', async () => {
+    const indexer = makeIndexer({ documentRecordSchema: [{ predicate: 'contentUrl', range: 'uri' }] })
+    await expect(run(blob({ documentRecord: { contentUrl: 'file:///etc/passwd' } }), indexer)).rejects.toThrow(/not declared/)
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('an opaque OBJECT with an undeclared scheme rejects the whole submission', async () => {
+    await expect(run(blob({ octothorpes: [{ type: 'link', uri: 'file:///x' }] }))).rejects.toThrow(/not declared/)
+    expect(mockInsert).not.toHaveBeenCalled()
+  })
+
+  it('a declared opaque object is accepted', async () => {
+    await run(blob({ octothorpes: [{ type: 'link', uri: 'zotero://select/items/2' }] }))
+    expect(inserted()).toContain('/.op/zotero/select/items/2')
+  })
+
+  it('trailing slash: claim and data share one canonical scoped IRI', async () => {
+    const anchor = freshAnchor()
+    await run(blob({ '@id': 'obsidian://vault/dir/', octothorpes: [{ type: 'link', uri: 'zotero://a/b/' }] }), makeIndexer(), anchor)
+    const out = inserted()
+    expect(out).toContain(`octo:claims <https://${anchor}/.op/obsidian/vault/dir>`)
+    expect(out).toContain(`<https://${anchor}/.op/obsidian/vault/dir> octo:octothorpes <https://${anchor}/.op/zotero/a/b>`)
+    expect(out).not.toMatch(/\/\.op\/[^ >]*\/>/)
+  })
+
+  it('cooldown: a second submission of the same (anchor, subject) inside the window is rejected', async () => {
+    const indexer = makeIndexer({ cooldown: 300 })
+    const anchor = freshAnchor()
+    await run(blob(), indexer, anchor)
+    mockInsert.mockClear()
+    await expect(run(blob(), indexer, anchor)).rejects.toThrow(/recently submitted/)
+    expect(mockInsert).not.toHaveBeenCalled()
+    // a different subject, or the same subject under another anchor, is fine
+    await run(blob({ '@id': 'obsidian://other' }), indexer, anchor)
+    await run(blob(), indexer, freshAnchor())
+  })
+
+  it('cooldown 0 disables the per-subject wait', async () => {
+    const indexer = makeIndexer({ cooldown: 0 })
+    const anchor = freshAnchor()
+    await run(blob(), indexer, anchor)
+    await run(blob(), indexer, anchor)
   })
 })

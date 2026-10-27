@@ -46,10 +46,21 @@ describe('POST /index mode:blobject', () => {
     ['Submission subject rejected: nope', 400],
     ['Submission rejected: invalid URI "x"', 400],
     ['Rate limit exceeded. Please try again later.', 429],
+    ['This subject was recently submitted. Please try again later.', 429],
     ['boom', 500],
   ])('%s -> %i', async (msg, status) => {
     submitBlobject.mockRejectedValue(new Error(msg))
     expect(await statusOf(post(body))).toBe(status)
+  })
+})
+
+describe('auth failures are indistinguishable externally', () => {
+  it.each(['unreachable', 'no-wellknown', 'token-mismatch'])('%s -> identical 403 body', async (reason) => {
+    submitBlobject.mockRejectedValue(new Error(`Anchor auth failed: ${reason}`))
+    let err
+    try { await post(body) } catch (e) { err = e }
+    expect(err.status).toBe(403)
+    expect(JSON.stringify(err.body)).toBe(JSON.stringify({ message: 'Anchor authentication failed.' }))
   })
 })
 

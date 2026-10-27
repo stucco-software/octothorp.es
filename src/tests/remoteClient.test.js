@@ -15,6 +15,13 @@ describe('createRemoteClient construction', () => {
     })
 })
 
+describe('error detail', () => {
+  it('includes the relay response body in thrown errors', async () => {
+    const c = createRemoteClient({ relay: 'https://r.example', fetchImpl: async () => ({ ok: false, status: 403, text: async () => 'Anchor authentication failed.' }) })
+    await expect(c.get('everything', 'posted')).rejects.toThrow(/403.*Anchor authentication failed\./)
+  })
+})
+
 describe('requests', () => {
   const relay = 'https://r.example/'
   it('get() builds /get/what/by with query params', async () => {
