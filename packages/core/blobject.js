@@ -170,7 +170,15 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           }
           current.octothorpes.push(newEntry);
         } else {
-          if (oType !== 'link') {
+          // Row order must not decide the type. A relationship node can carry
+          // several types (a promoted Link is typed Link AND Backlink), and the
+          // query emits one row per type. Generic spellings ('link' fallback,
+          // stored 'Link') never override a specific subtype; between two
+          // specific subtypes the lexically first wins, so the result is
+          // order-independent.
+          const isGeneric = (t) => t.toLowerCase() === 'link'
+          const prev = current.octothorpes[existingIndex].type
+          if (!isGeneric(oType) && (isGeneric(prev) || oType < prev)) {
             current.octothorpes[existingIndex].type = oType;
           }
           if (relationTerm) {
