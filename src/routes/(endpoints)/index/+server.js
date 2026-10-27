@@ -6,7 +6,7 @@
 import { json, error } from '@sveltejs/kit'
 import { getProfile } from '$lib/profile.js'
 import { queryBoolean } from '$lib/sparql.js'
-import { handler, parseRequestBody } from '$lib/indexing.js'
+import { handler, submitBlobject, parseRequestBody } from '$lib/indexing.js'
 import { parseUri } from 'octothorpes'
 
 const instance = getProfile().identity.instance
@@ -36,6 +36,19 @@ export const _mapErrorToStatus = (message) => {
   if (message.includes('not opted in')) return 403
   if (message.includes('forbids indexing')) return 403
   if (knownErrors.some(e => message.includes(e))) return 400
+  return 500
+}
+
+// Blobject submission gate errors are plain Errors (deferred: typed errors),
+// so match on message. Order matters: rate first, then 400 shape errors.
+export const _mapSubmissionErrorToStatus = (message) => {
+  if (message.includes('Rate limit')) return 429
+  if (message.includes('does not accept blobject submissions')) return 403 // submissions: never
+  if (message.includes('Anchor is not registered')) return 403
+  if (message.includes('blocked or banned')) return 403
+  if (message.includes('Anchor auth failed')) return 403 // unreachable / no-wellknown / token-mismatch
+  if (message.includes('needs a valid anchor') || message.includes('needs an @id')) return 400
+  if (message.includes('Submission subject rejected') || message.includes('Submission rejected')) return 400
   return 500
 }
 
@@ -83,6 +96,23 @@ export async function GET(req) {
 }
 
 export async function POST({ request }) {
+  // Blobject submissions authenticate by anchor token, not Origin, so they are
+  // detected first. The body is peeked from a clone; all other POSTs fall
+  // through to the original path untouched.
+  if ((request.headers.get('content-type') || '').includes('application/json')) {
+    let peek = null
+    try { peek = await request.clone().json() } catch { /* not JSON: normal path reports it */ }
+    if (peek?.mode === 'blobject') {
+      try {
+        await submitBlobject(peek.blobject, { anchor: peek.anchor, token: peek.token })
+        return json({ ok: true, ...(peek.uri ? { uri: peek.uri } : {}) }, { status: 200 })
+      } catch (e) {
+        console.error('blobject submission error:', e)
+        return error(_mapSubmissionErrorToStatus(e.message), e.message)
+      }
+    }
+  }
+
   const requestOrigin = request.headers.get('origin') || request.headers.get('referer')
 
   if (!requestOrigin) {

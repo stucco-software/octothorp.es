@@ -66,6 +66,8 @@ const indexer = createIndexer({
   // axis and is orthogonal to all of it. `blocks.terms` is neither: it is a
   // write-time, statement-level filter that applies in every registration mode.
   access: profile.policies.access,
+  // No-auth tier: the gate for blobject submissions (default "never").
+  submissions: profile.policies.access.submissions,
   // #217 stage 4: the same endorser array op.js injects. Without it the gate's
   // endorsement stage had no sources and /index denied every unregistered
   // origin, marker or not.
@@ -85,6 +87,7 @@ export const harmonize = (content, harmonizer, options = {}) =>
 
 export const {
   handler,
+  submitBlobject,
   handleThorpe,
   handleMention,
   handleWebring,
