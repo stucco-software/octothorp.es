@@ -48,7 +48,7 @@ export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
 export { buildVocabulary, vocabularyToJsonLd, vocabularyToTurtle, RANGE_TO_RDFS, BUILTIN_CLASSES, BUILTIN_PROPERTIES } from './vocabulary.js'
 export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer, validatePublisher } from './discover.js'
-export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originAllowed, termBlocked, termAllowed, termWritable, checkAccessGate, resolveEndorsers } from './access.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originAllowed, termBlocked, termAllowed, termWritable, checkAccessGate, resolveEndorsers, subjectSchemeMode } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is

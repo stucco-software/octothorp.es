@@ -197,7 +197,10 @@ export const PROFILE_DEFAULTS = Object.freeze({
       registration: 'registered',
       badge: null,
       blocks: { domains: [], terms: [] },
-      allows: { domains: [], terms: [] },
+      // allows.schemes (#241): non-http(s) URI schemes this client's subjects
+      // may carry (names without the colon). Empty = http(s)-only, the
+      // pre-#241 behavior.
+      allows: { domains: [], terms: [], schemes: [] },
       // Admit-only second chance, tried after the registration check fails and
       // meaningful only under 'registered'. Empty = stage off, which is why an
       // absent endorsement block leaves every existing profile unchanged.
@@ -365,6 +368,8 @@ export const createProfile = ({ profile, schema, env = {}, warn = console.warn, 
   access.allows = {
     domains: expandList(access.allows?.domains, 'allows.domains', readFile),
     terms: expandList(access.allows?.terms, 'allows.terms', readFile),
+    // Inline array only (no file form): scheme lists are short by nature.
+    schemes: [...(access.allows?.schemes ?? [])],
   }
   access.endorsement = { sources: [...(access.endorsement?.sources ?? [])] }
 

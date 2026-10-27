@@ -1642,3 +1642,21 @@ Filed, not fixed: **#331** — `extantBacklink` asks whether *any* blank-node re
 Suite: 2073 passed, 16 skipped, 0 failed (integration auto-skipped, dev server down).
 
 **Files affected:** `octothorpes.json`, `packages/core/harmonizers/default.json`, `src/tests/harmonizer.test.js`, `src/tests/harmonizerCoherence.test.js`, `src/tests/builtinHarmonizers.test.js`.
+
+## #241: profile-declared origin schemes; no junk origin for non-http subjects (2026-10-26)
+
+Non-http(s) subjects (`file:`, `obsidian:`) have no URL origin — `new URL(s).origin` is the string `"null"` — and the mention/thorpe write path fed that straight into its origin triples. Oxigraph base-resolves the relative `<null>` IRI into a junk node (locally `<http://0.0.0.0:7878/null>`) carrying `octo:verified "true"`, `rdf:type octo:Origin` and `octo:hasPart <file://...>`, one per store base.
+
+The fix is declaration, not detection. A client lists its non-http(s) schemes in the profile: `policies.access.allows.schemes`, an array of scheme names without the colon (`["file", "obsidian"]`), beside `allows.domains`/`allows.terms`. Three write-path behaviors:
+
+- **http(s)**: unchanged, full origin side-effects.
+- **declared scheme**: relationship triples are written; every origin side-effect is skipped (no `octo:Origin` node, no `octo:verified`, no `octo:hasPart`). Webring membership and Link-to-Backlink promotion, both origin concepts, are also skipped.
+- **undeclared non-http scheme**: rejected with a clear error before any write. A junk origin node can never be minted again. Absent/empty `schemes` is today's http(s)-only behavior, so every existing profile is unaffected.
+
+The read-path sibling had a different root cause than suspected: `mentionTriples` types the OBJECT `octo:Page` but never the subject, and `op link` writes through `handleMention` alone (no page index, so no `createPage`). The subject therefore has no `rdf:type` triple at all, and `/get`'s query shape requires `?s rdf:type ?pageType` — verified against the live local store: the exact phase-1 pattern returns the `file:` subject with the type triple present and drops it without. `mentionTriples` now types the subject too, and an already-extant mention still backfills the type triple, so re-linking heals pre-#241 data. (This was latent for http subjects linked via `op link` without a full index, not just non-http ones.)
+
+`subjectSchemeMode(subject, schemes)` in `packages/core/access.js` is the one classification point ('origin' | 'declared' | throw), exported from core; the indexer wraps it with the client-level `allows.schemes` default and per-call access overrides thread through `ingestBlobject`/`handler` exactly like the term lists.
+
+Suite: 2104 passed, 12 skipped; the only failure is the known `in-webring` seeding gap (external data a wiped store cannot reseed), documented 2026-10-22.
+
+**Files affected:** `packages/core/access.js`, `packages/core/indexer.js`, `packages/core/profile.js`, `packages/core/profile.schema.json`, `packages/core/client.js`, `src/tests/originSchemes.test.js` (new), `src/tests/accessGate.test.js`, `src/tests/indexing.test.js`, `src/tests/profileLoader.test.js`, `src/tests/resolveProfile.test.js`, `src/tests/schemaRoutes.test.js`.

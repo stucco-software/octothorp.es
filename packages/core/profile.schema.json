@@ -182,6 +182,12 @@
                     { "type": "string" }
                   ],
                   "default": []
+                },
+                "schemes": {
+                  "description": "Non-http(s) URI schemes this client's SUBJECTS may carry (#241), as bare scheme names WITHOUT the colon (e.g. [\"file\", \"obsidian\"]). DECLARATION, not detection: opaque-origin schemes have no URL origin (`new URL(s).origin` is the string \"null\"), so the write path cannot derive how to treat them — it must be told. A subject whose scheme is declared here writes its relationship triples but SKIPS every origin side-effect (no octo:Origin node, no octo:verified, no octo:hasPart); a subject with an undeclared non-http scheme is rejected with an error. Absent or empty means no non-http subjects are admitted — today's http(s)-only behavior. http and https never need declaring and this list never affects them.",
+                  "type": "array",
+                  "default": [],
+                  "items": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*$" }
                 }
               }
             },

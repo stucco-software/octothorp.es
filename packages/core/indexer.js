@@ -5,7 +5,7 @@
 // delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
-import { normalizeAccess, checkAccessGate, termWritable } from './access.js'
+import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
@@ -415,15 +415,34 @@ export const createIndexer = (deps) => {
       : url.origin
   }
 
-  const createOctothorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
+  // #241: classify a subject's scheme against this client's declared
+  // allows.schemes. 'origin' (http/https) writes origin side-effects as
+  // always; 'declared' writes relationship triples only; an undeclared
+  // non-http scheme throws. Never call storedOrigin on a non-'origin'
+  // subject — `new URL(s).origin` is the string "null" there, which Oxigraph
+  // base-resolves into a junk origin node.
+  const subjectOriginMode = (s, schemes) =>
+    subjectSchemeMode(s, schemes ?? access.allows.schemes)
+
+  // The origin side-effect cluster for a subject: its origin's hasPart edge
+  // plus (unless endorsement-only) the origin-registration triples. Empty for
+  // a declared non-http scheme (#241) — relationships only, no origin node.
+  const subjectOriginBlock = (s, { endorsed = false, schemes } = {}) => {
+    if (subjectOriginMode(s, schemes) !== 'origin') return ''
+    const origin = storedOrigin(s)
+    return `
+      <${origin}> octo:hasPart <${s}> .
+      ${originTriples(origin, endorsed)}
+    `
+  }
+
+  const createOctothorpe = async (s, o, { instance: inst, endorsed = false, schemes } = {}) => {
     const base = inst || instance
     let now = Date.now()
-    const origin = storedOrigin(s)
     return await insert(`
       <${s}> ${p} <${termIri(base, o)}> .
       <${s}> <${termIri(base, o)}> ${now} .
-      <${origin}> octo:hasPart <${s}> .
-      ${originTriples(origin, endorsed)}
+      ${subjectOriginBlock(s, { endorsed, schemes })}
       <${s}> rdf:type <octo:Page> .
     `)
   }
@@ -448,13 +467,16 @@ export const createIndexer = (deps) => {
 
   // Triple-builder helpers: produce raw triple strings (no INSERT DATA wrapper)
   // so handleMention can batch multiple writes into a single SPARQL update.
-  const mentionTriples = (s, o, now, { endorsed = false } = {}) => {
-    const origin = storedOrigin(s)
+  const mentionTriples = (s, o, now, { endorsed = false, schemes } = {}) => {
+    // #241 read-path fix: TYPE THE SUBJECT too. /get's query shape requires
+    // `?s rdf:type ?pageType`, and a subject written only through the mention
+    // path (op link, no full page index) never got a type triple — which is
+    // why non-http subjects silently vanished from /get output.
     return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
-      <${origin}> octo:hasPart <${s}> .
-      ${originTriples(origin, endorsed)}
+      <${s}> rdf:type <octo:Page> .
+      ${subjectOriginBlock(s, { endorsed, schemes })}
       <${o}> rdf:type <octo:Page>.
     `
   }
@@ -813,8 +835,10 @@ export const createIndexer = (deps) => {
 
   ////////// handlers //////////
 
-  const handleThorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
+  const handleThorpe = async (s, o, { instance: inst, endorsed = false, schemes } = {}) => {
     const base = inst || instance
+    // #241: reject an undeclared non-http subject BEFORE any write.
+    subjectOriginMode(s, schemes)
     console.log(`#`, s, o)
     let isExtantTerm = await extantTerm(o, { instance: base })
     if (!isExtantTerm) {
@@ -822,7 +846,7 @@ export const createIndexer = (deps) => {
     }
     let isExtantThorpe = await extantThorpe(s, o, { instance: base })
     if (!isExtantThorpe) {
-      await createOctothorpe(s, o, { instance: base, endorsed })
+      await createOctothorpe(s, o, { instance: base, endorsed, schemes })
       await recordUsage(s, o, { instance: base })
     }
   }
@@ -833,10 +857,14 @@ export const createIndexer = (deps) => {
   //    (carries metadata: subtype, terms, created timestamp)
   // Both are needed: the direct triple supports simple joins in queries,
   // the blank node carries relationship metadata.
-  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false } = {}) => {
+  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false, schemes } = {}) => {
     const base = inst || instance
     const subj = deslash(s)
     const obj = deslash(o)
+    // #241: 'origin' (http/https) or 'declared' (profile-declared non-http
+    // scheme — relationship triples only, no origin side-effects). An
+    // undeclared non-http scheme throws HERE, before any read or write.
+    const originMode = subjectOriginMode(subj, schemes)
 
     // Phase 1: parallel reads. All existence checks are independent.
     // On production each SPARQL ASK is ~1–2s; running them sequentially with
@@ -848,7 +876,10 @@ export const createIndexer = (deps) => {
       ...terms.map(term => extantTerm(term, { instance: base })),
     ])
 
-    if (isObjWebring) {
+    // Webring membership is an ORIGIN concept (the member is the subject's
+    // domain), so it is an origin side-effect and skipped for declared
+    // non-http subjects (#241).
+    if (isObjWebring && originMode === 'origin') {
       const domain = await getDomainForUrl(subj)
       const hasLinked = await queryBoolean(`
         ask {
@@ -866,7 +897,13 @@ export const createIndexer = (deps) => {
     const blocks = []
 
     if (!isExtantMention) {
-      blocks.push(mentionTriples(subj, obj, now, { endorsed }))
+      blocks.push(mentionTriples(subj, obj, now, { endorsed, schemes }))
+    } else {
+      // #241 backfill: subjects written before mentionTriples typed them (op
+      // link wrote mention + backlink only) are invisible to /get, whose query
+      // requires `?s rdf:type ?pageType`. Idempotent, so re-linking heals
+      // pre-#241 data without rewriting the mention.
+      blocks.push(`<${subj}> rdf:type <octo:Page> .`)
     }
 
     // #213: Backlink is the ONLY subtype gated by endorsement. A Backlink node
@@ -887,7 +924,7 @@ export const createIndexer = (deps) => {
       if (!mintBacklink) {
         console.log(`backlink withheld: ${obj} has not reciprocated or endorsed ${subj}`)
       }
-    } else if (mintBacklink && subtype === 'Link' && storedOrigin(subj) !== storedOrigin(obj)) {
+    } else if (mintBacklink && subtype === 'Link' && originMode === 'origin' && storedOrigin(subj) !== storedOrigin(obj)) {
       promoteLink = Boolean(await checkEndorsement(subj, obj, subtype))
       if (promoteLink) {
         console.log(`link promoted to backlink: ${obj} has reciprocated or endorsed ${subj}`)
@@ -945,6 +982,13 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     const s = harmed['@id']
 
+    // #241: the subject's scheme decides nothing here beyond admission — an
+    // undeclared non-http scheme is rejected before ANY triple is written.
+    // The per-call access override (already normalized on the handler path)
+    // carries its own schemes list; otherwise the client-level one applies.
+    const schemes = (accessOverride ?? access).allows?.schemes ?? []
+    subjectOriginMode(s, schemes)
+
     // #311: key the exists-check on octo:created, not rdf:type. Pages first
     // seen as link targets get only `rdf:type octo:Page` from mentionTriples;
     // an rdf:type check would skip createPage forever and the page would never
@@ -1000,13 +1044,13 @@ export const createIndexer = (deps) => {
 
     for (const octothorpe of admittedOctothorpes) {
       if (typeof octothorpe === 'string') {
-        await handleThorpe(s, octothorpe, { instance: base, endorsed })
+        await handleThorpe(s, octothorpe, { instance: base, endorsed, schemes })
         continue
       }
       if (!octothorpe.uri) continue
       let octoURI = deslash(octothorpe.uri)
       if (octothorpe.type === 'hashtag') {
-        await handleThorpe(s, octoURI, { instance: base, endorsed })
+        await handleThorpe(s, octoURI, { instance: base, endorsed, schemes })
       } else if (octothorpe.type === 'endorse') {
         friends.endorsed.push(octoURI)
       } else {
@@ -1016,7 +1060,7 @@ export const createIndexer = (deps) => {
           console.warn(`[index] term "${t}" is not writable on this server; statement dropped`)
           return false
         })
-        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
+        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed, schemes })
       }
     }
 

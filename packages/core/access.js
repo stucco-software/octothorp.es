@@ -7,7 +7,7 @@
  * verification function are all injected. Core never reads a profile.
  */
 
-import { canonicalOrigin } from './uri.js'
+import { canonicalOrigin, getScheme } from './uri.js'
 import { termIriSegment, termName } from './utils.js'
 
 export const REGISTRATION_MODES = Object.freeze(['registered', 'open', 'closed'])
@@ -24,7 +24,11 @@ export const ACCESS_DEFAULTS = Object.freeze({
   // allows.terms at statement-write time in every mode. An EMPTY allows.terms
   // means unrestricted, never 'allow nothing'; blocks wins over allows.
   blocks: Object.freeze({ domains: [], terms: [] }),
-  allows: Object.freeze({ domains: [], terms: [] }),
+  // allows.schemes (#241): non-http(s) URI schemes this client's subjects may
+  // carry (scheme names without the colon, e.g. ["file", "obsidian"]).
+  // DECLARATION, not detection: absent/empty means no non-http subjects are
+  // admitted. http(s) never needs declaring.
+  allows: Object.freeze({ domains: [], terms: [], schemes: [] }),
   // ENDORSEMENT is an admit-only second chance, tried after the registration
   // check fails and meaningful only under 'registered'. `sources` names (and
   // orders) the endorsers injected via createClient({ endorsers }); empty —
@@ -33,8 +37,8 @@ export const ACCESS_DEFAULTS = Object.freeze({
 })
 
 /**
- * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, allows?:{domains?:string[],terms?:string[]}, endorsement?:{sources?:string[]}}} [access]
- * @returns {{registration:string, blocks:{domains:string[],terms:string[]}, allows:{domains:string[],terms:string[]}, endorsement:{sources:string[]}}}
+ * @param {{registration?:string, blocks?:{domains?:string[],terms?:string[]}, allows?:{domains?:string[],terms?:string[],schemes?:string[]}, endorsement?:{sources?:string[]}}} [access]
+ * @returns {{registration:string, blocks:{domains:string[],terms:string[]}, allows:{domains:string[],terms:string[],schemes:string[]}, endorsement:{sources:string[]}}}
  */
 export const normalizeAccess = (access = {}) => {
   const registration = access.registration ?? ACCESS_DEFAULTS.registration
@@ -53,9 +57,39 @@ export const normalizeAccess = (access = {}) => {
     allows: {
       domains: [...(access.allows?.domains ?? [])],
       terms: [...(access.allows?.terms ?? [])],
+      // Scheme names are case-insensitive (RFC 3986 §3.1); store lowercase so
+      // the comparison in subjectSchemeMode is exact.
+      schemes: (access.allows?.schemes ?? []).map((s) => String(s).toLowerCase()),
     },
     endorsement: { sources: [...(access.endorsement?.sources ?? [])] },
   }
+}
+
+/**
+ * Classify a SUBJECT URI for the write path by its scheme (#241). This is the
+ * declaration-over-detection ruling: a client DECLARES which non-http(s)
+ * schemes it uses in policies.access.allows.schemes; nothing is sniffed from
+ * `new URL(s).origin` (whose "null" string for opaque-origin schemes is what
+ * used to mint a junk <null> origin node).
+ *
+ *   'origin'   — http/https: write origin side-effects exactly as before.
+ *   'declared' — a declared non-http scheme: write the relationship triples,
+ *                SKIP every origin side-effect (no octo:Origin node, no
+ *                octo:verified, no octo:hasPart).
+ *   throws     — an undeclared non-http scheme: rejected outright, so a junk
+ *                origin node can never be minted again.
+ *
+ * @param {string} subject
+ * @param {string[]} [schemes] - access.allows.schemes (lowercase scheme names)
+ * @returns {'origin'|'declared'}
+ */
+export const subjectSchemeMode = (subject, schemes = []) => {
+  const scheme = getScheme(subject)
+  if (scheme === 'http' || scheme === 'https') return 'origin'
+  if (schemes.includes(scheme)) return 'declared'
+  throw new Error(
+    `Subject URI scheme "${scheme}:" is not declared in policies.access.allows.schemes on this server.`
+  )
 }
 
 const hostOf = (value) => {
