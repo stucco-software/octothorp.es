@@ -61,3 +61,32 @@ describe('getBlobjectFromResponse - limit/offset window (#185)', () => {
     expect(ids(await getBlobjectFromResponse(response, { limitResults: 'no-limit', offsetResults: '3' }))).toEqual(['d', 'e'])
   })
 })
+
+describe('getBlobjectFromResponse - subtype precedence across rows', () => {
+  const row = (blankNodeObj) => ({
+    s: { value: 'https://source.com/page' },
+    o: { value: 'https://target.com/page' },
+    date: { value: '1700000000000' },
+    pageType: { value: 'octo:Page' },
+    oType: { value: 'octo:Page' },
+    blankNodeObj: { value: blankNodeObj },
+  })
+  const typeFor = async (...objs) => {
+    const [blob] = await getBlobjectFromResponse({ results: { bindings: objs.map(row) } })
+    return blob.octothorpes.find(o => o.uri === 'https://target.com/page').type
+  }
+
+  it('Backlink survives Link in either row order (promoted dual-typed node)', async () => {
+    expect(await typeFor('octo:Link', 'octo:Backlink')).toBe('Backlink')
+    expect(await typeFor('octo:Backlink', 'octo:Link')).toBe('Backlink')
+  })
+
+  it('a specific subtype beats Link regardless of order', async () => {
+    expect(await typeFor('octo:Link', 'octo:Bookmark')).toBe('Bookmark')
+    expect(await typeFor('octo:Bookmark', 'octo:Link')).toBe('Bookmark')
+  })
+
+  it('stays Link when only Link rows exist', async () => {
+    expect(await typeFor('octo:Link', 'octo:Link')).toBe('Link')
+  })
+})
