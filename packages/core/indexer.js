@@ -267,7 +267,13 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers, indexingMode } = deps
+
+  // #336: what TRIGGERS indexing ('request' | 'active'). Mirrors
+  // createClient.indexSource: under 'active' the crawler's own fetch stands in
+  // for origin registration. Opt-outs, bans, blocklists and the rate bucket
+  // are unaffected. A per-call config.policyMode still wins.
+  const defaultPolicyMode = (indexingMode && typeof indexingMode === 'object') ? indexingMode.mode : indexingMode
 
   // #217: re-index cooldown in SECONDS, injected from
   // profile.policies.indexing.cooldown. 0 disables the wait.
@@ -1099,8 +1105,8 @@ export const createIndexer = (deps) => {
       // through for the future index-policy work — see #221.
       serverName,
       queryBoolean: configQueryBoolean,
-      verifyOrigin,
-      policyMode,
+      verifyOrigin: verifyOriginOverride,
+      policyMode: policyModeOverride,
       policyCheck,
       feedApproved,
       // Per-call override of the client-level access block, mirroring how
@@ -1109,6 +1115,14 @@ export const createIndexer = (deps) => {
     } = config
     const effectiveAccess = accessOverride ? normalizeAccess(accessOverride) : access
     const base = inst || instance
+    const policyMode = policyModeOverride ?? defaultPolicyMode
+    const active = policyMode === 'active'
+    // Active mode: registration is skipped (the gate's other stages still run)
+    // and, unless this is a policy check, the requesting origin is the URI's own.
+    const verifyOrigin = verifyOriginOverride ?? (active ? async () => true : undefined)
+    if (active && !policyCheck) {
+      requestingOrigin = new URL(uri).origin
+    }
     const callerContext = { policyMode, policyCheck, feedApproved }
 
     // 1. Parse and normalize URI

@@ -54,9 +54,9 @@ const indexer = createIndexer({
   handlerRegistry,
   getHarmonizer,
   documentRecordSchema: documentRecord,
-  // Forward-looking: createIndexer does not consume indexingMode today (the
-  // HTTP /index path is request-mode-only until core reads this). Passed
-  // through now so wiring doesn't need revisiting once it does.
+  // createIndexer consumes this (#336): 'active' skips origin registration on
+  // the HTTP /index path, as createClient.indexSource does. Other gate stages
+  // (opt-out, bans, blocklist, rate bucket) still apply.
   indexingMode: profile.policies.indexing.mode,
   // Re-index cooldown in seconds (#217). Consumed by recentlyIndexed in every mode.
   cooldown: profile.policies.indexing.cooldown,
