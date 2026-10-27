@@ -19,6 +19,7 @@ import { mergeLinkTypes } from './linkTypes.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
+export { createRemoteClient } from './remoteClient.js'
 export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'

@@ -1660,3 +1660,17 @@ The read-path sibling had a different root cause than suspected: `mentionTriples
 Suite: 2104 passed, 12 skipped; the only failure is the known `in-webring` seeding gap (external data a wiped store cannot reseed), documented 2026-10-22.
 
 **Files affected:** `packages/core/access.js`, `packages/core/indexer.js`, `packages/core/profile.js`, `packages/core/profile.schema.json`, `packages/core/client.js`, `src/tests/originSchemes.test.js` (new), `src/tests/accessGate.test.js`, `src/tests/indexing.test.js`, `src/tests/profileLoader.test.js`, `src/tests/resolveProfile.test.js`, `src/tests/schemaRoutes.test.js`.
+
+## No-auth client tier: blobject submissions + #336 active-mode bypass (2026-10-27)
+
+Clients that cannot or will not hold relay credentials can now harmonize locally and submit blobject JSON. `POST /index` with `mode: "blobject"` and `{ anchor, token, blobject }` runs `submitBlobject` in core. It is off by default: `policies.access.submissions` is `"never"` | `"registered"` | `"open"`, default `"never"`, so existing relays see no change.
+
+Gates, in order: the submissions knob (and, for `registered`, a verified anchor origin; blocks.domains and bans apply), anchor auth, per-anchor rate bucket, then subject restriction. Anchor auth is stateless: the anchor serves `/.well-known/octothorpes` with `{ "submissionTokenHash": "<sha256 hex>" }`; the relay fetches it (no redirects, 4KB cap, cached per `indexing.cooldown`) and compares `sha256(token)` in constant time. There is no plaintext fallback. Every auth failure returns one external 403 message; the specific reason is logged only.
+
+Subjects must be non-http(s) with a scheme declared in `allows.schemes`; any fetchable http(s) subject rejects the whole submission. Every opaque URI (subject, objects, uri-range documentRecord values) must use a declared scheme and is stored only in scoped form `https://<anchor>/.op/<scheme>/<remainder>` (`scopeIri`/`unscopeIri`). The anchor owns each scoped IRI through the new `octo:claims` property, written before the data. Raw opaque IRIs never reach the store. Relationship types are allowlisted, and `resolveSubtype` now refuses anything that is not a plain class name (it previously passed unknown types into `rdf:type <octo:...>` unescaped). Each (anchor, subject) pair is rate-limited by `indexing.cooldown`.
+
+#336: `mode: active` now bypasses registration on the HTTP `/index` path. Active-mode admissions no longer write `octo:verified "true"` origins (treated like endorsement-only admissions), so crawler-initiated indexing cannot manufacture registered origins.
+
+`createRemoteClient` (credential-free client with a capability handshake) is exported from core; its request errors now include the relay's response body.
+
+**Files affected:** `packages/core/indexer.js`, `packages/core/anchorAuth.js`, `packages/core/scopedIri.js`, `packages/core/remoteClient.js`, `packages/core/access.js`, `packages/core/profile.schema.json`, `src/lib/indexing.js`, `src/routes/(endpoints)/index/+server.js`, `src/tests/blobjectSubmission.test.js`, `src/tests/anchorAuth.test.js`, `src/tests/scopedIri.test.js`, `src/tests/blobjectRoute.test.js`, `src/tests/remoteClient.test.js`, `src/tests/activeMode.test.js`.
