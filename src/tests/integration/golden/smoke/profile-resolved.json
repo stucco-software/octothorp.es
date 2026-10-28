@@ -30,6 +30,7 @@
     },
     "access": {
       "registration": "registered",
+      "submissions": "never",
       "badge": "{INSTANCE}/badge.png",
       "blocks": {
         "domains": [
@@ -39,7 +40,8 @@
       },
       "allows": {
         "domains": [],
-        "terms": []
+        "terms": [],
+        "schemes": []
       },
       "endorsement": {
         "sources": []

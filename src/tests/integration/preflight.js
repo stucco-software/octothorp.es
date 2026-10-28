@@ -70,3 +70,32 @@ export async function preflight({ instance, host, sparqlEndpoint, requireSparql 
   log(`[preflight] target ok: ${instance} (self-reported via ${reported.via})`)
   return { instance, via: reported.via }
 }
+
+/**
+ * Assert every secondary-origin fixture page (#334) is live and still carries
+ * the markup the captured relationships depend on. Without this a down or
+ * edited fixture would seed nothing and the smoketest would capture a store
+ * missing the Backlink/webring rows instead of failing.
+ *
+ * @param {Array<{origin:string, urls:string[], expects?:string[]}>} secondaryOrigins
+ * @param {(msg:string)=>void} abort
+ * @param {(msg:string)=>void} [log]
+ */
+export async function checkSecondaryFixtures(secondaryOrigins = [], abort, log = console.log) {
+  for (const { urls, expects = [] } of secondaryOrigins) {
+    for (const url of urls) {
+      let res, body
+      try {
+        res = await fetch(url, { redirect: 'follow' })
+        body = await res.text()
+      } catch (e) {
+        return abort(`secondary fixture ${url} is unreachable (${e.message}). Seeding it would silently omit its relationships from the captures.`)
+      }
+      if (!res.ok) return abort(`secondary fixture ${url} returned ${res.status}. Seeding it would silently omit its relationships from the captures.`)
+      for (const needle of expects) {
+        if (!body.includes(needle)) return abort(`secondary fixture ${url} no longer contains "${needle}"; the relationship the smoketest pins is gone from the source markup.`)
+      }
+      log(`[preflight] secondary fixture ok: ${url}`)
+    }
+  }
+}

@@ -19,6 +19,7 @@ import { mergeLinkTypes } from './linkTypes.js'
 
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
+export { createRemoteClient } from './remoteClient.js'
 export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'
@@ -49,7 +50,7 @@ export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
 export { buildVocabulary, vocabularyToJsonLd, vocabularyToTurtle, RANGE_TO_RDFS, BUILTIN_CLASSES, BUILTIN_PROPERTIES } from './vocabulary.js'
 export { discoverPublishers, discoverHandlers, discoverHarmonizers, validateHarmonizer, validatePublisher } from './discover.js'
-export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originAllowed, termBlocked, termAllowed, termWritable, checkAccessGate, resolveEndorsers } from './access.js'
+export { ACCESS_DEFAULTS, REGISTRATION_MODES, normalizeAccess, originBlocked, originAllowed, termBlocked, termAllowed, termWritable, checkAccessGate, resolveEndorsers, subjectSchemeMode } from './access.js'
 
 // Canonical envelope vocabulary (matches the publisher envelope work). The route
 // and other callers may overlay these via pubDefs; everything else in pubDefs is

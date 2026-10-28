@@ -40,7 +40,7 @@
       "backlinks",
       "demo",
       {
-        "uri": "https://docs.octothorp.es",
+        "uri": "https://docs.octothorp.es/backlinks",
         "type": "Link"
       },
       {
@@ -116,6 +116,24 @@
         "type": "Link"
       },
       "webrings"
+    ]
+  },
+  {
+    "@id": "https://nimdaghlian.github.io/devdemo/endorsed-backlinks",
+    "title": "Endorsed Backlinks - OP DEV DEMO",
+    "description": "Backlinks from an origin this site endorses are recorded as backlinks; links from unendorsed origins stay plain links.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png",
+    "postDate": 1793017500000,
+    "octothorpes": [
+      "demo",
+      {
+        "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
+        "type": "Link"
+      },
+      {
+        "uri": "https://octothorpes.neocities.org",
+        "type": "Link"
+      }
     ]
   },
   {

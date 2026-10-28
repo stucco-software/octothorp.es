@@ -21,7 +21,7 @@ describe('normalizeAccess', () => {
     expect(normalizeAccess()).toEqual({
       registration: 'registered',
       blocks: { domains: [], terms: [] },
-      allows: { domains: [], terms: [] },
+      allows: { domains: [], terms: [], schemes: [] },
       endorsement: { sources: [] },
     })
     expect(ACCESS_DEFAULTS.registration).toBe('registered')
@@ -31,7 +31,7 @@ describe('normalizeAccess', () => {
     expect(normalizeAccess({ blocks: { terms: ['someslur'] } })).toEqual({
       registration: 'registered',
       blocks: { domains: [], terms: ['someslur'] },
-      allows: { domains: [], terms: [] },
+      allows: { domains: [], terms: [], schemes: [] },
       endorsement: { sources: [] },
     })
   })

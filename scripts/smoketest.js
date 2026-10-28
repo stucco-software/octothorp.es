@@ -7,7 +7,7 @@ import { createSparqlClient, deleteOrigin } from 'octothorpes'
 import { loadManifest } from '../src/tests/integration/manifest.js'
 import { buildQueries } from '../src/tests/integration/queries.js'
 import { normalize, normalizeRss, normOptsFor } from '../src/tests/integration/normalize.js'
-import { preflight as checkTarget } from '../src/tests/integration/preflight.js'
+import { preflight as checkTarget, checkSecondaryFixtures } from '../src/tests/integration/preflight.js'
 
 const instance = (process.env.instance || '').replace(/\/$/, '')
 const sparql_endpoint = (process.env.sparql_endpoint || '').replace(/\/$/, '')
@@ -42,6 +42,7 @@ const abort = (msg) => {
 
 async function preflight() {
   await checkTarget({ instance, host, sparqlEndpoint: sparql_endpoint, requireSparql: true, abort })
+  await checkSecondaryFixtures(manifest.secondaryOrigins, abort)
 }
 
 // --- phases ---
@@ -52,11 +53,19 @@ async function preflight() {
 // taken at a quiescent state rather than a transient mid-propagation one.
 async function settle({ stable = 3, intervalMs = 2000, maxTries = 40 } = {}) {
   const probePath = `/get/pages/posted/debug?s=${host}&limit=1000`
+  // Secondary-origin captures (#334) propagate separately from the primary
+  // set, so quiescence means the primary probe AND those queries are all stable.
+  const secondary = buildQueries(manifest, { tier: 'smoke' }).filter((q) => q.scopeHosts)
+  const snapshot = async (path, opts) => {
+    const res = await fetch(`${instance}${path}`)
+    const payload = (await res.json()).actualResults ?? null
+    return normalize(payload, opts)
+  }
   const probe = async () => {
     try {
-      const res = await fetch(`${instance}${probePath}`)
-      const payload = (await res.json()).actualResults ?? null
-      return JSON.stringify(normalize(payload, normOpts))
+      const parts = [await snapshot(probePath, normOpts)]
+      for (const q of secondary) parts.push(await snapshot(q.path, { ...normOpts, scopeHost: q.scopeHosts }))
+      return JSON.stringify(parts)
     } catch { return null }
   }
   let prev = null, count = 0
@@ -100,43 +109,76 @@ async function dump() {
 
 let wiped = false
 async function wipe() {
-  const result = await deleteOrigin(sparql, manifest.origin, targetConfig)
+  // Primary first, then each secondary origin (#334): neocities' page data has
+  // to go so its devdemo link is rewritten fresh (as a Backlink) on reindex.
+  for (const origin of [manifest.origin, ...manifest.secondaryOrigins.map((s) => s.origin)]) {
+    const result = await deleteOrigin(sparql, origin, targetConfig)
+    console.log(`[wipe] removed ${result.deletedPages} pages under ${origin}`)
+    // Orphan URL-slug terms (<instance>/~/<origin>/...) are not origin-scoped, so
+    // deleteOrigin leaves them behind. They surface as bogus role:subject rows
+    // in /get listings and would be pinned into goldens (#334). Sweep only
+    // terms whose slug is a URL under the origin being wiped.
+    await sparql.query(`
+      DELETE { ?t ?p ?o } WHERE {
+        ?t ?p ?o .
+        FILTER(STRSTARTS(STR(?t), "${instance}/~/${origin}/"))
+      }
+    `)
+  }
   wiped = true
-  console.log(`[wipe] removed ${result.deletedPages} pages under ${manifest.origin}`)
 }
 
-async function ensureVerifiedOrigin() {
+async function ensureVerifiedOrigin(origin) {
   // Indexing requires the origin be registered+verified. Idempotent insert, guarded by .env target.
   await sparql.insert(`
-    <${manifest.origin}> rdf:type <octo:Origin> .
-    <${manifest.origin}> octo:verified "true" .
+    <${origin}> rdf:type <octo:Origin> .
+    <${origin}> octo:verified "true" .
   `)
 }
 
-async function reindex() {
-  await ensureVerifiedOrigin()
-  const CHUNK = 9          // stay under MAX_INDEXING_REQUESTS (10) / 60s window
-  const WINDOW_MS = 61000
+// Requests sent to /index across every phase: the rate limit window is shared,
+// so the pause counter must carry over from the primary into the secondaries.
+const CHUNK = 9          // stay under MAX_INDEXING_REQUESTS (10) / 60s window
+const WINDOW_MS = 61000
+let sent = 0
+
+async function indexUrls(origin, urls, label) {
   let done = 0
-  for (let i = 0; i < manifest.urls.length; i += CHUNK) {
-    const chunk = manifest.urls.slice(i, i + CHUNK)
-    for (const uri of chunk) {
-      let attempt = 0
-      while (true) {
-        const res = await fetch(`${instance}/index`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Origin: manifest.origin },
-          body: JSON.stringify({ uri }),
-        })
-        if (res.status === 429 && attempt < 3) { attempt++; await sleep(WINDOW_MS); continue }
-        if (!res.ok) { console.error(`[reindex] FAIL ${uri} -> ${res.status} ${await res.text()}`) }
-        else { done++; console.log(`[reindex] ok ${uri}`) }
-        break
-      }
+  for (const uri of urls) {
+    if (sent > 0 && sent % CHUNK === 0) { console.log(`[reindex] pausing ${WINDOW_MS}ms for rate limit`); await sleep(WINDOW_MS) }
+    let attempt = 0
+    while (true) {
+      const res = await fetch(`${instance}/index`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: origin },
+        body: JSON.stringify({ uri }),
+      })
+      if (res.status === 429 && attempt < 3) { attempt++; await sleep(WINDOW_MS); continue }
+      if (!res.ok) { console.error(`[reindex] FAIL ${uri} -> ${res.status} ${await res.text()}`) }
+      else { done++; console.log(`[reindex] ok ${uri}`) }
+      break
     }
-    if (i + CHUNK < manifest.urls.length) { console.log(`[reindex] pausing ${WINDOW_MS}ms for rate limit`); await sleep(WINDOW_MS) }
+    sent++
   }
-  console.log(`[reindex] indexed ${done}/${manifest.urls.length}`)
+  console.log(`[reindex] ${label}: indexed ${done}/${urls.length}`)
+}
+
+async function reindex() {
+  await ensureVerifiedOrigin(manifest.origin)
+  await indexUrls(manifest.origin, manifest.urls, 'primary')
+  // Secondary origins go strictly after the primary has indexed AND settled:
+  // the neocities Backlink needs the primary's origin-level octo:endorses
+  // triple to exist first (#331 — a Link never upgrades to a Backlink).
+  // Entry order is also load-bearing: the webring index precedes its member.
+  if (manifest.secondaryOrigins.length) {
+    console.log('[reindex] settling primary origin before secondary origins')
+    await settle()
+    for (const { origin, urls } of manifest.secondaryOrigins) {
+      await ensureVerifiedOrigin(origin)
+      await indexUrls(origin, urls, `secondary ${origin}`)
+      await settle()
+    }
+  }
 }
 
 async function fetchAndWrite(outDir, allQueries) {
@@ -160,7 +202,7 @@ async function fetchAndWrite(outDir, allQueries) {
         // `raw` queries are not /get results and have no actualResults envelope.
         payload = q.raw ? body : (body.actualResults ?? null)
       } catch { payload = { error: res.status } }
-      const norm = normalize(payload, normOpts)
+      const norm = normalize(payload, q.scopeHosts ? { ...normOpts, scopeHost: q.scopeHosts } : normOpts)
       writeFileSync(join(outDir, `${q.name}.json`), JSON.stringify(norm, null, 2) + '\n')
     }
   }

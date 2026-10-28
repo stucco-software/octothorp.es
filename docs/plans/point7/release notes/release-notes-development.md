@@ -1642,3 +1642,43 @@ Filed, not fixed: **#331** — `extantBacklink` asks whether *any* blank-node re
 Suite: 2073 passed, 16 skipped, 0 failed (integration auto-skipped, dev server down).
 
 **Files affected:** `octothorpes.json`, `packages/core/harmonizers/default.json`, `src/tests/harmonizer.test.js`, `src/tests/harmonizerCoherence.test.js`, `src/tests/builtinHarmonizers.test.js`.
+
+## #241: profile-declared origin schemes; no junk origin for non-http subjects (2026-10-26)
+
+Non-http(s) subjects (`file:`, `obsidian:`) have no URL origin — `new URL(s).origin` is the string `"null"` — and the mention/thorpe write path fed that straight into its origin triples. Oxigraph base-resolves the relative `<null>` IRI into a junk node (locally `<http://0.0.0.0:7878/null>`) carrying `octo:verified "true"`, `rdf:type octo:Origin` and `octo:hasPart <file://...>`, one per store base.
+
+The fix is declaration, not detection. A client lists its non-http(s) schemes in the profile: `policies.access.allows.schemes`, an array of scheme names without the colon (`["file", "obsidian"]`), beside `allows.domains`/`allows.terms`. Three write-path behaviors:
+
+- **http(s)**: unchanged, full origin side-effects.
+- **declared scheme**: relationship triples are written; every origin side-effect is skipped (no `octo:Origin` node, no `octo:verified`, no `octo:hasPart`). Webring membership and Link-to-Backlink promotion, both origin concepts, are also skipped.
+- **undeclared non-http scheme**: rejected with a clear error before any write. A junk origin node can never be minted again. Absent/empty `schemes` is today's http(s)-only behavior, so every existing profile is unaffected.
+
+The read-path sibling had a different root cause than suspected: `mentionTriples` types the OBJECT `octo:Page` but never the subject, and `op link` writes through `handleMention` alone (no page index, so no `createPage`). The subject therefore has no `rdf:type` triple at all, and `/get`'s query shape requires `?s rdf:type ?pageType` — verified against the live local store: the exact phase-1 pattern returns the `file:` subject with the type triple present and drops it without. `mentionTriples` now types the subject too, and an already-extant mention still backfills the type triple, so re-linking heals pre-#241 data. (This was latent for http subjects linked via `op link` without a full index, not just non-http ones.)
+
+`subjectSchemeMode(subject, schemes)` in `packages/core/access.js` is the one classification point ('origin' | 'declared' | throw), exported from core; the indexer wraps it with the client-level `allows.schemes` default and per-call access overrides thread through `ingestBlobject`/`handler` exactly like the term lists.
+
+Suite: 2104 passed, 12 skipped; the only failure is the known `in-webring` seeding gap (external data a wiped store cannot reseed), documented 2026-10-22.
+
+**Files affected:** `packages/core/access.js`, `packages/core/indexer.js`, `packages/core/profile.js`, `packages/core/profile.schema.json`, `packages/core/client.js`, `src/tests/originSchemes.test.js` (new), `src/tests/accessGate.test.js`, `src/tests/indexing.test.js`, `src/tests/profileLoader.test.js`, `src/tests/resolveProfile.test.js`, `src/tests/schemaRoutes.test.js`.
+
+## No-auth client tier: blobject submissions + #336 active-mode bypass (2026-10-27)
+
+Clients that cannot or will not hold relay credentials can now harmonize locally and submit blobject JSON. `POST /index` with `mode: "blobject"` and `{ anchor, token, blobject }` runs `submitBlobject` in core. It is off by default: `policies.access.submissions` is `"never"` | `"registered"` | `"open"`, default `"never"`, so existing relays see no change.
+
+Gates, in order: the submissions knob (and, for `registered`, a verified anchor origin; blocks.domains and bans apply), anchor auth, per-anchor rate bucket, then subject restriction. Anchor auth is stateless: the anchor serves `/.well-known/octothorpes` with `{ "submissionTokenHash": "<sha256 hex>" }`; the relay fetches it (no redirects, 4KB cap, cached per `indexing.cooldown`) and compares `sha256(token)` in constant time. There is no plaintext fallback. Every auth failure returns one external 403 message; the specific reason is logged only.
+
+Subjects must be non-http(s) with a scheme declared in `allows.schemes`; any fetchable http(s) subject rejects the whole submission. Every opaque URI (subject, objects, uri-range documentRecord values) must use a declared scheme and is stored only in scoped form `https://<anchor>/.op/<scheme>/<remainder>` (`scopeIri`/`unscopeIri`). The anchor owns each scoped IRI through the new `octo:claims` property, written before the data. Raw opaque IRIs never reach the store. Relationship types are allowlisted, and `resolveSubtype` now refuses anything that is not a plain class name (it previously passed unknown types into `rdf:type <octo:...>` unescaped). Each (anchor, subject) pair is rate-limited by `indexing.cooldown`.
+
+#336: `mode: active` now bypasses registration on the HTTP `/index` path. Active-mode admissions no longer write `octo:verified "true"` origins (treated like endorsement-only admissions), so crawler-initiated indexing cannot manufacture registered origins.
+
+`createRemoteClient` (credential-free client with a capability handshake) is exported from core; its request errors now include the relay's response body.
+
+**Files affected:** `packages/core/indexer.js`, `packages/core/anchorAuth.js`, `packages/core/scopedIri.js`, `packages/core/remoteClient.js`, `packages/core/access.js`, `packages/core/profile.schema.json`, `src/lib/indexing.js`, `src/routes/(endpoints)/index/+server.js`, `src/tests/blobjectSubmission.test.js`, `src/tests/anchorAuth.test.js`, `src/tests/scopedIri.test.js`, `src/tests/blobjectRoute.test.js`, `src/tests/remoteClient.test.js`, `src/tests/activeMode.test.js`.
+
+## Backlink read-path fixes (#340, #341) and smoketest secondary origins (#334) (2026-10-27)
+
+A Link promoted to a Backlink (2026-10-19 ruling) is stored as one blank node typed both `octo:Link` and `octo:Backlink`, and queries emit one row per type. The API reported `Link` for these because two layers merged the rows order-dependently: `getBlobjectFromResponse` compared against a lowercase `'link'` sentinel that never matched the stored `Link` (#340), and `createEnrichBlobjectTargets` then overwrote `o.type` keeping the first row and only demoting `Backlink` (#341, the layer that actually decided the live output). Both now use one `preferSubtype` precedence: specific subtype (Bookmark, Cite, ...) > Backlink > Link, lexical tiebreak among specifics, so row order never matters. Tests drive the full `api.get` path in `src/tests/blobject.test.js`.
+
+#334: the devdemo smoketest now seeds secondary origins so cross-origin state survives a wipe. `SECONDARY_ORIGINS` in the manifest lists `demo.ideastore.dev` (`/demo-webring` only) then `octothorpes.neocities.org`; each is wiped and indexed after the primary origin has indexed and settled. Order is load-bearing: neocities' link to devdemo is only written as a Backlink if devdemo's origin-level `octo:endorses` triple already exists, and a pair first written as a plain Link never upgrades (#331). Preflight aborts if a secondary fixture is unreachable or its markup lost the relationship. New captures `secondary-backlinked-neocities`, `secondary-in-webring`, `secondary-linked-neocities` use per-query `scopeHosts` normalization. `wipe()` now also sweeps orphan URL-slug terms (`<instance>/~/<origin>/...`) that `deleteOrigin` leaves behind and that surfaced as bogus subject rows. The `in-webring should return member pages` integration test passes after a full wipe and reseed.
+
+**Files affected:** `packages/core/blobject.js`, `src/tests/blobject.test.js`, `scripts/smoketest.js`, `src/tests/integration/{manifest,preflight,queries,normalize}.js`, `src/routes/debug/index-check/test-urls.yaml`, `src/tests/integration/golden/smoke/*`.

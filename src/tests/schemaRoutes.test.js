@@ -30,9 +30,15 @@ describe('schema documents are served at their $id path', () => {
     })
   }
 
+  it('the served profile schema declares policies.access.submissions as a "never" default enum', () => {
+    const submissions = profileSchema.properties.policies.properties.access.properties.submissions
+    expect(submissions.enum).toEqual(['never', 'registered', 'open'])
+    expect(submissions.default).toBe('never')
+  })
+
   it('the served profile schema carries the renamed access.allows slot', () => {
     const access = profileSchema.properties.policies.properties.access.properties
-    expect(Object.keys(access.allows.properties).sort()).toEqual(['domains', 'terms'])
+    expect(Object.keys(access.allows.properties).sort()).toEqual(['domains', 'schemes', 'terms'])
     expect(access.whitelist).toBeUndefined()
   })
 })

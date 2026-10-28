@@ -5,11 +5,13 @@
 // delegated to handlers resolved from the injected handlerRegistry.
 
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
-import { normalizeAccess, checkAccessGate, termWritable } from './access.js'
+import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
 import { termLabelTriples } from './termLabels.js'
-import { parseUri, validateSameOrigin, canonicalOrigin } from './uri.js'
+import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.js'
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
+import { verifyAnchorSubmission } from './anchorAuth.js'
+import { scopeIri } from './scopedIri.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -23,6 +25,13 @@ const harmonizerWhitelist = [
   'localhost',
   'next.octothorp.es'
 ]
+
+// Shared across indexers so one anchor has one cache entry (keys are lowercase).
+const anchorAuthCache = new Map()
+// Bare lowercase host[:port]; anything else could break out of a SPARQL IRI.
+// Requires a dotted public-style name: no IP literals, no single-label hosts
+// (localhost), no port, so a submission cannot aim the relay's fetch inward.
+const ANCHOR_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$/
 
 const indexingRateLimitMap = new Map()
 const MAX_INDEXING_REQUESTS = 10
@@ -40,7 +49,15 @@ const subtypeMap = {
   Button: 'Button',
 }
 
-export const resolveSubtype = (type) => subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))
+const SAFE_SUBTYPE = /^[A-Za-z][A-Za-z0-9_-]*$/
+export const resolveSubtype = (type) => {
+  const out = typeof type === 'string' ? (subtypeMap[type] || (type.charAt(0).toUpperCase() + type.slice(1))) : null
+  // The result lands inside `rdf:type <octo:${subtype}>`; anything that is not a plain class name is an injection vector.
+  if (!out || !SAFE_SUBTYPE.test(out)) throw new Error('Invalid relationship type.')
+  return out
+}
+// Relationship types a no-auth submission may use (built-ins only).
+const SUBMISSION_TYPES = new Set([...Object.keys(subtypeMap), 'link', 'Link', 'backlink', 'Backlink'])
 
 ////////// stateless exports (no deps, safe to export directly) //////////
 
@@ -268,7 +285,13 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers, indexingMode, submissions: submissionsConfig } = deps
+
+  // #336: what TRIGGERS indexing ('request' | 'active'). Mirrors
+  // createClient.indexSource: under 'active' the crawler's own fetch stands in
+  // for origin registration. Opt-outs, bans, blocklists and the rate bucket
+  // are unaffected. A per-call config.policyMode still wins.
+  const defaultPolicyMode = (indexingMode && typeof indexingMode === 'object') ? indexingMode.mode : indexingMode
 
   // #217: re-index cooldown in SECONDS, injected from
   // profile.policies.indexing.cooldown. 0 disables the wait.
@@ -416,15 +439,36 @@ export const createIndexer = (deps) => {
       : url.origin
   }
 
-  const createOctothorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
+  // #241: classify a subject's scheme against this client's declared
+  // allows.schemes. 'origin' (http/https) writes origin side-effects as
+  // always; 'declared' writes relationship triples only; an undeclared
+  // non-http scheme throws. Never call storedOrigin on a non-'origin'
+  // subject — `new URL(s).origin` is the string "null" there, which Oxigraph
+  // base-resolves into a junk origin node.
+  const subjectOriginMode = (s, schemes) =>
+    subjectSchemeMode(s, schemes ?? access.allows.schemes)
+
+  // The origin side-effect cluster for a subject: its origin's hasPart edge
+  // plus (unless endorsement-only) the origin-registration triples. Empty for
+  // a declared non-http scheme (#241) — relationships only, no origin node.
+  const subjectOriginBlock = (s, { endorsed = false, schemes, claimed = false } = {}) => {
+    // claimed: a no-auth submission's scoped IRI hangs off its anchor via
+    // octo:claims, never octo:hasPart or origin registration.
+    if (claimed || subjectOriginMode(s, schemes) !== 'origin') return ''
+    const origin = storedOrigin(s)
+    return `
+      <${origin}> octo:hasPart <${s}> .
+      ${originTriples(origin, endorsed)}
+    `
+  }
+
+  const createOctothorpe = async (s, o, { instance: inst, endorsed = false, schemes, claimed = false } = {}) => {
     const base = inst || instance
     let now = Date.now()
-    const origin = storedOrigin(s)
     return await insert(`
       <${s}> ${p} <${termIri(base, o)}> .
       <${s}> <${termIri(base, o)}> ${now} .
-      <${origin}> octo:hasPart <${s}> .
-      ${originTriples(origin, endorsed)}
+      ${subjectOriginBlock(s, { endorsed, schemes, claimed })}
       <${s}> rdf:type <octo:Page> .
     `)
   }
@@ -450,13 +494,16 @@ export const createIndexer = (deps) => {
 
   // Triple-builder helpers: produce raw triple strings (no INSERT DATA wrapper)
   // so handleMention can batch multiple writes into a single SPARQL update.
-  const mentionTriples = (s, o, now, { endorsed = false } = {}) => {
-    const origin = storedOrigin(s)
+  const mentionTriples = (s, o, now, { endorsed = false, schemes, claimed = false } = {}) => {
+    // #241 read-path fix: TYPE THE SUBJECT too. /get's query shape requires
+    // `?s rdf:type ?pageType`, and a subject written only through the mention
+    // path (op link, no full page index) never got a type triple — which is
+    // why non-http subjects silently vanished from /get output.
     return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
-      <${origin}> octo:hasPart <${s}> .
-      ${originTriples(origin, endorsed)}
+      <${s}> rdf:type <octo:Page> .
+      ${subjectOriginBlock(s, { endorsed, schemes, claimed })}
       <${o}> rdf:type <octo:Page>.
     `
   }
@@ -816,8 +863,10 @@ export const createIndexer = (deps) => {
 
   ////////// handlers //////////
 
-  const handleThorpe = async (s, o, { instance: inst, endorsed = false } = {}) => {
+  const handleThorpe = async (s, o, { instance: inst, endorsed = false, schemes, claimed = false } = {}) => {
     const base = inst || instance
+    // #241: reject an undeclared non-http subject BEFORE any write.
+    if (!claimed) subjectOriginMode(s, schemes)
     console.log(`#`, s, o)
     let isExtantTerm = await extantTerm(o, { instance: base })
     if (!isExtantTerm) {
@@ -825,7 +874,7 @@ export const createIndexer = (deps) => {
     }
     let isExtantThorpe = await extantThorpe(s, o, { instance: base })
     if (!isExtantThorpe) {
-      await createOctothorpe(s, o, { instance: base, endorsed })
+      await createOctothorpe(s, o, { instance: base, endorsed, schemes, claimed })
       await recordUsage(s, o, { instance: base })
     }
   }
@@ -836,10 +885,14 @@ export const createIndexer = (deps) => {
   //    (carries metadata: subtype, terms, created timestamp)
   // Both are needed: the direct triple supports simple joins in queries,
   // the blank node carries relationship metadata.
-  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false } = {}) => {
+  const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false, schemes, claimed = false } = {}) => {
     const base = inst || instance
     const subj = deslash(s)
     const obj = deslash(o)
+    // #241: 'origin' (http/https) or 'declared' (profile-declared non-http
+    // scheme — relationship triples only, no origin side-effects). An
+    // undeclared non-http scheme throws HERE, before any read or write.
+    const originMode = claimed ? 'declared' : subjectOriginMode(subj, schemes)
 
     // Phase 1: parallel reads. All existence checks are independent.
     // On production each SPARQL ASK is ~1–2s; running them sequentially with
@@ -851,7 +904,10 @@ export const createIndexer = (deps) => {
       ...terms.map(term => extantTerm(term, { instance: base })),
     ])
 
-    if (isObjWebring) {
+    // Webring membership is an ORIGIN concept (the member is the subject's
+    // domain), so it is an origin side-effect and skipped for declared
+    // non-http subjects (#241).
+    if (isObjWebring && originMode === 'origin') {
       const domain = await getDomainForUrl(subj)
       const hasLinked = await queryBoolean(`
         ask {
@@ -869,7 +925,13 @@ export const createIndexer = (deps) => {
     const blocks = []
 
     if (!isExtantMention) {
-      blocks.push(mentionTriples(subj, obj, now, { endorsed }))
+      blocks.push(mentionTriples(subj, obj, now, { endorsed, schemes, claimed }))
+    } else {
+      // #241 backfill: subjects written before mentionTriples typed them (op
+      // link wrote mention + backlink only) are invisible to /get, whose query
+      // requires `?s rdf:type ?pageType`. Idempotent, so re-linking heals
+      // pre-#241 data without rewriting the mention.
+      blocks.push(`<${subj}> rdf:type <octo:Page> .`)
     }
 
     // #213: Backlink is the ONLY subtype gated by endorsement. A Backlink node
@@ -890,7 +952,7 @@ export const createIndexer = (deps) => {
       if (!mintBacklink) {
         console.log(`backlink withheld: ${obj} has not reciprocated or endorsed ${subj}`)
       }
-    } else if (mintBacklink && subtype === 'Link' && storedOrigin(subj) !== storedOrigin(obj)) {
+    } else if (mintBacklink && subtype === 'Link' && originMode === 'origin' && storedOrigin(subj) !== storedOrigin(obj)) {
       promoteLink = Boolean(await checkEndorsement(subj, obj, subtype))
       if (promoteLink) {
         console.log(`link promoted to backlink: ${obj} has reciprocated or endorsed ${subj}`)
@@ -941,12 +1003,19 @@ export const createIndexer = (deps) => {
     }
   }
 
-  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false } = {}) => {
+  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false, claimed = false } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
     const base = inst || instance
     const s = harmed['@id']
+
+    // #241: the subject's scheme decides nothing here beyond admission — an
+    // undeclared non-http scheme is rejected before ANY triple is written.
+    // The per-call access override (already normalized on the handler path)
+    // carries its own schemes list; otherwise the client-level one applies.
+    const schemes = (accessOverride ?? access).allows?.schemes ?? []
+    if (!claimed) subjectOriginMode(s, schemes)
 
     // #311: key the exists-check on octo:created, not rdf:type. Pages first
     // seen as link targets get only `rdf:type octo:Page` from mentionTriples;
@@ -1003,13 +1072,13 @@ export const createIndexer = (deps) => {
 
     for (const octothorpe of admittedOctothorpes) {
       if (typeof octothorpe === 'string') {
-        await handleThorpe(s, octothorpe, { instance: base, endorsed })
+        await handleThorpe(s, octothorpe, { instance: base, endorsed, schemes, claimed })
         continue
       }
       if (!octothorpe.uri) continue
       let octoURI = deslash(octothorpe.uri)
       if (octothorpe.type === 'hashtag') {
-        await handleThorpe(s, octoURI, { instance: base, endorsed })
+        await handleThorpe(s, octoURI, { instance: base, endorsed, schemes, claimed })
       } else if (octothorpe.type === 'endorse') {
         friends.endorsed.push(octoURI)
       } else {
@@ -1019,19 +1088,19 @@ export const createIndexer = (deps) => {
           console.warn(`[index] term "${t}" is not writable on this server; statement dropped`)
           return false
         })
-        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed })
+        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed, schemes, claimed })
       }
     }
 
     // #213: record this page's octo:endorses declarations (per-origin, deduped).
-    if (friends.endorsed.length > 0 && /^https?:/.test(s)) {
+    if (!claimed && friends.endorsed.length > 0 && /^https?:/.test(s)) {
       await recordEndorsements(s, friends.endorsed)
     }
 
     // #191: give a newly registered origin its numeric alias. No-op unless the
     // origin node is a verified octo:Origin without a number. Never for an
     // endorsement-only admission (no origin triples are written then).
-    if (!endorsed && /^https?:/.test(s)) {
+    if (!claimed && !endorsed && /^https?:/.test(s)) {
       try {
         await mintSiteNum(storedOrigin(s), { query })
       } catch (e) {
@@ -1039,7 +1108,7 @@ export const createIndexer = (deps) => {
       }
     }
 
-    if (harmed.type === 'Webring') {
+    if (!claimed && harmed.type === 'Webring') {
       const isExtantWebring = await extantPage(s, 'Webring')
       try {
         await handleWebring(s, friends, isExtantWebring)
@@ -1047,6 +1116,148 @@ export const createIndexer = (deps) => {
         console.error('handleWebring failed; metadata already recorded:', e)
       }
     }
+  }
+
+
+  // No-auth client tier: a client harmonizes locally and submits blobject
+  // JSON. Gates, in order: (1) submissions knob, (2) anchor auth, (3) subject
+  // restriction. Opaque URIs are then scoped under the anchor and the anchor
+  // `octo:claims` each scoped IRI. Raw opaque IRIs never reach the store.
+  //
+  // opts: { anchor, token, instance?, fetchImpl? }
+  const submissionCooldowns = new Map()
+  const submitBlobject = async (blobject, opts = {}) => {
+    // Config comes from createIndexer deps ONLY: no per-call submissions/access
+    // override, so a route forwarding request values cannot weaken the gates.
+    const { anchor: rawAnchor, token, instance: inst, fetchImpl } = opts
+    const mode = submissionsConfig ?? 'never'
+    const effectiveAccess = access
+
+    // Gate 1: the knob. Nothing is fetched or written when it is "never".
+    if (mode !== 'registered' && mode !== 'open') {
+      throw new Error('This server does not accept blobject submissions (policies.access.submissions).')
+    }
+    if (!blobject || typeof blobject['@id'] !== 'string') {
+      throw new Error('Blobject submission needs an @id subject.')
+    }
+    const anchor = typeof rawAnchor === 'string' ? rawAnchor.trim().toLowerCase() : ''
+    if (!ANCHOR_RE.test(anchor)) {
+      throw new Error('Blobject submission needs a valid anchor host.')
+    }
+    const anchorOrigin = `https://${anchor}`
+    const exclusion = await isExcluded(anchorOrigin, {
+      blockedDomains: effectiveAccess.blocks?.domains ?? [],
+      queryBoolean,
+    })
+    if (exclusion.excluded) {
+      throw new Error('Anchor is blocked or banned on this server.')
+    }
+    if (mode === 'registered' && !(await verifiedOrigin(anchorOrigin, { queryBoolean }))) {
+      throw new Error('Anchor is not registered on this server (submissions: "registered").')
+    }
+
+    // Gate 2: anchor auth (stateless well-known token).
+    const auth = await verifyAnchorSubmission({
+      anchor, token, fetchImpl, cache: anchorAuthCache, cooldown: cooldownSeconds,
+    })
+    if (!auth.ok) {
+      throw new Error(`Anchor auth failed: ${auth.reason}`)
+    }
+
+    // Rate bucket, per anchor, after auth so strangers cannot burn it.
+    if (!checkIndexingRateLimit(anchorOrigin)) {
+      throw new Error('Rate limit exceeded. Please try again later.')
+    }
+
+    // Gate 3: subject restriction. Only declared, non-http(s) subjects; a
+    // fetchable http(s) subject rejects the whole submission.
+    const subject = blobject['@id']
+    let subjectMode
+    try {
+      subjectMode = subjectSchemeMode(subject, effectiveAccess.allows.schemes)
+    } catch (e) {
+      throw new Error(`Submission subject rejected: ${e.message}`)
+    }
+    if (subjectMode === 'origin') {
+      throw new Error('Submission subject rejected: http(s) subjects are fetchable and must be indexed, not submitted.')
+    }
+
+    // Scope every opaque URI; http(s) objects pass through. Anything that
+    // cannot be scoped rejects the whole submission before a write.
+    const scoped = new Set()
+    const declared = effectiveAccess.allows.schemes
+    const scope = (rawUri) => {
+      // One canonical form for claim and data: the ingest paths deslash, so deslash first.
+      const uri = deslash(rawUri)
+      let scheme
+      try { scheme = getScheme(uri) } catch { scheme = null }
+      if (scheme === 'http' || scheme === 'https') {
+        // Normalize through URL so nothing hostile reaches a SPARQL <IRI>.
+        let href
+        try { href = new URL(uri).href } catch { href = null }
+        if (!href || /[<>"{}|\\^`\s]/.test(href)) {
+          throw new Error(`Submission rejected: invalid URI ${JSON.stringify(uri)}`)
+        }
+        return href
+      }
+      if (!declared.includes(scheme)) {
+        throw new Error(`Submission rejected: URI scheme "${scheme}:" is not declared in policies.access.allows.schemes on this server.`)
+      }
+      try {
+        const out = scopeIri(anchor, uri)
+        scoped.add(out)
+        return out
+      } catch (e) {
+        throw new Error(`Submission rejected: cannot scope ${JSON.stringify(uri)}: ${e.message}`)
+      }
+    }
+    const scopedSubject = scope(subject)
+    const octothorpes = (blobject.octothorpes ?? []).flatMap((o) => {
+      if (typeof o === 'string') return [o]
+      if (!o?.uri) return []
+      if (o.type === 'hashtag') return [o]
+      // endorse declarations are an origin concept; not accepted from submissions
+      if (o.type === 'endorse') return []
+      if (!SUBMISSION_TYPES.has(o.type)) {
+        throw new Error('Submission rejected: invalid relationship type.')
+      }
+      return [{ ...o, uri: scope(o.uri) }]
+    })
+    // uri-range documentRecord values are written as IRIs: opaque ones must be scoped too.
+    let documentRecord = blobject.documentRecord
+    if (documentRecord && typeof documentRecord === 'object' && Array.isArray(documentRecordSchema)) {
+      documentRecord = { ...documentRecord }
+      for (const entry of documentRecordSchema) {
+        const v = documentRecord[entry.predicate]
+        if (entry.range !== 'uri' || v === undefined || v === null || v === '') continue
+        // recordDocumentRecord String()-coerces values, so a non-string would dodge scoping.
+        if (typeof v !== 'string') {
+          throw new Error(`Submission rejected: documentRecord.${entry.predicate} must be a string URI.`)
+        }
+        documentRecord[entry.predicate] = scope(v)
+      }
+    }
+    const { type: _type, ...rest } = blobject
+    const submitted = { ...rest, '@id': scopedSubject, octothorpes, ...(documentRecord ? { documentRecord } : {}) }
+
+    // Claims first: a claim with no data is harmless, but data with no claim
+    // would be unattributed if the ingest failed midway.
+    // Per-(anchor, subject) cooldown (indexing.cooldown), after all validation
+    // so a rejected payload does not start the clock.
+    if (cooldownSeconds > 0) {
+      const nowMs = Date.now()
+      if (submissionCooldowns.size > 5000) {
+        for (const [k, t] of submissionCooldowns) if (t <= nowMs) submissionCooldowns.delete(k)
+      }
+      const key = `${anchor}|${scopedSubject}`
+      if ((submissionCooldowns.get(key) ?? 0) > nowMs) {
+        throw new Error('This subject was recently submitted. Please try again later.')
+      }
+      submissionCooldowns.set(key, nowMs + cooldownSeconds * 1000)
+    }
+
+    await insert([...scoped].map((iri) => `<${anchorOrigin}> octo:claims <${iri}> .`).join('\n'))
+    await ingestBlobject(submitted, { instance: inst, access: effectiveAccess, claimed: true })
   }
 
   const handler = async (uri, harmonizer, requestingOrigin, config) => {
@@ -1058,8 +1269,8 @@ export const createIndexer = (deps) => {
       // through for the future index-policy work — see #221.
       serverName,
       queryBoolean: configQueryBoolean,
-      verifyOrigin,
-      policyMode,
+      verifyOrigin: verifyOriginOverride,
+      policyMode: policyModeOverride,
       policyCheck,
       feedApproved,
       // Per-call override of the client-level access block, mirroring how
@@ -1068,6 +1279,14 @@ export const createIndexer = (deps) => {
     } = config
     const effectiveAccess = accessOverride ? normalizeAccess(accessOverride) : access
     const base = inst || instance
+    const policyMode = policyModeOverride ?? defaultPolicyMode
+    const active = policyMode === 'active'
+    // Active mode: registration is skipped (the gate's other stages still run)
+    // and, unless this is a policy check, the requesting origin is the URI's own.
+    const verifyOrigin = verifyOriginOverride ?? (active ? async () => true : undefined)
+    if (active && !policyCheck) {
+      requestingOrigin = new URL(uri).origin
+    }
     const callerContext = { policyMode, policyCheck, feedApproved }
 
     // 1. Parse and normalize URI
@@ -1246,13 +1465,17 @@ export const createIndexer = (deps) => {
     const blobject = harmonizer === policyHarmonizer
       ? policyBlobject
       : await dispatch(source, harmonizer, parsed.normalized, ua)
-    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed })
+    // Active mode (crawler-initiated) never mints octo:verified origins: it skips
+    // registration, so it must not manufacture it either (treated like an
+    // endorsement-only admission).
+    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
   }
 
   return {
     handler,
     dispatch,
     ingestBlobject,
+    submitBlobject,
     handleThorpe,
     handleMention,
     handleWebring,

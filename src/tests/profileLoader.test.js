@@ -48,7 +48,7 @@ describe('createProfile — defaults filling', () => {
     expect(p.policies.indexing.mode).toBe('request')
     expect(p.policies.access.registration).toBe('registered')
     expect(p.policies.access.blocks).toEqual({ domains: [], terms: [] })
-    expect(p.policies.access.allows).toEqual({ domains: [], terms: [] })
+    expect(p.policies.access.allows).toEqual({ domains: [], terms: [], schemes: [] })
     expect(p.api.linkTypes).toEqual([])
     expect(p.api.documentRecord).toEqual([])
     expect(p.api.publishers.dir).toBeNull()
@@ -100,7 +100,7 @@ describe('createProfile — defaults filling', () => {
     const p = load(fixture())
     expect(p.identity.name).toBe('Fixture Relay')
     expect(p.policies.access.registration).toBe('closed')
-    expect(p.policies.access.allows).toEqual({ domains: ['https://friend.test'], terms: [] })
+    expect(p.policies.access.allows).toEqual({ domains: ['https://friend.test'], terms: [], schemes: [] })
     expect(p.identity.feeds.thorpes).toEqual(['cats'])
     expect(p.vocabulary.namespaces).toHaveLength(1)
     expect(p.vocabulary.namespaces[0].import).toBe(true)
@@ -251,6 +251,26 @@ describe('createProfile — validation and guards', () => {
   it('requires a profile object and a schema object', () => {
     expect(() => createProfile({ schema })).toThrow(/profile/i)
     expect(() => createProfile({ profile: {} })).toThrow(/schema/i)
+  })
+})
+
+describe('createProfile — policies.access.submissions', () => {
+  it('defaults to "never" when absent', () => {
+    const p = load({}, withInstance)
+    expect(p.policies.access.submissions).toBe('never')
+  })
+
+  it('accepts each value of the enum', () => {
+    for (const submissions of ['never', 'registered', 'open']) {
+      const p = load({ policies: { access: { submissions } } }, withInstance)
+      expect(p.policies.access.submissions, submissions).toBe(submissions)
+    }
+  })
+
+  it('rejects a value outside the enum with the friendly enum message', () => {
+    expect(() => load({ policies: { access: { submissions: 'invite' } } }, withInstance)).toThrow(
+      /policies\.access\.submissions is "invite" — allowed values: "never", "registered", "open"/
+    )
   })
 })
 
