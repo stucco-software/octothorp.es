@@ -1683,8 +1683,17 @@ A Link promoted to a Backlink (2026-10-19 ruling) is stored as one blank node ty
 
 **Files affected:** `packages/core/blobject.js`, `src/tests/blobject.test.js`, `scripts/smoketest.js`, `src/tests/integration/{manifest,preflight,queries,normalize}.js`, `src/routes/debug/index-check/test-urls.yaml`, `src/tests/integration/golden/smoke/*`.
 
-## Dependency audit, first pass (#319) (2026-10-28)
+## Dependency audit (#319) (2026-10-28)
 
-`npm audit fix` (non-breaking only) plus removal of the unused `jsonld-rdfa-parser` devDependency. Nothing imported it; it pulled in jsdom@13 and the deprecated `request` chain, which carried the unfixable xmldom, form-data@2, qs, tough-cookie@2 and uuid@3 alerts. `npm audit` goes from 36 (5 critical, 10 high) to 21 (2 critical, 4 high). The remaining alerts all need a breaking major bump (vitest, vite, @sveltejs/kit, svelte, adapter-node, nodemailer, jsonld) and are left for one-commit-per-bump follow-ups. Test results unchanged from `development` (same 4 pre-existing failures).
+`npm audit` goes from 36 alerts (5 critical, 10 high) to 7, all low severity. Each major bump is its own commit with a full test pass; test results are unchanged from `development` (same 4 pre-existing failures).
 
-**Files affected:** `package.json`, `package-lock.json`.
+- `npm audit fix` (non-breaking only).
+- Removed the unused `jsonld-rdfa-parser` devDependency. It pulled in jsdom@13 and the deprecated `request` chain (xmldom, form-data@2, qs, tough-cookie@2, uuid@3), none of which had a fix.
+- nodemailer 6 -> 10. `src/lib/mail/send.js` uses only `createTransport`/`sendMail`; the robot from-address still parses.
+- jsonld 8 -> 9 in the app and core. Brings undici 6.29, clearing the undici and @fastify/busboy alerts. `ld/graph.js` has no test coverage; frame/compact were spot-checked by hand.
+- svelte 4 -> 5 and vite-plugin-svelte 3 -> 4. Components run unchanged in legacy (non-runes) mode. The build adds lint-level compiler warnings only.
+- vite 5 -> 8, vite-plugin-svelte 4 -> 7, vitest 1 -> 5. vitest 4+ refuses to `new` an arrow-function `vi.fn`, so the three JSDOM spy mocks now use a `function` implementation. `terser` is now an explicit devDependency because `vite.config.components.js` minifies with it. The five web components were rebuilt and checked in headless Chrome; total bundle size is about 274 KB, down from 391 KB.
+
+Not done: SvelteKit 2 -> 3 (clears 2 of the 7 low alerts). It is a framework migration: config moves into `vite.config.js`, `$lib` becomes `#lib` across ~100 files, and `csrf.checkOrigin: false` is removed so CSRF is always on. That last one matters for cross-origin `POST /index`. The other 5 low alerts are `deepmerge` under vite-plugin-svelte 7, which has no fix yet.
+
+**Files affected:** `package.json`, `package-lock.json`, `packages/core/package.json`, `src/tests/clientEndorsed.test.js`, `src/tests/htmlHandlerParse.test.js`, `src/tests/indexPolicyIndexer.test.js`.
