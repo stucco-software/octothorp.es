@@ -8,7 +8,7 @@
   },
   {
     "role": "object",
-    "uri": "https://docs.octothorp.es",
+    "uri": "https://docs.octothorp.es/backlinks",
     "title": null,
     "description": null,
     "image": null
@@ -74,6 +74,13 @@
     "uri": "https://nimdaghlian.github.io/devdemo/demo-webring",
     "title": "The Demo Webring - OP DEV DEMO",
     "description": "OP makes it easy to run your own webring from your own website. This is the homepage of the OP Demo Webring.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/endorsed-backlinks",
+    "title": "Endorsed Backlinks - OP DEV DEMO",
+    "description": "Backlinks from an origin this site endorses are recorded as backlinks; links from unendorsed origins stay plain links.",
     "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
   },
   {

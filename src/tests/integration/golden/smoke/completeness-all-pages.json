@@ -36,6 +36,13 @@
   },
   {
     "role": "subject",
+    "uri": "https://nimdaghlian.github.io/devdemo/endorsed-backlinks",
+    "title": "Endorsed Backlinks - OP DEV DEMO",
+    "description": "Backlinks from an origin this site endorses are recorded as backlinks; links from unendorsed origins stay plain links.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
     "uri": "https://nimdaghlian.github.io/devdemo/image-indexing",
     "title": "Image Indexing - OP DEV DEMO",
     "description": "OP now extracts and stores image metadata from indexed pages, making images available in API responses and on server listings.",

@@ -114,6 +114,16 @@ async function wipe() {
   for (const origin of [manifest.origin, ...manifest.secondaryOrigins.map((s) => s.origin)]) {
     const result = await deleteOrigin(sparql, origin, targetConfig)
     console.log(`[wipe] removed ${result.deletedPages} pages under ${origin}`)
+    // Orphan URL-slug terms (<instance>/~/<origin>/...) are not origin-scoped, so
+    // deleteOrigin leaves them behind. They surface as bogus role:subject rows
+    // in /get listings and would be pinned into goldens (#334). Sweep only
+    // terms whose slug is a URL under the origin being wiped.
+    await sparql.query(`
+      DELETE { ?t ?p ?o } WHERE {
+        ?t ?p ?o .
+        FILTER(STRSTARTS(STR(?t), "${instance}/~/${origin}/"))
+      }
+    `)
   }
   wiped = true
 }
