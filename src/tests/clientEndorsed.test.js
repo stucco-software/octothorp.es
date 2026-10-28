@@ -7,7 +7,7 @@ import { createIndexer } from '../../packages/core/indexer.js'
 // it is handed a pre-parsed document (see src/tests/htmlHandlerParse.test.js).
 vi.mock('jsdom', async (importOriginal) => {
   const actual = await importOriginal()
-  const JSDOM = vi.fn((...args) => new actual.JSDOM(...args))
+  const JSDOM = vi.fn(function (...args) { return new actual.JSDOM(...args) })
   JSDOM.prototype = actual.JSDOM.prototype
   return { ...actual, JSDOM }
 })
