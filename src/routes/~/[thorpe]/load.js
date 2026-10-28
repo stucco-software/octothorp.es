@@ -1,6 +1,6 @@
 import { queryBoolean, queryArray } from '$lib/sparql.js'
 import { getProfile } from '$lib/profile.js'
-import { caseInsensitiveTermClause } from 'octothorpes'
+import { caseInsensitiveTermClause, termIri, termName, SKOS_PREF_LABEL } from 'octothorpes'
 
 const instance = getProfile().identity.instance
 
@@ -61,10 +61,17 @@ export async function load(req) {
       }
     })
 
+  // Display the term by its skos:prefLabel (#286); decoded slug as fallback.
+  const lr = await queryArray(`
+    SELECT ?label { <${termIri(instance, term)}> <${SKOS_PREF_LABEL}> ?label . } LIMIT 1
+  `)
+  const label = lr.results.bindings[0]?.label?.value ?? termName(termIri(instance, term))
+
   // rturn this thorpe and all subjects which thorpe it
   return {
     uri: instance,
     term,
+    label,
     thorpes,
     bookmarks
   }

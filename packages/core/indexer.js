@@ -7,6 +7,7 @@
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
 import { resolveDocumentRecordIri } from './queryBuilders.js'
+import { termLabelTriples } from './termLabels.js'
 import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.js'
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
 import { verifyAnchorSubmission } from './anchorAuth.js'
@@ -478,6 +479,7 @@ export const createIndexer = (deps) => {
     return await insert(`
       <${termIri(base, o)}> octo:created ${now} .
       <${termIri(base, o)}> rdf:type <octo:Term> .
+      ${termLabelTriples(termIri(base, o), o)}
     `)
   }
 
@@ -509,6 +511,7 @@ export const createIndexer = (deps) => {
   const termTriples = (o, base, now) => `
       <${termIri(base, o)}> octo:created ${now} .
       <${termIri(base, o)}> rdf:type <octo:Term> .
+      ${termLabelTriples(termIri(base, o), o)}
     `
 
   const usageTriples = (o, base, now) => `

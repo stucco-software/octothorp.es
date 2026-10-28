@@ -16,7 +16,7 @@
 </script>
 
 <main class="container">
-  <h1>#{data.term}</h1>
+  <h1>#{data.label ?? data.term}</h1>
  <div id="follow-links">
      <p class="narrow gray" id="follow-links"> <a href="/~/{encodeURIComponent(data.term)}/rss"><img src="/Rss_Shiny_Icon.svg" alt="RSS feed link" width="20" style="display: inline;"> RSS</a> • <a href="/get/pages/thorped?o={data.term}" id="json-link">JSON</a>
      </p>

@@ -505,16 +505,27 @@ describe('#327 term lists see through percent-encoding', () => {
     expect(termBlocked('site%2520changes', ['site changes'])).toBe(false)
   })
 
-  it('treats a percent-encoded non-ASCII name as the distinct term it is today', () => {
-    // termIriSegment leaves non-ASCII literal (an IRI may carry raw UTF-8), so
-    // `~/montréal` and `~/montr%C3%A9al` are genuinely different IRIs in the
-    // store right now — the legacy spellings #306 notes for the cutover. The
-    // list follows the store rather than guessing, and will follow it again
-    // for free once those IRIs are normalized, since both sides derive from
-    // termIriSegment.
-    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(false)
+  it('treats a percent-encoded non-ASCII name as the same single-spelling term (#328)', () => {
+    // The single-spelling policy (#328/#329): a term's identity is the decoded
+    // string a human typed, so the encoded and raw spellings of a non-ASCII
+    // name are ONE term. An operator who lists `montréal` blocks both — the
+    // non-ASCII gap #327 deliberately left open is closed.
+    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(true)
     expect(termBlocked('montréal', ['montréal'])).toBe(true)
     expect(termBlocked('MONTR%C3%A9AL', ['montr%C3%A9al'])).toBe(true)
+  })
+
+  it('montréal in blocks.terms blocks BOTH spellings (#329 — closes #327 open half)', () => {
+    // The gate compares the prefLabel-canonical (decoded) form, so the
+    // operator types the human string once and the encoded link-form spelling
+    // cannot evade it.
+    expect(termBlocked('montréal', ['montréal'])).toBe(true)
+    expect(termBlocked('montr%C3%A9al', ['montréal'])).toBe(true)
+    // And symmetrically when the list entry is the encoded spelling.
+    expect(termBlocked('montréal', ['montr%C3%A9al'])).toBe(true)
+    // The allowlist shares the normalization.
+    expect(termAllowed('montr%C3%A9al', ['montréal'])).toBe(true)
+    expect(termAllowed('montréal', ['café'])).toBe(false)
   })
 
   it('applies the same canonicalization to the allowlist', () => {
