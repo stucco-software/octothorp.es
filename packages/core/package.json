@@ -36,7 +36,7 @@
     "fast-xml-parser": "^5.8.0",
     "js-yaml": "^4.1.0",
     "jsdom": "^24.0.0",
-    "jsonld": "^8.3.2",
+    "jsonld": "^9.0.0",
     "normalize-url": "^8.0.1"
   },
   "peerDependencies": {},
