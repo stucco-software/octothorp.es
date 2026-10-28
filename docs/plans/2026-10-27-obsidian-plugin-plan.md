@@ -1,5 +1,33 @@
 # Obsidian Plugin (OP Publisher) Implementation Plan
 
+> **EXECUTION PAUSED 2026-10-28 (Nim's call — plan to be revisited critically before resuming).**
+>
+> Status when paused:
+> - **Task 1 (scaffold + settings): COMPLETE, review clean.** Repo created at
+>   `~/dev/op-obsidian`, single commit `b417968` on `main` (no remote). Builds
+>   (`npm run build` → main.js, tsc clean); settings tab untested in a real
+>   Obsidian GUI. Deferred minors from review: absolute `file:` dep path on
+>   `octothorpes` (machine-specific — must be swapped before distribution),
+>   `obsidian: "latest"` unpinned, submissionToken rendered as a plain-text
+>   input (set `type="password"`), `npm test` fails until a test file exists,
+>   `minAppVersion: 1.4.0` not yet verified against the APIs used.
+> - **Task 2 (rentry port): NOT STARTED in effect.** An implementer was
+>   dispatched and stopped before committing anything; the repo tree is clean
+>   at `b417968`. No src/rentry.ts, no tests exist.
+> - **Tasks 3–5: not started.**
+> - Execution ruling made (controller): core is consumed via
+>   `"octothorpes": "file:/Users/nim/dev/octothorp.es/packages/core"` rather
+>   than the stale npm registry version.
+> - Context that postdates the plan text, for the critical revisit: the
+>   no-auth tier merged (PRs #338/#340/#341) — `createRemoteClient`,
+>   `submitBlobject`, and the hash-form `.well-known` contract
+>   (`submissionTokenHash`, sha256 hex) are live in core, and the endorsement
+>   direction + alias-embed assumptions in Tasks 3–5 should be re-checked
+>   against this week's endorsed-backlinks findings (endorsement writes no
+>   page relationship; the target origin endorses the linker; `octo:aliases`
+>   head markup via `custom_head` works, but head `link rel="octo:octothorpes"`
+>   mints junk terms — body anchors only).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** An Obsidian plugin that publishes vault notes to rentry.co and registers them with an OP relay as a no-auth client — no SPARQL credentials at any point.
