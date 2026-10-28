@@ -83,6 +83,11 @@ urlSets:
       - https://nimdaghlian.github.io/devdemo/custom-harmonizer
       - https://nimdaghlian.github.io/devdemo/multi-platform
 
+  - name: "Endorsed backlinks"
+    description: "Origin-level octo:endorses (#213)"
+    urls:
+      - https://nimdaghlian.github.io/devdemo/endorsed-backlinks
+
 # Non-standard indexing methods (saved links + companion API check)
 indexingMethods: []
 
