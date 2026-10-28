@@ -68,6 +68,24 @@ export const coerceDocumentRecordValue = (raw, range) => {
  *   local name resolved as `octo:<predicate>`.
  * @returns {Promise<Array>} Array of processed blobjects with metadata
  */
+// A relationship node can carry several types: a promoted Link is typed Link
+// AND Backlink, and queries emit one row per type. Which one a blobject entry
+// reports must not depend on row order. Precedence: any specific subtype
+// (Bookmark, Cite, harmonizer subtypes) beats Backlink, which beats the generic
+// Link ('link' is the no-blank-node fallback spelling). Between two specific
+// subtypes the lexically first wins, so the result is order-independent.
+const subtypeRank = (t) => {
+  if (!t || t.toLowerCase() === 'link') return 0
+  if (t === 'Backlink') return 1
+  return 2
+}
+export const preferSubtype = (prev, next) => {
+  const a = subtypeRank(prev), b = subtypeRank(next)
+  if (a !== b) return b > a ? next : prev
+  if (a === 2) return next < prev ? next : prev
+  return prev || next
+}
+
 export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null }, documentRecordSchema = []) => {
   const limit = filters.limitResults
   const offset = filters.offsetResults
@@ -170,9 +188,8 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           }
           current.octothorpes.push(newEntry);
         } else {
-          if (oType !== 'link') {
-            current.octothorpes[existingIndex].type = oType;
-          }
+          // Row order must not decide the type (see preferSubtype).
+          current.octothorpes[existingIndex].type = preferSubtype(current.octothorpes[existingIndex].type, oType)
           if (relationTerm) {
             if (!current.octothorpes[existingIndex].terms) {
               current.octothorpes[existingIndex].terms = []
@@ -258,9 +275,9 @@ export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => 
       lookup.set(key, { type: bnType, terms: [] })
     }
     const entry = lookup.get(key)
-    if (bnType && bnType !== 'Backlink' && entry.type === 'Backlink') {
-      entry.type = bnType
-    }
+    // #334: first-row-wins here let a plain Link row shadow the Backlink row of
+    // a promoted (dual-typed) node. Same precedence as the blobject merge.
+    entry.type = preferSubtype(entry.type, bnType)
 
     if (binding.term?.value) {
       const termUri = binding.term.value
