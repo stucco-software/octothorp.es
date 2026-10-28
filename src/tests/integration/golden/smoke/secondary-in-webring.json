@@ -1,0 +1,37 @@
+[
+  {
+    "role": "object",
+    "uri": "https://demo.ideastore.dev",
+    "title": null,
+    "description": null,
+    "image": null
+  },
+  {
+    "role": "object",
+    "uri": "https://demo.ideastore.dev/backlinked-page",
+    "title": null,
+    "description": null,
+    "image": null
+  },
+  {
+    "role": "object",
+    "uri": "https://demo.ideastore.dev/demo-webring",
+    "title": "The Demo Webring - Octothorpes Demo",
+    "description": "OP makes it easy to run your own webring from your own website. This is the homepage of the OP Demo Webring.",
+    "image": "https://demo.ideastore.dev/assets/octomark.png"
+  },
+  {
+    "role": "object",
+    "uri": "https://nimdaghlian.github.io/devdemo",
+    "title": "Home - OP DEV DEMO",
+    "description": "Welcome to the demonstration site for Octothorpe Protocol, where you can find live examples of what you can do with **OP version 0.6**.",
+    "image": "https://nimdaghlian.github.io/devdemo/assets/octomark.png"
+  },
+  {
+    "role": "subject",
+    "uri": "https://octothorpes.neocities.org",
+    "title": "The web site of octothorpes",
+    "description": "Imagine being able to use hashtags on your Neocities site! Well, now you can! It's *really* easy.",
+    "image": null
+  }
+]
