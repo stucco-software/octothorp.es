@@ -63,6 +63,24 @@ export const CLASS = Object.freeze(Object.fromEntries(BUILTIN_CLASSES.map((c) =>
  */
 export const typeRef = (name) => {
   if (!Object.hasOwn(CLASS, name)) throw new Error(`Unregistered vocabulary class: ${name}`)
+  return classRef(name)
+}
+
+const SAFE_CLASS_NAME = /^[A-Za-z][A-Za-z0-9_-]*$/
+
+/**
+ * The same serialization for a class name that is NOT in the builtin registry:
+ * a profile-declared link type's subtype (`api.linkTypes[].subtype`), which is
+ * a real octo class a harmonizer writes but not one core ships. Validated, not
+ * looked up — the name lands inside a SPARQL triple, so anything that is not a
+ * plain class name is an injection vector. Prefer typeRef for builtins; this is
+ * the escape hatch for names only known at runtime, and it routes through the
+ * same single place the #270 IRI migration changes.
+ */
+export const classRef = (name) => {
+  if (typeof name !== 'string' || !SAFE_CLASS_NAME.test(name)) {
+    throw new Error(`Invalid vocabulary class name: ${name}`)
+  }
   return `<octo:${name}>`
 }
 

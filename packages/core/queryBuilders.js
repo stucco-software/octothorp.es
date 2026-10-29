@@ -1,7 +1,7 @@
 import { getFuzzyTags, termIri, termIriSegment } from './utils.js'
 import { QueryError } from './errors.js'
 import { originVariants, uriVariants } from './uri.js'
-import { CLASS, typeRef } from './vocabulary.js'
+import { CLASS, typeRef, classRef } from './vocabulary.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -444,7 +444,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?s octo:octothorpes ?_stBn .
         FILTER(isBlank(?_stBn))
         ?_stBn octo:url ?o .
-        ?_stBn rdf:type <octo:${filters.subtype}> .
+        ?_stBn rdf:type ${classRef(filters.subtype)} .
         VALUES ?relationTerm { ${termUris} }
         ?_stBn octo:octothorpes ?relationTerm .
       }`
@@ -453,7 +453,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?s octo:octothorpes ?_stBn .
         FILTER(isBlank(?_stBn))
         ?_stBn octo:url ?o .
-        ?_stBn rdf:type <octo:${filters.subtype}> .
+        ?_stBn rdf:type ${classRef(filters.subtype)} .
       }`
     } else if (hasRelationTerms) {
       const termUris = filters.relationTerms.map(t => `<${termIri(instance, t)}>`).join(' ')

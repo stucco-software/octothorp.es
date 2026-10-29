@@ -12,7 +12,7 @@ import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
 import { verifyAnchorSubmission } from './anchorAuth.js'
 import { scopeIri } from './scopedIri.js'
-import { CLASS, typeRef, SUBTYPE_ALIASES } from './vocabulary.js'
+import { CLASS, typeRef, classRef, SUBTYPE_ALIASES } from './vocabulary.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -371,7 +371,7 @@ export const createIndexer = (deps) => {
   const extantPage = async (o, type = "Page") => {
     return await queryBoolean(`
       ask {
-        <${o}> rdf:type <octo:${type}> .
+        <${o}> rdf:type ${typeRef(type)} .
       }
     `)
   }
@@ -514,7 +514,7 @@ export const createIndexer = (deps) => {
       <${s}> ${p} _:backlink .
         _:backlink octo:created ${now} .
         _:backlink octo:url <${o}> .
-        _:backlink rdf:type <octo:${subtype}> .
+        _:backlink rdf:type ${classRef(subtype)} .
     `
     for (const term of terms) {
       t += `
