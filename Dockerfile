@@ -1,4 +1,4 @@
-FROM node:18-alpine AS deploy-node
+FROM node:24-alpine AS deploy-node
 
 # install dependencies
 WORKDIR /app
