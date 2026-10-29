@@ -55,7 +55,7 @@ describe('authored profile schema (#217 Rev 2)', () => {
       },
       vocabulary: {
         octo: 'https://vocab.octothorp.es#',
-        namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true }],
+        namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
       },
       federation: {},
     })
@@ -209,6 +209,13 @@ describe('authored profile schema (#217 Rev 2)', () => {
     expect(validate({
       api: { documentRecord: [{ predicate: 'https://schema.org/x', range: 'literal' }] },
     })).toBe(false)
+  })
+
+  // #315: import is unimplemented (deferred to #270), so true is a schema error.
+  it('rejects import: true on a declared namespace and accepts import: false', () => {
+    const iri = 'http://www.w3.org/2004/02/skos/core#'
+    expect(validate({ vocabulary: { namespaces: [{ prefix: 'skos', iri, import: true }] } })).toBe(false)
+    expect(validate({ vocabulary: { namespaces: [{ prefix: 'skos', iri, import: false }] } })).toBe(true)
   })
 
   it('requires prefix and iri on a declared namespace', () => {

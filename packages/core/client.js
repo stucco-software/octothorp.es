@@ -550,7 +550,6 @@ export const createClient = (config) => {
     const options = {
       ...rest,
       documentRecordSchema: rest.documentRecordSchema ?? config.documentRecordSchema,
-      namespaces: rest.namespaces ?? config.namespaces,
     }
 
     if (asFormat === 'debug' || asFormat === 'multipass') {

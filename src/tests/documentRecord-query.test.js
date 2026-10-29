@@ -120,8 +120,15 @@ describe('C5 buildEverythingQuery surfaces declared predicates', () => {
 })
 
 describe('#217 profile-driven namespaces', () => {
-  it('ships octo, rdf and rdfs as builtins — and not foaf or schema', () => {
-    expect(BUILTIN_NAMESPACES.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs'])
+  it('ships octo, rdf, rdfs and skos as builtins — and not foaf or schema', () => {
+    expect(BUILTIN_NAMESPACES.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs', 'skos'])
+  })
+
+  // #315: BUILTIN_NAMESPACES and the static SPARQL prologue must stay in lockstep.
+  it('BUILTIN_NAMESPACES matches the SPARQL prologue exactly', () => {
+    const prologue = [...corePrefixes.matchAll(/PREFIX (\w+): <([^>]+)>/g)]
+      .map(([, prefix, iri]) => `${prefix} ${iri}`).sort()
+    expect(BUILTIN_NAMESPACES.map((n) => `${n.prefix} ${n.iri}`).sort()).toEqual(prologue)
   })
 
   it('drops the unused foaf and schema PREFIXes from the injected SPARQL prologue', () => {
@@ -133,12 +140,12 @@ describe('#217 profile-driven namespaces', () => {
 
   it('tags builtin vs declared', () => {
     const merged = mergeNamespaces([
-      { prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true },
+      { prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' },
     ])
     expect(merged.find((n) => n.prefix === 'octo').source).toBe('builtin')
     const skos = merged.find((n) => n.prefix === 'skos')
     expect(skos.source).toBe('declared')
-    expect(skos.import).toBe(true)
+    expect(skos.import).toBe(false)
   })
 
   it('a declared namespace overrides a builtin of the same prefix', () => {
@@ -150,6 +157,6 @@ describe('#217 profile-driven namespaces', () => {
   })
 
   it('mergeNamespaces() with no argument is just the builtins', () => {
-    expect(mergeNamespaces().map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs'])
+    expect(mergeNamespaces().map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs', 'skos'])
   })
 })

@@ -33,7 +33,7 @@ export const RANGE_TO_RDFS = {
 /**
  * Core protocol terms. These are the classes and predicates core itself writes
  * (indexer.js) and reads (queryBuilders.js) — the builtin registry this
- * document is generated from, pending a fuller #195 registry module.
+ * document is generated from and the registry core consumes (#195).
  * Local names only; IRIs are minted against the profile's octo namespace.
  */
 export const BUILTIN_CLASSES = [
@@ -47,7 +47,60 @@ export const BUILTIN_CLASSES = [
   { name: 'Cite', label: 'Cite', subClassOf: ['Link'] },
   { name: 'Bookmark', label: 'Bookmark', subClassOf: ['Link'] },
   { name: 'Mention', label: 'Mention', subClassOf: ['Link'] },
+  { name: 'Button', label: 'Button', subClassOf: ['Link'] },
 ]
+
+/**
+ * Registry handles (#195). Core code names classes through CLASS so a typo is
+ * an undefined lookup, not a silently new rdf:type.
+ */
+export const CLASS = Object.freeze(Object.fromEntries(BUILTIN_CLASSES.map((c) => [c.name, c.name])))
+
+/**
+ * A builtin class as it is written to and read from the store today: the
+ * compact `<octo:Name>` form. Expanding to the full IRI is the #270 migration
+ * (IRI-form ruling); change it here when that lands, nowhere else.
+ */
+export const typeRef = (name) => {
+  if (!Object.hasOwn(CLASS, name)) throw new Error(`Unregistered vocabulary class: ${name}`)
+  return classRef(name)
+}
+
+const SAFE_CLASS_NAME = /^[A-Za-z][A-Za-z0-9_-]*$/
+
+/**
+ * The same serialization for a class name that is NOT in the builtin registry:
+ * a profile-declared link type's subtype (`api.linkTypes[].subtype`), which is
+ * a real octo class a harmonizer writes but not one core ships. Validated, not
+ * looked up — the name lands inside a SPARQL triple, so anything that is not a
+ * plain class name is an injection vector. Prefer typeRef for builtins; this is
+ * the escape hatch for names only known at runtime, and it routes through the
+ * same single place the #270 IRI migration changes.
+ */
+export const classRef = (name) => {
+  if (typeof name !== 'string' || !SAFE_CLASS_NAME.test(name)) {
+    throw new Error(`Invalid vocabulary class name: ${name}`)
+  }
+  return `<octo:${name}>`
+}
+
+/**
+ * Harmonizer-key -> relationship class aliases read by resolveSubtype. Per
+ * the #332 ruling, new subtypes use a single lowercase key whose first-letter
+ * capitalisation is the class name and need no entry here; these are the
+ * legacy exceptions (and identity entries for already-capitalised keys).
+ */
+export const SUBTYPE_ALIASES = Object.freeze({
+  bookmark: CLASS.Bookmark,
+  Bookmark: CLASS.Bookmark,
+  cite: CLASS.Cite,
+  citation: CLASS.Cite,
+  Cite: CLASS.Cite,
+  mention: CLASS.Mention,
+  Mention: CLASS.Mention,
+  button: CLASS.Button,
+  Button: CLASS.Button,
+})
 
 export const BUILTIN_PROPERTIES = [
   { name: 'octothorpes', label: 'octothorpes', comment: 'Subject page octothorpes (tags or links to) the object.' },

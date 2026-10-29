@@ -1,6 +1,7 @@
 import { getFuzzyTags, termIri, termIriSegment } from './utils.js'
 import { QueryError } from './errors.js'
 import { originVariants, uriVariants } from './uri.js'
+import { CLASS, typeRef, classRef } from './vocabulary.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -33,6 +34,9 @@ export const BUILTIN_NAMESPACES = Object.freeze([
   Object.freeze({ prefix: 'octo', iri: 'https://vocab.octothorp.es#', import: false, source: 'builtin' }),
   Object.freeze({ prefix: 'rdf', iri: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', import: false, source: 'builtin' }),
   Object.freeze({ prefix: 'rdfs', iri: 'http://www.w3.org/2000/01/rdf-schema#', import: false, source: 'builtin' }),
+  // skos joined the prologue with #286 (Term subClassOf skos:Concept); listed
+  // here to keep the lockstep (#315).
+  Object.freeze({ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: false, source: 'builtin' }),
 ])
 
 /**
@@ -40,11 +44,10 @@ export const BUILTIN_NAMESPACES = Object.freeze([
  * A declared prefix shadows a builtin of the same name (forking a namespace is
  * deliberate and identity-affecting, same caveat as vocabulary.octo).
  *
- * NOTE (#217, deferred to #270): `import: true` is validated and carried
- * through here, but loading the ontology's triples into a named graph is NOT
- * implemented in v0.7. Both values resolve identically today — import is
- * DECLARE-ONLY. Do not add fetch/load behavior here; it belongs in the init
- * step alongside #270's graph-model work.
+ * Declared namespaces are declaration metadata only (#315): they surface in the
+ * resolved profile but never reach the SPARQL prologue (ld/prefixes.js is
+ * static). `import: true` is a schema error until ontology import lands with
+ * #270; the field is carried here only as `false`.
  *
  * @param {Array<{prefix:string, iri:string, import?:boolean}>} [declared=[]]
  * @returns {Array<{prefix:string, iri:string, import:boolean, source:'builtin'|'declared'}>}
@@ -370,9 +373,9 @@ export const createQueryBuilders = (instance, queryArray) => {
   // Filter objects by rdf:type
   // use as objectTypes[objects.type]
   const objectTypes = {
-    termsOnly: '?o rdf:type <octo:Term> .',
-    pagesOnly: '?o rdf:type <octo:Page> .',
-    notTerms: 'MINUS { ?o rdf:type <octo:Term> }',
+    termsOnly: `?o rdf:type ${typeRef(CLASS.Term)} .`,
+    pagesOnly: `?o rdf:type ${typeRef(CLASS.Page)} .`,
+    notTerms: `MINUS { ?o rdf:type ${typeRef(CLASS.Term)} }`,
     all: ''
   }
 
@@ -441,7 +444,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?s octo:octothorpes ?_stBn .
         FILTER(isBlank(?_stBn))
         ?_stBn octo:url ?o .
-        ?_stBn rdf:type <octo:${filters.subtype}> .
+        ?_stBn rdf:type ${classRef(filters.subtype)} .
         VALUES ?relationTerm { ${termUris} }
         ?_stBn octo:octothorpes ?relationTerm .
       }`
@@ -450,7 +453,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?s octo:octothorpes ?_stBn .
         FILTER(isBlank(?_stBn))
         ?_stBn octo:url ?o .
-        ?_stBn rdf:type <octo:${filters.subtype}> .
+        ?_stBn rdf:type ${classRef(filters.subtype)} .
       }`
     } else if (hasRelationTerms) {
       const termUris = filters.relationTerms.map(t => `<${termIri(instance, t)}>`).join(' ')
@@ -685,7 +688,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${statements.subjectStatement}
       ${statements.objectStatement}
 
-         ?o rdf:type <octo:Term> .
+         ?o rdf:type ${typeRef(CLASS.Term)} .
          ?s ?o ?date .
          ?s octo:octothorpes ?o
          }
@@ -734,7 +737,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       }
       else {
         query = `select * {
-          ?s rdf:type <octo:Origin> .
+          ?s rdf:type ${typeRef(CLASS.Origin)} .
           ?s octo:verified "true" .
           optional { ?s octo:banned ?b . }
         }

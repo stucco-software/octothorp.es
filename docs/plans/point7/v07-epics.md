@@ -19,7 +19,7 @@ Code-complete and merged; epic closed. Docs and demos remain.
 * [x] 236 - link subtypes get first-class paths; superseded by 217 as api.linkTypes
 * [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
 * [ ] 166 - on-demand Document Records. Open surface is the stored `octo:harmonizeWith` ref.
-* [ ] 291 - generated vocabulary document
+* [x] 291 - generated vocabulary document
 * [x] 292 - `mentioned` becomes its own subtype
 * [x] 293 - coherence warning for undeclared/uncaptured link types
 * [x] 295 - api-smoketest
@@ -37,15 +37,16 @@ Epic: **316**
 
 ### Status
 
-Almost nothing built. `packages/core/vocabulary.js` does not exist; no SKOS triple is emitted; `/vocab` is hand-written and stale; declared namespaces are inert. Scope was spread across four design docs and two milestones until 2026-10-13.
+Core vocabulary module exists (`packages/core/vocabulary.js`). 291 (generated vocabulary document, canonical IRI writes with dual-form reads) and 286 (SKOS subClassOf + prefLabel) are closed. Remaining: 195, 315, and 332 capitalization; `context.json` regeneration still waits on 270.
 
 ### Issues — independent of 270, workable now
 
 * [ ] 195 - the registry module plus the spec §4 naming fixes. Blocker for 291 and 286.
-* [ ] 291 - generated vocabulary document at `{instance}/vocabulary`. Also owns the stored-type IRI-form decision, moved here from 195/270.
+* [x] 291 - generated vocabulary document at `{instance}/vocabulary`. Also owns the stored-type IRI-form decision, moved here from 195/270.
 * [ ] 315 - declared `vocabulary.namespaces` never reach SPARQL; `import: true` unimplemented. Blocks 286 in practice.
-* [ ] 286 - SKOS terms, additive. Independent of 270.
-* [ ] 249 - harmonizer/publisher envelope normalization. Lives only on branch `249-envelope-normalization`; decide whether to land or abandon.
+* [x] 286 - SKOS terms, additive. Independent of 270.
+* [x] 249 - harmonizer/publisher envelope normalization, landed via PR 252.
+* [ ] 332 - collapse the three capitalization conventions
 
 ### Waits on 270
 
@@ -57,15 +58,15 @@ Almost nothing built. `packages/core/vocabulary.js` does not exist; no SKOS trip
 
 ### Gating unknown
 
-Oxigraph's SPARQL-star surface is unverified on the deployed image. Entangled with 298. Short probe; it gates 270 and therefore the larger half of this epic.
+Closed. Pin is Oxigraph 0.5.x, RDF 1.2 reifier dialect — see `2026-10-29-graph-storage-model.md`.
 
-# RDF-Star Relationship Model Migration
+# RDF 1.2 Relationship Model Migration
 
 Epic: **270**
 
 ### Status
 
-Not started. Critical path — blocks Deletion.
+Precursors landing. The engine gate is closed and the storage model is settled — `2026-10-29-graph-storage-model.md` is the design basis for this epic. Alias hardening and remoteClient adoption are deliberately deferred to land after this epic.
 
 ### Issues
 
@@ -74,7 +75,8 @@ Not started. Critical path — blocks Deletion.
 * [ ] 268 - octo:created on relationships
 	* [ ] don't break the `?s ?o ?date` read path or RSS link feeds go empty
 * [ ] 192 - content labels, riding on this migration
-* [ ] 286 - SKOS terms. Precursor, can land independently.
+* [x] 286 - SKOS terms. Precursor, can land independently.
+* [ ] 331 - extantBacklink subtype-blindness, resolved by the migration
 
 Four more pieces are deliberately unticketed until the migration design settles (identifier-key rename, the statement-metadata rewrite itself, data migration, JSON-LD publisher endpoint). They're listed in 270's Scope. Don't file them early.
 
@@ -84,7 +86,7 @@ Epic: **271**
 
 ### Status
 
-Not started, blocked on 270.
+Promoted to immediately follow 270. Still blocked on it.
 
 ### Issues
 
@@ -107,7 +109,7 @@ Deployed on staging. Lightly tested. Needs documentation and examples.
 * [ ] 226 - site-defined ICS publisher
 	* [ ] core already ships a general `ics` publisher — decide whether that closes this
 * [ ] 250 - publisher profile-compat check. Deferred.
-* [ ] 161 - Publishers MVP. Probably closeable once docs land.
+* [x] 161 - Publishers MVP. Probably closeable once docs land.
 
 ### TODO:
 
@@ -157,13 +159,13 @@ Deployed on staging. Lightly tested.
 
 ### Issues
 
-* [ ] 253 - case matching on search pages too strict; stale tags after rename
+* [x] 253 - case matching on search pages too strict; stale tags after rename
 * [ ] 241 - guard mention-path origin logic against non-http(s) schemes
 * [ ] 243 - markdown handler follow-ups
 * [x] 279 - post-merge fixes from the 245 review
 * [x] 300 - site harmonizers/handlers/publishers missing from the Vercel bundle
 * [x] 285 - terms with spaces crash indexing. Needed by WWO day 29.
-* [ ] 275 - canonical www origins. Verified on next; close with #307.
+* [x] 275 - canonical www origins. Verified on next; close with #307.
 * [x] 309 - SvelteKit side reads instance from the resolved profile (db0eb86). Pulled into the cutover for the Railway deploy test.
 * [x] 282 - /get planner slowdown
 
@@ -198,14 +200,14 @@ Catch-all bucket. Includes the Domain Pages Overhaul epic (218) rather than givi
 
 ### Status
 
-Domain Pages Overhaul (218) landed on development; close 202/185/191 after staging verification. Follow-ups filed: 311 (octo:created gap), 312 (SPARQL-level blobject paging).
+Domain Pages Overhaul (218) landed on development; 202 and 191 are closed; 185 still open. Follow-ups filed: 311 (octo:created gap), 312 (SPARQL-level blobject paging).
 
 ### Issues
 
 * [ ] 218 - Domain Pages Overhaul (epic). All three steps on development; verify on staging, then close.
 * [ ] 158 - default to fuzzy results on hashtag list
 * [ ] 199 - "links with this hashtag" view
-* [ ] 254 - stop committing built web components
+* [x] 254 - stop committing built web components
 
 ### TODO:
 
@@ -223,12 +225,12 @@ Not started.
 
 ### Issues
 
-* [ ] 200 - ?st= param to query by arbitrary relationship subtype
+* [x] 200 - ?st= param to query by arbitrary relationship subtype
 * [ ] 204 - typed errors from core indexer with HTTP status codes
 * [x] 244 - closed 2026-10-13, out of milestone. Stale 500 claim; validity matrix dropped as redundant with 312.
 * [ ] 313 - cap limit on subject/object-less shapes; reword the unbounded-query error. Split out of 244.
-* [ ] 266 - /get/domains/posted ignores s=
-* [ ] 213 - wire endorsement gating in handleMention. Design-heavy, deferred.
+* [x] 266 - /get/domains/posted ignores s=
+* [x] 213 - wire endorsement gating in handleMention. Design-heavy, deferred.
 
 ### TODO:
 
@@ -240,11 +242,12 @@ Mini-epic, tracked in `2026-08-27-dependency-modernization.md` (no GitHub issue,
 
 ### Status
 
-Not started. Batch 3 likely rides on 270.
+In progress. Batch 1 landed via 319; Batch 2 partially done by the same audit pass; Batch 3 may already be closeable.
 
 ### TODO
 
-* [ ] Batch 1 - build/test toolchain majors (vite, svelte, kit, vitest)
+* [x] Batch 1 - build/test toolchain majors (vite, svelte, kit, vitest), merged via 319
+	* Note: Batch 2 partially done via the 319 audit pass; jsonld-rdfa-parser already dropped, so Batch 3 may be closeable — verify.
 * [ ] Batch 2 - runtime dep bumps
 * [ ] Batch 3 - retire jsonld-rdfa-parser
 
@@ -255,11 +258,15 @@ Things in the milestone that don't have a home yet.
 * [ ] 168 - use badge.png to trigger a registration request
 * [ ] 160 - more levers for query param handling
 * [ ] 145 - indexing via webmention. Now "add a handler mode"; the markdown handler is the template.
-* [ ] 196 - basic graph relationship primitives. Recommend moving to v0.8.
-* [ ] 221 - replace removed verifyContent origin checks with index-policy mechanisms
+* [x] 196 - basic graph relationship primitives; closed as moved to op-cli, core side refiled as 349
+* [ ] 349 - core graph primitives (related, neighbors), queued post-270
+* [x] 221 - replace removed verifyContent origin checks with index-policy mechanisms
 * [ ] 222 - allow a domain with a subpath to act as a domain
-* [ ] 228 - internal SvelteKit urls should use instance
+* [x] 228 - internal SvelteKit urls should use instance
 * [x] 224 - update Bear Blog's check to the New Way
+* [ ] 345 - aliasing must be two-way or endorsed (hardening sprint, pre-270)
+* [ ] 339 - wildcard endorsement
+* [ ] 336 - active mode doesn't bypass registration on HTTP /index
 
 ### Memex-specific sub-group
 

@@ -1697,3 +1697,15 @@ A Link promoted to a Backlink (2026-10-19 ruling) is stored as one blank node ty
 Not done: SvelteKit 2 -> 3 (clears 2 of the 7 low alerts). It is a framework migration: config moves into `vite.config.js`, `$lib` becomes `#lib` across ~100 files, and `csrf.checkOrigin: false` is removed so CSRF is always on. That last one matters for cross-origin `POST /index`. The other 5 low alerts are `deepmerge` under vite-plugin-svelte 7, which has no fix yet.
 
 **Files affected:** `package.json`, `package-lock.json`, `packages/core/package.json`, `src/tests/clientEndorsed.test.js`, `src/tests/htmlHandlerParse.test.js`, `src/tests/indexPolicyIndexer.test.js`.
+
+## Vocabulary registry consumed by core (#195) (2026-10-28)
+
+`packages/core/vocabulary.js` is now the registry that `indexer.js` and `queryBuilders.js` read, not only the source of the `/vocabulary` document. New exports: `CLASS` (frozen name map built from `BUILTIN_CLASSES`), `typeRef(name)` (emits the stored `<octo:Name>` form and throws on an unregistered name), and `SUBTYPE_ALIASES` (the alias map `resolveSubtype` reads, previously inline in `indexer.js`). Every hardcoded `<octo:Term|Page|Origin|Webring>` in those two files goes through `typeRef`, so the #270 IRI-form migration changes one function. `Button` is added to `BUILTIN_CLASSES` because core already writes it; it now appears in `/vocabulary`. Spec §4 naming fix: `context.json` (core and `src/lib/ld`) maps `Term` instead of `Octothorpe`. Not changed: stored IRIs, the `citation` alias, `api.js`/`utils.js`/`origin.js`/`termLabels.js` type literals.
+
+**Files affected:** `packages/core/vocabulary.js`, `packages/core/indexer.js`, `packages/core/queryBuilders.js`, `packages/core/ld/context.json`, `src/lib/ld/context.json`, `src/tests/vocabularyRegistry.test.js`.
+
+## Declared namespaces are metadata only; `import: true` rejected (#315) (2026-10-28)
+
+Implements the 2026-10-22 cheap-path ruling. `vocabulary.namespaces` entries are declaration metadata only and never reach the SPARQL prologue. The schema description now says so. `import` is `const: false`, so `import: true` fails validation until #270. The dead `namespaces` plumbing is removed from `createClient().get()` and `src/lib/op.js`. `skos` was already in `ld/prefixes.js` (#286); it is now also in `BUILTIN_NAMESPACES`, and a new test keeps the two in lockstep. The root and Bear profiles drop `"import": true` from their `skos` declaration. Goldens under `src/tests/integration/*/smoke/profile-resolved.json` are updated to `"import": false`; `skos` stays `source: "declared"`, since the root profile still declares it.
+
+**Files affected:** `packages/core/profile.schema.json`, `packages/core/queryBuilders.js`, `packages/core/client.js`, `src/lib/op.js`, `octothorpes.json`, `profiles/bearblog/octothorpes.json`, `src/tests/{profile-schema,profileLoader,resolveProfile,documentRecord-query,client-documentRecordSchema}.test.js`.

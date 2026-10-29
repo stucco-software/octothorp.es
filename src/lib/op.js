@@ -2,7 +2,7 @@
 // querying + publishing; routes are thin transport adapters over this instance.
 // #217: all non-secret config now comes from the profile. sparql credentials
 // stay in .env (secrets), which is the whole point of the split.
-import { createClient, mergeNamespaces } from 'octothorpes'
+import { createClient } from 'octothorpes'
 import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { publishers } from '$lib/publishers'
@@ -41,7 +41,6 @@ export const op = createClient({
   // Was missing entirely (#217 gap audit): without this, programmatic op.get()
   // silently lost documentRecord projection.
   documentRecordSchema: profile.api.documentRecord,
-  namespaces: mergeNamespaces(profile.vocabulary.namespaces),
   // Where THIS adapter mounted things. Core owns the query grammar (`what`,
   // `by`, `as`, the accepted params) but cannot see SvelteKit's route tree, so
   // the mount points come from here and resolveProfile composes the two into
