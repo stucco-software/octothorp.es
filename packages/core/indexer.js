@@ -800,6 +800,35 @@ export const createIndexer = (deps) => {
     return false
   }
 
+  // #345: who consented to subj claiming to be an alias of obj?
+  //   'allowed'    same origin, the reverse alias already exists, or obj's
+  //                origin endorses subj's origin (octo:endorses)
+  //   'reciprocal' obj has a pending octo:aliasClaim toward subj
+  //   'pending'    nobody: record a claim, publish nothing
+  // Non-http (declared-scheme) subjects have no origin to compare or endorse,
+  // so only reciprocity can admit them.
+  //
+  // Scope: consent here is inferred from indexable public URLs (same origin,
+  // a reciprocal claim, an endorsement). Sources that cannot be fetched
+  // (no-auth, local, private) cannot reciprocate this way; token-based
+  // consent and revocation for them is a later extension that plugs in here.
+  const checkAliasConsent = async (subj, obj, originMode = 'origin') => {
+    const httpObj = /^https?:/.test(obj)
+    if (originMode === 'origin' && httpObj && storedOrigin(subj) === storedOrigin(obj)) return 'allowed'
+    // #270: the reverse Alias is a deterministic reifier; ask for it by IRI.
+    const reverse = await mintRelationship(obj, subj, 'Alias')
+    const [claimed, reverseAlias, endorsed] = await Promise.all([
+      queryBoolean(`ask { <${obj}> octo:aliasClaim <${subj}> . }`),
+      queryBoolean(`ask { <${reverse.reifier}> rdf:type <${reverse.subtypeIri}> . }`),
+      originMode === 'origin' && httpObj
+        ? originEndorsesOrigin(storedOrigin(subj), storedOrigin(obj))
+        : false,
+    ])
+    if (claimed) return 'reciprocal'
+    if (reverseAlias || endorsed) return 'allowed'
+    return 'pending'
+  }
+
   // #213: consume friends.endorsed — the <link rel="octo:endorses"> declarations
   // collected during HTML handling — by recording
   // <sourceOrigin> octo:endorses <targetOrigin>, per-origin, deduped on re-index.
@@ -1009,6 +1038,30 @@ export const createIndexer = (deps) => {
       }
     }
 
+    // #345: the Alias consent gate. An alias is never unilateral. The gate is a
+    // write-policy decision (who consented), independent of how the
+    // relationship is stored, so it survives the #270 storage rewrite.
+    let aliasReciprocal = false
+    let aliasWarning = null
+    if (mintBacklink && subtype === 'Alias') {
+      const consent = await checkAliasConsent(subj, obj, originMode)
+      if (consent === 'reciprocal') {
+        aliasReciprocal = true
+        // Clear the other side's pending claim; it is now a full alias.
+        await query(`
+          delete { <${obj}> octo:aliasClaim <${subj}> . }
+          where { <${obj}> octo:aliasClaim <${subj}> . }
+        `)
+      } else if (consent === 'pending') {
+        mintBacklink = false
+        // A plain triple, never a reifier: no /get query builder matches
+        // octo:aliasClaim, so a pending claim publishes nothing.
+        blocks.push(`<${subj}> octo:aliasClaim <${obj}> .`)
+        aliasWarning = `Alias claim from ${subj} to ${obj} recorded but not published: ${obj} has not reciprocated or endorsed ${storedOrigin(subj)}.`
+        console.log(`alias withheld: ${aliasWarning}`)
+      }
+    }
+
     if (mintBacklink) {
       terms.forEach((term, i) => {
         if (!termExists[i]) {
@@ -1025,6 +1078,13 @@ export const createIndexer = (deps) => {
         blocks.push(backlinkTriples(promoted, subj, obj, terms, base))
         firstWins.push(reifierCreatedUpdate(promoted.reifier, now))
       }
+      if (aliasReciprocal) {
+        // Reciprocity completes the alias both ways. The reverse reifier's
+        // deterministic IRI is the duplicate guard: re-minting is a no-op.
+        const reverse = await mintRelationship(obj, subj, 'Alias')
+        blocks.push(backlinkTriples(reverse, obj, subj, [], base))
+        firstWins.push(reifierCreatedUpdate(reverse.reifier, now))
+      }
     }
 
     if (blocks.length > 0) {
@@ -1033,6 +1093,7 @@ export const createIndexer = (deps) => {
     if (firstWins.length > 0) {
       await query(firstWins.join(' ;\n'))
     }
+    return aliasWarning ? { warning: aliasWarning } : {}
   }
 
   const handleWebring = async (s, friends, alreadyRing) => {
@@ -1096,6 +1157,8 @@ export const createIndexer = (deps) => {
     await recordDocumentRecord(s, harmed.documentRecord, schemaOverride ?? documentRecordSchema)
 
     let friends = { endorsed: [], linked: [] }
+    // #345: non-fatal per-statement warnings surfaced in the index response.
+    const warnings = []
     const seen = new Set()
     const uniqueOctothorpes = (harmed.octothorpes || []).filter(o => {
       const key = typeof o === 'string'
@@ -1146,7 +1209,8 @@ export const createIndexer = (deps) => {
           console.warn(`[index] term "${t}" is not writable on this server; statement dropped`)
           return false
         })
-        await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed, schemes, claimed })
+        const result = await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed, schemes, claimed })
+        if (result?.warning) warnings.push(result.warning)
       }
     }
 
@@ -1201,6 +1265,8 @@ export const createIndexer = (deps) => {
         console.error('handleWebring failed; metadata already recorded:', e)
       }
     }
+
+    return { warnings }
   }
 
 
@@ -1578,11 +1644,12 @@ export const createIndexer = (deps) => {
     // Active mode (crawler-initiated) never mints octo:verified origins: it skips
     // registration, so it must not manufacture it either (treated like an
     // endorsement-only admission).
-    await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
+    const result = await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
     // A successful index clears unavailable/failure markers (restore).
     if (await queryBoolean(`ASK { { <${parsed.normalized}> octo:unavailable ?x } UNION { <${parsed.normalized}> octo:failCount ?x } }`)) {
       await deleter.restorePage(parsed.normalized)
     }
+    return result
   }
 
   return {
