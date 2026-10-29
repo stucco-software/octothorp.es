@@ -4,7 +4,7 @@
   "id": "@id",
   "type": "@type",
   "Origin": "Origin",
-  "Octothorpe": "Octothorpe",
+  "Term": "Term",
   "verified": "verified",
   "challenge": "challenge",
   "octothorpes": {

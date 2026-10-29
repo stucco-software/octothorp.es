@@ -1,6 +1,7 @@
 import { getFuzzyTags, termIri, termIriSegment } from './utils.js'
 import { QueryError } from './errors.js'
 import { originVariants, uriVariants } from './uri.js'
+import { CLASS, typeRef } from './vocabulary.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -372,9 +373,9 @@ export const createQueryBuilders = (instance, queryArray) => {
   // Filter objects by rdf:type
   // use as objectTypes[objects.type]
   const objectTypes = {
-    termsOnly: '?o rdf:type <octo:Term> .',
-    pagesOnly: '?o rdf:type <octo:Page> .',
-    notTerms: 'MINUS { ?o rdf:type <octo:Term> }',
+    termsOnly: `?o rdf:type ${typeRef(CLASS.Term)} .`,
+    pagesOnly: `?o rdf:type ${typeRef(CLASS.Page)} .`,
+    notTerms: `MINUS { ?o rdf:type ${typeRef(CLASS.Term)} }`,
     all: ''
   }
 
@@ -687,7 +688,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${statements.subjectStatement}
       ${statements.objectStatement}
 
-         ?o rdf:type <octo:Term> .
+         ?o rdf:type ${typeRef(CLASS.Term)} .
          ?s ?o ?date .
          ?s octo:octothorpes ?o
          }
@@ -736,7 +737,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       }
       else {
         query = `select * {
-          ?s rdf:type <octo:Origin> .
+          ?s rdf:type ${typeRef(CLASS.Origin)} .
           ?s octo:verified "true" .
           optional { ?s octo:banned ?b . }
         }

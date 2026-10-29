@@ -12,6 +12,7 @@ import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
 import { verifyAnchorSubmission } from './anchorAuth.js'
 import { scopeIri } from './scopedIri.js'
+import { CLASS, typeRef, SUBTYPE_ALIASES } from './vocabulary.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -37,17 +38,7 @@ const indexingRateLimitMap = new Map()
 const MAX_INDEXING_REQUESTS = 10
 const INDEXING_RATE_LIMIT_WINDOW = 60 * 1000
 
-const subtypeMap = {
-  bookmark: 'Bookmark',
-  Bookmark: 'Bookmark',
-  cite: 'Cite',
-  citation: 'Cite',
-  Cite: 'Cite',
-  mention: 'Mention',
-  Mention: 'Mention',
-  button: 'Button',
-  Button: 'Button',
-}
+const subtypeMap = SUBTYPE_ALIASES
 
 const SAFE_SUBTYPE = /^[A-Za-z][A-Za-z0-9_-]*$/
 export const resolveSubtype = (type) => {
@@ -372,7 +363,7 @@ export const createIndexer = (deps) => {
     const base = inst || instance
     return await queryBoolean(`
       ask {
-        <${termIri(base, o)}> rdf:type <octo:Term> .
+        <${termIri(base, o)}> rdf:type ${typeRef(CLASS.Term)} .
       }
     `)
   }
@@ -426,7 +417,7 @@ export const createIndexer = (deps) => {
   // the origin looking registered to later verifiedOrigin checks.
   const originTriples = (origin, endorsed) => endorsed ? '' : `
       <${origin}> octo:verified "true" .
-      <${origin}> rdf:type <octo:Origin> .
+      <${origin}> rdf:type ${typeRef(CLASS.Origin)} .
     `
 
   // The origin node a page files under. Canonical spelling (#275) so it is the
@@ -469,7 +460,7 @@ export const createIndexer = (deps) => {
       <${s}> ${p} <${termIri(base, o)}> .
       <${s}> <${termIri(base, o)}> ${now} .
       ${subjectOriginBlock(s, { endorsed, schemes, claimed })}
-      <${s}> rdf:type <octo:Page> .
+      <${s}> rdf:type ${typeRef(CLASS.Page)} .
     `)
   }
 
@@ -478,7 +469,7 @@ export const createIndexer = (deps) => {
     let now = Date.now()
     return await insert(`
       <${termIri(base, o)}> octo:created ${now} .
-      <${termIri(base, o)}> rdf:type <octo:Term> .
+      <${termIri(base, o)}> rdf:type ${typeRef(CLASS.Term)} .
       ${termLabelTriples(termIri(base, o), o)}
     `)
   }
@@ -488,7 +479,7 @@ export const createIndexer = (deps) => {
     let now = Date.now()
     return await insert(`
       <${o}> octo:created ${now} .
-      <${o}> rdf:type <octo:Page> .
+      <${o}> rdf:type ${typeRef(CLASS.Page)} .
     `)
   }
 
@@ -502,15 +493,15 @@ export const createIndexer = (deps) => {
     return `
       <${s}> ${p} <${o}> .
       <${s}> <${o}> ${now} .
-      <${s}> rdf:type <octo:Page> .
+      <${s}> rdf:type ${typeRef(CLASS.Page)} .
       ${subjectOriginBlock(s, { endorsed, schemes, claimed })}
-      <${o}> rdf:type <octo:Page>.
+      <${o}> rdf:type ${typeRef(CLASS.Page)}.
     `
   }
 
   const termTriples = (o, base, now) => `
       <${termIri(base, o)}> octo:created ${now} .
-      <${termIri(base, o)}> rdf:type <octo:Term> .
+      <${termIri(base, o)}> rdf:type ${typeRef(CLASS.Term)} .
       ${termLabelTriples(termIri(base, o), o)}
     `
 
@@ -548,7 +539,7 @@ export const createIndexer = (deps) => {
   // member. Built once so a ring and all its members land in a single insert
   // (#262) instead of one round trip per member.
   const webringTriples = (s, members = [], { newRing = false } = {}) => [
-    ...(newRing ? [`<${s}> rdf:type <octo:Webring> .`] : []),
+    ...(newRing ? [`<${s}> rdf:type ${typeRef(CLASS.Webring)} .`] : []),
     ...members.map((m) => `<${s}> octo:hasMember <${m}> .`),
   ].join('\n')
 
@@ -716,12 +707,12 @@ export const createIndexer = (deps) => {
     if (o.includes(base)) {
       return await insert(`
         <${termIri(base, o)}> octo:created ${now} .
-        <${termIri(base, o)}> rdf:type <octo:Term> .
+        <${termIri(base, o)}> rdf:type ${typeRef(CLASS.Term)} .
       `)
     } else {
       return await insert(`
         <${termIri(base, o)}> octo:created ${now} .
-        <${o}> rdf:type <octo:Page> .
+        <${o}> rdf:type ${typeRef(CLASS.Page)} .
       `)
     }
   }
@@ -931,7 +922,7 @@ export const createIndexer = (deps) => {
       // link wrote mention + backlink only) are invisible to /get, whose query
       // requires `?s rdf:type ?pageType`. Idempotent, so re-linking heals
       // pre-#241 data without rewriting the mention.
-      blocks.push(`<${subj}> rdf:type <octo:Page> .`)
+      blocks.push(`<${subj}> rdf:type ${typeRef(CLASS.Page)} .`)
     }
 
     // #213: Backlink is the ONLY subtype gated by endorsement. A Backlink node
