@@ -326,7 +326,7 @@
           "default": "https://vocab.octothorp.es#"
         },
         "namespaces": {
-          "description": "External namespaces this client operates with. Replaces core's hardcoded namespace map as the extension point; core still ships protocol builtins (octo, rdf, rdfs — schema and foaf were both audited as unused by the protocol and demoted to declare-if-you-want-it).",
+          "description": "External namespaces this client operates with. Declaration metadata only (#315): declared namespaces are merged over the protocol builtins and surfaced in the resolved profile, but they do NOT change the SPARQL prologue. Query prefixes are the static set in core (octo, rdf, rdfs, skos). schema and foaf were audited as unused by the protocol and demoted to declare-if-you-want-it.",
           "type": "array",
           "default": [],
           "items": {
@@ -337,8 +337,9 @@
               "prefix": { "type": "string" },
               "iri": { "type": "string", "format": "uri" },
               "import": {
-                "description": "false (default): declare-only — the prefix resolves in queries. true: init fetches the ontology and loads its triples into a named graph (Oxigraph does no inference; imported triples serve only queries that traverse them explicitly). Import implementation may ride with #270.",
+                "description": "Reserved. Ontology import is not implemented (deferred to #270), so only `false` is accepted; `true` is a validation error until import exists (#315).",
                 "type": "boolean",
+                "const": false,
                 "default": false
               }
             }

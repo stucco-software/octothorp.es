@@ -56,7 +56,7 @@
 
   "vocabulary": {
     "namespaces": [
-      { "prefix": "skos", "iri": "http://www.w3.org/2004/02/skos/core#", "import": true }
+      { "prefix": "skos", "iri": "http://www.w3.org/2004/02/skos/core#" }
     ]
   }
 }

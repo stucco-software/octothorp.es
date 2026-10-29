@@ -23,7 +23,7 @@ const fixture = () => ({
   policies: { access: { registration: 'closed', allows: { domains: ['https://friend.test'], terms: [] } } },
   api: { publishers: { dir: './src/lib/publishers' } },
   vocabulary: {
-    namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true }],
+    namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }],
   },
 })
 
@@ -103,7 +103,7 @@ describe('createProfile — defaults filling', () => {
     expect(p.policies.access.allows).toEqual({ domains: ['https://friend.test'], terms: [], schemes: [] })
     expect(p.identity.feeds.thorpes).toEqual(['cats'])
     expect(p.vocabulary.namespaces).toHaveLength(1)
-    expect(p.vocabulary.namespaces[0].import).toBe(true)
+    expect(p.vocabulary.namespaces[0].import).toBe(false)
   })
 
   it('fills the per-item `import` default on declared namespaces', () => {
@@ -427,9 +427,9 @@ describe('createProfile — policies.labels', () => {
 // to declare-if-you-want-it alongside foaf; nothing in the protocol needs it
 // now that documentRecord predicates are octo-only.
 describe('resolved vocabulary.namespaces builtins', () => {
-  it('is octo, rdf and rdfs when nothing is declared', () => {
+  it('is octo, rdf, rdfs and skos when nothing is declared', () => {
     const resolved = resolveProfile({ profile: load({}, withInstance) })
-    expect(resolved.vocabulary.namespaces.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs'])
+    expect(resolved.vocabulary.namespaces.map((n) => n.prefix).sort()).toEqual(['octo', 'rdf', 'rdfs', 'skos'])
     expect(resolved.vocabulary.namespaces.every((n) => n.source === 'builtin')).toBe(true)
   })
 

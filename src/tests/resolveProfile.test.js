@@ -21,7 +21,7 @@ const authored = {
     handlers: { dir: './src/lib/handlers', default: 'html' },
     harmonizers: { dir: './src/lib/harmonizers' },
   },
-  vocabulary: { namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true }] },
+  vocabulary: { namespaces: [{ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' }] },
 }
 
 const profile = createProfile({ profile: authored, schema }).getProfile()
@@ -116,7 +116,7 @@ describe('resolveProfile — vocabulary', () => {
     const ns = resolved().vocabulary.namespaces
     expect(ns.find((n) => n.prefix === 'rdf').source).toBe('builtin')
     expect(ns.find((n) => n.prefix === 'skos')).toEqual({
-      prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: true, source: 'declared',
+      prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: false, source: 'declared',
     })
   })
 })

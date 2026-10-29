@@ -33,6 +33,9 @@ export const BUILTIN_NAMESPACES = Object.freeze([
   Object.freeze({ prefix: 'octo', iri: 'https://vocab.octothorp.es#', import: false, source: 'builtin' }),
   Object.freeze({ prefix: 'rdf', iri: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', import: false, source: 'builtin' }),
   Object.freeze({ prefix: 'rdfs', iri: 'http://www.w3.org/2000/01/rdf-schema#', import: false, source: 'builtin' }),
+  // skos joined the prologue with #286 (Term subClassOf skos:Concept); listed
+  // here to keep the lockstep (#315).
+  Object.freeze({ prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#', import: false, source: 'builtin' }),
 ])
 
 /**
@@ -40,11 +43,10 @@ export const BUILTIN_NAMESPACES = Object.freeze([
  * A declared prefix shadows a builtin of the same name (forking a namespace is
  * deliberate and identity-affecting, same caveat as vocabulary.octo).
  *
- * NOTE (#217, deferred to #270): `import: true` is validated and carried
- * through here, but loading the ontology's triples into a named graph is NOT
- * implemented in v0.7. Both values resolve identically today — import is
- * DECLARE-ONLY. Do not add fetch/load behavior here; it belongs in the init
- * step alongside #270's graph-model work.
+ * Declared namespaces are declaration metadata only (#315): they surface in the
+ * resolved profile but never reach the SPARQL prologue (ld/prefixes.js is
+ * static). `import: true` is a schema error until ontology import lands with
+ * #270; the field is carried here only as `false`.
  *
  * @param {Array<{prefix:string, iri:string, import?:boolean}>} [declared=[]]
  * @returns {Array<{prefix:string, iri:string, import:boolean, source:'builtin'|'declared'}>}
