@@ -95,6 +95,38 @@ describe('parseBindings pages mode — object dates', () => {
   })
 })
 
+describe('parseBindings pages mode — dates are order-independent (#270)', () => {
+  // Rows tie on ORDER BY DESC(COALESCE(?postDate, ?date)) whenever postDate is
+  // present, so the first row is arbitrary; each URI keeps its MAX ?date.
+  const rows = [
+    binding({ s: A, o: X, date: 100, postDate: 50 }),
+    binding({ s: A, o: B, date: 300, postDate: 50 }),
+    binding({ s: B, o: X, date: 200 }),
+  ]
+  const dates = (bs) => Object.fromEntries(parseBindings(bs).map((r) => [`${r.role} ${r.uri}`, r.date]))
+
+  it('subject date is the max across its rows, in any row order', () => {
+    expect(dates(rows)[`subject ${A}`]).toBe(300)
+    expect(dates([...rows].reverse())[`subject ${A}`]).toBe(300)
+    expect(dates([rows[1], rows[0], rows[2]])[`subject ${A}`]).toBe(300)
+  })
+
+  it('object date is the max across its rows, in any row order', () => {
+    expect(dates(rows)[`object ${X}`]).toBe(200)
+    expect(dates([...rows].reverse())[`object ${X}`]).toBe(200)
+  })
+
+  it('whole output is identical across row orders (as a set)', () => {
+    const key = (r) => `${r.role} ${r.uri} ${r.date}`
+    expect(parseBindings(rows).map(key).sort()).toEqual(parseBindings([...rows].reverse()).map(key).sort())
+  })
+
+  it('a dateless row never overwrites a dated one', () => {
+    const out = dates([binding({ s: A, o: X, date: 7 }), binding({ s: A, o: B })])
+    expect(out[`subject ${A}`]).toBe(7)
+  })
+})
+
 describe('parseBindings terms mode — dedupe (#256)', () => {
   const term = (name, date) => binding({ o: `https://octothorp.es/~/${name}`, date })
 

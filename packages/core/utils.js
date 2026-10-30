@@ -156,18 +156,35 @@ export function parseBindings(bindings, mode="pages") {
      // second (#260). Since row order comes from ORDER BY, a shared set also made
      // a URI's role — and which predicates supplied its enrichment — depend on
      // the data, so output was not order-independent.
+     //
+     // Dates are order-independent too (#270 equivalence): a URI's rows each
+     // carry one candidate ?date (subject: one per linked target; object: one
+     // per linking subject), and rows tie on the ORDER BY key whenever
+     // postDate is present. Each entry keeps the MAX candidate, never the
+     // first row's.
      const result = [];
-     const seenSubjects = new Set();
-     const seenObjects = new Set();
+     const seenSubjects = new Map();
+     const seenObjects = new Map();
+     const rowDate = (b) => {
+       const d = b.date?.value ? parseInt(b.date.value) : NaN;
+       return Number.isNaN(d) ? null : d;
+     };
+     const keepMax = (entry, d) => {
+       if (d === null) return;
+       if (entry.date === null || Number.isNaN(entry.date) || d > entry.date) entry.date = d;
+     };
 
      bindingArray.forEach((b) => {
        // Check if s and o exist with values before accessing
        const subjectUri = b.s?.value;
        const objectUri = b.o?.value;
+       const d = rowDate(b);
+
+       if (subjectUri && seenSubjects.has(subjectUri)) keepMax(seenSubjects.get(subjectUri), d);
+       if (objectUri && seenObjects.has(objectUri)) keepMax(seenObjects.get(objectUri), d);
 
        // Add subject if not already seen and subject exists
        if (subjectUri && !seenSubjects.has(subjectUri)) {
-         seenSubjects.add(subjectUri);
          result.push({
            role: 'subject',
            uri: subjectUri,
@@ -176,11 +193,11 @@ export function parseBindings(bindings, mode="pages") {
            date: parseInt(b.date?.value || null),
            image: b.image?.value || null
          });
+         seenSubjects.set(subjectUri, result[result.length - 1]);
        }
 
        // Add object if not already seen and object exists
        if (objectUri && !seenObjects.has(objectUri)) {
-         seenObjects.add(objectUri);
          result.push({
            role: 'object',
            uri: objectUri,
@@ -196,6 +213,7 @@ export function parseBindings(bindings, mode="pages") {
            // queryBuilders binds ?oimg; reading ?omg made this always null (#259)
            image: b.oimg?.value || null
          });
+         seenObjects.set(objectUri, result[result.length - 1]);
        }
      });
 

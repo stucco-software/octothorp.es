@@ -175,6 +175,77 @@ describe('postDate sort order', () => {
     const query = buildSimpleQuery(multiPass)
     expect(query).toContain('ORDER BY DESC(COALESCE(?postDate, ?date))')
   })
+
+  it('breaks ties totally (DESC(?date), ?s, ?o) so the LIMIT window is stable (#270)', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: [], exclude: [] },
+      objects: { type: 'notTerms', mode: 'exact', include: [], exclude: [] },
+      filters: { subtype: 'Cite', limitResults: '10', offsetResults: '0', dateRange: null },
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toMatch(/ORDER BY DESC\(COALESCE\(\?postDate, \?date\)\) DESC\(\?date\) \?s \?o\s+LIMIT 10/)
+  })
+
+  it('omits ?o from the tie-break when the query carries no objects', () => {
+    const multiPass = {
+      meta: { resultMode: 'links' },
+      subjects: { mode: 'exact', include: ['https://example.com'], exclude: [] },
+      objects: { type: 'none', mode: 'exact', include: [], exclude: [] },
+      filters: { subtype: '', limitResults: '10', offsetResults: '0', dateRange: null },
+    }
+    const query = buildSimpleQuery(multiPass)
+    expect(query).toContain('ORDER BY DESC(COALESCE(?postDate, ?date)) DESC(?date) ?s ')
+    expect(query).not.toContain('?s ?o')
+  })
+})
+
+describe('URL filter inputs are widened from their canonical() form (#270)', () => {
+  const instance = 'http://localhost:5173/'
+  const builders = createQueryBuilders(instance)
+  const stmts = (o, mode = 'exact', type = 'notTerms', extra = {}) => builders.getStatements(
+    { include: [], exclude: [], mode: 'exact' },
+    { include: o, exclude: [], mode, type, ...extra },
+    { subtype: 'Cite', limitResults: '10', offsetResults: '0' },
+    'links'
+  )
+
+  it('matches the canonical store spelling of a www + slash-before-query input (dw.com shape)', () => {
+    const { objectStatement } = stmts(['https://www.dw.com/english/?maca=en-rss&b=2'])
+    // canonical(): www stripped, slash before the query dropped, params sorted
+    expect(objectStatement).toContain('<https://dw.com/english?b=2&maca=en-rss>')
+    expect(objectStatement).toContain('<https://www.dw.com/english?b=2&maca=en-rss>')
+    // the input as given is still matched (legacy spellings)
+    expect(objectStatement).toContain('<https://www.dw.com/english/?maca=en-rss&b=2>')
+  })
+
+  it('applies to subjects and exclusions too', () => {
+    const r = builders.getStatements(
+      { include: ['https://WWW.Example.com/a/'], exclude: [], mode: 'exact' },
+      { include: [], exclude: ['https://www.x.test/p/?z=1'], mode: 'exact', type: 'notTerms' },
+      { subtype: 'Cite', limitResults: '10', offsetResults: '0' },
+      'links'
+    )
+    expect(r.subjectStatement).toContain('<https://example.com/a>')
+    expect(r.objectStatement).toContain('<https://x.test/p?z=1>')
+    expect(r.objectStatement).toMatch(/NOT IN \(/)
+  })
+
+  it('falls back to the raw value when canonical() cannot parse the input', () => {
+    expect(() => stmts(['at://alice.example/app.bsky.feed.post/1'])).not.toThrow()
+    const { objectStatement } = stmts(['at://alice.example/app.bsky.feed.post/1'])
+    expect(objectStatement).toContain('<at://alice.example/app.bsky.feed.post/1>')
+  })
+
+  it('leaves term inputs untouched', () => {
+    const { objectStatement } = stmts(['Some-Tag'], 'exact', 'termsOnly')
+    expect(objectStatement).toContain(`<${instance}~/Some-Tag>`)
+  })
+
+  it('reaches buildSimpleQuery through buildMultiPass (the /get path)', () => {
+    const mp = buildMultiPass('pages', 'linked', { o: 'https://www.dw.com/english/?maca=en-rss' }, instance)
+    expect(builders.buildSimpleQuery(mp)).toContain('<https://dw.com/english?maca=en-rss>')
+  })
 })
 
 describe('buildSimpleQuery with match-all', () => {
@@ -221,11 +292,14 @@ describe('subtypeFilter - source-anchored', () => {
       'links'
     )
 
-    expect(result.subtypeFilter).toContain('?s octo:octothorpes ?_stBn')
-    expect(result.subtypeFilter).toContain('?_stBn octo:url ?o')
-    expect(result.subtypeFilter).toContain('?_stBn rdf:type <octo:Bookmark>')
-    // Should NOT traverse from ?o to blank node
-    expect(result.subtypeFilter).not.toContain('?o ?blankNodePred')
+    // #270: the reifier of ?s -> ?o, typed with the FULL subtype IRI
+    expect(result.subtypeFilter).toContain('FILTER EXISTS')
+    expect(result.subtypeFilter).toContain('?_st rdf:reifies <<( ?s octo:octothorpes ?o )>>')
+    expect(result.subtypeFilter).toContain('?_st rdf:type <https://vocab.octothorp.es#Bookmark>')
+    // No blank-node / octo:url shape and no compact class form
+    expect(result.subtypeFilter).not.toContain('octo:url')
+    expect(result.subtypeFilter).not.toContain('isBlank')
+    expect(result.subtypeFilter).not.toContain('<octo:Bookmark>')
   })
 })
 
@@ -241,14 +315,14 @@ describe('relationTermsFilter - source-anchored', () => {
       'links'
     )
 
-    expect(result.relationTermsFilter).toContain('?s octo:octothorpes ?_rtBn')
-    expect(result.relationTermsFilter).toContain('FILTER(isBlank(?_rtBn))')
-    expect(result.relationTermsFilter).toContain('?_rtBn octo:octothorpes ?relationTerm')
+    // #270: any reifier of a relationship FROM ?s (target unconstrained,
+    // same semantics as the blank-node filter it replaces)
+    expect(result.relationTermsFilter).toContain('?_rt rdf:reifies <<( ?s octo:octothorpes ?_rtO )>>')
+    expect(result.relationTermsFilter).toContain('?_rt octo:octothorpes ?relationTerm')
     expect(result.relationTermsFilter).toContain(`${instance}~/gadgets>`)
-    // Should NOT traverse through an intermediate target
-    expect(result.relationTermsFilter).not.toContain('?_rtTarget')
-    // Should NOT traverse from ?o
-    expect(result.relationTermsFilter).not.toContain('?o ?blankNodePred')
+    expect(result.relationTermsFilter).not.toContain('isBlank')
+    // Not tied to the result row's ?o
+    expect(result.relationTermsFilter).not.toContain('octothorpes ?o ')
   })
 
   it('should include all terms in VALUES clause', () => {
@@ -277,14 +351,14 @@ describe('merged subtypeFilter + relationTermsFilter', () => {
     )
 
     // Should produce a single merged filter, not two separate ones
-    expect(result.subtypeFilter).toContain('rdf:type <octo:Bookmark>')
+    expect(result.subtypeFilter).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
     expect(result.subtypeFilter).toContain('octo:octothorpes ?relationTerm')
     expect(result.subtypeFilter).toContain('~/gadgets>')
     // relationTermsFilter should be empty since it's merged into subtypeFilter
     expect(result.relationTermsFilter).toBe('')
   })
 
-  it('should use same blank node variable for both constraints', () => {
+  it('should use the same reifier variable for both constraints', () => {
     const result = builders.getStatements(
       { include: ['https://example.com'], exclude: [], mode: 'exact' },
       { include: [], exclude: [], mode: 'exact', type: 'notTerms' },
@@ -292,12 +366,13 @@ describe('merged subtypeFilter + relationTermsFilter', () => {
       'links'
     )
 
-    // Both type and term constraints should reference the same blank node
+    // Both type and term constraints hang off the same reifier
     const filter = result.subtypeFilter
-    const bnMatch = filter.match(/\?(\w+Bn)\b/g)
-    const uniqueBns = [...new Set(bnMatch)]
-    // All blank node references should be the same variable
-    expect(uniqueBns.length).toBe(1)
+    expect(filter).toContain('?_st rdf:reifies')
+    expect(filter).toContain('?_st rdf:type')
+    expect(filter).toContain('?_st octo:octothorpes ?relationTerm')
+    const subjects = filter.match(/\?_\w+(?= (rdf:|octo:))/g)
+    expect([...new Set(subjects)]).toEqual(['?_st'])
   })
 
   it('should keep subtypeFilter alone when no relationTerms', () => {
@@ -308,7 +383,7 @@ describe('merged subtypeFilter + relationTermsFilter', () => {
       'links'
     )
 
-    expect(result.subtypeFilter).toContain('rdf:type <octo:Bookmark>')
+    expect(result.subtypeFilter).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
     expect(result.subtypeFilter).not.toContain('?relationTerm')
     expect(result.relationTermsFilter).toBe('')
   })
@@ -321,7 +396,7 @@ describe('merged subtypeFilter + relationTermsFilter', () => {
       'links'
     )
 
-    expect(result.relationTermsFilter).toContain('?_rtBn')
+    expect(result.relationTermsFilter).toContain('?_rt rdf:reifies')
     expect(result.relationTermsFilter).toContain('~/tools>')
     expect(result.subtypeFilter).toBe('')
   })
@@ -336,7 +411,7 @@ describe('merged subtypeFilter + relationTermsFilter', () => {
 
     expect(result.subtypeFilter).toContain('~/methodology>')
     expect(result.subtypeFilter).toContain('~/disagree>')
-    expect(result.subtypeFilter).toContain('rdf:type <octo:Cite>')
+    expect(result.subtypeFilter).toContain('rdf:type <https://vocab.octothorp.es#Cite>')
   })
 })
 
@@ -483,5 +558,36 @@ describe('match=origin anchors subjects on octo:hasPart (#202)', () => {
     )
     expect(r.subjectStatement).toContain('FILTER NOT EXISTS')
     expect(r.subjectStatement).toContain('?unwantedOrigins octo:hasPart ?s')
+  })
+})
+
+describe('buildEverythingQuery - relationship reifiers and date tie-break (#270)', () => {
+  const instance = 'http://localhost:5173/'
+  const queryArray = async () => ({ results: { bindings: [{ s: { type: 'uri', value: 'https://example.com/a' } }] } })
+  const builders = createQueryBuilders(instance, queryArray)
+  const mp = {
+    meta: { resultMode: 'blobjects' },
+    subjects: { mode: 'exact', include: ['https://example.com/a'], exclude: [] },
+    objects: { type: 'notTerms', mode: 'exact', include: [], exclude: [] },
+    filters: { subtype: 'Bookmark', limitResults: '100', offsetResults: '0' },
+  }
+
+  it('reads relationship metadata from the reifier of ?s -> ?o, not a blank node', async () => {
+    const q = await builders.buildEverythingQuery(mp)
+    expect(q).toContain('?reifier rdf:reifies <<( ?s octo:octothorpes ?o )>>')
+    expect(q).toContain('VALUES ?reifierPred { rdf:type octo:octothorpes }')
+    expect(q).toContain('?reifier ?reifierPred ?reifierObj')
+    expect(q).not.toContain('isBlank')
+    expect(q).not.toContain('octo:url')
+  })
+
+  it('keeps the ?s ?o ?date binding (object-row dates, #268 constraint)', async () => {
+    const q = await builders.buildEverythingQuery(mp)
+    expect(q).toContain('?s ?o ?date .')
+  })
+
+  it('orders with a total tie-break after the COALESCE key', async () => {
+    const q = await builders.buildEverythingQuery(mp)
+    expect(q).toContain('ORDER BY DESC(COALESCE(?postDate, ?date)) DESC(?date) ?s')
   })
 })

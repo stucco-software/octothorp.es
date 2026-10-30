@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createIndexer, resolveIndexPolicy } from '../../packages/core/indexer.js'
 import { createHandlerRegistry } from '../../packages/core/handlerRegistry.js'
+import { mintReifierIri } from '../../packages/core/reifier.js'
 
 const mockInsert = vi.fn()
 const mockQuery = vi.fn()
@@ -42,10 +43,15 @@ describe('createIndexer', () => {
   })
 })
 
-describe('createBacklink - source-anchored storage', () => {
+// #270: a typed relationship is the base triple annotated with a named
+// RDF 1.2 reifier, minted deterministically from (s, p, o, subtype).
+const P_IRI = 'https://vocab.octothorp.es#octothorpes'
+const mintFor = (s, o, subtype) => mintReifierIri({ subject: s, predicate: P_IRI, object: o, subtype: `https://vocab.octothorp.es#${subtype}` })
+
+describe('createBacklink - source-anchored reifier storage (#270)', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('should anchor blank node on source and point url to target', async () => {
+  it('should assert the source -> target base triple annotated with its named reifier', async () => {
     const indexer = makeIndexer()
     mockInsert.mockResolvedValue(true)
 
@@ -58,15 +64,16 @@ describe('createBacklink - source-anchored storage', () => {
     )
 
     const insertCall = mockInsert.mock.calls[0][0]
-    // Blank node anchored on source
-    expect(insertCall).toContain('<https://source.com/page> octo:octothorpes _:backlink')
-    // URL points to target
-    expect(insertCall).toContain('_:backlink octo:url <https://target.com/page>')
-    // Should NOT have target as the anchor
-    expect(insertCall).not.toContain('<https://target.com/page> octo:octothorpes _:backlink')
+    const r = await mintFor('https://source.com/page', 'https://target.com/page', 'Bookmark')
+    // Base triple is source -> target, annotated with the minted reifier
+    expect(insertCall).toContain(`<https://source.com/page> <${P_IRI}> <https://target.com/page> ~ <${r}> {|`)
+    // Never target-anchored, never a blank node, never octo:url
+    expect(insertCall).not.toContain(`<https://target.com/page> <${P_IRI}> <https://source.com/page>`)
+    expect(insertCall).not.toContain('_:')
+    expect(insertCall).not.toContain('octo:url')
   })
 
-  it('should include relationship terms on the blank node', async () => {
+  it('should include relationship terms and the full subtype IRI on the reifier', async () => {
     const indexer = makeIndexer()
     mockInsert.mockResolvedValue(true)
 
@@ -79,26 +86,32 @@ describe('createBacklink - source-anchored storage', () => {
     )
 
     const insertCall = mockInsert.mock.calls[0][0]
-    expect(insertCall).toContain('<http://localhost:5173/~/gadgets>')
-    expect(insertCall).toContain('<http://localhost:5173/~/bikes>')
-    expect(insertCall).toContain('_:backlink rdf:type <octo:Bookmark>')
+    expect(insertCall).toContain('{| rdf:type <https://vocab.octothorp.es#Bookmark> ; octo:octothorpes <http://localhost:5173/~/gadgets> ; octo:octothorpes <http://localhost:5173/~/bikes> |}')
+    expect(insertCall).not.toContain('<octo:Bookmark>')
   })
 })
 
-describe('extantBacklink - source-anchored', () => {
+describe('deterministic reifier IRI is the duplicate guard (#270, replaces extantBacklink)', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('should check for source-anchored backlink existence', async () => {
+  it('has no extantBacklink ASK; writing the same relationship twice emits the same reifier', async () => {
     const indexer = makeIndexer()
-    mockQueryBoolean.mockResolvedValue(true)
+    mockInsert.mockResolvedValue(true)
+    expect(indexer.extantBacklink).toBeUndefined()
 
-    await indexer.extantBacklink('https://source.com/page', 'https://target.com/page')
+    await indexer.createBacklink('https://source.com/page', 'https://target.com/page', 'Cite')
+    // Same relationship under other spellings of both ends (canonical())
+    await indexer.createBacklink('https://WWW.source.com/page/', 'https://target.com/page/', 'Cite')
 
-    const query = mockQueryBoolean.mock.calls[0][0]
-    // Source is the anchor
-    expect(query).toContain('<https://source.com/page> octo:octothorpes _:backlink')
-    // URL points to target
-    expect(query).toContain('_:backlink octo:url <https://target.com/page>')
+    expect(mockQueryBoolean).not.toHaveBeenCalled()
+    const [first, second] = mockInsert.mock.calls.map((c) => c[0])
+    const r = await mintFor('https://source.com/page', 'https://target.com/page', 'Cite')
+    expect(first).toContain(`~ <${r}>`)
+    // Byte-identical re-insert: a set-semantics no-op in the store
+    expect(second).toBe(first)
+    // Same (s, o, subtype) -> same reifier IRI; a different subtype -> a different one
+    expect(await mintFor('https://source.com/page', 'https://target.com/page', 'Cite')).toBe(r)
+    expect(await mintFor('https://source.com/page', 'https://target.com/page', 'Bookmark')).not.toBe(r)
   })
 })
 

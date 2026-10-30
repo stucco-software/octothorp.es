@@ -168,7 +168,10 @@ describe('scoping and writes', () => {
     const obj = `https://${anchor}/.op/zotero/select/items/1`
     expect(out).toContain(`<${subj}> octo:octothorpes <${obj}>`)
     expect(out).toContain(`<https://${anchor}> octo:claims <${obj}>`)
-    expect(out).toContain('rdf:type <octo:Bookmark>')
+    // #270: the typed relationship is the annotated base triple; its reifier
+    // carries the full subtype IRI
+    expect(out).toContain(`<${subj}> <https://vocab.octothorp.es#octothorpes> <https://rentry.co/x> ~ <https://vocab.octothorp.es/r1/`)
+    expect(out).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
   })
 
   it('no raw opaque IRI appears in any written triple', async () => {
@@ -318,7 +321,8 @@ describe('final-review hardening', () => {
 
   it('accepts known types case-insensitively (link, Bookmark)', async () => {
     await run(blob({ octothorpes: [{ type: 'Bookmark', uri: 'https://a.test/' }, { type: 'link', uri: 'https://b.test/' }] }))
-    expect(inserted()).toContain('octo:Bookmark')
+    expect(inserted()).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
+    expect(inserted()).toContain('rdf:type <https://vocab.octothorp.es#Link>')
   })
 
   it('scopes opaque documentRecord uri-range values; no raw opaque IRI is written', async () => {

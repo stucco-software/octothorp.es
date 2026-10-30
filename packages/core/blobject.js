@@ -1,5 +1,6 @@
-import { documentRecordVar } from './queryBuilders.js'
+import { documentRecordVar, relationshipPattern, relationshipSubtypeName, RELATIONSHIP_PREDICATE } from './queryBuilders.js'
 import { termName } from './utils.js'
+import { RDF_NS } from './vocabulary.js'
 
 /**
  * Coerce a raw SPARQL binding value into the JS type declared by a
@@ -72,7 +73,7 @@ export const coerceDocumentRecordValue = (raw, range) => {
 // AND Backlink, and queries emit one row per type. Which one a blobject entry
 // reports must not depend on row order. Precedence: any specific subtype
 // (Bookmark, Cite, harmonizer subtypes) beats Backlink, which beats the generic
-// Link ('link' is the no-blank-node fallback spelling). Between two specific
+// Link ('link' is the no-reifier fallback spelling). Between two specific
 // subtypes the lexically first wins, so the result is order-independent.
 const subtypeRank = (t) => {
   if (!t || t.toLowerCase() === 'link') return 0
@@ -85,6 +86,8 @@ export const preferSubtype = (prev, next) => {
   if (a === 2) return next < prev ? next : prev
   return prev || next
 }
+
+const RDF_TYPE = `${RDF_NS}type`
 
 export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null }, documentRecordSchema = []) => {
   const limit = filters.limitResults
@@ -118,8 +121,15 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
     if (binding.image?.value && !current.image) {
       current.image = binding.image.value;
     }
-    if (binding.date?.value && !current.date) {
-      current.date = parseInt(binding.date.value);
+    // A page's rows carry one candidate ?date each (the `?s ?o ?date`
+    // assertion timestamp of that row's target). Keep the MAX, so the result
+    // never depends on which row the engine returns first (rows tie on the
+    // ORDER BY key whenever postDate is present).
+    if (binding.date?.value) {
+      const d = parseInt(binding.date.value);
+      if (!Number.isNaN(d) && (current.date === null || d > current.date)) {
+        current.date = d;
+      }
     }
     if (binding.postDate?.value && !current.postDate) {
       current.postDate = parseInt(binding.postDate.value);
@@ -160,12 +170,14 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         }
       }
       else {
-        // For Pages, determine type
-        // blank nodes are only set when there is a more specific object type
-        // so if they have a value we use that
+        // For Pages, determine type. A row carrying the relationship's
+        // reifier (#270) reports its subtype (rdf:type) or one relationship
+        // term (octo:octothorpes); a target with no reifier is a plain link.
         oType = "link"
-        if (binding.blankNodeObj?.value?.startsWith('octo:')) {
-          oType = binding.blankNodeObj.value.substring(5); // Remove 'octo:' prefix
+        const reifierPred = binding.reifierPred?.value
+        const reifierObj = binding.reifierObj?.value
+        if (reifierPred === RDF_TYPE && reifierObj) {
+          oType = relationshipSubtypeName(reifierObj);
         }
 
         // Check if this target already exists in the array
@@ -173,10 +185,10 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
           item => typeof item === 'object' && (item.target === targetUrl || item.uri === targetUrl)
         );
 
-        // Check if this blank node has associated terms (terms on relationships)
+        // Terms on relationships
         let relationTerm = null
-        if (binding.blankNodeObj?.value?.includes('/~/')) {
-          relationTerm = termName(binding.blankNodeObj.value)
+        if (reifierPred === RELATIONSHIP_PREDICATE && reifierObj) {
+          relationTerm = termName(reifierObj)
         }
 
         if (existingIndex === -1) {
@@ -253,14 +265,14 @@ export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => 
   const sourceValues = [...sourceUris].map(u => `<${u}>`).join(' ')
   const targetValues = [...targetUris].map(u => `<${u}>`).join(' ')
 
+  // #270: metadata lives on the relationship's RDF 1.2 reifier.
   const response = await queryArray(`
-    SELECT ?source ?target ?bnType ?term WHERE {
+    SELECT ?source ?target ?relType ?term WHERE {
       VALUES ?source { ${sourceValues} }
       VALUES ?target { ${targetValues} }
-      ?source octo:octothorpes ?bn .
-      ?bn octo:url ?target .
-      ?bn rdf:type ?bnType .
-      OPTIONAL { ?bn octo:octothorpes ?term . }
+      ${relationshipPattern({ reifier: '?rel', subject: '?source', object: '?target' })}
+      ?rel rdf:type ?relType .
+      OPTIONAL { ?rel octo:octothorpes ?term . }
     }
   `)
 
@@ -269,16 +281,15 @@ export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => 
     const source = binding.source.value
     const target = binding.target.value
     const key = `${source}|${target}`
-    let bnType = binding.bnType?.value || ''
-    if (bnType.startsWith('octo:')) bnType = bnType.substring(5)
+    const relType = relationshipSubtypeName(binding.relType?.value || '')
 
     if (!lookup.has(key)) {
-      lookup.set(key, { type: bnType, terms: [] })
+      lookup.set(key, { type: relType, terms: [] })
     }
     const entry = lookup.get(key)
     // #334: first-row-wins here let a plain Link row shadow the Backlink row of
-    // a promoted (dual-typed) node. Same precedence as the blobject merge.
-    entry.type = preferSubtype(entry.type, bnType)
+    // a promoted (dual-typed) relationship. Same precedence as the blobject merge.
+    entry.type = preferSubtype(entry.type, relType)
 
     if (binding.term?.value) {
       const termUri = binding.term.value

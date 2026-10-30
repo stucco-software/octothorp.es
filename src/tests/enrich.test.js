@@ -37,11 +37,19 @@ describe('enrichBlobjectTargets', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
+  it('queries the relationship reifier (#270), not a blank node', async () => {
+    mockFetch.mockResolvedValueOnce(sparqlResponse([]))
+    await enrichBlobjectTargets([{ '@id': 'http://source.com/page', octothorpes: [{ uri: 'http://target.com/linked', type: 'link' }] }])
+    const body = new URLSearchParams(String(mockFetch.mock.calls[0][1].body)).get('query')
+    expect(body).toContain('?rel rdf:reifies <<( ?source octo:octothorpes ?target )>>')
+    expect(body).not.toContain('octo:url')
+  })
+
   it('merges subtype onto octothorpe objects', async () => {
     mockFetch.mockResolvedValueOnce(sparqlResponse([{
       source: { value: 'http://source.com/page' },
       target: { value: 'http://target.com/linked' },
-      bnType: { value: 'octo:Bookmark' }
+      relType: { value: 'https://vocab.octothorp.es#Bookmark' }
     }]))
 
     const blobjects = [{
@@ -66,13 +74,13 @@ describe('enrichBlobjectTargets', () => {
       {
         source: { value: 'http://source.com/page' },
         target: { value: 'http://target.com/linked' },
-        bnType: { value: 'octo:Bookmark' },
+        relType: { value: 'https://vocab.octothorp.es#Bookmark' },
         term: { value: 'https://octothorp.es/~/gadgets' }
       },
       {
         source: { value: 'http://source.com/page' },
         target: { value: 'http://target.com/linked' },
-        bnType: { value: 'octo:Bookmark' },
+        relType: { value: 'https://vocab.octothorp.es#Bookmark' },
         term: { value: 'https://octothorp.es/~/bikes' }
       }
     ]))
@@ -99,7 +107,7 @@ describe('enrichBlobjectTargets', () => {
     mockFetch.mockResolvedValueOnce(sparqlResponse([{
       source: { value: 'http://source.com/page1' },
       target: { value: 'http://target.com/linked' },
-      bnType: { value: 'octo:Cite' },
+      relType: { value: 'https://vocab.octothorp.es#Cite' },
       term: { value: 'https://octothorp.es/~/research' }
     }]))
 
@@ -139,12 +147,12 @@ describe('enrichBlobjectTargets', () => {
       {
         source: { value: 'http://source.com/page' },
         target: { value: 'http://target.com/linked' },
-        bnType: { value: 'octo:Backlink' }
+        relType: { value: 'https://vocab.octothorp.es#Backlink' }
       },
       {
         source: { value: 'http://source.com/page' },
         target: { value: 'http://target.com/linked' },
-        bnType: { value: 'octo:Bookmark' }
+        relType: { value: 'https://vocab.octothorp.es#Bookmark' }
       }
     ]))
 
@@ -167,7 +175,7 @@ describe('enrichBlobjectTargets', () => {
     mockFetch.mockResolvedValueOnce(sparqlResponse([{
       source: { value: 'http://source.com/page' },
       target: { value: 'http://target.com/linked' },
-      bnType: { value: 'octo:Bookmark' }
+      relType: { value: 'https://vocab.octothorp.es#Bookmark' }
     }]))
 
     const blobjects = [{
