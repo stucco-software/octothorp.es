@@ -31,3 +31,4 @@ static/components/*.js.map
 # 65MB production dump + equivalence captures, never committed
 6.7 dump
 scripts/equivalence/captures/
+scripts/migrate-270/out/
