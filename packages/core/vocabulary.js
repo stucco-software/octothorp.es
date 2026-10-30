@@ -85,6 +85,27 @@ export const classRef = (name) => {
 }
 
 /**
+ * The octo namespace as a full IRI. Matches the `octo:` PREFIX in
+ * ld/prefixes.js and the builtin namespace in queryBuilders.js.
+ */
+export const OCTO_NS = 'https://vocab.octothorp.es#'
+
+/**
+ * A class name as its full expanded IRI string (no angle brackets), e.g.
+ * `https://vocab.octothorp.es#Bookmark`. This is the IRI-form ruling's
+ * canonical spelling, and the exact `subtype` field the reifier minting
+ * function hashes (#270, reifier-minting spec "Subtype field"): the stored
+ * `rdf:type` on a reifier and the hash input must be the same string.
+ * Same validation as classRef — the name lands inside a SPARQL triple.
+ */
+export const classIri = (name) => {
+  if (typeof name !== 'string' || !SAFE_CLASS_NAME.test(name)) {
+    throw new Error(`Invalid vocabulary class name: ${name}`)
+  }
+  return `${OCTO_NS}${name}`
+}
+
+/**
  * Harmonizer-key -> relationship class aliases read by resolveSubtype. Per
  * the #332 ruling, new subtypes use a single lowercase key whose first-letter
  * capitalisation is the class name and need no entry here; these are the
