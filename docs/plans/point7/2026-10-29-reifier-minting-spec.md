@@ -74,7 +74,7 @@ Applied in this order. Every rule is stated here; the function does not defer to
 3. Strip `www.` from the start of the host. Required for parity with today's stored subjects (see the comment in `packages/core/indexer.js` near the #275 origin check: `parsed.normalized`, and so every stored subject, strips `www`).
 4. Strip the default port (`:80` for http, `:443` for https).
 5. Resolve dot segments in the path (RFC 3986 §5.2.4).
-6. Strip the fragment.
+6. Keep a non-empty fragment as parsed; drop a bare empty `#`. *Amended 2026-10-30, user ruling (was: strip the fragment). Rationale: fragments are annotation targets — anchor permalinks such as `scripting.com/2026/07/16.html#a222032` are distinct link targets, and a false merge is irreparable. `parseUri()` still drops fragments upstream on the indexing-fetch path, so indexed-page subjects remain fragment-free in practice; fragments survive via declared, backlink and alias paths. That upstream behavior is unchanged and intentional.*
 7. Remove one trailing `/` from the path, matching `deslash()` in `packages/core/utils.js` and the stored subject form. A bare origin is written without the slash.
 8. Preserve the query string. Sort parameters by byte order of the encoded `name=value` pair. An empty query (`?` alone) is removed.
 
