@@ -437,6 +437,7 @@ export const createClient = (config) => {
     documentRecordSchema: config.documentRecordSchema,
     access,
     cooldown: config.cooldown ?? 300,
+    deletionMode: config.deletionMode,
     // #217 stage 4: the gate consumes these only where
     // access.endorsement.sources names them.
     endorsers,

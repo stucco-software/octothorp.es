@@ -143,5 +143,29 @@ export const createDeleter = (deps = {}) => {
     await query(`DELETE WHERE { <${p}> <${FAIL}> ?v }`)
   }
 
-  return { softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  /**
+   * The single entrypoint for "this page is dead or no longer indexable".
+   * #167 SEAM: a future liveness sweep (scripts/review.js, thresholds, schedules)
+   * attaches HERE by calling handleDeadPage(url, { reason: 'unreachable' }).
+   * Core itself only reacts to an index event: no timers, no thresholds.
+   *
+   * reason 'gone' | 'withdrawn' -> delete per mode (soft default, or hard).
+   * reason 'unreachable' (5xx, network, timeout, bot-block) -> recordFailure only,
+   * never a delete. Pages the store has never indexed are never touched.
+   * @returns {Promise<{outcome: 'ignored'|'soft'|'hard'|'failure', reason: string}>}
+   */
+  const handleDeadPage = async (rawUrl, { reason, mode } = {}) => {
+    const p = canonical(rawUrl)
+    const known = deps.queryBoolean ? await deps.queryBoolean(`ASK { <${p}> octo:indexed ?t }`) : false
+    if (!known) return { outcome: 'ignored', reason }
+    if (reason === 'gone' || reason === 'withdrawn') {
+      if (mode === 'hard') { await hardDeletePage(p); return { outcome: 'hard', reason } }
+      await softDeletePage(p)
+      return { outcome: 'soft', reason }
+    }
+    await recordFailure(p)
+    return { outcome: 'failure', reason }
+  }
+
+  return { handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }

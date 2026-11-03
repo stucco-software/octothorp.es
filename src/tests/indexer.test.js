@@ -651,7 +651,9 @@ describe('handler() routes policy and dispatch through the registry', () => {
       text: async () => '<html></html>',
       headers: { get: () => 'text/html' },
     })
-    mockQueryBoolean.mockResolvedValue(true)
+    // The page is NOT previously indexed (#248): a withdrawn-permission page the
+    // store has never seen is a plain rejection, not a deletion.
+    mockQueryBoolean.mockImplementation(async (q) => !String(q).includes('octo:indexed'))
     mockQueryArray.mockResolvedValue({ results: { bindings: [] } })
 
     const indexer = createIndexer({

@@ -1372,9 +1372,32 @@ export const createIndexer = (deps) => {
 
     // 3. Single fetch — capture content AND content-type
     const ua = userAgent({ mode: policyMode, instance: base })
-    const response = await fetch(parsed.normalized, {
-      headers: { 'User-Agent': ua }
-    })
+    const deletionMode = config.deletionMode ?? deps.deletionMode ?? 'soft'
+    // Index-driven deletion triggers (#248 ruling 3). Only pages the store
+    // already knows are affected; deleter.handleDeadPage enforces that.
+    let response
+    try {
+      response = await fetch(parsed.normalized, {
+        headers: { 'User-Agent': ua }
+      })
+    } catch (e) {
+      // Network error / timeout: an outage must never erase a record.
+      await deleter.handleDeadPage(parsed.normalized, { reason: 'unreachable' })
+      throw e
+    }
+    if (response?.status === 404 || response?.status === 410) {
+      const res = await deleter.handleDeadPage(parsed.normalized, { reason: 'gone', mode: deletionMode })
+      if (res.outcome === 'ignored') {
+        throw new Error(`Page not found (HTTP ${response.status}).`)
+      }
+      return { deleted: true, mode: res.outcome, reason: 'gone' }
+    }
+    // Withdrawn permission on a known page: delete the same way as 'gone'.
+    const withdrawn = async (message) => {
+      const res = await deleter.handleDeadPage(parsed.normalized, { reason: 'withdrawn', mode: deletionMode })
+      if (res.outcome === 'ignored') throw new Error(message)
+      return { deleted: true, mode: res.outcome, reason: 'withdrawn' }
+    }
     const content = await response.text()
 
     // Fail loudly when the origin did not actually give us the page. Must come
@@ -1382,6 +1405,8 @@ export const createIndexer = (deps) => {
     // be reported as "Page has not opted in to indexing."
     const blocked = detectBlockedFetch(response, content, ua)
     if (blocked) {
+      // 5xx, 403/429 bot-blocks, interstitials: failure counter only, never a delete.
+      await deleter.handleDeadPage(parsed.normalized, { reason: 'unreachable' })
       throw new Error(blocked)
     }
 
@@ -1417,11 +1442,11 @@ export const createIndexer = (deps) => {
     // but the page's own statement, so no opt-in, registration or endorsement
     // may override it. A denial, never a warning.
     if (policy.refused) {
-      throw new Error(`Page forbids indexing (${policy.refused}).`)
+      return await withdrawn(`Page forbids indexing (${policy.refused}).`)
     }
 
     if (!policy.optedIn) {
-      throw new Error('Page has not opted in to indexing.')
+      return await withdrawn('Page has not opted in to indexing.')
     }
     harmonizerDeclaredOnPage = !!policy.harmonizer
     if (policy.harmonizer) {
@@ -1467,7 +1492,7 @@ export const createIndexer = (deps) => {
       contentType,
       document: source.document ?? null,
     })
-    if (denial) throw new Error(denial)
+    if (denial) return await withdrawn(denial)
 
     // 6. Rate limiting
     if (!checkIndexingRateLimit(origin)) {
@@ -1527,6 +1552,10 @@ export const createIndexer = (deps) => {
     // registration, so it must not manufacture it either (treated like an
     // endorsement-only admission).
     await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
+    // A successful index clears unavailable/failure markers (restore).
+    if (await queryBoolean(`ASK { { <${parsed.normalized}> octo:unavailable ?x } UNION { <${parsed.normalized}> octo:failCount ?x } }`)) {
+      await deleter.restorePage(parsed.normalized)
+    }
   }
 
   return {
