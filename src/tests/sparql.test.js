@@ -583,7 +583,8 @@ describe('buildEverythingQuery - relationship reifiers and date tie-break (#270)
 
   it('binds ?date from the reifier octo:created (object-row dates, #268 constraint)', async () => {
     const q = await builders.buildEverythingQuery(mp)
-    expect(q).toContain('?_dr octo:created ?date .')
+    expect(q).toContain('?_dr octo:created ?_reifierDate .')
+    expect(q).toContain('COALESCE(?_reifierDate, ?_flatDate) AS ?date')
     expect(q).not.toContain('?s ?o ?date .')
   })
 

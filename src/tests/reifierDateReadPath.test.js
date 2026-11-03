@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createQueryBuilders, parseBindings } from 'octothorpes'
+import { CLASS, typeRef } from '../../packages/core/vocabulary.js'
 import prefixes from '../../packages/core/ld/prefixes.js'
 
 // #268 read path: object-row dates come from the reifier's octo:created, not
@@ -13,7 +14,11 @@ const S = 'https://t268.example.com/post'
 const O1 = 'https://t268.example.org/single'
 const O2 = 'https://t268.example.org/multi'
 const T = (n) => `https://t268.example.com/reifier/${n}`
+const TERM = 'https://vocab.octothorp.es/~/t268term'
 const DATA = `
+  <${TERM}> a ${typeRef(CLASS.Term)} .
+  <${S}> <${OCTO}octothorpes> <${TERM}> .
+  <${S}> <${TERM}> 1705000000000 .
   <${S}> a <${OCTO}Page> ; <${OCTO}created> 1700000000000 .
   <${O1}> a <${OCTO}Page> .
   <${O2}> a <${OCTO}Page> .
@@ -42,7 +47,7 @@ describe.skipIf(!up)('#268 reifier date read path (live store)', () => {
   })
   afterAll(async () => {
     await post('/update', 'application/sparql-update', `DELETE WHERE { ?r <${OCTO}created> ?d . FILTER(STRSTARTS(STR(?r), "https://t268.example.com/reifier/")) } ;
-      DELETE WHERE { <${S}> ?p ?o } ; DELETE WHERE { <${O1}> ?p ?o } ; DELETE WHERE { <${O2}> ?p ?o } ; DELETE WHERE { ?r a ?c . FILTER(STRSTARTS(STR(?r), "https://t268.example.com/reifier/")) }`)
+      DELETE WHERE { <${S}> ?p ?o } ; DELETE WHERE { <${O1}> ?p ?o } ; DELETE WHERE { <${O2}> ?p ?o } ; DELETE WHERE { <${TERM}> ?p ?o } ; DELETE WHERE { <${S}> <${TERM}> ?d } ; DELETE WHERE { ?r a ?c . FILTER(STRSTARTS(STR(?r), "https://t268.example.com/reifier/")) }`)
   })
 
   const query = () => builders.buildSimpleQuery({
@@ -71,5 +76,27 @@ describe.skipIf(!up)('#268 reifier date read path (live store)', () => {
     expect(flat).toHaveLength(0)
     const created = await run(`SELECT ?d WHERE { <${T(1)}> octo:created ?d }`)
     expect(created).toHaveLength(1)
+  })
+
+  describe('term thorpes have no reifier (flat date stays)', () => {
+    const mp = (type) => ({
+      meta: { resultMode: 'pages' },
+      subjects: { mode: 'exact', include: [S], exclude: [] },
+      objects: { type, mode: 'exact', include: [], exclude: [] },
+      filters: { subtype: '', limitResults: 'no-limit', offsetResults: '0', dateRange: {}, createdRange: null, indexedRange: null },
+    })
+    it('buildThorpeQuery returns the term with its flat date', async () => {
+      const rows = await run(builders.buildThorpeQuery(mp('termsOnly')))
+      const r = rows.find(b => b.o.value === TERM)
+      expect(r.date.value).toBe('1705000000000')
+    })
+    it('buildSimpleQuery termsOnly returns the term row with its date', async () => {
+      const rows = await run(builders.buildSimpleQuery(mp('termsOnly')))
+      expect(rows.find(b => b.o?.value === TERM)?.date.value).toBe('1705000000000')
+    })
+    it('buildEverythingQuery termsOnly returns the term row with its date', async () => {
+      const rows = await run(await createQueryBuilders(INSTANCE, async (q) => ({ results: { bindings: await run(q) } })).buildEverythingQuery({ ...mp('termsOnly'), meta: { resultMode: 'blobjects' } }))
+      expect(rows.find(b => b.o?.value === TERM)?.date.value).toBe('1705000000000')
+    })
   })
 })
