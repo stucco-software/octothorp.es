@@ -66,17 +66,17 @@ Epic: **270**
 
 ### Status
 
-Precursors landing. The engine gate is closed and the storage model is settled — `2026-10-29-graph-storage-model.md` is the design basis for this epic. Alias hardening and remoteClient adoption are deliberately deferred to land after this epic.
+Core migration shipped on development and applied to staging; 192 content labels and the unticketed pieces (identifier-key rename, statement-metadata rewrite, prod data migration, JSON-LD publisher endpoint) remain. Prod run follows `prod-migration-rehearsal.md`. Alias hardening and remoteClient adoption are deliberately deferred to land after this epic.
 
 ### Issues
 
 * [x] 231 - derive backlinks instead of storing the reciprocal switch
-	* [ ] confirm profile-declared link-type paths still filter correctly after the migration (from 236)
+	* [x] confirm profile-declared link-type paths still filter correctly after the migration (from 236)
 * [x] 268 - octo:created on relationships
-	* [ ] don't break the `?s ?o ?date` read path or RSS link feeds go empty
+	* [x] don't break the `?s ?o ?date` read path or RSS link feeds go empty
 * [ ] 192 - content labels, riding on this migration
 * [x] 286 - SKOS terms. Precursor, can land independently.
-* [ ] 331 - extantBacklink subtype-blindness, resolved by the migration
+* [x] 331 - extantBacklink subtype-blindness, resolved by the migration
 
 Four more pieces are deliberately unticketed until the migration design settles (identifier-key rename, the statement-metadata rewrite itself, data migration, JSON-LD publisher endpoint). They're listed in 270's Scope. Don't file them early.
 
