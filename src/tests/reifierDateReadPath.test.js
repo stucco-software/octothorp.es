@@ -65,4 +65,11 @@ describe.skipIf(!up)('#268 reifier date read path (live store)', () => {
     const out = parseBindings(rows, 'pages')
     expect(out.find(r => r.role === 'object' && r.uri === O2).date).toBe(1720000000000)
   })
+
+  it('has no flat <s> <o> <ts> fact on the fixture and still serves the date', async () => {
+    const flat = await run(`SELECT ?ts WHERE { <${S}> <${O1}> ?ts }`)
+    expect(flat).toHaveLength(0)
+    const created = await run(`SELECT ?d WHERE { <${T(1)}> octo:created ?d }`)
+    expect(created).toHaveLength(1)
+  })
 })

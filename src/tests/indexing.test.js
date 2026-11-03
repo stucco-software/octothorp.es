@@ -649,6 +649,21 @@ describe('Indexing Business Logic', () => {
       expect(mockInsert.mock.calls.map(c => c[0]).join('\n')).not.toContain('octo:endorses')
     })
 
+    it('does not write the flat `<s> <o> <ts>` date fact (#268)', async () => {
+      mockQueryBoolean
+        .mockResolvedValueOnce(false) // extantPage (Webring check)
+        .mockResolvedValueOnce(false) // extantMention
+        .mockResolvedValueOnce(false) // originEndorsesOrigin
+        .mockResolvedValueOnce(true)  // checkReciprocalMention
+      mockInsert.mockResolvedValue({})
+      await indexer.handleMention(s, o)
+      const all = mockInsert.mock.calls.map(c => c[0]).join('\n')
+      expect(all).not.toMatch(new RegExp(`<${s}>\\s+<${o}>\\s+\\d+`))
+      expect(all).toContain(annotated(s, o))
+      // The date lives on the reifier, written by a first-wins update.
+      expect(mockQuery.mock.calls.map(c => c[0]).join('\n')).toMatch(/octo:created \d+/)
+    })
+
     it('mints a Backlink when the target origin endorsed the linking origin', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)

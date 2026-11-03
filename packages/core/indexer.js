@@ -490,7 +490,6 @@ export const createIndexer = (deps) => {
     // why non-http subjects silently vanished from /get output.
     return `
       <${s}> ${p} <${o}> .
-      <${s}> <${o}> ${now} .
       <${s}> rdf:type ${typeRef(CLASS.Page)} .
       ${subjectOriginBlock(s, { endorsed, schemes, claimed })}
       <${o}> rdf:type ${typeRef(CLASS.Page)}.
