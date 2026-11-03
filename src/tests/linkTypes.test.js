@@ -164,7 +164,7 @@ describe('#292 mentioned is octo:Mention', () => {
     expect(mp.filters.subtype).toBe('')
     // no FILTER EXISTS constraining the relationship reifier's type
     expect(builders.buildSimpleQuery(mp)).not.toContain('?_st rdf:type')
-    expect(builders.buildSimpleQuery(mp)).not.toContain('rdf:reifies')
+    expect(builders.buildSimpleQuery(mp)).not.toContain('?_st rdf:reifies')
   })
 })
 

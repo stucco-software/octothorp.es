@@ -199,6 +199,30 @@ export const relationshipPattern = ({
 }
 
 /**
+ * #268 read path: the relationship date for (?s, ?o), bound as ?date (same
+ * output variable the flat `?s ?o ?date` fact used). Primary source is the
+ * reifier's `octo:created`; a pair can carry several reifiers (Bookmark +
+ * Cite), so FILTER NOT EXISTS keeps only the earliest. Fallback is the flat
+ * `<s> <o> <ts>` fact, which is the only date term thorpes (page -> Term) have:
+ * they get no reifier. Both are OPTIONAL joined through COALESCE rather than a
+ * UNION, because UNION branches are planned standalone and scan the store.
+ * Emit AFTER every required pattern that binds ?s and ?o (#282): OPTIONALs may
+ * sink, required patterns may not.
+ */
+export const relationshipDatePattern = ({ subject = '?s', object = '?o', date = '?date' } = {}) =>
+  `OPTIONAL {
+          ${relationshipPattern({ reifier: '?_dr', subject, object })}
+          ?_dr octo:created ?_reifierDate .
+          FILTER NOT EXISTS {
+            ${relationshipPattern({ reifier: '?_dr2', subject, object })}
+            ?_dr2 octo:created ?_dEarlier .
+            FILTER(?_dEarlier < ?_reifierDate)
+          }
+        }
+        OPTIONAL { ${subject} ${object} ?_flatDate . }
+        BIND(COALESCE(?_reifierDate, ?_flatDate) AS ${date})`
+
+/**
  * Read side: the reifier's subtype and term metadata as `?pred ?value` rows.
  * Restricted to the two predicates the read path projects, so the triple term
  * (`rdf:reifies`) and timestamps never multiply rows.
@@ -688,11 +712,11 @@ export const createQueryBuilders = (instance, queryArray) => {
         ${statements.subjectStatement}
         ${statements.subtypeFilter}
         ${statements.relationTermsFilter}
-        ?s ?o ?date .
         ?s rdf:type ?pageType .
         ?s octo:octothorpes ?o .
         ${unavailableFilter('?s')}
         ${unavailableFilter('?o')}
+        ${relationshipDatePattern()}
         OPTIONAL { ?o rdf:type ?oType. }
         OPTIONAL { ?s octo:title ?title }
         OPTIONAL { ?s octo:image ?image }
@@ -750,10 +774,10 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${statements.objectStatement}
       ?s octo:octothorpes ?o .
       ${objectTypes[objects.type]}
-      ?s ?o ?date .
       ?s rdf:type ?pageType .
       ${unavailableFilter('?s')}
       ${unavailableFilter('?o')}
+      ${relationshipDatePattern()}
       OPTIONAL { ?o octo:title ?ot . }
       OPTIONAL { ?o octo:description ?od . }
       OPTIONAL { ?o octo:image ?oimg . }
@@ -794,6 +818,8 @@ export const createQueryBuilders = (instance, queryArray) => {
   /**
    * Builds a SPARQL query specifically for retrieving hashtag/term listings
    */
+  // Term-usage dates are still flat facts written by createOctothorpe (thorpes
+  // have no reifiers); reifier-backed term dates are a separate follow-up.
   const buildThorpeQuery = ({
     meta, subjects, objects, filters
     }) => {

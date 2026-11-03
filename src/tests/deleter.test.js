@@ -102,6 +102,8 @@ describe.skipIf(!reachable)('hardDeletePage (live store)', () => {
       <${A}> <${B}> 5 . <${B}> <${C}> 6 .
       <${C}> rdf:type octo:Page .
       <${A}> octo:octothorpes <${B}> . <${B}> octo:octothorpes <${C}> .
+      <${R}A> rdf:reifies <<( <${A}> octo:octothorpes <${B}> )>> . <${R}A> octo:created 5 .
+      <${R}B> rdf:reifies <<( <${B}> octo:octothorpes <${C}> )>> . <${R}B> octo:created 6 .
     `)
     const builders = createQueryBuilders('https://deleter-test.example/', sparql.queryArray)
     const run = async (uri) => {
@@ -265,6 +267,8 @@ describe.skipIf(!reachable)('#248 Phase 5 default-read exclusion (live store)', 
       <${A}> octo:created 5 . <${B}> octo:created 5 . <${C}> octo:created 5 .
       <${A}> <${B}> 5 . <${B}> <${C}> 6 .
       <${A}> octo:octothorpes <${B}> . <${B}> octo:octothorpes <${C}> .
+      <${R}A> rdf:reifies <<( <${A}> octo:octothorpes <${B}> )>> . <${R}A> octo:created 5 .
+      <${R}B> rdf:reifies <<( <${B}> octo:octothorpes <${C}> )>> . <${R}B> octo:created 6 .
     `)
     const check = async (present) => {
       expect((await everything(exact(B), allObjs)).some((r) => r.s?.value === B)).toBe(present)
