@@ -115,4 +115,20 @@ describe.skipIf(!reachable)('index-driven deletion triggers (live store)', () =>
     expect(await ask(`<${u}> <${OCTO}unavailableSince> ?x`)).toBe(false)
     expect(await ask(`<${u}> <${OCTO}failCount> ?x`)).toBe(false)
   })
+
+  it('webringMembers excludes soft-deleted members and lists them again after restorePage (#248 ruling B)', async () => {
+    const ring = `${HOST}/ring`
+    const m1 = `${HOST}/m1`
+    const m2 = `${HOST}/m2`
+    await sparql.insert(`<${ring}> octo:hasMember <${m1}> . <${ring}> octo:hasMember <${m2}> .`)
+    await seedIndexed(m1)
+    await seedIndexed(m2)
+    const ix = make()
+    const members = async () => (await ix.webringMembers(ring)).results.bindings.map(b => b.o.value).sort()
+    expect(await members()).toEqual([m1, m2])
+    await ix.deleter.softDeletePage(m2)
+    expect(await members()).toEqual([m1])
+    await ix.deleter.restorePage(m2)
+    expect(await members()).toEqual([m1, m2])
+  })
 })

@@ -7,7 +7,7 @@
 import { createDeleter } from './deleter.js'
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
-import { resolveDocumentRecordIri, annotatedRelationshipStatement, RELATIONSHIP_PREDICATE } from './queryBuilders.js'
+import { resolveDocumentRecordIri, annotatedRelationshipStatement, RELATIONSHIP_PREDICATE, unavailableFilter } from './queryBuilders.js'
 import { termLabelTriples } from './termLabels.js'
 import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.js'
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
@@ -339,6 +339,7 @@ export const createIndexer = (deps) => {
     return await queryArray(`
       select distinct ?o {
         <${s}> octo:hasMember ?o .
+        ${unavailableFilter('?o')}
       }
     `)
   }
