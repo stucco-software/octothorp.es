@@ -306,3 +306,19 @@ describe('client.deleteSource mode routing', () => {
     await expect(client.deleteSource('https://a.example/p', { mode: 'x' })).rejects.toThrow()
   })
 })
+
+describe.skipIf(!reachable)('#248 fast.* read exclusion (live store)', () => {
+  it('soft-deleted page disappears from fast.backlinks and returns on restore', async () => {
+    const { createApi } = await import('octothorpes')
+    const api = createApi({ instance: 'https://deleter-test.example/', queryArray: sparql.queryArray, queryBoolean: async () => false, insert: sparql.insert, query: sparql.query })
+    const has = async () => (await api.fast.backlinks()).some((r) => r.from?.value === A && r.to?.value === B)
+    await cleanup()
+    await sparql.insert(`<${A}> rdf:type <octo:Page> . <${B}> rdf:type <octo:Page> . <${A}> octo:octothorpes <${B}> .`)
+    expect(await has()).toBe(true)
+    await deleter.softDeletePage(B)
+    expect(await has()).toBe(false)
+    await deleter.restorePage(B)
+    expect(await has()).toBe(true)
+    await cleanup()
+  })
+})

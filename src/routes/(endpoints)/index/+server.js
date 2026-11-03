@@ -59,8 +59,23 @@ const config = () => ({
 })
 
 const runIndex = async (uri, harmonizer, requestOrigin) => {
-  await handler(uri, harmonizer, requestOrigin, config())
+  const result = await handler(uri, harmonizer, requestOrigin, config())
   const normalized = parseUri(uri).normalized
+  // #248: a 404/410/withdrawn known page is marked unavailable (or removed),
+  // not indexed. Say so explicitly instead of reporting success.
+  if (result?.deleted) {
+    return json({
+      status: 'deleted',
+      message: result.mode === 'hard'
+        ? 'Page was unavailable and has been removed from the index'
+        : result.mode === 'failure'
+          ? 'Page was unavailable; the failure was recorded'
+          : 'Page was unavailable and has been marked unavailable',
+      uri: normalized,
+      mode: result.mode,
+      reason: result.reason
+    }, { status: 200 })
+  }
   return json({
     status: 'success',
     message: 'Page indexed successfully',

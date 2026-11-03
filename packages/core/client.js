@@ -47,7 +47,6 @@ export { createPublisherRegistry, resolveEnvelope, assertRequires, BUILTIN_PUBLI
 export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
-export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
 export { createDeleter } from './deleter.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { scaffoldProfile } from './scaffold.js'
