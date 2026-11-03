@@ -52,7 +52,8 @@ export const createDeleter = (deps = {}) => {
    * Reduce page B to a never-indexed link target (ruling 1). Other pages'
    * triples and reifiers that point AT B are kept.
    */
-  const hardDeletePage = async (pageUrl) => {
+  const hardDeletePage = async (rawUrl) => {
+    const pageUrl = canonical(rawUrl)
     // 1. B's own reifiers (every subtype), with all their properties and rdf:reifies.
     await query(`DELETE { ?r ?rp ?ro } WHERE { ?r rdf:reifies <<( <${pageUrl}> ?p ?o )>> . ?r ?rp ?ro }`)
     // 2. B's subject-position triples (base triples, flat date facts, resource facts).
@@ -69,7 +70,7 @@ export const createDeleter = (deps = {}) => {
    */
   const hardDeleteOrigin = async (originUrl, targetConfig) => {
     assertDeletableTarget(targetConfig)
-    const origin = strip(originUrl)
+    const origin = canonical(strip(originUrl))
     const res = await queryArray(`SELECT ?page WHERE { <${origin}> octo:hasPart ?page }`)
     const pages = res.results.bindings.map((b) => b.page.value)
     for (const page of pages) {

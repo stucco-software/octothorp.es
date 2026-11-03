@@ -4,6 +4,7 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
+import { createDeleter } from './deleter.js'
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
 import { resolveDocumentRecordIri, annotatedRelationshipStatement, RELATIONSHIP_PREDICATE } from './queryBuilders.js'
@@ -278,6 +279,10 @@ export const checkIndexingPolicy = (harmed, instance) => {
  */
 export const createIndexer = (deps) => {
   const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers, indexingMode, submissions: submissionsConfig } = deps
+
+  // #248 Phase 3: the indexer never hand-writes statement-deletion SPARQL; it
+  // calls the deleter. Injected when given, else built from the same deps.
+  const deleter = deps.deleter ?? createDeleter({ query, queryBoolean, queryArray, instance })
 
   // #336: what TRIGGERS indexing ('request' | 'active'). Mirrors
   // createClient.indexSource: under 'active' the crawler's own fetch stands in
@@ -1551,6 +1556,7 @@ export const createIndexer = (deps) => {
     createWebring,
     createWebringMember,
     deleteWebringMember,
+    deleter,
     createMention,
     recordIndexing,
     recordProperty,

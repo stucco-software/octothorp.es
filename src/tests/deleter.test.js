@@ -192,3 +192,26 @@ describe.skipIf(!reachable)('statement-level deletes (live store)', () => {
     await cleanup()
   })
 })
+
+describe.skipIf(!reachable)('canonical input spelling', () => {
+  it('hardDeletePage with www./trailing-slash spelling deletes the canonical node', async () => {
+    await cleanup()
+    await sparql.insert(`<${B}> rdf:type octo:Page . <${B}> octo:title "x" .`)
+    await deleter.hardDeletePage('https://www.deleter-test.example/b/')
+    expect(await count(`<${B}> ?p ?o`)).toBe(0)
+    await cleanup()
+  })
+})
+
+describe('indexer deleter injection', () => {
+  it('createIndexer exposes an injected deleter and issues no DELETE of its own', async () => {
+    const { createIndexer } = await import('octothorpes')
+    const calls = []
+    const rec = async (q) => { calls.push(q); return {} }
+    const stub = { deleteMention: () => {}, deleteThorpe: () => {} }
+    const ix = createIndexer({ insert: rec, query: rec, queryBoolean: rec, queryArray: rec, instance: 'https://x.example/', deleter: stub })
+    expect(ix.deleter).toBe(stub)
+    expect(calls).toHaveLength(0)
+    expect(createIndexer({ insert: rec, query: rec, queryBoolean: rec, queryArray: rec, instance: 'https://x.example/' }).deleter.hardDeletePage).toBeTypeOf('function')
+  })
+})
