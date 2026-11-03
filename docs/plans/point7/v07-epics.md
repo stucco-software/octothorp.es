@@ -70,9 +70,9 @@ Precursors landing. The engine gate is closed and the storage model is settled â
 
 ### Issues
 
-* [ ] 231 - derive backlinks instead of storing the reciprocal switch
+* [x] 231 - derive backlinks instead of storing the reciprocal switch
 	* [ ] confirm profile-declared link-type paths still filter correctly after the migration (from 236)
-* [ ] 268 - octo:created on relationships
+* [x] 268 - octo:created on relationships
 	* [ ] don't break the `?s ?o ?date` read path or RSS link feeds go empty
 * [ ] 192 - content labels, riding on this migration
 * [x] 286 - SKOS terms. Precursor, can land independently.
@@ -86,15 +86,15 @@ Epic: **271**
 
 ### Status
 
-Promoted to immediately follow 270. Still blocked on it.
+Status: shipped on development; 267 reconciliation deferred to batch epic
 
 ### Issues
 
-* [ ] 248 - unified deletion module. Blocker for the other two.
-	* [ ] decide: inbound refs on hard delete
-	* [ ] decide: what soft-delete means on read
-* [ ] 26 - delete statements when removed from a page
-* [ ] 167 - archive/soft-delete 404 URLs
+* [x] 248 - unified deletion module. Blocker for the other two.
+	* [x] decide: inbound refs on hard delete
+	* [x] decide: what soft-delete means on read
+* [x] 26 - delete statements when removed from a page
+* [x] 167 - archive/soft-delete 404 URLs
 
 # Publishers
 
@@ -147,7 +147,7 @@ Not started. Depends on Handlers (273) being done.
 * [ ] 180 - Batch Indexing MVP
 * [ ] 43 - index statements via an Octothorpes blobject file. Closer than it looks; fold into 180.
 * [ ] 177 - harmonize sitemap.xml. Depends on 180.
-* [ ] 267 - optimize the update method on re-index. Same write path.
+* [ ] 267 - re-index reconciliation: diff stored vs harvested, skip unchanged, delete stale (absorbs 26; rides batch epic)
 
 # Bug Fixes
 
