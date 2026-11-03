@@ -215,3 +215,50 @@ describe('indexer deleter injection', () => {
     expect(createIndexer({ insert: rec, query: rec, queryBoolean: rec, queryArray: rec, instance: 'https://x.example/' }).deleter.hardDeletePage).toBeTypeOf('function')
   })
 })
+
+describe.skipIf(!reachable)('softDeletePage / restorePage (live store)', () => {
+  const U = 'https://vocab.octothorp.es#unavailable'
+  const S = 'https://vocab.octothorp.es#unavailableSince'
+  const F = 'https://vocab.octothorp.es#failCount'
+  const val = async (p) => (await sparql.queryArray(`SELECT ?v WHERE { <${B}> <${p}> ?v }`)).results.bindings.map((b) => b.v.value)
+
+  it('writes markers, keeps data, is idempotent on since, increments failCount, restore clears', async () => {
+    await cleanup()
+    await sparql.insert(`<${B}> rdf:type octo:Page . <${B}> octo:octothorpes <${C}> .`)
+    await deleter.softDeletePage(B)
+    const since = await val(S)
+    expect(await val(U)).toEqual(['true'])
+    expect(since).toHaveLength(1)
+    expect(await val(F)).toEqual(['1'])
+    await new Promise((r) => setTimeout(r, 5))
+    await deleter.softDeletePage(B)
+    expect(await val(U)).toEqual(['true'])
+    expect(await val(S)).toEqual(since)
+    expect(await val(F)).toEqual(['2'])
+    expect(await count(`<${B}> octo:octothorpes <${C}>`)).toBe(1)
+    await deleter.restorePage(B)
+    expect(await count(`<${B}> ?p ?o . FILTER(?p IN (<${U}>, <${S}>, <${F}>))`)).toBe(0)
+    expect(await count(`<${B}> octo:octothorpes <${C}>`)).toBe(1)
+    await cleanup()
+  })
+})
+
+describe('client.deleteSource mode routing', () => {
+  const mk = async (config = {}) => {
+    const { createClient } = await import('octothorpes')
+    const calls = []
+    const client = createClient({ instance: 'https://x.example/', sparql: { endpoint: 'http://0.0.0.0:1' }, ...config })
+    client.deleter.softDeletePage = async (u) => calls.push(['soft', u])
+    client.deleter.hardDeletePage = async (u) => calls.push(['hard', u])
+    return { client, calls }
+  }
+  it('defaults to soft, honors config.deletionMode and per-call override', async () => {
+    let { client, calls } = await mk()
+    expect(await client.deleteSource('https://a.example/p')).toEqual({ mode: 'soft', target: 'https://a.example/p' })
+    ;({ client, calls } = await mk({ deletionMode: 'hard' }))
+    expect((await client.deleteSource('https://a.example/p')).mode).toBe('hard')
+    expect((await client.deleteSource('https://a.example/p', { mode: 'soft' })).mode).toBe('soft')
+    expect(calls.map((c) => c[0])).toEqual(['hard', 'soft'])
+    await expect(client.deleteSource('https://a.example/p', { mode: 'x' })).rejects.toThrow()
+  })
+})

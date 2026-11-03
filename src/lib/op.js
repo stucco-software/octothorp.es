@@ -31,6 +31,7 @@ export const op = createClient({
   // so this is the identity function, not a mapping (Task 17).
   indexingMode: profile.policies.indexing.mode,
   cooldown: profile.policies.indexing.cooldown,
+  deletionMode: profile.policies.indexing.deletion,
   access: profile.policies.access,
   // Endorsement sources are INJECTED here and only run when the profile's
   // policies.access.endorsement.sources names them. octothorp.es's own profile

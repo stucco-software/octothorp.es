@@ -114,5 +114,34 @@ export const createDeleter = (deps = {}) => {
     await query(`DELETE WHERE { <${subj}> <${term}> ?ts }`)
   }
 
-  return { deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  const U = `${OCTO_NS}unavailable`
+  const SINCE = `${OCTO_NS}unavailableSince`
+  const FAIL = `${OCTO_NS}failCount`
+
+  /** Increment octo:failCount on the page (starts at 1). */
+  const recordFailure = async (rawUrl) => {
+    const p = canonical(rawUrl)
+    await query(`DELETE { <${p}> <${FAIL}> ?old } INSERT { <${p}> <${FAIL}> ?new } WHERE { OPTIONAL { <${p}> <${FAIL}> ?old } BIND(COALESCE(?old, 0) + 1 AS ?new) }`)
+  }
+
+  /**
+   * Soft delete (ruling 2): mark the page unavailable, data intact. unavailableSince
+   * is first-wins (ms epoch, set only if absent); failCount increments per call.
+   */
+  const softDeletePage = async (rawUrl) => {
+    const p = canonical(rawUrl)
+    await query(`INSERT DATA { <${p}> <${U}> true }`)
+    await query(`INSERT { <${p}> <${SINCE}> ${Date.now()} } WHERE { FILTER NOT EXISTS { <${p}> <${SINCE}> ?x } }`)
+    await recordFailure(p)
+  }
+
+  /** Clear all three markers (called when a re-index succeeds). */
+  const restorePage = async (rawUrl) => {
+    const p = canonical(rawUrl)
+    await query(`DELETE WHERE { <${p}> <${U}> ?v }`)
+    await query(`DELETE WHERE { <${p}> <${SINCE}> ?v }`)
+    await query(`DELETE WHERE { <${p}> <${FAIL}> ?v }`)
+  }
+
+  return { softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }

@@ -60,6 +60,8 @@ const indexer = createIndexer({
   indexingMode: profile.policies.indexing.mode,
   // Re-index cooldown in seconds (#217). Consumed by recentlyIndexed in every mode.
   cooldown: profile.policies.indexing.cooldown,
+  // #248: default deletion mode ('soft' | 'hard'), identity-mapped like indexingMode.
+  deletionMode: profile.policies.indexing.deletion,
   // #217: the access block feeds two independent enforcement points.
   // `registration` + `blocks.domains`/`whitelist.domains` are the GATE axis —
   // what an index request must pass. `indexingMode` (Task 17) is the TRIGGER

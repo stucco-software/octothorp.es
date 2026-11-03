@@ -29,6 +29,7 @@ export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
 export { createHarmonizerRegistry, interpolateInstance, BUILTIN_HARMONIZERS } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme, canonicalOrigin, originVariants, uriVariants } from './uri.js'
+import { canonical as canonicalUrl } from './reifier.js'
 export { canonical, applyParamGate, mintReifierIri } from './reifier.js'
 export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin, isExcluded, originBanned, banOrigin, unbanOrigin, approveOrigin, createVerifiedOrigin, mintSiteNum, siteNumMintQuery, originBySiteNum } from './origin.js'
 export { SKOS_PREF_LABEL, termLabelTriples, backfillTermLabels } from './termLabels.js'
@@ -175,6 +176,7 @@ export const normalizeIndexingMode = (mode) => {
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
  * @param {'request'|'active'|Object} [config.indexingMode] - What TRIGGERS indexing:
  *   'request' (default) or 'active'. Orthogonal to config.access, which is the GATE.
+ * @param {'soft'|'hard'} [config.deletionMode='soft'] - Default for deleteSource. Mirrors profile.policies.indexing.deletion.
  * @param {number} [config.cooldown=300] - Re-index cooldown in SECONDS, forwarded to the
  *   internal indexer's `recentlyIndexed` check. Applies under every indexing mode; 0 disables
  *   the wait so every request re-indexes. Mirrors profile.policies.indexing.cooldown.
@@ -613,10 +615,17 @@ export const createClient = (config) => {
   return {
     indexSource,
     deleter,
-    // Phase 1: only hard mode exists; soft mode and the profile default land in Phase 4.
-    deleteSource: (url, { mode = 'hard' } = {}) => {
-      if (mode !== 'hard') throw new Error(`deleteSource: unsupported mode "${mode}"`)
-      return deleter.hardDeletePage(url)
+    /**
+     * Delete a source page. `mode` defaults to config.deletionMode ('soft' if unset):
+     * 'soft' marks the page octo:unavailable (data kept), 'hard' reduces it to a link target.
+     * @param {string} url
+     * @param {{mode?: 'soft'|'hard'}} [opts]
+     * @returns {Promise<{mode: 'soft'|'hard', target: string}>} target is the canonical page URL
+     */
+    deleteSource: async (url, { mode = config.deletionMode ?? 'soft' } = {}) => {
+      if (mode !== 'soft' && mode !== 'hard') throw new Error(`deleteSource: unsupported mode "${mode}"`)
+      await (mode === 'soft' ? deleter.softDeletePage(url) : deleter.hardDeletePage(url))
+      return { mode, target: canonicalUrl(url) }
     },
     get,
     getfast: api.fast,
