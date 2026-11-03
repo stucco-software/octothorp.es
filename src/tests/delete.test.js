@@ -51,21 +51,21 @@ describe('assertDeletableTarget', () => {
 })
 
 describe.skipIf(!reachable)('deletePage', () => {
-  it('removes all triples referencing the page, including blank-node backlinks', async () => {
+  // Ruling 1 (#248): hard delete reduces the page to a link target; inbound refs survive.
+  it('removes the page as a subject and keeps inbound references', async () => {
     await sparql.insert(`
       <${PAGE_A}> rdf:type <octo:Page> .
       <${PAGE_A}> octo:octothorpes <https://octothorp.es/~/demo> .
-      _:bl octo:url <${PAGE_A}> .
-      _:bl octo:octothorpes <${PAGE_B}> .
+      <${PAGE_B}> octo:octothorpes <${PAGE_A}> .
     `)
-    expect(await countRefs(PAGE_A)).toBeGreaterThan(0)
     await deletePage(sparql, PAGE_A)
-    expect(await countRefs(PAGE_A)).toBe(0)
-    // blank node closure gone too: no triple should still carry the backlink's target via that bnode
-    const orphan = await sparql.queryArray(
-      `SELECT (COUNT(*) AS ?c) WHERE { ?b octo:url <${PAGE_A}> }`
-    )
-    expect(Number(orphan.results.bindings[0].c.value)).toBe(0)
+    const subj = await sparql.queryArray(`SELECT (COUNT(*) AS ?c) WHERE { <${PAGE_A}> ?p ?o . FILTER(?p != rdf:type) }`)
+    expect(Number(subj.results.bindings[0].c.value)).toBe(0)
+    const inbound = await sparql.queryArray(`SELECT (COUNT(*) AS ?c) WHERE { <${PAGE_B}> octo:octothorpes <${PAGE_A}> }`)
+    expect(Number(inbound.results.bindings[0].c.value)).toBe(1)
+    await deletePage(sparql, PAGE_B)
+    await sparql.query(`DELETE WHERE { ?s ?p <${PAGE_A}> }`)
+    await sparql.query(`DELETE WHERE { <${PAGE_A}> ?p ?o }`)
   })
 })
 
@@ -81,7 +81,7 @@ describe.skipIf(!reachable)('deleteOrigin', () => {
     `)
     const result = await deleteOrigin(sparql, ORIGIN, {
       instance: 'http://localhost:5173',
-      sparql_endpoint: endpoint,
+      sparql_endpoint: 'http://0.0.0.0:7878', // guard label only; data goes to `endpoint`
     })
     expect(result.deletedPages).toBe(2)
     expect(await countRefs(ORIGIN)).toBe(0)

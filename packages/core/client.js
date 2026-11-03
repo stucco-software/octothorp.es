@@ -2,6 +2,7 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer, resolveSubtype } from './indexer.js'
+import { createDeleter } from './deleter.js'
 import { harmonizerId } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { QueryError } from './errors.js'
@@ -46,6 +47,7 @@ export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
 export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
+export { createDeleter } from './deleter.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
@@ -600,8 +602,22 @@ export const createClient = (config) => {
     return rendered
   }
 
+  const deleter = createDeleter({
+    query: sparql.query,
+    queryBoolean: sparql.queryBoolean,
+    queryArray: sparql.queryArray,
+    instance: config.instance,
+    deletableTargets: config.deletableTargets,
+  })
+
   return {
     indexSource,
+    deleter,
+    // Phase 1: only hard mode exists; soft mode and the profile default land in Phase 4.
+    deleteSource: (url, { mode = 'hard' } = {}) => {
+      if (mode !== 'hard') throw new Error(`deleteSource: unsupported mode "${mode}"`)
+      return deleter.hardDeletePage(url)
+    },
     get,
     getfast: api.fast,
     harmonize,
