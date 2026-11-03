@@ -168,7 +168,10 @@ describe('scoping and writes', () => {
     const obj = `https://${anchor}/.op/zotero/select/items/1`
     expect(out).toContain(`<${subj}> octo:octothorpes <${obj}>`)
     expect(out).toContain(`<https://${anchor}> octo:claims <${obj}>`)
-    expect(out).toContain('rdf:type <octo:Bookmark>')
+    // #270: the typed relationship is the annotated base triple; its reifier
+    // carries the full subtype IRI
+    expect(out).toContain(`<${subj}> <https://vocab.octothorp.es#octothorpes> <https://rentry.co/x> ~ <https://vocab.octothorp.es/r1/`)
+    expect(out).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
   })
 
   it('no raw opaque IRI appears in any written triple', async () => {
@@ -230,7 +233,8 @@ describe('hostile input and hardening', () => {
   it('a hostile http(s) object URI is safely encoded, never raw', async () => {
     const evil = 'https://x.test/> . <https://victim> octo:verified "true" . <'
     await run(blob({ octothorpes: [{ type: 'link', uri: evil }] }))
-    const out = inserted()
+    // Strip string literals (prefLabel keeps the raw text, safely escaped); only IRIs/triples matter.
+    const out = inserted().replace(/"(?:[^"\\]|\\.)*"/g, '""')
     expect(out).not.toContain('<https://victim>')
     expect(out).not.toMatch(/<[^>]*[ "][^>]*>/)
     expect(out).toContain('https://x.test/%3E%20.%20%3Chttps://victim%3E')
@@ -244,7 +248,8 @@ describe('hostile input and hardening', () => {
 
   it('hostile hashtag terms cannot inject triples (encoded in the term IRI)', async () => {
     await run(blob({ octothorpes: [{ type: 'hashtag', uri: 'a> . <https://victim> octo:verified "true" . <b' }, 'x> <y'] }))
-    const out = inserted()
+    // Strip string literals (prefLabel keeps the raw text, safely escaped); only IRIs/triples matter.
+    const out = inserted().replace(/"(?:[^"\\]|\\.)*"/g, '""')
     expect(out).not.toContain('<https://victim>')
     expect(out).not.toMatch(/<[^>]*[ "][^>]*>/)
   })
@@ -318,7 +323,8 @@ describe('final-review hardening', () => {
 
   it('accepts known types case-insensitively (link, Bookmark)', async () => {
     await run(blob({ octothorpes: [{ type: 'Bookmark', uri: 'https://a.test/' }, { type: 'link', uri: 'https://b.test/' }] }))
-    expect(inserted()).toContain('octo:Bookmark')
+    expect(inserted()).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
+    expect(inserted()).toContain('rdf:type <https://vocab.octothorp.es#Link>')
   })
 
   it('scopes opaque documentRecord uri-range values; no raw opaque IRI is written', async () => {

@@ -16,11 +16,18 @@ const mockQuery = vi.fn()
 const mockQueryBoolean = vi.fn()
 // #310: the indexer now ASKs for an octo:banned tombstone on every request.
 // These suites stub "verified" as a blanket true, so answer ban ASKs "no".
-const queryBooleanDep = async (q) => (String(q).includes("octo:banned") ? false : mockQueryBoolean(q))
+const queryBooleanDep = async (q) => (String(q).includes("octo:banned") || String(q).includes("octo:indexed") ? false : mockQueryBoolean(q))
 const mockQueryArray = vi.fn()
 const mockHarmonizeSource = vi.fn()
 
 const instance = 'http://localhost:5173/'
+
+// #270: typed relationships are the base triple annotated with a named
+// RDF 1.2 reifier; subtypes are written as full class IRIs.
+const OCTO = 'https://vocab.octothorp.es#'
+const P_IRI = `${OCTO}octothorpes`
+const relType = (subtype) => `rdf:type <${OCTO}${subtype}>`
+const annotated = (s, o) => `<${s}> <${P_IRI}> <${o}> ~ <https://vocab.octothorp.es/r1/`
 
 const makeHandlerRegistry = () => {
   const htmlHandler = {
@@ -279,22 +286,23 @@ describe('Indexing Business Logic', () => {
       mockInsert.mockResolvedValue({})
       await indexer.createBacklink('https://example.com/page', 'https://other.com/page')
       const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('rdf:type <octo:Backlink>')
+      expect(insertCall).toContain(annotated('https://example.com/page', 'https://other.com/page'))
+      expect(insertCall).toContain(relType('Backlink'))
     })
 
     it('should use provided subtype', async () => {
       mockInsert.mockResolvedValue({})
       await indexer.createBacklink('https://example.com/page', 'https://other.com/page', 'Cite')
       const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('rdf:type <octo:Cite>')
-      expect(insertCall).not.toContain('rdf:type <octo:Backlink>')
+      expect(insertCall).toContain(relType('Cite'))
+      expect(insertCall).not.toContain(relType('Backlink'))
     })
 
     it('should use Bookmark subtype', async () => {
       mockInsert.mockResolvedValue({})
       await indexer.createBacklink('https://example.com/page', 'https://other.com/page', 'Bookmark')
       const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('rdf:type <octo:Bookmark>')
+      expect(insertCall).toContain(relType('Bookmark'))
     })
   })
 
@@ -552,7 +560,6 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(true)  // originEndorsesOrigin (gate passes)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention('https://example.com/page', 'https://other.com/page')
@@ -560,30 +567,31 @@ describe('Indexing Business Logic', () => {
       expect(mockInsert).toHaveBeenCalledTimes(1)
       const triples = mockInsert.mock.calls[0][0]
       expect(triples).toContain('<https://example.com/page> octo:octothorpes <https://other.com/page>')
-      expect(triples).toContain('_:backlink octo:url <https://other.com/page>')
+      expect(triples).toContain(annotated('https://example.com/page', 'https://other.com/page'))
+      expect(triples).toContain(relType('Backlink'))
     })
 
     it('should skip mention creation when mention exists', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(true)  // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // originEndorsesOrigin
         .mockResolvedValueOnce(true)  // checkReciprocalMention (gate passes)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention('https://example.com/page', 'https://other.com/page')
-      // Single batched insert with backlink only (no flat mention triple)
+      // Single batched insert with the annotated relationship only (no flat
+      // mention triple or mention timestamp)
       expect(mockInsert).toHaveBeenCalledTimes(1)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink octo:url <https://other.com/page>')
+      expect(triples).toContain(annotated('https://example.com/page', 'https://other.com/page'))
       expect(triples).not.toContain('<https://example.com/page> octo:octothorpes <https://other.com/page>')
+      expect(triples).not.toContain('<https://example.com/page> <https://other.com/page>')
     })
 
     it('should run existence checks in parallel and batch writes into a single insert', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm 'bikes'
       mockInsert.mockResolvedValue({})
@@ -596,18 +604,22 @@ describe('Indexing Business Logic', () => {
         { instance }
       )
 
-      // Reads: 1 webring + 1 mention + 1 backlink + 2 terms = 5 ASK queries
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(5)
-      // Writes: a single INSERT DATA carrying mention + both terms + both usages + backlink
+      // Reads: 1 webring + 1 mention + 2 terms = 4 ASK queries (no
+      // relationship-existence ASK since #270)
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(4)
+      // Writes: a single INSERT DATA carrying mention + both terms + the
+      // annotated relationship (subtype and both terms on its reifier)
       expect(mockInsert).toHaveBeenCalledTimes(1)
       const triples = mockInsert.mock.calls[0][0]
       expect(triples).toContain(`<${instance}~/gadgets> rdf:type <octo:Term>`)
       expect(triples).toContain(`<${instance}~/bikes> rdf:type <octo:Term>`)
-      expect(triples).toContain(`<${instance}~/gadgets> octo:used`)
-      expect(triples).toContain(`<${instance}~/bikes> octo:used`)
-      expect(triples).toContain('_:backlink rdf:type <octo:Bookmark>')
-      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/gadgets>`)
-      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/bikes>`)
+      expect(triples).toContain(annotated('https://example.com/page', 'https://other.com/page'))
+      expect(triples).toContain(`{| ${relType('Bookmark')} ; octo:octothorpes <${instance}~/gadgets> ; octo:octothorpes <${instance}~/bikes> |}`)
+      // Term usage moved to the reifier's first-wins update, one request
+      expect(mockQuery).toHaveBeenCalledTimes(1)
+      const firstWins = mockQuery.mock.calls[0][0]
+      expect(firstWins).toContain(`<${instance}~/gadgets> octo:used`)
+      expect(firstWins).toContain(`<${instance}~/bikes> octo:used`)
     })
   })
 
@@ -623,16 +635,15 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // originEndorsesOrigin
         .mockResolvedValueOnce(true)  // checkReciprocalMention
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink octo:url <https://other.com/page>')
-      expect(triples).toContain('_:backlink rdf:type <octo:Backlink>')
+      expect(triples).toContain(annotated(s, o))
+      expect(triples).toContain(relType('Backlink'))
       // The reciprocal ASK uses the real predicate, not the subtype name.
-      const reciprocal = mockQueryBoolean.mock.calls[4][0]
+      const reciprocal = mockQueryBoolean.mock.calls[3][0]
       expect(reciprocal).toContain(`<${o}> octo:octothorpes <${s}>`)
       // Ruling 4: reciprocity never mints octo:endorses.
       expect(mockInsert.mock.calls.map(c => c[0]).join('\n')).not.toContain('octo:endorses')
@@ -642,16 +653,15 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(true)  // originEndorsesOrigin
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o)
       // Endorsement short-circuits: no reciprocal ASK.
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(4)
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
       // Direction: target origin endorses linking origin.
-      expect(mockQueryBoolean.mock.calls[3][0])
+      expect(mockQueryBoolean.mock.calls[2][0])
         .toContain('<https://other.com> octo:endorses <https://example.com>')
-      expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Backlink>')
+      expect(mockInsert.mock.calls[0][0]).toContain(relType('Backlink'))
     })
 
     it('withholds the Backlink when neither reciprocal nor endorsed; mention still written', async () => {
@@ -661,27 +671,30 @@ describe('Indexing Business Logic', () => {
       expect(mockInsert).toHaveBeenCalledTimes(1)
       const triples = mockInsert.mock.calls[0][0]
       expect(triples).toContain(`<${s}> octo:octothorpes <${o}>`)
-      expect(triples).not.toContain('_:backlink')
+      expect(triples).not.toContain(' ~ <')
+      expect(triples).not.toContain(relType('Backlink'))
+      // No reifier, so no first-wins created update either
+      expect(mockQuery).not.toHaveBeenCalled()
     })
 
     it('does not gate non-Backlink subtypes (Bookmark/Cite/Link)', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o, 'Bookmark')
-      // No gate reads beyond the three existence checks.
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
-      expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Bookmark>')
+      // No gate reads beyond the two existence checks.
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(2)
+      expect(mockInsert.mock.calls[0][0]).toContain(relType('Bookmark'))
     })
 
     it('same-origin mentions mint a Backlink without any gate reads', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(false)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, 'https://example.com/other')
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
-      expect(mockInsert.mock.calls[0][0]).toContain('_:backlink rdf:type <octo:Backlink>')
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(2)
+      expect(mockInsert.mock.calls[0][0]).toContain(annotated(s, 'https://example.com/other'))
+      expect(mockInsert.mock.calls[0][0]).toContain(relType('Backlink'))
     })
 
     // 2026-10-19 ruling: endorsed/reciprocal generic Links are PROMOTED — the
@@ -692,79 +705,88 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // originEndorsesOrigin
         .mockResolvedValueOnce(true)  // checkReciprocalMention
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o, 'Link')
       expect(mockInsert).toHaveBeenCalledTimes(1)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
-      expect(triples).toContain('_:backlink rdf:type <octo:Backlink>')
+      // Two distinctly keyed reifiers on the one base triple (#331)
+      expect(triples.split(annotated(s, o)).length - 1).toBe(2)
+      expect(triples).toContain(relType('Link'))
+      expect(triples).toContain(relType('Backlink'))
     })
 
     it('promotes a cross-origin Link to Backlink when the target origin endorsed', async () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(true)  // originEndorsesOrigin
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o, 'Link')
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(4)
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
-      expect(triples).toContain('_:backlink rdf:type <octo:Backlink>')
+      expect(triples.split(annotated(s, o)).length - 1).toBe(2)
+      expect(triples).toContain(relType('Link'))
+      expect(triples).toContain(relType('Backlink'))
     })
 
     it('does not promote an unendorsed, unreciprocated Link; Link node still written', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o, 'Link')
-      // 3 existence checks + originEndorses + reciprocal = 5 gate reads
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(5)
+      // 2 existence checks + originEndorses + reciprocal = 4 reads
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(4)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
-      expect(triples).not.toContain('<octo:Backlink>')
+      expect(triples).toContain(relType('Link'))
+      expect(triples).not.toContain(relType('Backlink'))
     })
 
     it('never promotes a same-origin Link (no gate reads)', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, 'https://example.com/other', 'Link')
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(2)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink rdf:type <octo:Link>')
-      expect(triples).not.toContain('<octo:Backlink>')
+      expect(triples).toContain(relType('Link'))
+      expect(triples).not.toContain(relType('Backlink'))
     })
 
     it('does not promote Bookmark or Cite subtypes', async () => {
       mockQueryBoolean.mockResolvedValue(false)
       mockInsert.mockResolvedValue({})
       await indexer.handleMention(s, o, 'Cite')
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+      expect(mockQueryBoolean).toHaveBeenCalledTimes(2)
       const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain('_:backlink rdf:type <octo:Cite>')
-      expect(triples).not.toContain('<octo:Backlink>')
+      expect(triples).toContain(relType('Cite'))
+      expect(triples).not.toContain(relType('Backlink'))
     })
 
-    it('skips Link promotion when a backlink node already exists (dedup)', async () => {
-      mockQueryBoolean
-        .mockResolvedValueOnce(false) // extantPage (Webring check)
-        .mockResolvedValueOnce(true)  // extantMention
-        .mockResolvedValueOnce(true)  // extantBacklink
-      mockInsert.mockResolvedValue({})
-      await indexer.handleMention(s, o, 'Link')
-      // No gate reads. No mention or backlink rewrite either — the only write
-      // is the idempotent subject-type backfill (#241): subjects stored before
-      // mentionTriples typed them are invisible to /get (`?s rdf:type
-      // ?pageType` is required), and re-linking is how old data heals.
-      expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
-      expect(mockInsert).toHaveBeenCalledTimes(1)
-      const triples = mockInsert.mock.calls[0][0]
-      expect(triples).toContain(`<${s}> rdf:type <octo:Page>`)
-      expect(triples).not.toContain('_:backlink')
-      expect(triples).not.toContain('octo:hasPart')
+    // #270: extantBacklink is gone. Re-indexing an already-promoted Link
+    // re-evaluates the gate and re-emits the SAME deterministic reifiers, a
+    // set-semantics no-op in the store, rather than skipping the write.
+    it('re-index of a promoted Link re-emits identical reifiers (dedup by IRI)', async () => {
+      const run = async () => {
+        mockQueryBoolean.mockReset()
+        mockQueryBoolean
+          .mockResolvedValueOnce(false) // extantPage (Webring check)
+          .mockResolvedValueOnce(true)  // extantMention
+          .mockResolvedValueOnce(true)  // originEndorsesOrigin
+        mockInsert.mockClear()
+        mockInsert.mockResolvedValue({})
+        await indexer.handleMention(s, o, 'Link')
+        expect(mockQueryBoolean).toHaveBeenCalledTimes(3)
+        expect(mockInsert).toHaveBeenCalledTimes(1)
+        return mockInsert.mock.calls[0][0]
+      }
+      const first = await run()
+      const second = await run()
+      expect(second).toBe(first)
+      // Mention exists: no flat mention rewrite, only the idempotent
+      // subject-type backfill (#241) plus the two annotated reifiers.
+      expect(first).toContain(`<${s}> rdf:type <octo:Page>`)
+      expect(first).not.toContain('octo:hasPart')
+      expect(first.split(annotated(s, o)).length - 1).toBe(2)
     })
 
     it('ingestBlobject records octo:endorses per origin, deduped within a page', async () => {
@@ -906,10 +928,11 @@ describe('Indexing Business Logic', () => {
         expect(call).not.toContain('[object Object]')
         expect(call).not.toContain('~/cite')
       })
-      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
+      const backlinkInsert = insertCalls.find(c => c.includes(' ~ <'))
       expect(backlinkInsert).toBeDefined()
-      expect(backlinkInsert).toContain('rdf:type <octo:Cite>')
-      expect(backlinkInsert).not.toContain('rdf:type <octo:Backlink>')
+      expect(backlinkInsert).toContain(annotated('https://example.com/page', 'https://sweetfish.site'))
+      expect(backlinkInsert).toContain(relType('Cite'))
+      expect(backlinkInsert).not.toContain(relType('Backlink'))
     })
 
     it('should write octo:Bookmark subtype for bookmark octothorpes', async () => {
@@ -926,8 +949,9 @@ describe('Indexing Business Logic', () => {
       }, { instance })
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
-      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
-      expect(backlinkInsert).toContain('rdf:type <octo:Bookmark>')
+      const backlinkInsert = insertCalls.find(c => c.includes(' ~ <'))
+      expect(backlinkInsert).toContain(annotated('https://example.com/page', 'https://saved.com/article'))
+      expect(backlinkInsert).toContain(relType('Bookmark'))
     })
 
     it('should write octo:Link subtype for link octothorpes', async () => {
@@ -944,8 +968,9 @@ describe('Indexing Business Logic', () => {
       }, { instance })
 
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
-      const backlinkInsert = insertCalls.find(c => c.includes('_:backlink'))
-      expect(backlinkInsert).toContain('rdf:type <octo:Link>')
+      const backlinkInsert = insertCalls.find(c => c.includes(' ~ <'))
+      expect(backlinkInsert).toContain(annotated('https://example.com/page', 'https://other.com/page'))
+      expect(backlinkInsert).toContain(relType('Link'))
     })
 
     it('should handle plain string octothorpes', async () => {
@@ -1259,7 +1284,7 @@ describe('Indexing Business Logic', () => {
   })
 
   describe('Terms on Relationships', () => {
-    it('should attach terms to backlink blank node when provided', async () => {
+    it('should attach terms to the relationship reifier when provided', async () => {
       mockInsert.mockResolvedValue({})
       await indexer.createBacklink(
         'https://example.com/page',
@@ -1269,9 +1294,8 @@ describe('Indexing Business Logic', () => {
         { instance }
       )
       const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('rdf:type <octo:Bookmark>')
-      expect(insertCall).toContain(`<${instance}~/gadgets>`)
-      expect(insertCall).toContain(`<${instance}~/bikes>`)
+      expect(insertCall).toContain(annotated('https://example.com/page', 'https://other.com/page'))
+      expect(insertCall).toContain(`{| ${relType('Bookmark')} ; octo:octothorpes <${instance}~/gadgets> ; octo:octothorpes <${instance}~/bikes> |}`)
     })
 
     it('should not include term triples when terms array is empty', async () => {
@@ -1284,7 +1308,7 @@ describe('Indexing Business Logic', () => {
         { instance }
       )
       const insertCall = mockInsert.mock.calls[0][0]
-      expect(insertCall).toContain('rdf:type <octo:Bookmark>')
+      expect(insertCall).toContain(`{| ${relType('Bookmark')} |}`)
       expect(insertCall).not.toContain('~/gadgets')
       expect(insertCall).not.toContain('~/bikes')
     })
@@ -1293,7 +1317,6 @@ describe('Indexing Business Logic', () => {
       mockQueryBoolean
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm for 'bikes'
       mockInsert.mockResolvedValue({})
@@ -1314,14 +1337,15 @@ describe('Indexing Business Logic', () => {
       expect(triples).toContain(`<${instance}~/gadgets> rdf:type <octo:Term>`)
       expect(triples).toContain(`<${instance}~/bikes> rdf:type <octo:Term>`)
 
-      // Both usages recorded
-      expect(triples).toContain(`<${instance}~/gadgets> octo:used`)
-      expect(triples).toContain(`<${instance}~/bikes> octo:used`)
+      // Both usages recorded, first-wins on the reifier (#270)
+      const firstWins = mockQuery.mock.calls.map(c => c[0]).join('\n')
+      expect(firstWins).toContain(`<${instance}~/gadgets> octo:used`)
+      expect(firstWins).toContain(`<${instance}~/bikes> octo:used`)
 
-      // Backlink includes terms
-      expect(triples).toContain('_:backlink')
-      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/gadgets>`)
-      expect(triples).toContain(`_:backlink octo:octothorpes <${instance}~/bikes>`)
+      // The reifier carries both terms
+      expect(triples).toContain(annotated('https://example.com/page', 'https://other.com/page'))
+      expect(triples).toContain(`octo:octothorpes <${instance}~/gadgets>`)
+      expect(triples).toContain(`octo:octothorpes <${instance}~/bikes>`)
     })
 
     it('should pass terms from a blobject through to the backlink', async () => {
@@ -1329,7 +1353,6 @@ describe('Indexing Business Logic', () => {
         .mockResolvedValueOnce(false) // extantPage for source
         .mockResolvedValueOnce(false) // extantPage (Webring check)
         .mockResolvedValueOnce(false) // extantMention
-        .mockResolvedValueOnce(false) // extantBacklink
         .mockResolvedValueOnce(false) // extantTerm for 'gadgets'
         .mockResolvedValueOnce(false) // extantTerm for 'bikes'
       mockInsert.mockResolvedValue({})
@@ -1348,14 +1371,14 @@ describe('Indexing Business Logic', () => {
       const insertCalls = mockInsert.mock.calls.map(c => c[0])
 
       // Both terms created (now in a single batched insert)
-      const batched = insertCalls.find(c => c.includes('_:backlink'))
+      const batched = insertCalls.find(c => c.includes(' ~ <'))
       expect(batched).toBeDefined()
       expect(batched).toContain(`<${instance}~/gadgets> rdf:type <octo:Term>`)
       expect(batched).toContain(`<${instance}~/bikes> rdf:type <octo:Term>`)
 
-      // Backlink includes terms
-      expect(batched).toContain(`<${instance}~/gadgets>`)
-      expect(batched).toContain(`<${instance}~/bikes>`)
+      // The reifier includes terms
+      expect(batched).toContain(annotated('https://example.com/page', 'https://saved.com/article'))
+      expect(batched).toContain(`{| ${relType('Bookmark')} ; octo:octothorpes <${instance}~/gadgets> ; octo:octothorpes <${instance}~/bikes> |}`)
     })
   })
 

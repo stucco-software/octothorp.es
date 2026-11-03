@@ -4,15 +4,17 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
+import { createDeleter } from './deleter.js'
 import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
-import { resolveDocumentRecordIri } from './queryBuilders.js'
+import { resolveDocumentRecordIri, annotatedRelationshipStatement, RELATIONSHIP_PREDICATE, unavailableFilter } from './queryBuilders.js'
 import { termLabelTriples } from './termLabels.js'
 import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.js'
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
 import { verifyAnchorSubmission } from './anchorAuth.js'
 import { scopeIri } from './scopedIri.js'
-import { CLASS, typeRef, classRef, SUBTYPE_ALIASES } from './vocabulary.js'
+import { CLASS, typeRef, classIri, SUBTYPE_ALIASES } from './vocabulary.js'
+import { canonical, mintReifierIri } from './reifier.js'
 import normalizeUrl from 'normalize-url'
 
 ////////// module-level constants (not instance-dependent) //////////
@@ -278,6 +280,10 @@ export const checkIndexingPolicy = (harmed, instance) => {
 export const createIndexer = (deps) => {
   const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers, indexingMode, submissions: submissionsConfig } = deps
 
+  // #248 Phase 3: the indexer never hand-writes statement-deletion SPARQL; it
+  // calls the deleter. Injected when given, else built from the same deps.
+  const deleter = deps.deleter ?? createDeleter({ query, queryBoolean, queryArray, instance })
+
   // #336: what TRIGGERS indexing ('request' | 'active'). Mirrors
   // createClient.indexSource: under 'active' the crawler's own fetch stands in
   // for origin registration. Opt-outs, bans, blocklists and the rate bucket
@@ -333,6 +339,7 @@ export const createIndexer = (deps) => {
     return await queryArray(`
       select distinct ?o {
         <${s}> octo:hasMember ?o .
+        ${unavailableFilter('?o')}
       }
     `)
   }
@@ -397,15 +404,6 @@ export const createIndexer = (deps) => {
     return await queryBoolean(`
       ask {
         <${s}> ${p} <${o}> .
-      }
-    `)
-  }
-
-  const extantBacklink = async (s, o) => {
-    return await queryBoolean(`
-      ask {
-        <${s}> ${p} _:backlink .
-          _:backlink octo:url <${o}> .
       }
     `)
   }
@@ -509,20 +507,53 @@ export const createIndexer = (deps) => {
       <${termIri(base, o)}> octo:used ${now} .
     `
 
-  const backlinkTriples = (s, o, subtype, terms, base, now) => {
-    let t = `
-      <${s}> ${p} _:backlink .
-        _:backlink octo:created ${now} .
-        _:backlink octo:url <${o}> .
-        _:backlink rdf:type ${classRef(subtype)} .
-    `
-    for (const term of terms) {
-      t += `
-        _:backlink ${p} <${termIri(base, term)}> .
-      `
-    }
-    return t
+  // #270: a typed relationship is the base triple plus a named RDF 1.2
+  // reifier, written in annotation form:
+  //
+  //   <s> <octo#octothorpes> <o> ~ <R> {| rdf:type <subtypeIri> ; octo:octothorpes <term> |} .
+  //
+  // which asserts the base triple AND `<R> rdf:reifies <<( s p o )>>`. Never
+  // write the `<< s p o >>`-SUBJECT spelling: Oxigraph accepts it (204) and
+  // never asserts the base triple (reifier-minting spec, core test 10).
+  //
+  // <R> is minted deterministically from (s, p, o, subtype), so it is the
+  // duplicate guard: re-inserting the same annotation is a set-semantics
+  // no-op. Only time-invariant facts go here. octo:created (time-varying) is
+  // written first-wins by reifierCreatedUpdate, or re-indexing would accrete
+  // one timestamp per run.
+  //
+  // `s` and `o` MUST already be the canonical spellings (handleMention applies
+  // canonical() once at its top); the same strings are written into the base
+  // triple, the triple term, and the hash. The predicate is written as the
+  // full IRI it is hashed as, so no prologue expansion sits between them.
+  const P_IRI = RELATIONSHIP_PREDICATE
+
+  const mintRelationship = async (s, o, subtype) => {
+    const subtypeIri = classIri(subtype)
+    const reifier = await mintReifierIri({ subject: s, predicate: P_IRI, object: o, subtype: subtypeIri })
+    return { reifier, subtypeIri }
   }
+
+  const backlinkTriples = ({ reifier, subtypeIri }, s, o, terms, base) => {
+    const annotations = [
+      `rdf:type <${subtypeIri}>`,
+      ...terms.map((term) => `${p} <${termIri(base, term)}>`),
+    ]
+    return annotatedRelationshipStatement({ subject: s, object: o, reifier, annotations })
+  }
+
+  // First-wins time-varying metadata for one reifier, as a standalone SPARQL
+  // update (not INSERT DATA). `extra` carries other per-relationship
+  // timestamps that must also land only once (term usage). Fires only when the
+  // reifier has no octo:created yet, so re-indexing writes nothing.
+  const reifierCreatedUpdate = (reifier, now, extra = []) => `
+    INSERT {
+      <${reifier}> octo:created ${now} .
+      ${extra.join('\n      ')}
+    } WHERE {
+      FILTER NOT EXISTS { <${reifier}> octo:created ?created }
+    }
+  `
 
   const createMention = async (s, o) => {
     console.log(`create mention…`)
@@ -532,7 +563,12 @@ export const createIndexer = (deps) => {
   const createBacklink = async (s, o, subtype = 'Backlink', terms = [], { instance: inst } = {}) => {
     const base = inst || instance
     console.log(`create backlink… (${subtype})${terms.length ? ` with terms: ${terms.join(', ')}` : ''}`)
-    return await insert(backlinkTriples(s, o, subtype, terms, base, Date.now()))
+    const subj = canonical(s)
+    const obj = canonical(o)
+    const rel = await mintRelationship(subj, obj, subtype)
+    const result = await insert(backlinkTriples(rel, subj, obj, terms, base))
+    await query(reifierCreatedUpdate(rel.reifier, Date.now()))
+    return result
   }
 
   // Triples for a webring: optionally its type triple, plus one hasMember per
@@ -870,16 +906,32 @@ export const createIndexer = (deps) => {
     }
   }
 
-  // handleMention creates two graph structures for each page-to-page relationship:
-  // 1. createMention: direct triple <source> octo:octothorpes <target> (flat fact + timestamp)
-  // 2. createBacklink: blank node <source> octo:octothorpes _:bn . _:bn octo:url <target>
-  //    (carries metadata: subtype, terms, created timestamp)
-  // Both are needed: the direct triple supports simple joins in queries,
-  // the blank node carries relationship metadata.
+  // handleMention writes two things for each page-to-page relationship:
+  // 1. mentionTriples: the flat fact <source> octo:octothorpes <target> plus
+  //    its first-seen timestamp and page/origin side-effects.
+  // 2. backlinkTriples (#270): the same base triple annotated with a named
+  //    RDF 1.2 reifier carrying the subtype and relationship terms; the
+  //    reifier's octo:created is written first-wins in a second update.
   const handleMention = async (s, o, subtype = 'Backlink', terms = [], { instance: inst, endorsed = false, schemes, claimed = false } = {}) => {
     const base = inst || instance
-    const subj = deslash(s)
-    const obj = deslash(o)
+    // #270 ONE SPELLING: canonicalize subject and object exactly once, here.
+    // Every downstream write and read (mention, webring checks, endorsement
+    // gate, base triple, triple term, reifier hash) uses these two strings.
+    //
+    // Param gate (spec "Upstream of canonical()") is NOT wired: no existing
+    // helper answers "is this origin registered" without a SPARQL round trip
+    // per link. Unwired equals the unregistered tier (all params kept), which
+    // is today's object behavior; subjects arrive param-free from parseUri.
+    const subj = canonical(s)
+    let obj
+    try {
+      obj = canonical(o)
+    } catch (e) {
+      // Statement-level drop, like the term blocklist: one unusable link
+      // target (no scheme, unparseable, at:// handle) must not abort the page.
+      console.warn(`[index] link target "${o}" cannot be canonicalized; statement dropped: ${e.message}`)
+      return
+    }
     // #241: 'origin' (http/https) or 'declared' (profile-declared non-http
     // scheme — relationship triples only, no origin side-effects). An
     // undeclared non-http scheme throws HERE, before any read or write.
@@ -888,10 +940,11 @@ export const createIndexer = (deps) => {
     // Phase 1: parallel reads. All existence checks are independent.
     // On production each SPARQL ASK is ~1–2s; running them sequentially with
     // typed-relationship terms used to push handleMention past the 15s ceiling.
-    const [isObjWebring, isExtantMention, isExtantbacklink, ...termExists] = await Promise.all([
+    // No relationship-existence ASK (#270): the deterministic reifier IRI is
+    // the duplicate guard.
+    const [isObjWebring, isExtantMention, ...termExists] = await Promise.all([
       extantPage(obj, "Webring"),
       extantMention(subj, obj),
-      extantBacklink(subj, obj),
       ...terms.map(term => extantTerm(term, { instance: base })),
     ])
 
@@ -911,9 +964,11 @@ export const createIndexer = (deps) => {
       console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked)
     }
 
-    // Phase 2: batch all conditional writes into a single INSERT DATA update.
+    // Phase 2: batch all time-invariant writes into a single INSERT DATA
+    // update, then the first-wins timestamps in one conditional update.
     const now = Date.now()
     const blocks = []
+    const firstWins = []
 
     if (!isExtantMention) {
       blocks.push(mentionTriples(subj, obj, now, { endorsed, schemes, claimed }))
@@ -936,14 +991,19 @@ export const createIndexer = (deps) => {
     // node. Same-origin is excluded here (checkEndorsement passes it for the
     // Backlink subtype, but a site linking to itself is not a backlink), and
     // Bookmark/Cite/harmonizer subtypes are never promoted.
-    let mintBacklink = !isExtantbacklink
+    //
+    // #270: with no extantBacklink guard the gate is evaluated on every index,
+    // not only the first. A withheld write never removes an existing reifier,
+    // so the observable semantics are unchanged; under subtype-keyed IRIs the
+    // promotion writes two distinct reifiers (Link and Backlink) (#331).
+    let mintBacklink = true
     let promoteLink = false
-    if (mintBacklink && subtype === 'Backlink') {
+    if (subtype === 'Backlink') {
       mintBacklink = Boolean(await checkEndorsement(subj, obj, subtype))
       if (!mintBacklink) {
         console.log(`backlink withheld: ${obj} has not reciprocated or endorsed ${subj}`)
       }
-    } else if (mintBacklink && subtype === 'Link' && originMode === 'origin' && storedOrigin(subj) !== storedOrigin(obj)) {
+    } else if (subtype === 'Link' && originMode === 'origin' && storedOrigin(subj) !== storedOrigin(obj)) {
       promoteLink = Boolean(await checkEndorsement(subj, obj, subtype))
       if (promoteLink) {
         console.log(`link promoted to backlink: ${obj} has reciprocated or endorsed ${subj}`)
@@ -955,16 +1015,24 @@ export const createIndexer = (deps) => {
         if (!termExists[i]) {
           blocks.push(termTriples(term, base, now))
         }
-        blocks.push(usageTriples(term, base, now))
       })
-      blocks.push(backlinkTriples(subj, obj, subtype, terms, base, now))
+      const rel = await mintRelationship(subj, obj, subtype)
+      blocks.push(backlinkTriples(rel, subj, obj, terms, base))
+      // Term usage is a per-relationship event: recorded once, when the
+      // relationship's reifier is first created, never again on re-index.
+      firstWins.push(reifierCreatedUpdate(rel.reifier, now, terms.map((term) => usageTriples(term, base, now).trim())))
       if (promoteLink) {
-        blocks.push(backlinkTriples(subj, obj, 'Backlink', terms, base, now))
+        const promoted = await mintRelationship(subj, obj, 'Backlink')
+        blocks.push(backlinkTriples(promoted, subj, obj, terms, base))
+        firstWins.push(reifierCreatedUpdate(promoted.reifier, now))
       }
     }
 
     if (blocks.length > 0) {
       await insert(blocks.join('\n'))
+    }
+    if (firstWins.length > 0) {
+      await query(firstWins.join(' ;\n'))
     }
   }
 
@@ -1305,9 +1373,32 @@ export const createIndexer = (deps) => {
 
     // 3. Single fetch — capture content AND content-type
     const ua = userAgent({ mode: policyMode, instance: base })
-    const response = await fetch(parsed.normalized, {
-      headers: { 'User-Agent': ua }
-    })
+    const deletionMode = config.deletionMode ?? deps.deletionMode ?? 'soft'
+    // Index-driven deletion triggers (#248 ruling 3). Only pages the store
+    // already knows are affected; deleter.handleDeadPage enforces that.
+    let response
+    try {
+      response = await fetch(parsed.normalized, {
+        headers: { 'User-Agent': ua }
+      })
+    } catch (e) {
+      // Network error / timeout: an outage must never erase a record.
+      await deleter.handleDeadPage(parsed.normalized, { reason: 'unreachable' })
+      throw e
+    }
+    if (response?.status === 404 || response?.status === 410) {
+      const res = await deleter.handleDeadPage(parsed.normalized, { reason: 'gone', mode: deletionMode })
+      if (res.outcome === 'ignored') {
+        throw new Error(`Page not found (HTTP ${response.status}).`)
+      }
+      return { deleted: true, mode: res.outcome, reason: 'gone' }
+    }
+    // Withdrawn permission on a known page: delete the same way as 'gone'.
+    const withdrawn = async (message) => {
+      const res = await deleter.handleDeadPage(parsed.normalized, { reason: 'withdrawn', mode: deletionMode })
+      if (res.outcome === 'ignored') throw new Error(message)
+      return { deleted: true, mode: res.outcome, reason: 'withdrawn' }
+    }
     const content = await response.text()
 
     // Fail loudly when the origin did not actually give us the page. Must come
@@ -1315,6 +1406,8 @@ export const createIndexer = (deps) => {
     // be reported as "Page has not opted in to indexing."
     const blocked = detectBlockedFetch(response, content, ua)
     if (blocked) {
+      // 5xx, 403/429 bot-blocks, interstitials: failure counter only, never a delete.
+      await deleter.handleDeadPage(parsed.normalized, { reason: 'unreachable' })
       throw new Error(blocked)
     }
 
@@ -1350,11 +1443,11 @@ export const createIndexer = (deps) => {
     // but the page's own statement, so no opt-in, registration or endorsement
     // may override it. A denial, never a warning.
     if (policy.refused) {
-      throw new Error(`Page forbids indexing (${policy.refused}).`)
+      return await withdrawn(`Page forbids indexing (${policy.refused}).`)
     }
 
     if (!policy.optedIn) {
-      throw new Error('Page has not opted in to indexing.')
+      return await withdrawn('Page has not opted in to indexing.')
     }
     harmonizerDeclaredOnPage = !!policy.harmonizer
     if (policy.harmonizer) {
@@ -1400,7 +1493,7 @@ export const createIndexer = (deps) => {
       contentType,
       document: source.document ?? null,
     })
-    if (denial) throw new Error(denial)
+    if (denial) return await withdrawn(denial)
 
     // 6. Rate limiting
     if (!checkIndexingRateLimit(origin)) {
@@ -1460,6 +1553,10 @@ export const createIndexer = (deps) => {
     // registration, so it must not manufacture it either (treated like an
     // endorsement-only admission).
     await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
+    // A successful index clears unavailable/failure markers (restore).
+    if (await queryBoolean(`ASK { { <${parsed.normalized}> octo:unavailable ?x } UNION { <${parsed.normalized}> octo:failCount ?x } }`)) {
+      await deleter.restorePage(parsed.normalized)
+    }
   }
 
   return {
@@ -1482,7 +1579,6 @@ export const createIndexer = (deps) => {
     extantMember,
     extantThorpe,
     extantMention,
-    extantBacklink,
     createBacklink,
     createOctothorpe,
     createTerm,
@@ -1490,6 +1586,7 @@ export const createIndexer = (deps) => {
     createWebring,
     createWebringMember,
     deleteWebringMember,
+    deleter,
     createMention,
     recordIndexing,
     recordProperty,

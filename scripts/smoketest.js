@@ -3,7 +3,7 @@ import 'dotenv/config'
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'fs'
 import { execFileSync } from 'child_process'
 import { join } from 'path'
-import { createSparqlClient, deleteOrigin } from 'octothorpes'
+import { createSparqlClient, createDeleter } from 'octothorpes'
 import { loadManifest } from '../src/tests/integration/manifest.js'
 import { buildQueries } from '../src/tests/integration/queries.js'
 import { normalize, normalizeRss, normOptsFor } from '../src/tests/integration/normalize.js'
@@ -107,12 +107,13 @@ async function dump() {
   console.log(`[dump] wrote ${file} (${body.length} bytes)`)
 }
 
+const deleter = createDeleter({ query: sparql.query, queryArray: sparql.queryArray })
 let wiped = false
 async function wipe() {
   // Primary first, then each secondary origin (#334): neocities' page data has
   // to go so its devdemo link is rewritten fresh (as a Backlink) on reindex.
   for (const origin of [manifest.origin, ...manifest.secondaryOrigins.map((s) => s.origin)]) {
-    const result = await deleteOrigin(sparql, origin, targetConfig)
+    const result = await deleter.hardDeleteOrigin(origin, targetConfig)
     console.log(`[wipe] removed ${result.deletedPages} pages under ${origin}`)
     // Orphan URL-slug terms (<instance>/~/<origin>/...) are not origin-scoped, so
     // deleteOrigin leaves them behind. They surface as bogus role:subject rows

@@ -1,7 +1,8 @@
 import { getFuzzyTags, termIri, termIriSegment } from './utils.js'
 import { QueryError } from './errors.js'
 import { originVariants, uriVariants } from './uri.js'
-import { CLASS, typeRef, classRef } from './vocabulary.js'
+import { canonical } from './reifier.js'
+import { CLASS, typeRef, classIri, OCTO_NS } from './vocabulary.js'
 
 /**
  * documentRecord predicate resolution (#237).
@@ -141,6 +142,109 @@ export const buildDocumentRecordClauses = (schema = []) => {
 }
 
 /**
+ * Relationship annotation dialect (#270).
+ *
+ * A typed relationship is the base triple `<s> octo:octothorpes <o>` plus a
+ * named RDF 1.2 reifier `<R> rdf:reifies <<( s octo:octothorpes o )>>`
+ * carrying the subtype (`rdf:type <full subtype IRI>`), relationship terms
+ * (`octo:octothorpes <term>`) and `octo:created`. Reifier IRIs are minted by
+ * reifier.js. This block is the ONLY place the reification syntax is spelled:
+ * every read (subtype filter, relationship-terms filter, blobject metadata,
+ * target enrichment) and the indexer's write emitter compose these helpers,
+ * and deletion SPARQL (#248) must too. Changing the dialect (e.g. to named
+ * graphs or a different reification vocabulary) is a change here only.
+ *
+ * Arguments are SPARQL terms as written in the query: a variable (`?s`) or a
+ * bracketed IRI (`<https://...>`). Callers own the safety of IRIs they pass.
+ */
+
+/** The relationship predicate as a full IRI (the form the reifier hashes). */
+export const RELATIONSHIP_PREDICATE = `${OCTO_NS}octothorpes`
+
+/**
+ * Write side: one annotation-form statement asserting the base triple AND its
+ * named reifier. Never the `<< s p o >>`-subject spelling, which Oxigraph
+ * accepts without asserting the base triple.
+ * @param {{subject:string, object:string, reifier:string, annotations:string[]}} args
+ *   subject/object/reifier are bare IRIs; annotations are `pred obj` strings.
+ * @returns {string}
+ */
+export const annotatedRelationshipStatement = ({ subject, object, reifier, annotations }) => `
+      <${subject}> <${RELATIONSHIP_PREDICATE}> <${object}> ~ <${reifier}> {| ${annotations.join(' ; ')} |} .
+    `
+
+/**
+ * Read side: the reifier of `subject -> object`, optionally constrained by
+ * subtype and/or relationship terms. Match-by-subject / match-by-object are
+ * the same pattern with an IRI in that position.
+ * @param {Object} [args]
+ * @param {string} [args.reifier='?r']
+ * @param {string} [args.subject='?s']
+ * @param {string} [args.object='?o']
+ * @param {string|null} [args.subtype] - class name; matched as its full IRI (classIri)
+ * @param {string[]} [args.terms] - bracketed term IRIs; any one must hang off the reifier
+ * @param {string} [args.termVar='?relationTerm']
+ * @returns {string}
+ */
+export const relationshipPattern = ({
+  reifier = '?r', subject = '?s', object = '?o', subtype = null, terms = [], termVar = '?relationTerm',
+} = {}) => {
+  const lines = [`${reifier} rdf:reifies <<( ${subject} octo:octothorpes ${object} )>> .`]
+  if (subtype) lines.push(`${reifier} rdf:type <${classIri(subtype)}> .`)
+  if (terms?.length) {
+    lines.push(`VALUES ${termVar} { ${terms.join(' ')} }`)
+    lines.push(`${reifier} octo:octothorpes ${termVar} .`)
+  }
+  return lines.join('\n        ')
+}
+
+/**
+ * Read side: the reifier's subtype and term metadata as `?pred ?value` rows.
+ * Restricted to the two predicates the read path projects, so the triple term
+ * (`rdf:reifies`) and timestamps never multiply rows.
+ * @param {{reifier?:string, predicate?:string, value?:string}} [args]
+ * @returns {string}
+ */
+export const relationshipMetadataPattern = ({ reifier = '?r', predicate = '?rp', value = '?rv' } = {}) =>
+  `VALUES ${predicate} { rdf:type octo:octothorpes }
+        ${reifier} ${predicate} ${value} .`
+
+/**
+ * Parse side: a reifier's rdf:type value to its subtype name
+ * (`https://vocab.octothorp.es#Bookmark` -> `Bookmark`). Non-octo IRIs are
+ * returned unchanged.
+ * @param {string} iri
+ * @returns {string}
+ */
+export const relationshipSubtypeName = (iri) =>
+  typeof iri === 'string' && iri.startsWith(OCTO_NS) ? iri.slice(OCTO_NS.length) : (iri ?? '')
+
+/**
+ * canonical() for user-supplied /get URL inputs (#270). A malformed input
+ * (no scheme, unparseable, at:// handle) falls back to the raw value: a query
+ * filter must never 500 on a spelling the store simply will not match.
+ * @param {string} uri
+ * @returns {string}
+ */
+/**
+ * #248 Phase 5: the one shared soft-delete exclusion. Pages carrying
+ * `octo:unavailable true` (written by deleter.softDeletePage) are dropped from
+ * default reads, in subject and object position. Emit it directly after the
+ * required triples, before the OPTIONAL stack (#282 posture). Pass
+ * `{ include: true }` to skip it (reserved for a future inclusion opt-in).
+ */
+export const unavailableFilter = (varName, { include = false } = {}) =>
+  include ? '' : `FILTER NOT EXISTS { ${varName} <${OCTO_NS}unavailable> true }`
+
+export const canonicalOrRaw = (uri) => {
+  try {
+    return canonical(uri)
+  } catch {
+    return uri
+  }
+}
+
+/**
  * Creates parameterized SPARQL query builders.
  * @param {string} instance - The OP instance URL (e.g. 'https://octothorp.es/')
  * @param {Function} [queryArray] - Optional queryArray function for prepEverything
@@ -154,10 +258,18 @@ export const createQueryBuilders = (instance, queryArray) => {
   // expand: false (their spelling is canonical, #285/#306). The whole list is
   // deduped — variant sets overlap by construction, and duplicate VALUES rows
   // would produce duplicate solutions.
+  //
+  // #270: relationship writes store canonical() spellings (reifier.js), which
+  // uriVariants alone cannot reach (e.g. `www.x.com/a/?q=1` vs stored
+  // `x.com/a?q=1`: no slash toggle before a query). Page URLs are therefore
+  // widened from BOTH the input as given and its canonical() form, so legacy
+  // spellings and sloppy inputs both keep matching.
   const formatUris = (uris, { expand = true } = {}) => [...new Set(
     uris.flatMap((uri) => {
       const raw = uri.startsWith('<') && uri.endsWith('>') ? uri.slice(1, -1) : uri
-      return expand ? uriVariants(raw) : [raw]
+      if (!expand) return [raw]
+      const canon = canonicalOrRaw(raw)
+      return canon === raw ? uriVariants(raw) : [...uriVariants(raw), ...uriVariants(canon)]
     })
   )].map((u) => `<${u}>`).join(' ')
 
@@ -437,31 +549,22 @@ export const createQueryBuilders = (instance, queryArray) => {
     const hasSubtype = !!filters.subtype
     const hasRelationTerms = filters.relationTerms && filters.relationTerms.length > 0
 
-    if (hasSubtype && hasRelationTerms) {
-      // Merged: both constraints on the same blank node
-      const termUris = filters.relationTerms.map(t => `<${termIri(instance, t)}>`).join(' ')
+    // #270: both filters match the relationship's RDF 1.2 reifier
+    // (relationshipPattern). The subtype is the full expanded class IRI.
+    // NOTE (#282): these are rdf:reifies patterns inside FILTER EXISTS, the
+    // construct #282 was about — re-check the query plan on a full store.
+    const termUris = hasRelationTerms
+      ? filters.relationTerms.map(t => `<${termIri(instance, t)}>`)
+      : []
+    if (hasSubtype) {
+      // Subtype (and terms, when given) on the same reifier of ?s -> ?o.
       subtypeFilter = `FILTER EXISTS {
-        ?s octo:octothorpes ?_stBn .
-        FILTER(isBlank(?_stBn))
-        ?_stBn octo:url ?o .
-        ?_stBn rdf:type ${classRef(filters.subtype)} .
-        VALUES ?relationTerm { ${termUris} }
-        ?_stBn octo:octothorpes ?relationTerm .
-      }`
-    } else if (hasSubtype) {
-      subtypeFilter = `FILTER EXISTS {
-        ?s octo:octothorpes ?_stBn .
-        FILTER(isBlank(?_stBn))
-        ?_stBn octo:url ?o .
-        ?_stBn rdf:type ${classRef(filters.subtype)} .
+        ${relationshipPattern({ reifier: '?_st', subtype: filters.subtype, terms: termUris })}
       }`
     } else if (hasRelationTerms) {
-      const termUris = filters.relationTerms.map(t => `<${termIri(instance, t)}>`).join(' ')
+      // Any relationship of ?s carrying the term — not tied to ?o, as before.
       relationTermsFilter = `FILTER EXISTS {
-        ?s octo:octothorpes ?_rtBn .
-        FILTER(isBlank(?_rtBn))
-        VALUES ?relationTerm { ${termUris} }
-        ?_rtBn octo:octothorpes ?relationTerm .
+        ${relationshipPattern({ reifier: '?_rt', object: '?_rtO', terms: termUris })}
       }`
     }
 
@@ -546,9 +649,11 @@ export const createQueryBuilders = (instance, queryArray) => {
     // ownership, so created is only a date there, not a gate.
     const createdClause = subjects.mode === 'byOrigin'
       ? `?s rdf:type ?pageType .
+        ${unavailableFilter('?s')}
         OPTIONAL { ?s octo:created ?date . }`
       : `?s octo:created ?date .
-        ?s rdf:type ?pageType .`
+        ?s rdf:type ?pageType .
+        ${unavailableFilter('?s')}`
     if (objects.type === 'none') {
       noObjectHandler = `UNION
       {
@@ -558,12 +663,6 @@ export const createQueryBuilders = (instance, queryArray) => {
         OPTIONAL { ?s octo:image ?image }
         OPTIONAL { ?s octo:description ?description }
         OPTIONAL { ?s octo:postDate ?postDate }
-        OPTIONAL {
-          ?s ?blankNodePred ?blankNode .
-          FILTER(isBlank(?blankNode))
-          ?blankNode ?bnp ?blankNodeObj .
-          FILTER(!isBlank(?blankNodeObj))
-        }
         ${dr.optionals}
         BIND("" AS ?o)
         BIND("" AS ?oType)
@@ -575,7 +674,15 @@ export const createQueryBuilders = (instance, queryArray) => {
         }
       }`;
     }
-    const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg ?oType ?blankNode ?blankNodePred ?blankNodeObj${dr.selectVars}
+    // #270: relationship metadata comes from the reifier of ?s -> ?o, one row
+    // per (reifier, predicate, value) for rdf:type and relationship terms.
+    //
+    // Date tie-break: ?date is bound from `?s ?o ?date` (the s->o assertion
+    // timestamp), so a page has one candidate date per row. The secondary
+    // DESC(?date) and ?s keys make row order total for ties on the primary
+    // key (pages sharing a postDate), and getBlobjectFromResponse keeps the
+    // MAX ?date per page, so neither depends on engine row order.
+    const query = `SELECT DISTINCT ?s ?o ?title ?description ?image ?date ?postDate ?pageType ?ot ?od ?oimg ?oType ?reifier ?reifierPred ?reifierObj${dr.selectVars}
     WHERE {
       {
         ${statements.subjectStatement}
@@ -584,6 +691,8 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?s ?o ?date .
         ?s rdf:type ?pageType .
         ?s octo:octothorpes ?o .
+        ${unavailableFilter('?s')}
+        ${unavailableFilter('?o')}
         OPTIONAL { ?o rdf:type ?oType. }
         OPTIONAL { ?s octo:title ?title }
         OPTIONAL { ?s octo:image ?image }
@@ -594,18 +703,15 @@ export const createQueryBuilders = (instance, queryArray) => {
         OPTIONAL { ?o octo:image ?oimg }
         ${dr.optionals}
         OPTIONAL {
-          ?s octo:octothorpes ?blankNode .
-          FILTER(isBlank(?blankNode))
-          ?blankNode octo:url ?o .
-          ?blankNode ?bnp ?blankNodeObj .
-          FILTER(!isBlank(?blankNodeObj))
+          ${relationshipPattern({ reifier: '?reifier' })}
+          ${relationshipMetadataPattern({ reifier: '?reifier', predicate: '?reifierPred', value: '?reifierObj' })}
         }
         ${statements.createdFilter ? `OPTIONAL { ?s octo:created ?createdDate . } ${statements.createdFilter}` : ''}
         ${statements.indexedFilter ? `OPTIONAL { ?s octo:indexed ?indexedDate . } ${statements.indexedFilter}` : ''}
       }
       ${noObjectHandler}
     }
-    ORDER BY DESC(COALESCE(?postDate, ?date))
+    ORDER BY DESC(COALESCE(?postDate, ?date)) DESC(?date) ?s
     `
     return cleanQuery(query)
   }
@@ -646,17 +752,26 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${objectTypes[objects.type]}
       ?s ?o ?date .
       ?s rdf:type ?pageType .
+      ${unavailableFilter('?s')}
+      ${unavailableFilter('?o')}
       OPTIONAL { ?o octo:title ?ot . }
       OPTIONAL { ?o octo:description ?od . }
       OPTIONAL { ?o octo:image ?oimg . }
     ` : subjects.mode === 'byOrigin' ? `
       ?s rdf:type ?pageType .
+      ${unavailableFilter('?s')}
       OPTIONAL { ?s octo:created ?date . }
     ` : `
       ?s octo:created ?date .
       ?s rdf:type ?pageType .
+      ${unavailableFilter('?s')}
     `
 
+    // Date tie-break (#270 equivalence): rows tie on the COALESCE key whenever
+    // postDate is present (and on equal dates generally). DESC(?date), ?s and
+    // ?o make the order total, so both the LIMIT/OFFSET window and the row
+    // parseBindings sees first are stable; parseBindings keeps the MAX ?date
+    // per URI regardless.
     const query = `${selectClause}
     WHERE {
       ${statements.subjectStatement}
@@ -669,7 +784,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       OPTIONAL { ?s octo:image ?image . }
       OPTIONAL { ?s octo:description ?description . }
     }
-      ORDER BY DESC(COALESCE(?postDate, ?date))
+      ORDER BY DESC(COALESCE(?postDate, ?date)) DESC(?date) ?s${includeObjects ? ' ?o' : ''}
       ${statements.limitFilter}
       ${statements.offsetFilter}
     `
@@ -690,7 +805,8 @@ export const createQueryBuilders = (instance, queryArray) => {
 
          ?o rdf:type ${typeRef(CLASS.Term)} .
          ?s ?o ?date .
-         ?s octo:octothorpes ?o
+         ?s octo:octothorpes ?o .
+         ${unavailableFilter('?s')}
          }
       ORDER BY DESC(?date)
       ${statements.limitFilter}
@@ -727,6 +843,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       query = `SELECT DISTINCT ?s ?title ?description ?image ?date WHERE {
         VALUES ?parents { <${subjectList}> }
         ?parents octo:hasMember ?s .
+        ${unavailableFilter('?s')}
        OPTIONAL { ?s octo:title ?title }
        OPTIONAL { ?s octo:image ?image }
        OPTIONAL { ?s octo:description ?description }

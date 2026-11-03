@@ -141,7 +141,7 @@ The constraint this imposes: any peer-inclusive query must carry `?g` through ra
 
 ## Follow-ups
 
-- Specify the reifier IRI minting function and the canonicalization it hashes over — #270.
+- Specify the reifier IRI minting function and the canonicalization it hashes over — #270. Done: `docs/plans/point7/2026-10-29-reifier-minting-spec.md`.
 - Rewrite `deletePage` and `deleteOrigin` against the reifier shape; add the orphan sweep as a chore, not a runtime guard — #248.
 - Run the orphan sweep once after migration as the correctness check that every converted blank node found its base triple — #270.
 - Land the 0.5.x image pin in `octothorpes-suite/docker-compose.yml` and the deploy docs — #298 (reopen or new chore issue).

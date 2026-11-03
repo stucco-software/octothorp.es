@@ -2,6 +2,7 @@ import { createSparqlClient } from './sparqlClient.js'
 import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer, resolveSubtype } from './indexer.js'
+import { createDeleter } from './deleter.js'
 import { harmonizerId } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { QueryError } from './errors.js'
@@ -20,7 +21,7 @@ import { mergeLinkTypes } from './linkTypes.js'
 // Re-export individual modules for direct use
 export { createSparqlClient } from './sparqlClient.js'
 export { createRemoteClient } from './remoteClient.js'
-export { createQueryBuilders, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
+export { createQueryBuilders, unavailableFilter, resolveDocumentRecordIri, documentRecordVar, buildDocumentRecordClauses, BUILTIN_NAMESPACES, mergeNamespaces, namespaceMap, OCTO_NAMESPACE, DOCUMENT_RECORD_PREDICATE_PATTERN } from './queryBuilders.js'
 export { createApi } from './api.js'
 export { WHAT_GROUPS, WHAT_VALUES, WHAT_GROUP_BY_VALUE, GET_PARAMS, MATCH_VALUES } from './apiGrammar.js'
 export { buildMultiPass, capLimit, LIMIT_CAP } from './multipass.js'
@@ -28,6 +29,8 @@ export { BUILTIN_LINK_TYPES, OBJECT_TYPES, DECLARED_OBJECT_TYPES, mergeLinkTypes
 export { getBlobjectFromResponse, coerceDocumentRecordValue } from './blobject.js'
 export { createHarmonizerRegistry, interpolateInstance, BUILTIN_HARMONIZERS } from './harmonizers.js'
 export { parseUri, validateSameOrigin, getScheme, canonicalOrigin, originVariants, uriVariants } from './uri.js'
+import { canonical as canonicalUrl } from './reifier.js'
+export { canonical, applyParamGate, mintReifierIri } from './reifier.js'
 export { verifyApprovedDomain, verifyWebOfTrust, verifiedOrigin, isExcluded, originBanned, banOrigin, unbanOrigin, approveOrigin, createVerifiedOrigin, mintSiteNum, siteNumMintQuery, originBySiteNum } from './origin.js'
 export { SKOS_PREF_LABEL, termLabelTriples, backfillTermLabels } from './termLabels.js'
 export { userAgent, parseBindings, deslash, termIri, termName, caseInsensitiveTermClause, getFuzzyTags, isSparqlSafe, getUnixDateFromString, parseDateStrings, cleanInputs, areUrlsFuzzy, isValidMultipass, parseMultipass, multipassToParams, extractWhatBy, getTitle, getUrl, formatDisplayDate, extractMultipassFromGif, injectMultipassIntoGif, getWebrings, countWebrings } from './utils.js'
@@ -44,7 +47,7 @@ export { createPublisherRegistry, resolveEnvelope, assertRequires, BUILTIN_PUBLI
 export { QueryError, isQueryError } from './errors.js'
 export { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
 export { default as calendarHandler } from './handlers/calendar/handler.js'
-export { assertDeletableTarget, deletePage, deleteOrigin } from './delete.js'
+export { createDeleter } from './deleter.js'
 export { createProfile, PROFILE_DEFAULTS, OCTO_VOCABULARY_IRI } from './profile.js'
 export { scaffoldProfile } from './scaffold.js'
 export { resolveProfile, expandTermUri, absolutize, normalizeInstance, normalizeRoutes, DEFAULT_ROUTES } from './resolveProfile.js'
@@ -172,6 +175,7 @@ export const normalizeIndexingMode = (mode) => {
  *   or a flat env object ({ sparql_endpoint, sparql_user, sparql_password })
  * @param {'request'|'active'|Object} [config.indexingMode] - What TRIGGERS indexing:
  *   'request' (default) or 'active'. Orthogonal to config.access, which is the GATE.
+ * @param {'soft'|'hard'} [config.deletionMode='soft'] - Default for deleteSource. Mirrors profile.policies.indexing.deletion.
  * @param {number} [config.cooldown=300] - Re-index cooldown in SECONDS, forwarded to the
  *   internal indexer's `recentlyIndexed` check. Applies under every indexing mode; 0 disables
  *   the wait so every request re-indexes. Mirrors profile.policies.indexing.cooldown.
@@ -432,6 +436,7 @@ export const createClient = (config) => {
     documentRecordSchema: config.documentRecordSchema,
     access,
     cooldown: config.cooldown ?? 300,
+    deletionMode: config.deletionMode,
     // #217 stage 4: the gate consumes these only where
     // access.endorsement.sources names them.
     endorsers,
@@ -599,8 +604,29 @@ export const createClient = (config) => {
     return rendered
   }
 
+  const deleter = createDeleter({
+    query: sparql.query,
+    queryBoolean: sparql.queryBoolean,
+    queryArray: sparql.queryArray,
+    instance: config.instance,
+    deletableTargets: config.deletableTargets,
+  })
+
   return {
     indexSource,
+    deleter,
+    /**
+     * Delete a source page. `mode` defaults to config.deletionMode ('soft' if unset):
+     * 'soft' marks the page octo:unavailable (data kept), 'hard' reduces it to a link target.
+     * @param {string} url
+     * @param {{mode?: 'soft'|'hard'}} [opts]
+     * @returns {Promise<{mode: 'soft'|'hard', target: string}>} target is the canonical page URL
+     */
+    deleteSource: async (url, { mode = config.deletionMode ?? 'soft' } = {}) => {
+      if (mode !== 'soft' && mode !== 'hard') throw new Error(`deleteSource: unsupported mode "${mode}"`)
+      await (mode === 'soft' ? deleter.softDeletePage(url) : deleter.hardDeletePage(url))
+      return { mode, target: canonicalUrl(url) }
+    },
     get,
     getfast: api.fast,
     harmonize,

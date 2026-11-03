@@ -38,6 +38,16 @@ describe('#287 hand-written schema error messages', () => {
     expect(msg).toMatch(/invite-only/)
   })
 
+  it('indexing deletion: defaults to soft, accepts hard, rejects others with the new message', () => {
+    expect(load({}).policies.indexing.deletion).toBe('soft')
+    expect(load({ policies: { indexing: { deletion: 'hard' } } }).policies.indexing.deletion).toBe('hard')
+    const msg = errorOf({ policies: { indexing: { deletion: 'purge' } } })
+    expect(msg).toContain('policies.indexing.deletion')
+    expect(msg).toContain('"purge"')
+    expect(msg).toContain('"soft"')
+    expect(msg).toContain('"hard"')
+  })
+
   it('indexing mode: names value and allowed set, and points at the other axis', () => {
     const msg = errorOf({ policies: { indexing: { mode: 'on-request' } } })
     expect(msg).toContain('policies.indexing.mode')

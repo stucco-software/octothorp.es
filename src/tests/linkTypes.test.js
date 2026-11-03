@@ -153,17 +153,18 @@ describe('#292 mentioned is octo:Mention', () => {
     })
   })
 
-  it('emits rdf:type <octo:Mention> in the subtype filter', () => {
+  it('emits the full Mention IRI on the reifier in the subtype filter (#270)', () => {
     const mp = buildMultiPass('pages', 'mentioned', { o: 'http://c.test/' }, instance)
     expect(mp.filters.subtype).toBe('Mention')
-    expect(builders.buildSimpleQuery(mp)).toContain('rdf:type <octo:Mention>')
+    expect(builders.buildSimpleQuery(mp)).toContain('?_st rdf:type <https://vocab.octothorp.es#Mention>')
   })
 
   it('linked stays untyped and emits no subtype filter', () => {
     const mp = buildMultiPass('pages', 'linked', { o: 'http://c.test/' }, instance)
     expect(mp.filters.subtype).toBe('')
-    // no FILTER EXISTS constraining the relationship blank node's type
-    expect(builders.buildSimpleQuery(mp)).not.toContain('?_stBn rdf:type')
+    // no FILTER EXISTS constraining the relationship reifier's type
+    expect(builders.buildSimpleQuery(mp)).not.toContain('?_st rdf:type')
+    expect(builders.buildSimpleQuery(mp)).not.toContain('rdf:reifies')
   })
 })
 
@@ -186,7 +187,10 @@ describe('a declared link type is queryable as a by word', () => {
     const builders = createQueryBuilders(instance, async () => ({ results: { bindings: [] } }))
     const mp = buildMultiPass('pages', 'cited2', { o: 'http://c.test/', linkTypes }, instance)
     const query = builders.buildSimpleQuery(mp)
-    expect(query).toContain('rdf:type <octo:Cite2>')
+    // #270: a profile-declared subtype routes through the same reifier
+    // pattern, matched as its full expanded IRI.
+    expect(query).toContain('?_st rdf:reifies <<( ?s octo:octothorpes ?o )>>')
+    expect(query).toContain('?_st rdf:type <https://vocab.octothorp.es#Cite2>')
   })
 
   it('is unknown to a client that did not declare it', () => {

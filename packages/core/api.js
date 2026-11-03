@@ -1,6 +1,6 @@
 import { buildMultiPass } from './multipass.js'
 import { getBlobjectFromResponse, createEnrichBlobjectTargets } from './blobject.js'
-import { createQueryBuilders } from './queryBuilders.js'
+import { createQueryBuilders, unavailableFilter } from './queryBuilders.js'
 import { parseBindings, termIri } from './utils.js'
 import { WHAT_GROUP_BY_VALUE } from './apiGrammar.js'
 import { QueryError } from './errors.js'
@@ -123,6 +123,7 @@ export const createApi = (config) => {
           ?t rdf:type <octo:Term> .
           ?url ?t ?time .
           ?domain octo:hasPart ?url .
+          ${unavailableFilter('?url')}
         }
       `)
       return sr.results.bindings
@@ -141,6 +142,7 @@ export const createApi = (config) => {
       const sr = await queryArray(`
         SELECT DISTINCT ?s ?t ?d ?postDate ?date {
           ?s octo:octothorpes <${o}> .
+          ${unavailableFilter('?s')}
           optional { ?s octo:title ?t . }
           optional { ?s octo:description ?d . }
           optional { ?s octo:postDate ?postDate . }
@@ -151,6 +153,7 @@ export const createApi = (config) => {
       const sa = await queryArray(`
         SELECT DISTINCT ?uri ?t ?d ?postDate ?date {
           ?s octo:octothorpes <${o}> .
+          ${unavailableFilter('?s')}
           ?s octo:uri ?uri .
           optional { ?s octo:title ?t . }
           optional { ?s octo:description ?d . }
@@ -189,6 +192,7 @@ export const createApi = (config) => {
         SELECT ?s ?p ?o {
           <${origin}/> octo:hasPart ?s .
           ?s octo:octothorpes ?o .
+          ${unavailableFilter('?s')}
         }
       `)
 
@@ -197,6 +201,7 @@ export const createApi = (config) => {
           <${origin}/> octo:asserts ?s .
           ?s octo:uri ?uri .
           ?s octo:octothorpes ?term .
+          ${unavailableFilter('?s')}
         }
       `)
 
@@ -212,6 +217,8 @@ export const createApi = (config) => {
         SELECT ?from ?to ?ft ?fd ?tt ?td {
           ?to rdf:type <octo:Page> .
           ?from octo:octothorpes ?to .
+          ${unavailableFilter('?from')}
+          ${unavailableFilter('?to')}
           optional { ?to octo:title ?tt . }
           optional { ?to octo:description ?td . }
           optional { ?from octo:title ?ft . }
@@ -227,6 +234,7 @@ export const createApi = (config) => {
         SELECT ?uri ?t ?d ?o {
           ?s octo:octothorpes ?o .
           ?s octo:uri ?uri .
+          ${unavailableFilter('?s')}
           optional { ?s octo:title ?t . }
           optional { ?s octo:description ?d . }
         }

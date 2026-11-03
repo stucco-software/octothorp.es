@@ -92,6 +92,8 @@ const firstSentence = (text) => {
 const HANDWRITTEN_SCHEMA_MESSAGES = {
   '.policies.access.registration': (e) =>
     `policies.access.registration is ${JSON.stringify(e.data)} — allowed values are "registered" (the default: the source origin must be verified in this client's datastore), "open" (no gate; anything may be indexed except blocks.domains), and "closed" (strictly allowlist-only via allows.domains). "invite" was dropped from this enum: "closed" plus allows.domains IS invite-only`,
+  '.policies.indexing.deletion': (e) =>
+    `policies.indexing.deletion is ${JSON.stringify(e.data)} — allowed values are "soft" (the default: mark the page octo:unavailable, keep its data) and "hard" (reduce the page to a never-indexed link target)`,
   '.policies.indexing.mode': (e) =>
     `policies.indexing.mode is ${JSON.stringify(e.data)} — allowed values are "request" (the default: index only when asked via /index) and "active" (this client crawls on its own schedule). The gate a request must pass is the separate axis policies.access.registration`,
   '.identity.terms': (e) =>
@@ -182,7 +184,7 @@ export const PROFILE_DEFAULTS = Object.freeze({
     commercial: false,
     labels: [],
     // WHAT TRIGGERS indexing. Orthogonal to access.registration below.
-    indexing: { mode: 'request', cooldown: 300 },
+    indexing: { mode: 'request', cooldown: 300, deletion: 'soft' },
     // WHAT GATE an index request must pass. 'registered' is today's behavior
     // (the verifiedOrigin check in indexer.js), so it is the safe default.
     // Two blocklists, two enforcement points. blocks.domains is the ORIGIN

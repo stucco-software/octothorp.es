@@ -34,6 +34,8 @@ describe('octothorpes package exports', () => {
     'isExcluded', 'originBanned', 'banOrigin', 'unbanOrigin', 'approveOrigin', 'createVerifiedOrigin',
     // siteNum aliases (#191)
     'mintSiteNum', 'siteNumMintQuery', 'originBySiteNum',
+    // reifier minting (#270)
+    'canonical', 'applyParamGate', 'mintReifierIri',
   ]
 
   it('should export all expected functions', () => {

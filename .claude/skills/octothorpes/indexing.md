@@ -41,7 +41,7 @@ Located in `/src/lib/indexing.js`:
 
 | Category | Functions |
 |----------|-----------|
-| Validation | `extantTerm()`, `extantPage()`, `extantThorpe()`, `extantMention()`, `extantBacklink()`, `recentlyIndexed()` |
+| Validation | `extantTerm()`, `extantPage()`, `extantThorpe()`, `extantMention()`, `recentlyIndexed()` |
 | Creation | `createTerm()`, `createPage()`, `createOctothorpe()`, `createMention()`, `createBacklink()`, `createWebring()` |
 | Recording | `recordIndexing()`, `recordTitle()`, `recordDescription()`, `recordUsage()` |
 | Handlers | `handleThorpe()`, `handleMention()`, `handleWebring()`, `handleHTML()` |

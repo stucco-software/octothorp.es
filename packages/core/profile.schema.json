@@ -121,6 +121,12 @@
               "type": "integer",
               "minimum": 0,
               "default": 300
+            },
+            "deletion": {
+              "description": "What an indexer-triggered deletion does. 'soft' (default): mark the page octo:unavailable and leave its data intact. 'hard': reduce the page to a never-indexed link target. Reaches core as createClient({ config.deletionMode }) as the IDENTITY function. Core applies no thresholds or timers; operators script their own purges.",
+              "type": "string",
+              "enum": ["soft", "hard"],
+              "default": "soft"
             }
           }
         },
