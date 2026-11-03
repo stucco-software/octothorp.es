@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { createSparqlClient, createDeleter, createQueryBuilders, mintReifierIri } from 'octothorpes'
+import { createSparqlClient, createDeleter, createQueryBuilders, unavailableFilter, mintReifierIri } from 'octothorpes'
 
 const endpoint = process.env.sparql_endpoint?.replace(/\/$/, '') || 'http://0.0.0.0:7878'
 const sparql = createSparqlClient({
@@ -240,6 +240,50 @@ describe.skipIf(!reachable)('softDeletePage / restorePage (live store)', () => {
     expect(await count(`<${B}> ?p ?o . FILTER(?p IN (<${U}>, <${S}>, <${F}>))`)).toBe(0)
     expect(await count(`<${B}> octo:octothorpes <${C}>`)).toBe(1)
     await cleanup()
+  })
+})
+
+describe.skipIf(!reachable)('#248 Phase 5 default-read exclusion (live store)', () => {
+  const builders = createQueryBuilders('https://deleter-test.example/', sparql.queryArray)
+  const filters = { dateRange: null, limitResults: '100', offsetResults: '0' }
+  const everything = async (subjects, objects) =>
+    (await sparql.queryArray(await builders.buildEverythingQuery({
+      meta: { resultMode: 'blobjects' }, subjects, objects, filters,
+    }))).results.bindings
+  const simple = async (subjects, objects) =>
+    (await sparql.queryArray(builders.buildSimpleQuery({
+      meta: { resultMode: 'blobjects' }, subjects, objects, filters,
+    }))).results.bindings
+  const exact = (uri) => ({ mode: 'exact', include: [uri], exclude: [] })
+  const allObjs = { type: 'all', mode: 'exact', include: [], exclude: [] }
+  const noObjs = { type: 'none', mode: 'exact', include: [], exclude: [] }
+
+  it('soft-deleted page vanishes as subject and as object, returns on restore', async () => {
+    await cleanup()
+    await sparql.insert(`
+      <${A}> rdf:type octo:Page . <${B}> rdf:type octo:Page . <${C}> rdf:type octo:Page .
+      <${A}> octo:created 5 . <${B}> octo:created 5 . <${C}> octo:created 5 .
+      <${A}> <${B}> 5 . <${B}> <${C}> 6 .
+      <${A}> octo:octothorpes <${B}> . <${B}> octo:octothorpes <${C}> .
+    `)
+    const check = async (present) => {
+      expect((await everything(exact(B), allObjs)).some((r) => r.s?.value === B)).toBe(present)
+      expect((await simple(exact(B), allObjs)).some((r) => r.s?.value === B)).toBe(present)
+      expect((await simple(exact(B), noObjs)).some((r) => r.s?.value === B)).toBe(present)
+      expect((await everything(exact(A), allObjs)).some((r) => r.s?.value === A && r.o?.value === B)).toBe(present)
+      expect((await simple(exact(A), allObjs)).some((r) => r.s?.value === A && r.o?.value === B)).toBe(present)
+    }
+    await check(true)
+    await deleter.softDeletePage(B)
+    await check(false)
+    await deleter.restorePage(B)
+    await check(true)
+    await cleanup()
+  })
+
+  it('unavailableFilter can be skipped', () => {
+    expect(unavailableFilter('?s')).toContain('FILTER NOT EXISTS')
+    expect(unavailableFilter('?s', { include: true })).toBe('')
   })
 })
 

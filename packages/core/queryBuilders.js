@@ -226,6 +226,16 @@ export const relationshipSubtypeName = (iri) =>
  * @param {string} uri
  * @returns {string}
  */
+/**
+ * #248 Phase 5: the one shared soft-delete exclusion. Pages carrying
+ * `octo:unavailable true` (written by deleter.softDeletePage) are dropped from
+ * default reads, in subject and object position. Emit it directly after the
+ * required triples, before the OPTIONAL stack (#282 posture). Pass
+ * `{ include: true }` to skip it (reserved for a future inclusion opt-in).
+ */
+export const unavailableFilter = (varName, { include = false } = {}) =>
+  include ? '' : `FILTER NOT EXISTS { ${varName} <${OCTO_NS}unavailable> true }`
+
 export const canonicalOrRaw = (uri) => {
   try {
     return canonical(uri)
@@ -639,9 +649,11 @@ export const createQueryBuilders = (instance, queryArray) => {
     // ownership, so created is only a date there, not a gate.
     const createdClause = subjects.mode === 'byOrigin'
       ? `?s rdf:type ?pageType .
+        ${unavailableFilter('?s')}
         OPTIONAL { ?s octo:created ?date . }`
       : `?s octo:created ?date .
-        ?s rdf:type ?pageType .`
+        ?s rdf:type ?pageType .
+        ${unavailableFilter('?s')}`
     if (objects.type === 'none') {
       noObjectHandler = `UNION
       {
@@ -679,6 +691,8 @@ export const createQueryBuilders = (instance, queryArray) => {
         ?s ?o ?date .
         ?s rdf:type ?pageType .
         ?s octo:octothorpes ?o .
+        ${unavailableFilter('?s')}
+        ${unavailableFilter('?o')}
         OPTIONAL { ?o rdf:type ?oType. }
         OPTIONAL { ?s octo:title ?title }
         OPTIONAL { ?s octo:image ?image }
@@ -738,15 +752,19 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${objectTypes[objects.type]}
       ?s ?o ?date .
       ?s rdf:type ?pageType .
+      ${unavailableFilter('?s')}
+      ${unavailableFilter('?o')}
       OPTIONAL { ?o octo:title ?ot . }
       OPTIONAL { ?o octo:description ?od . }
       OPTIONAL { ?o octo:image ?oimg . }
     ` : subjects.mode === 'byOrigin' ? `
       ?s rdf:type ?pageType .
+      ${unavailableFilter('?s')}
       OPTIONAL { ?s octo:created ?date . }
     ` : `
       ?s octo:created ?date .
       ?s rdf:type ?pageType .
+      ${unavailableFilter('?s')}
     `
 
     // Date tie-break (#270 equivalence): rows tie on the COALESCE key whenever
@@ -787,7 +805,8 @@ export const createQueryBuilders = (instance, queryArray) => {
 
          ?o rdf:type ${typeRef(CLASS.Term)} .
          ?s ?o ?date .
-         ?s octo:octothorpes ?o
+         ?s octo:octothorpes ?o .
+         ${unavailableFilter('?s')}
          }
       ORDER BY DESC(?date)
       ${statements.limitFilter}
@@ -824,6 +843,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       query = `SELECT DISTINCT ?s ?title ?description ?image ?date WHERE {
         VALUES ?parents { <${subjectList}> }
         ?parents octo:hasMember ?s .
+        ${unavailableFilter('?s')}
        OPTIONAL { ?s octo:title ?title }
        OPTIONAL { ?s octo:image ?image }
        OPTIONAL { ?s octo:description ?description }
