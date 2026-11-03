@@ -199,6 +199,23 @@ export const relationshipPattern = ({
 }
 
 /**
+ * #268 read path: the relationship date for (?s, ?o) from the reifier's
+ * `octo:created`, bound as ?date (same output variable the flat `?s ?o ?date`
+ * fact used). A pair can carry several reifiers (Bookmark + Cite), each with
+ * its own created; FILTER NOT EXISTS keeps only the earliest, so there is one
+ * date per (s, o) without an aggregate. Required pattern: emit above the
+ * OPTIONAL stack (#282).
+ */
+export const relationshipDatePattern = ({ subject = '?s', object = '?o', date = '?date' } = {}) =>
+  `${relationshipPattern({ reifier: '?_dr', subject, object })}
+        ?_dr octo:created ${date} .
+        FILTER NOT EXISTS {
+          ${relationshipPattern({ reifier: '?_dr2', subject, object })}
+          ?_dr2 octo:created ?_dEarlier .
+          FILTER(?_dEarlier < ${date})
+        }`
+
+/**
  * Read side: the reifier's subtype and term metadata as `?pred ?value` rows.
  * Restricted to the two predicates the read path projects, so the triple term
  * (`rdf:reifies`) and timestamps never multiply rows.
@@ -688,7 +705,7 @@ export const createQueryBuilders = (instance, queryArray) => {
         ${statements.subjectStatement}
         ${statements.subtypeFilter}
         ${statements.relationTermsFilter}
-        ?s ?o ?date .
+        ${relationshipDatePattern()}
         ?s rdf:type ?pageType .
         ?s octo:octothorpes ?o .
         ${unavailableFilter('?s')}
@@ -750,7 +767,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${statements.objectStatement}
       ?s octo:octothorpes ?o .
       ${objectTypes[objects.type]}
-      ?s ?o ?date .
+      ${relationshipDatePattern()}
       ?s rdf:type ?pageType .
       ${unavailableFilter('?s')}
       ${unavailableFilter('?o')}
@@ -804,7 +821,7 @@ export const createQueryBuilders = (instance, queryArray) => {
       ${statements.objectStatement}
 
          ?o rdf:type ${typeRef(CLASS.Term)} .
-         ?s ?o ?date .
+         ${relationshipDatePattern()}
          ?s octo:octothorpes ?o .
          ${unavailableFilter('?s')}
          }

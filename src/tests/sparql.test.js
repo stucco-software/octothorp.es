@@ -581,9 +581,10 @@ describe('buildEverythingQuery - relationship reifiers and date tie-break (#270)
     expect(q).not.toContain('octo:url')
   })
 
-  it('keeps the ?s ?o ?date binding (object-row dates, #268 constraint)', async () => {
+  it('binds ?date from the reifier octo:created (object-row dates, #268 constraint)', async () => {
     const q = await builders.buildEverythingQuery(mp)
-    expect(q).toContain('?s ?o ?date .')
+    expect(q).toContain('?_dr octo:created ?date .')
+    expect(q).not.toContain('?s ?o ?date .')
   })
 
   it('orders with a total tie-break after the COALESCE key', async () => {
