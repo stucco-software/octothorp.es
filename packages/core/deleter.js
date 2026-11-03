@@ -4,6 +4,12 @@
 // hardDeletePage is the reconciliation primitive (unguarded). hardDeleteOrigin
 // is the bulk test wipe and IS guarded by assertDeletableTarget.
 
+import { canonical, mintReifierIri } from './reifier.js'
+import { classIri, OCTO_NS } from './vocabulary.js'
+import { termIri } from './utils.js'
+
+const P = `${OCTO_NS}octothorpes`
+const REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'
 const strip = (s) => (s || '').replace(/\/$/, '')
 
 export const DEFAULT_DELETABLE_TARGETS = {
@@ -73,5 +79,39 @@ export const createDeleter = (deps = {}) => {
     return { deletedPages: pages.length }
   }
 
-  return { hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  /**
+   * Statement-level delete of one mention (s -> o). With `subtype`, removes that
+   * subtype's reifier (minted, #331); the base triple and flat date fact go only
+   * when no other reifier still reifies the base. Without `subtype`, removes
+   * every reifier for (s, o) and then the base and date fact. Scoped to s;
+   * never touches <o> rdf:type.
+   */
+  const deleteMention = async (s, o, subtype) => {
+    const subj = canonical(s)
+    const obj = canonical(o)
+    const triple = `<<( <${subj}> <${P}> <${obj}> )>>`
+    if (subtype) {
+      const r = await mintReifierIri({ subject: subj, predicate: P, object: obj, subtype: classIri(subtype) })
+      await query(`DELETE WHERE { <${r}> ?rp ?ro }`)
+    } else {
+      await query(`DELETE { ?r ?rp ?ro } WHERE { ?r <${REIFIES}> ${triple} . ?r ?rp ?ro }`)
+    }
+    await query(`DELETE { <${subj}> <${P}> <${obj}> } WHERE { <${subj}> <${P}> <${obj}> . FILTER NOT EXISTS { ?r <${REIFIES}> ${triple} } }`)
+    await query(`DELETE { <${subj}> <${obj}> ?ts } WHERE { <${subj}> <${obj}> ?ts . FILTER NOT EXISTS { <${subj}> <${P}> <${obj}> } }`)
+  }
+
+  /**
+   * Statement-level delete of one term attachment (s # o): the base triple to
+   * the term IRI and the flat usage-date fact <s> <termIri> ?ts. Term-typed
+   * relationship reifiers are removed too if present.
+   */
+  const deleteThorpe = async (s, o, { instance: inst } = {}) => {
+    const subj = canonical(s)
+    const term = termIri(inst || deps.instance, o)
+    await query(`DELETE { ?r ?rp ?ro } WHERE { ?r <${REIFIES}> <<( <${subj}> <${P}> <${term}> )>> . ?r ?rp ?ro }`)
+    await query(`DELETE WHERE { <${subj}> <${P}> <${term}> }`)
+    await query(`DELETE WHERE { <${subj}> <${term}> ?ts }`)
+  }
+
+  return { deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { createSparqlClient, createDeleter } from 'octothorpes'
+import { createSparqlClient, createDeleter, createQueryBuilders, mintReifierIri } from 'octothorpes'
 
 const endpoint = process.env.sparql_endpoint?.replace(/\/$/, '') || 'http://0.0.0.0:7878'
 const sparql = createSparqlClient({
@@ -91,6 +91,104 @@ describe.skipIf(!reachable)('hardDeletePage (live store)', () => {
     expect(r.deletedPages).toBe(2)
     expect(await count(`<${O}> ?p ?o`)).toBe(0)
     expect(await count(`<${C}> octo:octothorpes <${O}>`)).toBe(1)
+    await cleanup()
+  })
+
+  it('B no longer appears in /get as subject; A still returns B as a target', async () => {
+    await cleanup()
+    await sparql.insert(`
+      <${A}> rdf:type octo:Page . <${B}> rdf:type octo:Page .
+      <${A}> octo:created 5 . <${B}> octo:created 5 .
+      <${A}> <${B}> 5 . <${B}> <${C}> 6 .
+      <${C}> rdf:type octo:Page .
+      <${A}> octo:octothorpes <${B}> . <${B}> octo:octothorpes <${C}> .
+    `)
+    const builders = createQueryBuilders('https://deleter-test.example/', sparql.queryArray)
+    const run = async (uri) => {
+      const q = await builders.buildEverythingQuery({
+        meta: { resultMode: 'blobjects' },
+        subjects: { mode: 'exact', include: [uri], exclude: [] },
+        objects: { type: 'all', mode: 'exact', include: [], exclude: [] },
+        filters: { dateRange: null, limitResults: '100', offsetResults: '0' },
+      })
+      return (await sparql.queryArray(q)).results.bindings
+    }
+    expect((await run(B)).some((r) => r.s?.value === B)).toBe(true)
+    await deleter.hardDeletePage(B)
+    expect((await run(B)).some((r) => r.s?.value === B)).toBe(false)
+    const aRows = await run(A)
+    expect(aRows.some((r) => r.s?.value === A && r.o?.value === B)).toBe(true)
+    await cleanup()
+  })
+})
+
+describe.skipIf(!reachable)('statement-level deletes (live store)', () => {
+  const P = 'https://vocab.octothorp.es#octothorpes'
+  const BM = 'https://vocab.octothorp.es#Bookmark'
+  const CT = 'https://vocab.octothorp.es#Cite'
+  const seed = async () => {
+    const rb = await mintReifierIri({ subject: A, predicate: P, object: B, subtype: BM })
+    const rc = await mintReifierIri({ subject: A, predicate: P, object: B, subtype: CT })
+    await sparql.insert(`
+      <${A}> rdf:type octo:Page . <${B}> rdf:type octo:Page . <${C}> rdf:type octo:Page .
+      <${A}> <${P}> <${B}> ~ <${rb}> {| rdf:type <${BM}> |} .
+      <${A}> <${P}> <${B}> ~ <${rc}> {| rdf:type <${CT}> |} .
+      <${rb}> octo:created 5 . <${rc}> octo:created 6 .
+      <${A}> <${B}> 5 .
+      <${A}> <${P}> <${C}> . <${A}> <${C}> 7 .
+    `)
+    return { rb, rc }
+  }
+
+  it('mintReifierIri matches the reifier the indexer-shape annotation stores', async () => {
+    await cleanup()
+    const { rb } = await seed()
+    expect(await count(`<${rb}> rdf:reifies <<( <${A}> <${P}> <${B}> )>> ; rdf:type <${BM}>`)).toBe(1)
+    await cleanup()
+  })
+
+  it('multi-subtype: deleting one leaves base and other reifier; deleting both drops base', async () => {
+    await cleanup()
+    const { rb, rc } = await seed()
+    await deleter.deleteMention(A, B, 'Bookmark')
+    expect(await count(`<${rb}> ?p ?o`)).toBe(0)
+    expect(await count(`<${rc}> rdf:reifies ?t ; rdf:type <${CT}> ; octo:created 6`)).toBe(1)
+    expect(await count(`<${A}> <${P}> <${B}>`)).toBe(1)
+    expect(await count(`<${A}> <${B}> ?ts`)).toBe(1)
+    await deleter.deleteMention(A, B, 'Cite')
+    expect(await count(`<${rc}> ?p ?o`)).toBe(0)
+    expect(await count(`<${A}> <${P}> <${B}>`)).toBe(0)
+    expect(await count(`<${A}> <${B}> ?ts`)).toBe(0)
+    // sibling statement and o's type survive
+    expect(await count(`<${A}> <${P}> <${C}> . <${A}> <${C}> 7`)).toBe(1)
+    expect(await count(`<${B}> rdf:type octo:Page`)).toBe(1)
+    await cleanup()
+  })
+
+  it('deleteMention without subtype removes all reifiers, base and date', async () => {
+    await cleanup()
+    const { rb, rc } = await seed()
+    await deleter.deleteMention(A, B)
+    expect(await count(`<${rb}> ?p ?o`)).toBe(0)
+    expect(await count(`<${rc}> ?p ?o`)).toBe(0)
+    expect(await count(`<${A}> <${P}> <${B}>`)).toBe(0)
+    expect(await count(`<${A}> <${B}> ?ts`)).toBe(0)
+    expect(await count(`<${A}> <${P}> <${C}>`)).toBe(1)
+    await cleanup()
+  })
+
+  it('deleteThorpe removes the term attachment and its usage date only', async () => {
+    await cleanup()
+    const inst = 'https://deleter-test.example'
+    const T = `${inst}~/demo`
+    const T2 = `${inst}~/other`
+    await sparql.insert(`
+      <${A}> <${P}> <${T}> . <${A}> <${T}> 9 . <${A}> <${P}> <${T2}> . <${A}> <${T2}> 9 .
+    `)
+    await deleter.deleteThorpe(A, 'demo', { instance: inst })
+    expect(await count(`<${A}> <${P}> <${T}>`)).toBe(0)
+    expect(await count(`<${A}> <${T}> ?ts`)).toBe(0)
+    expect(await count(`<${A}> <${P}> <${T2}> . <${A}> <${T2}> 9`)).toBe(1)
     await cleanup()
   })
 })
