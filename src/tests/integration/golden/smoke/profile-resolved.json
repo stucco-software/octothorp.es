@@ -26,7 +26,8 @@
     "labels": [],
     "indexing": {
       "mode": "request",
-      "cooldown": 300
+      "cooldown": 300,
+      "deletion": "soft"
     },
     "access": {
       "registration": "registered",

@@ -331,10 +331,7 @@
       "demo",
       {
         "uri": "https://octothorp.es/~/testing",
-        "type": "Link",
-        "terms": [
-          "testing"
-        ]
+        "type": "Link"
       },
       {
         "uri": "https://octothorped-wordpress.pikapod.net/how-it-works",
