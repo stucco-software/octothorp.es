@@ -8,6 +8,8 @@
  * Dry-run by default (phase 0 only). --apply runs phases 1 and 2.
  * --sparql is the Oxigraph base URL (default http://0.0.0.0:7879, or
  * MIGRATE_SPARQL); /query and /update are appended.
+ * Basic auth (remote stores): set sparql_user and sparql_password (same names
+ * as the app's .env), or MIGRATE_AUTH=user:pass. No credentials = no auth header.
  *
  * Old shape (pre-#270):
  *   <s> octo:octothorpes _:b . _:b octo:url <o> ; rdf:type <octo:X> ;
@@ -53,13 +55,17 @@ const JSON_OUT = flag('json', null)
 const P_IRI = `${OCTO_NS}octothorpes`
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
 const RDF_REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'
+const AUTH = process.env.MIGRATE_AUTH ||
+  (process.env.sparql_user && process.env.sparql_password
+    ? `${process.env.sparql_user}:${process.env.sparql_password}` : '')
+const AUTH_HEADER = AUTH ? { authorization: `Basic ${Buffer.from(AUTH).toString('base64')}` } : {}
 const PREFIXES = `PREFIX octo: <${OCTO_NS}>\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n`
 
 // ---------- SPARQL ----------
 const select = async (q) => {
   const res = await fetch(`${BASE}/query`, {
     method: 'POST',
-    headers: { 'content-type': 'application/sparql-query', accept: 'application/sparql-results+json' },
+    headers: { 'content-type': 'application/sparql-query', accept: 'application/sparql-results+json', ...AUTH_HEADER },
     body: PREFIXES + q,
   })
   if (!res.ok) throw new Error(`query ${res.status}: ${await res.text()}\n${q}`)
@@ -68,7 +74,7 @@ const select = async (q) => {
 const ask = async (q) => {
   const res = await fetch(`${BASE}/query`, {
     method: 'POST',
-    headers: { 'content-type': 'application/sparql-query', accept: 'application/sparql-results+json' },
+    headers: { 'content-type': 'application/sparql-query', accept: 'application/sparql-results+json', ...AUTH_HEADER },
     body: PREFIXES + q,
   })
   if (!res.ok) throw new Error(`ask ${res.status}: ${await res.text()}`)
@@ -77,7 +83,7 @@ const ask = async (q) => {
 const update = async (u) => {
   const res = await fetch(`${BASE}/update`, {
     method: 'POST',
-    headers: { 'content-type': 'application/sparql-update' },
+    headers: { 'content-type': 'application/sparql-update', ...AUTH_HEADER },
     body: PREFIXES + u,
   })
   if (!res.ok) throw new Error(`update ${res.status}: ${await res.text()}\n${u.slice(0, 2000)}`)
