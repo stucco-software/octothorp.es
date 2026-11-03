@@ -233,7 +233,8 @@ describe('hostile input and hardening', () => {
   it('a hostile http(s) object URI is safely encoded, never raw', async () => {
     const evil = 'https://x.test/> . <https://victim> octo:verified "true" . <'
     await run(blob({ octothorpes: [{ type: 'link', uri: evil }] }))
-    const out = inserted()
+    // Strip string literals (prefLabel keeps the raw text, safely escaped); only IRIs/triples matter.
+    const out = inserted().replace(/"(?:[^"\\]|\\.)*"/g, '""')
     expect(out).not.toContain('<https://victim>')
     expect(out).not.toMatch(/<[^>]*[ "][^>]*>/)
     expect(out).toContain('https://x.test/%3E%20.%20%3Chttps://victim%3E')
@@ -247,7 +248,8 @@ describe('hostile input and hardening', () => {
 
   it('hostile hashtag terms cannot inject triples (encoded in the term IRI)', async () => {
     await run(blob({ octothorpes: [{ type: 'hashtag', uri: 'a> . <https://victim> octo:verified "true" . <b' }, 'x> <y'] }))
-    const out = inserted()
+    // Strip string literals (prefLabel keeps the raw text, safely escaped); only IRIs/triples matter.
+    const out = inserted().replace(/"(?:[^"\\]|\\.)*"/g, '""')
     expect(out).not.toContain('<https://victim>')
     expect(out).not.toMatch(/<[^>]*[ "][^>]*>/)
   })

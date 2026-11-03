@@ -16,7 +16,7 @@ const mockQuery = vi.fn()
 const mockQueryBoolean = vi.fn()
 // #310: the indexer now ASKs for an octo:banned tombstone on every request.
 // These suites stub "verified" as a blanket true, so answer ban ASKs "no".
-const queryBooleanDep = async (q) => (String(q).includes("octo:banned") ? false : mockQueryBoolean(q))
+const queryBooleanDep = async (q) => (String(q).includes("octo:banned") || String(q).includes("octo:indexed") ? false : mockQueryBoolean(q))
 const mockQueryArray = vi.fn()
 const mockHarmonizeSource = vi.fn()
 

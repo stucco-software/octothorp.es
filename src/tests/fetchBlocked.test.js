@@ -106,6 +106,9 @@ describe('handler surfaces a blocked fetch instead of "not opted in"', () => {
       headers: { get: (h) => h === 'content-type' ? 'text/html' : null },
     })
 
+    // Never-indexed page (#248): octo:indexed ASK is false, so withdrawn is a plain rejection.
+    mockQueryBoolean.mockImplementation(async (q) => !String(q).includes('octo:indexed'))
+
     const indexer = createIndexer({
       insert: mockInsert, query: mockQuery,
       queryBoolean: mockQueryBoolean, queryArray: mockQueryArray,
