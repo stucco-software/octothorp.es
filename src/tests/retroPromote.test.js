@@ -8,6 +8,7 @@ const OCTO = 'https://vocab.octothorp.es#'
 const S = 'https://t353-a.example.com/post'
 const O = 'https://t353-b.example.org/post'
 const R = (n) => `https://t353-a.example.com/reifier/${n}`
+const TERM = 'https://vocab.octothorp.es/~/t353term'
 const CREATED = 1701234567890
 
 const post = (path, type, body) => fetch(`${ENDPOINT}${path}`, {
@@ -28,7 +29,7 @@ describe.skipIf(!up)('#353 retro-promote (live store)', () => {
     await cleanup()
     await post('/update', 'application/sparql-update', `INSERT DATA {
       <${S}> a octo:Page . <${O}> a octo:Page .
-      <${S}> octo:octothorpes <${O}> ~ <${R(1)}> {| rdf:type octo:Link ; octo:created ${CREATED} |} .
+      <${S}> octo:octothorpes <${O}> ~ <${R(1)}> {| rdf:type octo:Link ; octo:created ${CREATED} ; octo:octothorpes <${TERM}> |} .
       <${O}> octo:octothorpes <${S}> ~ <${R(2)}> {| rdf:type octo:Link ; octo:created 1709999999999 |} .
     }`)
   })
@@ -49,5 +50,19 @@ describe.skipIf(!up)('#353 retro-promote (live store)', () => {
     const again = await retroPromote({ base: ENDPOINT, apply: true })
     expect(again.promoted.some(p => p.s === S && p.o === O)).toBe(false)
     expect(await backlinks()).toHaveLength(1)
+    expect(await select(`SELECT ?t WHERE { ?r rdf:reifies <<( <${S}> octo:octothorpes <${O}> )>> ; rdf:type octo:Backlink ; octo:octothorpes ?t }`)).toHaveLength(1)
+    // reciprocal Link has no terms: promoted with none
+    const rev = await select(`SELECT ?t WHERE { ?r rdf:reifies <<( <${O}> octo:octothorpes <${S}> )>> ; rdf:type octo:Backlink . OPTIONAL { ?r octo:octothorpes ?t } }`)
+    expect(rev).toHaveLength(1)
+    expect(rev[0].t).toBeUndefined()
+  })
+
+  it('heals an existing termless Backlink', async () => {
+    const [{ r }] = await select(`SELECT ?r WHERE { ?r rdf:reifies <<( <${S}> octo:octothorpes <${O}> )>> ; rdf:type octo:Backlink }`)
+    await post('/update', 'application/sparql-update', `DELETE DATA { <${r.value}> octo:octothorpes <${TERM}> }`)
+    const res = await retroPromote({ base: ENDPOINT, apply: true })
+    expect(res.healed).toBeGreaterThanOrEqual(1)
+    expect(await select(`SELECT ?t WHERE { ?r rdf:reifies <<( <${S}> octo:octothorpes <${O}> )>> ; rdf:type octo:Backlink ; octo:octothorpes <${TERM}> }`)).toHaveLength(1)
+    expect((await retroPromote({ base: ENDPOINT, apply: true })).healed).toBe(0)
   })
 })

@@ -13,7 +13,9 @@
  * pair passes checkEndorsement (reciprocal `<o> octo:octothorpes <s>` OR
  * `<o's origin> octo:endorses <s's origin>`), gets a Backlink reifier with the
  * deterministic IRI and `octo:created` copied first-wins from the Link
- * reifier. Idempotent: candidates are Links with no Backlink reifier on the
+ * reifier. The Link reifier(s)' relationship terms (union) are copied onto it,
+ * as the indexer's promoted path does, and existing Backlink reifiers missing
+ * terms their Link twin carries are healed. Idempotent: candidates are Links with no Backlink reifier on the
  * same (s, o), so a re-run finds none.
  *
  * storedOrigin is ported verbatim from the indexer closure (it is not
@@ -81,10 +83,24 @@ export const retroPromote = async ({
       await ask(`ASK { <${o}> octo:octothorpes <${s}> }`)
     if (!pass) { skipped++; continue }
     const reifier = await mintReifierIri({ subject: s, predicate: RELATIONSHIP_PREDICATE, object: o, subtype: BACKLINK })
-    promoted.push({ s, o, linkReifier: row.r.value, reifier, created: row.created?.value ?? null })
+    const terms = (await select(`SELECT DISTINCT ?t WHERE { ?l rdf:reifies <<( <${s}> octo:octothorpes <${o}> )>> ; rdf:type <${LINK}> ; octo:octothorpes ?t }`))
+      .map((b) => b.t.value)
+    promoted.push({ s, o, linkReifier: row.r.value, reifier, created: row.created?.value ?? null, terms })
   }
 
-  log(`${apply ? 'apply' : 'dry-run'} against ${BASE}: ${rows.length} Link pairs without a Backlink, ${promoted.length} to promote, ${skipped} skipped`)
+  // Heal: Backlink reifiers that already exist (e.g. minted by an earlier
+  // sweep without terms) lacking terms their Link twin carries. Cross-origin
+  // http(s) pairs only, matching the promotion scope. Set semantics.
+  const missing = (await select(`
+    SELECT DISTINCT ?s ?o ?b ?t WHERE {
+      ?l rdf:reifies <<( ?s octo:octothorpes ?o )>> ; rdf:type <${LINK}> ; octo:octothorpes ?t .
+      ?b rdf:reifies <<( ?s octo:octothorpes ?o )>> ; rdf:type <${BACKLINK}> .
+      FILTER NOT EXISTS { ?b octo:octothorpes ?t }
+    }`))
+    .map((b) => ({ s: b.s.value, o: b.o.value, b: b.b.value, t: b.t.value }))
+    .filter((m) => isHttp(m.s) && isHttp(m.o) && storedOrigin(m.s) !== storedOrigin(m.o))
+
+  log(`${apply ? 'apply' : 'dry-run'} against ${BASE}: ${rows.length} Link pairs without a Backlink, ${promoted.length} to promote, ${skipped} skipped, ${missing.length} Backlink term links to heal`)
   for (const p of promoted) log(`  ${p.s} -> ${p.o}  created=${p.created ?? 'none'}  ${p.reifier}`)
 
   if (apply) {
@@ -92,7 +108,7 @@ export const retroPromote = async ({
       const chunk = promoted.slice(i, i + batch)
       const ops = []
       for (const p of chunk) {
-        ops.push(`INSERT DATA { ${annotatedRelationshipStatement({ subject: p.s, object: p.o, reifier: p.reifier, annotations: [`rdf:type <${BACKLINK}>`] })} }`)
+        ops.push(`INSERT DATA { ${annotatedRelationshipStatement({ subject: p.s, object: p.o, reifier: p.reifier, annotations: [`rdf:type <${BACKLINK}>`, ...p.terms.map((t) => `octo:octothorpes <${t}>`)] })} }`)
         if (p.created !== null) {
           ops.push(`INSERT { <${p.reifier}> octo:created ${p.created} } WHERE { FILTER NOT EXISTS { <${p.reifier}> octo:created ?x } }`)
         }
@@ -101,7 +117,15 @@ export const retroPromote = async ({
       log(`  ${Math.min(i + batch, promoted.length)}/${promoted.length} minted`)
     }
   }
-  return { candidates: promoted.length, promoted, skipped }
+  let healed = 0
+  if (apply) {
+    for (let i = 0; i < missing.length; i += batch) {
+      const chunk = missing.slice(i, i + batch)
+      await update(`INSERT DATA { ${chunk.map((m) => `<${m.b}> octo:octothorpes <${m.t}> .`).join('\n')} }`)
+      healed += chunk.length
+    }
+  }
+  return { healed, missing, candidates: promoted.length, promoted, skipped }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
