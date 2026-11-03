@@ -43,11 +43,11 @@ const storedOrigin = (s) => {
 }
 
 /**
- * @param {{base?:string, apply?:boolean, batch?:number, auth?:string, log?:Function}} opts
+ * @param {{base?:string, apply?:boolean, batch?:number, auth?:string, subjects?:string[], log?:Function}} opts
  * @returns {Promise<{candidates:number, promoted:Array, skipped:number}>}
  */
 export const retroPromote = async ({
-  base = 'http://0.0.0.0:7879', apply = false, batch = 100, auth = '', log = () => {},
+  base = 'http://0.0.0.0:7879', apply = false, batch = 100, auth = '', subjects = null, log = () => {},
 } = {}) => {
   const BASE = String(base).replace(/\/$/, '')
   const headers = auth ? { authorization: `Basic ${Buffer.from(auth).toString('base64')}` } : {}
@@ -62,8 +62,11 @@ export const retroPromote = async ({
   const ask = async (body) => (await (await q('query', 'application/sparql-query', body, 'application/sparql-results+json')).json()).boolean
   const update = (body) => q('update', 'application/sparql-update', body)
 
+  // Optional subject scope (tests): restricts both selects to these subjects.
+  const scope = subjects?.length ? `VALUES ?s { ${subjects.map((u) => `<${u}>`).join(' ')} }` : ''
   const rows = await select(`
     SELECT DISTINCT ?s ?o ?r (MIN(?c) AS ?created) WHERE {
+      ${scope}
       ?r rdf:reifies <<( ?s octo:octothorpes ?o )>> ; rdf:type <${LINK}> .
       OPTIONAL { ?r octo:created ?c }
       FILTER NOT EXISTS { ?b rdf:reifies <<( ?s octo:octothorpes ?o )>> ; rdf:type <${BACKLINK}> }
@@ -93,6 +96,7 @@ export const retroPromote = async ({
   // http(s) pairs only, matching the promotion scope. Set semantics.
   const missing = (await select(`
     SELECT DISTINCT ?s ?o ?b ?t WHERE {
+      ${scope}
       ?l rdf:reifies <<( ?s octo:octothorpes ?o )>> ; rdf:type <${LINK}> ; octo:octothorpes ?t .
       ?b rdf:reifies <<( ?s octo:octothorpes ?o )>> ; rdf:type <${BACKLINK}> .
       FILTER NOT EXISTS { ?b octo:octothorpes ?t }
