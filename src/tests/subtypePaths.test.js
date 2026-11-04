@@ -73,7 +73,7 @@ const instance = (process.env.instance || 'http://localhost:5173/').replace(/\/?
 
 describe('buildMultiPass ignores a stray subtype option', () => {
   it('does not let an options.subtype override the by-derived subtype', () => {
-    const mp = buildMultiPass('everything', 'backlinked', { subtype: 'AliasOf' }, instance)
+    const mp = buildMultiPass('everything', 'backlinked', { subtype: 'Alias' }, instance)
     expect(mp.filters.subtype).toBe('Backlink')
   })
 

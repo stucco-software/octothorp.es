@@ -140,13 +140,15 @@ describe('handleMention write path by subject scheme (#241)', () => {
 
   it('a declared-scheme subject writes relationship triples but NO origin side-effects', async () => {
     const indexer = makeIndexer({ access: { allows: { schemes: ['file'] } } })
-    await indexer.handleMention('file:///notes.md', 'https://rentry.co/x', 'Alias')
+    // Bookmark, not Alias: a cross-origin Alias is withheld by the #345
+    // consent gate, which is not what this test is about.
+    await indexer.handleMention('file:///notes.md', 'https://rentry.co/x', 'Bookmark')
     const out = inserted()
     // The relationship itself: flat mention plus the annotated base triple
     // whose named reifier carries the full subtype IRI (#270).
     expect(out).toContain('<file:///notes.md> octo:octothorpes <https://rentry.co/x>')
     expect(out).toContain('<file:///notes.md> <https://vocab.octothorp.es#octothorpes> <https://rentry.co/x> ~ <https://vocab.octothorp.es/r1/')
-    expect(out).toContain('rdf:type <https://vocab.octothorp.es#Alias>')
+    expect(out).toContain('rdf:type <https://vocab.octothorp.es#Bookmark>')
     // No origin side-effects: no hasPart, no verified, no octo:Origin node,
     // and above all no relative <null> IRI for Oxigraph to base-resolve.
     expect(out).not.toContain('octo:hasPart')

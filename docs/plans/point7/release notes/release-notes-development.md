@@ -1754,3 +1754,21 @@ A successful re-index now removes what the page no longer asserts. Before this, 
 `parseHTML` built its JSDOM document with no URL, so `element.href` on `<a rel="octo:octothorpes" href="/tags/x.html">` returned the raw path. Oxigraph resolved those relative IRIs against its own endpoint, which is where the `http://octothorpes.fly.dev/...` rows in prod came from (audit: 3441 triples, 328 IRIs, latest write 2026-10-16). `parseHTML(html, contentType, { url })` now sets the JSDOM `url` (or injects a `<base>` on the DOMParser path), and `dispatch` passes the page URI to both `parse` and `harmonize`. `handleMention` already drops relative, empty, and undefined targets via `canonical()` with a warning; new tests cover that. Existing fly.dev data is not cleaned up yet.
 
 **Files affected:** `packages/core/handlers/html/handler.js`, `packages/core/indexer.js`, `src/tests/relativeHrefBase.test.js`, `docs/plans/point7/2026-11-04-356-flydev-audit.md`.
+
+## Alias consent gate and revocation -- #345
+
+Aliasing is no longer unilateral. `handleMention` gates the `Alias` subtype (`checkAliasConsent` in `packages/core/indexer.js`) before minting the Alias reifier. A cross-origin alias is written only when one of these holds:
+- the subject and object share an origin
+- the object's origin endorses the subject's origin (`octo:endorses`)
+- the reverse Alias reifier (object -> subject) already exists, checked by its minted IRI
+- the object has a pending claim toward the subject. Both Alias reifiers are then minted and the claim is deleted. The reverse reifier's deterministic IRI is the duplicate guard.
+
+When none hold, the indexer writes a plain `<s> octo:aliasClaim <o>` triple (no reifier) and `/index` returns a `warnings` array alongside `status: success`. No `/get` query builder reads `octo:aliasClaim`. Declared non-http subjects (e.g. `file:`) can only alias across origins through reciprocity. `ingestBlobject` and `handler()` return `{ warnings }`.
+
+Revocation (rulings 2026-11-04): aliases are bidirectional and live. When a re-indexed page no longer carries the alias toward O (mention dropped or downgraded to another subtype), `reconcilePage` deletes S's Alias reifier and also the reverse O -> S Alias reifier with its properties. This is the one place reconcile touches a statement whose subject is not S. O's base triple stays; O's next re-index re-runs the gate and records a pending claim. Stale `<s> octo:aliasClaim <o>` triples are also retracted on re-index.
+
+Withdrawn consent: when the gate returns pending for a pair that already holds a live S -> O Alias reifier (for example, the endorsement that admitted it was dropped), `handleMention` revokes both Alias directions via the shared `deleter.revokeAlias`, then records the pending claim. The warning says the alias was revoked pending renewed consent. Pre-#345 unilateral aliases therefore expire on their origin's next re-index. A live reverse O -> S alias counts as consent, so a mutual alias sustains itself until one side drops it.
+
+Scope: consent is inferred from indexable public URLs only. Token-based consent and revocation for non-indexable sources (no-auth, local, private) is a later extension; the seam is `checkAliasConsent`.
+
+Affected files: `packages/core/indexer.js`, `packages/core/deleter.js`, `src/routes/(endpoints)/index/+server.js`, `src/tests/aliasConsent.test.js` (new), `src/tests/aliasRevocation.test.js` (new), `src/tests/originSchemes.test.js`, `src/tests/subtypePaths.test.js` (stale `AliasOf` -> `Alias`).

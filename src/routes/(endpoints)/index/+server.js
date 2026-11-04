@@ -76,11 +76,14 @@ const runIndex = async (uri, harmonizer, requestOrigin) => {
       reason: result.reason
     }, { status: 200 })
   }
+  // #345: non-fatal statement warnings (e.g. a withheld alias claim).
+  const warnings = result?.warnings ?? []
   return json({
     status: 'success',
     message: 'Page indexed successfully',
     uri: normalized,
-    indexed_at: Date.now()
+    indexed_at: Date.now(),
+    ...(warnings.length ? { warnings } : {})
   }, { status: 200 })
 }
 

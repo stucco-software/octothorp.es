@@ -9,6 +9,7 @@ import { classIri, OCTO_NS } from './vocabulary.js'
 import { termIri, termName } from './utils.js'
 
 const P = `${OCTO_NS}octothorpes`
+const CLAIM = `${OCTO_NS}aliasClaim`
 const REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'
 const strip = (s) => (s || '').replace(/\/$/, '')
 
@@ -116,12 +117,30 @@ export const createDeleter = (deps = {}) => {
   }
 
   /**
+   * #345: revoke a consented alias in both directions. Deletes the S -> O and
+   * O -> S Alias reifiers with all their properties; base triples (the flat
+   * mentions) stay. `forward: false` skips S -> O when the caller already
+   * removed it. Shared by reconcilePage and handleMention's withdrawn-consent
+   * path. Returns true when the S -> O Alias reifier existed.
+   */
+  const revokeAlias = async (s, o, { forward = true } = {}) => {
+    const subj = canonical(s)
+    const obj = canonical(o)
+    const aliasIri = classIri('Alias')
+    const fwd = await mintReifierIri({ subject: subj, predicate: P, object: obj, subtype: aliasIri })
+    const rev = await mintReifierIri({ subject: obj, predicate: P, object: subj, subtype: aliasIri })
+    if (forward) await query(`DELETE WHERE { <${fwd}> ?rp ?ro }`)
+    await query(`DELETE WHERE { <${rev}> ?rp ?ro }`)
+  }
+
+  /**
    * #322 re-index reconciliation. Given what a fresh, successful harvest of S
    * produced, hard-retract S's stored assertions the harvest no longer has:
    * term attachments (deleteThorpe), whole mentions (deleteMention without
    * subtype), single subtypes (deleteMention with subtype), and relationship
-   * terms on reifiers that survive. Subject-position only: other pages'
-   * statements about S are never read or touched.
+   * terms on reifiers that survive, and stale pending octo:aliasClaim triples.
+   * Subject-position only, with ONE exception (#345): a revoked S -> O Alias
+   * also deletes the reverse O -> S Alias reifier.
    *
    * @param {string} s
    * @param {{terms: Iterable<string>, mentions: Map<string, {subtypes: Set<string>, terms: Set<string>}>}} fresh
@@ -134,6 +153,15 @@ export const createDeleter = (deps = {}) => {
     const termPrefix = termIri(base, '')
     const freshTermIris = new Set([...terms].map((t) => termIri(base, t)))
     const out = { thorpes: [], mentions: [], subtypes: [], relTerms: 0 }
+
+    // #345: aliases S asserted that the fresh harvest no longer carries. Read
+    // before the sweeps below delete S's side of them.
+    const aliasIri = classIri('Alias')
+    const keepsAlias = (o) => Boolean(mentions.get(o)?.subtypes?.has('Alias'))
+    const revokedAliases = (await queryArray(`SELECT DISTINCT ?o WHERE { ?r <${REIFIES}> <<( <${subj}> <${P}> ?o )>> ; a <${aliasIri}> }`))
+      .results.bindings.map((b) => b.o.value).filter((o) => !keepsAlias(o))
+    out.aliases = []
+    out.aliasClaims = []
 
     const objs = (await queryArray(`SELECT DISTINCT ?o WHERE { <${subj}> <${P}> ?o . FILTER(isIRI(?o)) }`))
       .results.bindings.map((b) => b.o.value)
@@ -165,6 +193,27 @@ export const createDeleter = (deps = {}) => {
         await query(`DELETE DATA { <${r.value}> <${P}> <${x.value}> }`)
         out.relTerms++
       }
+    }
+
+    // #345: aliases are bidirectional and live. When S stops asserting an
+    // alias toward O, the reverse O -> S Alias reifier dies with it. This is
+    // the ONE place reconcile deliberately touches a statement whose subject
+    // is not S: a consented alias is a joint statement, and either side
+    // withdrawing revokes both. Only the reverse reifier (and its properties)
+    // is removed; O's base triple / flat mention toward S stays, and O's next
+    // re-index re-runs the consent gate (recording a pending claim).
+    for (const o of revokedAliases) {
+      await revokeAlias(subj, o, { forward: false })
+      out.aliases.push(o)
+    }
+
+    // #345: stale pending claims. A plain <S> octo:aliasClaim <O> triple that
+    // the fresh harvest no longer backs with an Alias toward O is retracted.
+    const claims = (await queryArray(`SELECT ?o WHERE { <${subj}> <${CLAIM}> ?o }`)).results.bindings.map((b) => b.o.value)
+    for (const o of claims) {
+      if (keepsAlias(o)) continue
+      await query(`DELETE DATA { <${subj}> <${CLAIM}> <${o}> }`)
+      out.aliasClaims.push(o)
     }
     return out
   }
@@ -222,5 +271,5 @@ export const createDeleter = (deps = {}) => {
     return { outcome: 'failure', reason }
   }
 
-  return { reconcilePage, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  return { reconcilePage, revokeAlias, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }
