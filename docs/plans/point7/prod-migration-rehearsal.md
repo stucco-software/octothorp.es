@@ -25,11 +25,17 @@ Goal: run the full v0.7 data migration on a copy of the production store, and ve
    - Dry-run, then `--apply`.
 7. `retro-promote.js` (mint missing Backlink reifiers for reciprocal cross-origin Links; copies relationship terms and historical `created`).
    - Dry-run (candidate count and per-pair listing), then `--apply`.
-8. Idempotence check: re-run each script (dry-run) in order: migrate, drop-flat-dates, retro-promote. Each must report 0 remaining.
-9. Equivalence verify:
+8. #356 fly.dev cleanup (relative hrefs that Oxigraph resolved against `http://octothorpes.fly.dev/update`). Run only AFTER step 7, so backlink and reifier shapes are post-migration. No script yet: run the #356 cleanup SPARQL from `docs/plans/point7/2026-11-04-356-flydev-audit.md`. Dry-run each statement as a `SELECT` count first, then apply.
+   - Rewrite `http://octothorpes.fly.dev/<path>` to `<linking site origin>/<path>` in: `octo:octothorpes` edges, backlink `octo:url` values, matching reifiers. Linking sites: asadaame5121.net, nikolas.ws, michaelkupietz.com, shadenexus.ca, ggirelli.info.
+   - Delete: predicate-position timestamp triples (`<page> <fly.dev/...> <ts>`), `/update` and `/undefined` rows, fly.dev `rdf:type octo:Page` stubs.
+   - Verify: a count of triples containing `octothorpes.fly.dev` returns 0.
+   - Alternative: re-index the 5 sites after the 6cec019 write-path fix, if they are reachable, then run only the deletes.
+   - Remove the webring `octothorpes.fly.dev` FILTER in `packages/core/utils.js` only after prod data is clean.
+9. Idempotence check: re-run each script (dry-run) in order: migrate, drop-flat-dates, retro-promote. Each must report 0 remaining. Re-run the #356 fly.dev count: must be 0.
+10. Equivalence verify:
    - `node --env-file=.env scripts/equivalence/capture.js after-v07 --samples-from before-v07`
    - `node scripts/equivalence/diff.js before-v07 after-v07`
-   - Expected diff classes only: deterministic dates, canonical spellings, `/~/` term false-positive fix, new `backlinked` rows from retro-promotion. Removed flat date facts are invisible to the API. Anything else is a regression to investigate.
-10. Targeted tests against the migrated scratch store:
+   - Expected diff classes only: deterministic dates, canonical spellings, `/~/` term false-positive fix, new `backlinked` rows from retro-promotion, fly.dev rows removed or rewritten to the linking site's origin (#356). Removed flat date facts are invisible to the API. Anything else is a regression to investigate.
+11. Targeted tests against the migrated scratch store:
     `sparql_endpoint=<scratch> npx vitest run src/tests/reifierDateReadPath.test.js src/tests/deleter.test.js src/tests/retroPromote.test.js`
-11. Record counts and diff results from each step. Discard the scratch store.
+12. Record counts and diff results from each step. Discard the scratch store.
