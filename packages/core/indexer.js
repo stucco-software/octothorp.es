@@ -1056,8 +1056,16 @@ export const createIndexer = (deps) => {
         mintBacklink = false
         // A plain triple, never a reifier: no /get query builder matches
         // octo:aliasClaim, so a pending claim publishes nothing.
+        // Withdrawn consent: an s -> o Alias that is live but no longer
+        // admitted (endorsement dropped, or a pre-#345 unilateral alias) is
+        // revoked in both directions before the pending claim is recorded.
+        const fwd = await mintRelationship(subj, obj, 'Alias')
+        const wasLive = await queryBoolean(`ask { <${fwd.reifier}> rdf:type <${fwd.subtypeIri}> . }`)
+        if (wasLive) await deleter.revokeAlias(subj, obj)
         blocks.push(`<${subj}> octo:aliasClaim <${obj}> .`)
-        aliasWarning = `Alias claim from ${subj} to ${obj} recorded but not published: ${obj} has not reciprocated or endorsed ${storedOrigin(subj)}.`
+        aliasWarning = wasLive
+          ? `Alias from ${subj} to ${obj} revoked pending renewed consent: ${obj} no longer reciprocates or endorses ${storedOrigin(subj)}. Claim recorded, not published.`
+          : `Alias claim from ${subj} to ${obj} recorded but not published: ${obj} has not reciprocated or endorsed ${storedOrigin(subj)}.`
         console.log(`alias withheld: ${aliasWarning}`)
       }
     }

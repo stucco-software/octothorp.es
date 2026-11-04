@@ -117,6 +117,23 @@ export const createDeleter = (deps = {}) => {
   }
 
   /**
+   * #345: revoke a consented alias in both directions. Deletes the S -> O and
+   * O -> S Alias reifiers with all their properties; base triples (the flat
+   * mentions) stay. `forward: false` skips S -> O when the caller already
+   * removed it. Shared by reconcilePage and handleMention's withdrawn-consent
+   * path. Returns true when the S -> O Alias reifier existed.
+   */
+  const revokeAlias = async (s, o, { forward = true } = {}) => {
+    const subj = canonical(s)
+    const obj = canonical(o)
+    const aliasIri = classIri('Alias')
+    const fwd = await mintReifierIri({ subject: subj, predicate: P, object: obj, subtype: aliasIri })
+    const rev = await mintReifierIri({ subject: obj, predicate: P, object: subj, subtype: aliasIri })
+    if (forward) await query(`DELETE WHERE { <${fwd}> ?rp ?ro }`)
+    await query(`DELETE WHERE { <${rev}> ?rp ?ro }`)
+  }
+
+  /**
    * #322 re-index reconciliation. Given what a fresh, successful harvest of S
    * produced, hard-retract S's stored assertions the harvest no longer has:
    * term attachments (deleteThorpe), whole mentions (deleteMention without
@@ -186,8 +203,7 @@ export const createDeleter = (deps = {}) => {
     // is removed; O's base triple / flat mention toward S stays, and O's next
     // re-index re-runs the consent gate (recording a pending claim).
     for (const o of revokedAliases) {
-      const reverse = await mintReifierIri({ subject: o, predicate: P, object: subj, subtype: aliasIri })
-      await query(`DELETE WHERE { <${reverse}> ?rp ?ro }`)
+      await revokeAlias(subj, o, { forward: false })
       out.aliases.push(o)
     }
 
@@ -255,5 +271,5 @@ export const createDeleter = (deps = {}) => {
     return { outcome: 'failure', reason }
   }
 
-  return { reconcilePage, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  return { reconcilePage, revokeAlias, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }

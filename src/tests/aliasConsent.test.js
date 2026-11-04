@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createIndexer } from '../../packages/core/indexer.js'
+import { mintReifierIri } from '../../packages/core/reifier.js'
 import { buildMultiPass, createQueryBuilders, mergeLinkTypes } from 'octothorpes'
 
 // #345: aliasing is never unilateral. handleMention's Alias gate admits an
@@ -23,8 +24,15 @@ const makeStore = (flags = {}) => {
       return Boolean(flags.claim && q.includes(`<${flags.claim[0]}> octo:aliasClaim <${flags.claim[1]}>`))
     }
     if (q.includes('octo:endorses')) return Boolean(flags.endorses)
-    // The reverse-alias ASK targets the minted reifier by IRI.
-    if (q.includes(`rdf:type <${ALIAS}>`)) return Boolean(flags.reverseAlias)
+    // Alias-reifier ASKs: answered only for the exact minted reifier IRI of
+    // a stored (s, o) pair, so a wrong-direction or wrong-pair query is false.
+    if (q.includes(`rdf:type <${ALIAS}>`)) {
+      for (const [s, o] of flags.aliases ?? []) {
+        const r = await mintReifierIri({ subject: s, predicate: `${OCTO}octothorpes`, object: o, subtype: ALIAS })
+        if (q.includes(`<${r}>`)) return true
+      }
+      return false
+    }
     return false
   })
   const indexer = createIndexer({
@@ -78,9 +86,29 @@ describe('Alias consent gate (#345)', () => {
   })
 
   it('allows when the reverse alias already exists', async () => {
-    const st = makeStore({ reverseAlias: true })
-    await st.indexer.handleMention(A, B, 'Alias')
+    const st = makeStore({ aliases: [[B, A]] })
+    const r = await st.indexer.handleMention(A, B, 'Alias')
     expect(st.text()).toContain(`rdf:type <${ALIAS}>`)
+    expect(r.warning).toBeUndefined()
+  })
+
+  it('a same-direction alias does not count as the reverse (stays pending)', async () => {
+    const st = makeStore({ aliases: [[A, 'https://b.example/other']] })
+    const r = await st.indexer.handleMention(A, B, 'Alias')
+    expect(st.text()).not.toContain(`rdf:type <${ALIAS}>`)
+    expect(r.warning).toMatch(/recorded but not published/)
+  })
+
+  it('withdrawn consent revokes a live s->o alias both ways, then records the claim', async () => {
+    const st = makeStore({ aliases: [[A, B]] })
+    const r = await st.indexer.handleMention(A, B, 'Alias')
+    const fwd = await mintReifierIri({ subject: A, predicate: `${OCTO}octothorpes`, object: B, subtype: ALIAS })
+    const rev = await mintReifierIri({ subject: B, predicate: `${OCTO}octothorpes`, object: A, subtype: ALIAS })
+    const u = st.updates.join('\n')
+    expect(u).toContain(`DELETE WHERE { <${fwd}> ?rp ?ro }`)
+    expect(u).toContain(`DELETE WHERE { <${rev}> ?rp ?ro }`)
+    expect(st.text()).toContain(`<${A}> octo:aliasClaim <${B}> .`)
+    expect(r.warning).toMatch(/revoked pending renewed consent/)
   })
 
   it('a pending claim does not block a later Link on the same pair', async () => {

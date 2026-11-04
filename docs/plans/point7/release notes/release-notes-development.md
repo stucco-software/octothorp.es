@@ -1767,6 +1767,8 @@ When none hold, the indexer writes a plain `<s> octo:aliasClaim <o>` triple (no 
 
 Revocation (rulings 2026-11-04): aliases are bidirectional and live. When a re-indexed page no longer carries the alias toward O (mention dropped or downgraded to another subtype), `reconcilePage` deletes S's Alias reifier and also the reverse O -> S Alias reifier with its properties. This is the one place reconcile touches a statement whose subject is not S. O's base triple stays; O's next re-index re-runs the gate and records a pending claim. Stale `<s> octo:aliasClaim <o>` triples are also retracted on re-index.
 
+Withdrawn consent: when the gate returns pending for a pair that already holds a live S -> O Alias reifier (for example, the endorsement that admitted it was dropped), `handleMention` revokes both Alias directions via the shared `deleter.revokeAlias`, then records the pending claim. The warning says the alias was revoked pending renewed consent. Pre-#345 unilateral aliases therefore expire on their origin's next re-index. A live reverse O -> S alias counts as consent, so a mutual alias sustains itself until one side drops it.
+
 Scope: consent is inferred from indexable public URLs only. Token-based consent and revocation for non-indexable sources (no-auth, local, private) is a later extension; the seam is `checkAliasConsent`.
 
 Affected files: `packages/core/indexer.js`, `packages/core/deleter.js`, `src/routes/(endpoints)/index/+server.js`, `src/tests/aliasConsent.test.js` (new), `src/tests/aliasRevocation.test.js` (new), `src/tests/originSchemes.test.js`, `src/tests/subtypePaths.test.js` (stale `AliasOf` -> `Alias`).
