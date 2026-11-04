@@ -1748,3 +1748,9 @@ A successful re-index now removes what the page no longer asserts. Before this, 
 - A reconciliation error is logged and does not fail the index.
 
 **Files affected:** `packages/core/deleter.js`, `packages/core/indexer.js`, `src/tests/reindexReconcile.test.js`.
+
+## Relative link hrefs resolve against the indexed page (#356) (2026-11-04)
+
+`parseHTML` built its JSDOM document with no URL, so `element.href` on `<a rel="octo:octothorpes" href="/tags/x.html">` returned the raw path. Oxigraph resolved those relative IRIs against its own endpoint, which is where the `http://octothorpes.fly.dev/...` rows in prod came from (audit: 3441 triples, 328 IRIs, latest write 2026-10-16). `parseHTML(html, contentType, { url })` now sets the JSDOM `url` (or injects a `<base>` on the DOMParser path), and `dispatch` passes the page URI to both `parse` and `harmonize`. `handleMention` already drops relative, empty, and undefined targets via `canonical()` with a warning; new tests cover that. Existing fly.dev data is not cleaned up yet.
+
+**Files affected:** `packages/core/handlers/html/handler.js`, `packages/core/indexer.js`, `src/tests/relativeHrefBase.test.js`, `docs/plans/point7/2026-11-04-356-flydev-audit.md`.

@@ -14,12 +14,23 @@ function removeTrailingSlash(url) {
 // cost 27 parses of the same page.
 // Isomorphic (#203): native DOMParser in the browser; in Node, jsdom is
 // imported dynamically so bundlers can exclude it from client builds.
-export const parseHTML = async (html) => {
+// #356: `url` is the page being indexed. Without it, `element.href` on a
+// relative link returns the raw path, which Oxigraph then resolves against its
+// own endpoint URL. With it, relative hrefs resolve against the page.
+export const parseHTML = async (html, _contentType, { url } = {}) => {
   if (typeof DOMParser !== 'undefined') {
-    return new DOMParser().parseFromString(html, 'text/html')
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    if (url && doc?.head && !doc.querySelector('base[href]')) {
+      const base = doc.createElement('base')
+      base.setAttribute('href', url)
+      doc.head.prepend(base)
+    }
+    return doc
   }
   const { JSDOM } = await import('jsdom')
-  return new JSDOM(html, { contentType: "text/html" }).window.document
+  const opts = { contentType: "text/html" }
+  if (url) opts.url = url
+  return new JSDOM(html, opts).window.document
 }
 
 export const parse = parseHTML
@@ -125,9 +136,9 @@ export default {
     // mutable source object caches the document for later callers.
     let document
     if (typeof source === 'string') {
-      document = await parse(source)
+      document = await parse(source, 'text/html', { url: options.url })
     } else if (source && typeof source === 'object') {
-      document = source.document ?? await parse(source.content)
+      document = source.document ?? await parse(source.content, 'text/html', { url: options.url ?? source.uri })
       if (!source.document) {
         try { source.document = document } catch { /* frozen source: no cache */ }
       }

@@ -876,13 +876,13 @@ export const createIndexer = (deps) => {
       const parsedBy = selected.mode || selected
       const cached = source.document !== null && source.document !== undefined
       if (!cached || source.parsedBy !== parsedBy) {
-        source.document = await selected.parse(content, contentType)
+        source.document = await selected.parse(content, contentType, { url: uri })
         source.parsedBy = parsedBy
       }
       payload = source
     }
 
-    const blobject = await selected.harmonize(payload, resolvedHarmonizer, { instance, ...(ua ? { userAgent: ua } : {}) })
+    const blobject = await selected.harmonize(payload, resolvedHarmonizer, { instance, url: uri, ...(ua ? { userAgent: ua } : {}) })
     if (blobject && blobject['@id'] === 'source') blobject['@id'] = uri
     return blobject
   }
