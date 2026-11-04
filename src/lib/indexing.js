@@ -105,7 +105,6 @@ export const {
   extantMember,
   extantThorpe,
   extantMention,
-  extantBacklink,
   createBacklink,
   createOctothorpe,
   createTerm,
