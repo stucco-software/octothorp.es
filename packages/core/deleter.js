@@ -6,7 +6,7 @@
 
 import { canonical, mintReifierIri } from './reifier.js'
 import { classIri, OCTO_NS } from './vocabulary.js'
-import { termIri } from './utils.js'
+import { termIri, termName } from './utils.js'
 
 const P = `${OCTO_NS}octothorpes`
 const REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'
@@ -115,6 +115,60 @@ export const createDeleter = (deps = {}) => {
     await query(`DELETE WHERE { <${subj}> <${term}> ?ts }`)
   }
 
+  /**
+   * #322 re-index reconciliation. Given what a fresh, successful harvest of S
+   * produced, hard-retract S's stored assertions the harvest no longer has:
+   * term attachments (deleteThorpe), whole mentions (deleteMention without
+   * subtype), single subtypes (deleteMention with subtype), and relationship
+   * terms on reifiers that survive. Subject-position only: other pages'
+   * statements about S are never read or touched.
+   *
+   * @param {string} s
+   * @param {{terms: Iterable<string>, mentions: Map<string, {subtypes: Set<string>, terms: Set<string>}>}} fresh
+   *   terms: term names; mentions: canonical object -> class names + term names
+   * @returns {Promise<{thorpes: string[], mentions: string[], subtypes: string[], relTerms: number}>}
+   */
+  const reconcilePage = async (s, { terms = [], mentions = new Map() } = {}, { instance: inst } = {}) => {
+    const subj = canonical(s)
+    const base = inst || deps.instance
+    const termPrefix = termIri(base, '')
+    const freshTermIris = new Set([...terms].map((t) => termIri(base, t)))
+    const out = { thorpes: [], mentions: [], subtypes: [], relTerms: 0 }
+
+    const objs = (await queryArray(`SELECT DISTINCT ?o WHERE { <${subj}> <${P}> ?o . FILTER(isIRI(?o)) }`))
+      .results.bindings.map((b) => b.o.value)
+    for (const o of objs) {
+      if (o.startsWith(termPrefix)) {
+        if (!freshTermIris.has(o)) {
+          await deleteThorpe(subj, termName(o), { instance: base })
+          out.thorpes.push(o)
+        }
+      } else if (!mentions.has(o)) {
+        await deleteMention(subj, o)
+        out.mentions.push(o)
+      }
+    }
+
+    const rows = (await queryArray(`SELECT ?o ?r ?t WHERE { ?r <${REIFIES}> <<( <${subj}> <${P}> ?o )>> ; a ?t }`)).results.bindings
+    for (const { o, r, t } of rows) {
+      const fresh = mentions.get(o.value)
+      if (!fresh || !t.value.startsWith(OCTO_NS)) continue
+      const name = t.value.slice(OCTO_NS.length)
+      if (!fresh.subtypes.has(name)) {
+        await deleteMention(subj, o.value, name)
+        out.subtypes.push(`${o.value} ${name}`)
+        continue
+      }
+      const keep = [...fresh.terms].map((x) => `<${termIri(base, x)}>`).join(', ')
+      const stale = (await queryArray(`SELECT ?x WHERE { <${r.value}> <${P}> ?x ${keep ? `FILTER(?x NOT IN (${keep}))` : ''} }`)).results.bindings
+      for (const { x } of stale) {
+        await query(`DELETE DATA { <${r.value}> <${P}> <${x.value}> }`)
+        out.relTerms++
+      }
+    }
+    return out
+  }
+
   const U = `${OCTO_NS}unavailable`
   const SINCE = `${OCTO_NS}unavailableSince`
   const FAIL = `${OCTO_NS}failCount`
@@ -168,5 +222,5 @@ export const createDeleter = (deps = {}) => {
     return { outcome: 'failure', reason }
   }
 
-  return { handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  return { reconcilePage, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }

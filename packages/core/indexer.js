@@ -1150,6 +1150,33 @@ export const createIndexer = (deps) => {
       }
     }
 
+    // #322: retract what S asserted before but this harvest no longer has.
+    // Built from the pre-blocklist set, so a newly-blocked term already in the
+    // graph is not retracted here (that stays epic #271's job). Runs only after
+    // every write above succeeded; a failure is logged, never fails the index.
+    try {
+      const freshTerms = new Set()
+      const freshMentions = new Map()
+      for (const o of uniqueOctothorpes) {
+        if (typeof o === 'string') { freshTerms.add(o); continue }
+        if (!o?.uri) continue
+        if (o.type === 'hashtag') { freshTerms.add(deslash(o.uri)); continue }
+        if (o.type === 'endorse') continue
+        let obj
+        try { obj = canonical(deslash(o.uri)) } catch { continue }
+        const entry = freshMentions.get(obj) ?? { subtypes: new Set(), terms: new Set() }
+        const subtype = resolveSubtype(o.type)
+        entry.subtypes.add(subtype)
+        // A cross-origin Link may have been promoted to a Backlink.
+        if (subtype === 'Link') entry.subtypes.add('Backlink')
+        ;(o.terms || []).forEach((t) => entry.terms.add(t))
+        freshMentions.set(obj, entry)
+      }
+      await deleter.reconcilePage(s, { terms: freshTerms, mentions: freshMentions }, { instance: base })
+    } catch (e) {
+      console.error('[index] re-index reconciliation failed:', e)
+    }
+
     // #213: record this page's octo:endorses declarations (per-origin, deduped).
     if (!claimed && friends.endorsed.length > 0 && /^https?:/.test(s)) {
       await recordEndorsements(s, friends.endorsed)

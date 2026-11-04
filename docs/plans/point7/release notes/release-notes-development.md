@@ -1735,3 +1735,16 @@ The `delete.js` shim and its re-exports are gone; `createDeleter` (`deleter.js`)
 Link promotion is lazy (it fires only when the originating page re-indexes), and the #270 migration did not backfill it. New `scripts/migrate-270/retro-promote.js` sweeps Link reifiers with no Backlink reifier on the same (s, o), keeps cross-origin pairs that pass the `promoteLink` gate (`<o's origin> octo:endorses <s's origin>` or reciprocal `<o> octo:octothorpes <s>`), and mints the Backlink reifier with the indexer's deterministic IRI. `octo:created` is copied first-wins from the Link reifier. Dry-run by default; `--apply` batches; same `--sparql` and Basic-auth env as `migrate.js`; idempotent. `storedOrigin` is ported from the indexer closure; the `originMode` check is approximated by requiring http(s) on both ends. Local bed: 107 of 1,553 unpromoted Links promoted, re-run finds 0. Not yet run against next or prod.
 
 **Files affected:** `scripts/migrate-270/retro-promote.js`, `src/tests/retroPromote.test.js`.
+
+## Re-index retracts stale thorpes and mentions (#322) (2026-11-04)
+
+A successful re-index now removes what the page no longer asserts. Before this, renaming a tag left the old octothorpe attached forever, and dropped links kept their relationships.
+
+- New `deleter.reconcilePage(s, { terms, mentions })` compares the fresh harvest to S's stored subject-position statements and hard-retracts the stale ones: term attachments (`deleteThorpe`), whole mentions (`deleteMention` without subtype), single dropped subtypes (`deleteMention` with subtype), and dropped relationship terms on reifiers that survive.
+- `ingestBlobject` calls it after all writes succeed, so it runs for both `/index` and blobject submissions, and never on failed fetches (dead pages stay with `handleDeadPage`).
+- A declared Link keeps an existing promoted Backlink. A declared Backlink whose gate is withheld this run keeps its existing reifier.
+- The fresh set is built before the term blocklist applies, so newly blocked terms are not retracted here (still #271).
+- Other pages' statements about S are never touched. Term nodes stay.
+- A reconciliation error is logged and does not fail the index.
+
+**Files affected:** `packages/core/deleter.js`, `packages/core/indexer.js`, `src/tests/reindexReconcile.test.js`.
