@@ -1772,3 +1772,21 @@ Withdrawn consent: when the gate returns pending for a pair that already holds a
 Scope: consent is inferred from indexable public URLs only. Token-based consent and revocation for non-indexable sources (no-auth, local, private) is a later extension; the seam is `checkAliasConsent`.
 
 Affected files: `packages/core/indexer.js`, `packages/core/deleter.js`, `src/routes/(endpoints)/index/+server.js`, `src/tests/aliasConsent.test.js` (new), `src/tests/aliasRevocation.test.js` (new), `src/tests/originSchemes.test.js`, `src/tests/subtypePaths.test.js` (stale `AliasOf` -> `Alias`).
+
+## Blobject entries keyed on (uri, subtype) (2026-11-05)
+
+`getBlobjectFromResponse` no longer collapses a target's subtypes into one entry: each declared subtype (Bookmark, Cite, ...) gets its own `octothorpes` entry with the terms of its own reifier, `type` stays a string. Inferred Backlink absorbs the generic `link` row and never appears alongside a specific subtype. `createEnrichBlobjectTargets` matches. Consumers that dedupe by `uri` can now see several rows per target; `/discover` and `api.get` consumers were not audited.
+
+**Files affected:** `packages/core/blobject.js`, `src/tests/blobject.test.js`.
+
+## Diff-driven re-index: zero writes on unchanged pages (#267, #322) (2026-11-05)
+
+`ingestBlobject` now reads the page's stored state up front (`readPageState`, two SELECTs), diffs it against the fresh harvest (`diffPageState`, pure and unit-tested), writes only the differences, and deletes through the same diff. An unchanged re-index issues zero SPARQL writes (live-store test with write spies); the old per-reifier sweep in `reconcilePage` is gone. Conditional gates (Backlink promotion, cross-origin, alias consent #345) are re-derived, not guessed, so promotion/revocation/pending-warning behavior is unchanged. A failed stored read falls back to write-everything; reconcile errors stay log-only. `ingestBlobject` gains `reconcile` (default `true`); `false` skips deletions only — required before any partial-set batch write. `mintSiteNum` and the webring join are now guarded by existence checks.
+
+**Files affected:** `packages/core/deleter.js`, `packages/core/indexer.js`, `src/tests/reindexReconcile.test.js`, `src/tests/deleter.test.js`.
+
+## Batch utilities in core (#274, #43) (2026-11-05)
+
+`createClient` gains `batchHarmonize(items, opts)` and `batchPublish(blobjects, publisher, opts)`. Items are url strings, `{url, harmonizer?}`, or `{blobject}` (skips fetch+harmonize); per-item harmonizer beats the list default. `mode: 'return-only'` (default) fetches and harmonizes with no store access or policy checks (orchestra-pit pattern); `mode: 'write'` sends URLs through `handler()` with every existing gate, and supplied blobjects through `ingestBlobject` (same gate profile as `indexSource({content})`). Per-item results; one failure never aborts the set. `batchPublish` renders whole-set or `perItem: true` through the existing publisher envelope. No new HTTP routes; `indexSource` and `handler()` now pass through `reconcile` and `documentRecordSchema`.
+
+**Files affected:** `packages/core/client.js`, `packages/core/indexer.js`, `src/tests/batch.test.js`.

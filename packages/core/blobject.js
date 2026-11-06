@@ -89,11 +89,37 @@ export const preferSubtype = (prev, next) => {
 
 const RDF_TYPE = `${RDF_NS}type`
 
+// One octothorpes entry per (uri, subtype), from a target's reifiers, each
+// `{ type, terms }` with type already reduced by preferSubtype. Specific
+// subtypes each keep an entry; Backlink stands in only when there is none;
+// 'link' (also an untyped reifier) only when nothing else exists. Terms on an
+// absorbed reifier go to every surviving entry.
+export const typedEntries = (uri, reifiers) => {
+  const byType = new Map()
+  for (const { type, terms } of reifiers) {
+    const t = type || 'link'
+    if (!byType.has(t)) byType.set(t, [])
+    const acc = byType.get(t)
+    for (const term of terms) if (!acc.includes(term)) acc.push(term)
+  }
+  const top = Math.max(...[...byType.keys()].map(subtypeRank))
+  const kept = [...byType.keys()].filter(t => subtypeRank(t) === top).sort()
+  const absorbed = [...byType.entries()].filter(([t]) => subtypeRank(t) !== top).flatMap(([, terms]) => terms)
+  return kept.map(type => {
+    const terms = [...byType.get(type)]
+    for (const term of absorbed) if (!terms.includes(term)) terms.push(term)
+    const entry = { uri, type }
+    if (terms.length) entry.terms = terms
+    return entry
+  })
+}
+
 export const getBlobjectFromResponse = async (response, filters = { limitResults: 100, offsetResults: 0, dateRange: null }, documentRecordSchema = []) => {
   const limit = filters.limitResults
   const offset = filters.offsetResults
 
   const urlMap = {};
+  const targetMaps = {};
 
   response.results.bindings.forEach(binding => {
     const url = binding.s.value;
@@ -170,51 +196,39 @@ export const getBlobjectFromResponse = async (response, filters = { limitResults
         }
       }
       else {
-        // For Pages, determine type. A row carrying the relationship's
-        // reifier (#270) reports its subtype (rdf:type) or one relationship
-        // term (octo:octothorpes); a target with no reifier is a plain link.
-        oType = "link"
+        // For Pages, rows are grouped per reifier (#270): a row reports its
+        // reifier's subtype (rdf:type) or one relationship term
+        // (octo:octothorpes); a target with no reifier is a plain link.
+        if (!targetMaps[url]) targetMaps[url] = new Map()
+        const targets = targetMaps[url]
+        if (!targets.has(targetUrl)) {
+          targets.set(targetUrl, new Map())
+          current.octothorpes.push({ uri: targetUrl, type: 'link' })
+        }
         const reifierPred = binding.reifierPred?.value
         const reifierObj = binding.reifierObj?.value
+        const key = binding.reifier?.value ?? ''
+        const reifiers = targets.get(targetUrl)
+        if (!reifiers.has(key)) reifiers.set(key, { type: '', terms: [] })
+        const r = reifiers.get(key)
         if (reifierPred === RDF_TYPE && reifierObj) {
-          oType = relationshipSubtypeName(reifierObj);
+          r.type = preferSubtype(r.type, relationshipSubtypeName(reifierObj))
         }
-
-        // Check if this target already exists in the array
-        const existingIndex = current.octothorpes.findIndex(
-          item => typeof item === 'object' && (item.target === targetUrl || item.uri === targetUrl)
-        );
-
-        // Terms on relationships
-        let relationTerm = null
         if (reifierPred === RELATIONSHIP_PREDICATE && reifierObj) {
-          relationTerm = termName(reifierObj)
-        }
-
-        if (existingIndex === -1) {
-          const newEntry = {
-            uri: targetUrl,
-            type: oType
-          }
-          if (relationTerm) {
-            newEntry.terms = [relationTerm]
-          }
-          current.octothorpes.push(newEntry);
-        } else {
-          // Row order must not decide the type (see preferSubtype).
-          current.octothorpes[existingIndex].type = preferSubtype(current.octothorpes[existingIndex].type, oType)
-          if (relationTerm) {
-            if (!current.octothorpes[existingIndex].terms) {
-              current.octothorpes[existingIndex].terms = []
-            }
-            if (!current.octothorpes[existingIndex].terms.includes(relationTerm)) {
-              current.octothorpes[existingIndex].terms.push(relationTerm)
-            }
-          }
+          const relationTerm = termName(reifierObj)
+          if (!r.terms.includes(relationTerm)) r.terms.push(relationTerm)
         }
       }
     }
   });
+
+  for (const [url, targets] of Object.entries(targetMaps)) {
+    urlMap[url].octothorpes = urlMap[url].octothorpes.flatMap(item =>
+      typeof item === 'object' && targets.has(item.uri)
+        ? typedEntries(item.uri, targets.get(item.uri).values())
+        : [item]
+    )
+  }
 
   // Filter by date range if specified
   // Use postDate when available, falling back to date (matches SPARQL ORDER BY behavior)
@@ -267,7 +281,7 @@ export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => 
 
   // #270: metadata lives on the relationship's RDF 1.2 reifier.
   const response = await queryArray(`
-    SELECT ?source ?target ?relType ?term WHERE {
+    SELECT ?source ?target ?rel ?relType ?term WHERE {
       VALUES ?source { ${sourceValues} }
       VALUES ?target { ${targetValues} }
       ${relationshipPattern({ reifier: '?rel', subject: '?source', object: '?target' })}
@@ -278,38 +292,30 @@ export const createEnrichBlobjectTargets = (queryArray) => async (blobjects) => 
 
   const lookup = new Map()
   for (const binding of response.results.bindings) {
-    const source = binding.source.value
-    const target = binding.target.value
-    const key = `${source}|${target}`
+    const key = `${binding.source.value}|${binding.target.value}`
     const relType = relationshipSubtypeName(binding.relType?.value || '')
-
-    if (!lookup.has(key)) {
-      lookup.set(key, { type: relType, terms: [] })
-    }
-    const entry = lookup.get(key)
-    // #334: first-row-wins here let a plain Link row shadow the Backlink row of
-    // a promoted (dual-typed) relationship. Same precedence as the blobject merge.
-    entry.type = preferSubtype(entry.type, relType)
-
+    if (!lookup.has(key)) lookup.set(key, new Map())
+    const reifiers = lookup.get(key)
+    const rel = binding.rel?.value ?? relType
+    if (!reifiers.has(rel)) reifiers.set(rel, { type: '', terms: [] })
+    const r = reifiers.get(rel)
+    r.type = preferSubtype(r.type, relType)
     if (binding.term?.value) {
-      const termUri = binding.term.value
-      const name = termName(termUri)
-      if (!entry.terms.includes(name)) {
-        entry.terms.push(name)
-      }
+      const name = termName(binding.term.value)
+      if (!r.terms.includes(name)) r.terms.push(name)
     }
   }
 
   for (const blob of blobjects) {
-    for (const o of blob.octothorpes) {
-      if (typeof o === 'object' && o.uri) {
-        const meta = lookup.get(`${blob['@id']}|${o.uri}`)
-        if (meta) {
-          o.type = meta.type
-          if (meta.terms.length > 0) o.terms = meta.terms
-        }
-      }
-    }
+    const done = new Set()
+    blob.octothorpes = blob.octothorpes.flatMap(o => {
+      if (typeof o !== 'object' || !o.uri) return [o]
+      const reifiers = lookup.get(`${blob['@id']}|${o.uri}`)
+      if (!reifiers) return [o]
+      if (done.has(o.uri)) return []
+      done.add(o.uri)
+      return typedEntries(o.uri, reifiers.values())
+    })
   }
 
   return blobjects

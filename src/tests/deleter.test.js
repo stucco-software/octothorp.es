@@ -326,3 +326,62 @@ describe.skipIf(!reachable)('#248 fast.* read exclusion (live store)', () => {
     await cleanup()
   })
 })
+
+describe('diffPageState (#322/#267)', async () => {
+  const { diffPageState } = await import('../../packages/core/deleter.js')
+  const base = 'https://x.example/'
+  const t = (name) => `${base}~/${name}`
+  const storedMention = (reifiers) => ({
+    subtypes: new Set(Object.keys(reifiers)),
+    terms: new Set(Object.values(reifiers).flat()),
+    reifiers: new Map(Object.entries(reifiers).map(([k, v]) => [k, new Set(v)])),
+    iris: new Map(Object.keys(reifiers).map((k) => [k, `urn:r:${k}`])),
+    termIris: new Map(Object.entries(reifiers).map(([k, v]) => [k, new Set(v.map(t))])),
+    ring: false,
+  })
+  const stored = (mentions, extra = {}) => ({ terms: new Set(), mentions: new Map(Object.entries(mentions)), aliasClaims: new Set(), typed: true, meta: new Map(), ...extra })
+  const freshMention = (reifiers) => ({
+    subtypes: new Set(Object.keys(reifiers)),
+    terms: new Set(Object.values(reifiers).flat()),
+    reifiers: new Map(Object.entries(reifiers).map(([k, v]) => [k, new Set(v)])),
+  })
+
+  it('identical state diffs empty', () => {
+    const d = diffPageState(
+      stored({ 'https://o.example': storedMention({ Link: ['a'], Backlink: ['a'] }) }, { terms: new Set(['tag']) }),
+      { terms: ['tag'], mentions: new Map([['https://o.example', freshMention({ Link: ['a'], Backlink: ['a'] })]]) },
+      base,
+    )
+    expect(Object.values(d).every((v) => v.length === 0)).toBe(true)
+  })
+
+  it('compares relationship terms per reifier', () => {
+    const d = diffPageState(
+      stored({ 'https://o.example': storedMention({ Bookmark: ['a'], Cite: [] }) }),
+      { mentions: new Map([['https://o.example', freshMention({ Bookmark: [], Cite: ['a'] })]]) },
+      base,
+    )
+    expect(d.relTerms).toEqual([['urn:r:Bookmark', t('a')]])
+    expect(d.subtypes).toEqual([])
+  })
+
+  it('a dropped alias revokes and retracts unbacked claims', () => {
+    const d = diffPageState(
+      stored({ 'https://o.example': storedMention({ Alias: [] }) }, { aliasClaims: new Set(['https://p.example']) }),
+      { mentions: new Map([['https://o.example', freshMention({ Bookmark: [] })]]) },
+      base,
+    )
+    expect(d.subtypes).toEqual([['https://o.example', 'Alias']])
+    expect(d.aliases).toEqual(['https://o.example'])
+    expect(d.aliasClaims).toEqual(['https://p.example'])
+  })
+
+  it('accepts the object-wide dialect (no reifiers map)', () => {
+    const d = diffPageState(
+      stored({ 'https://o.example': storedMention({ Bookmark: ['a', 'b'] }) }),
+      { mentions: new Map([['https://o.example', { subtypes: new Set(['Bookmark']), terms: new Set(['a']) }]]) },
+      base,
+    )
+    expect(d.relTerms).toEqual([['urn:r:Bookmark', t('b')]])
+  })
+})

@@ -13,7 +13,7 @@ import { parseUri, validateSameOrigin, canonicalOrigin, getScheme } from './uri.
 import { verifiedOrigin, isExcluded, mintSiteNum } from './origin.js'
 import { verifyAnchorSubmission } from './anchorAuth.js'
 import { scopeIri } from './scopedIri.js'
-import { CLASS, typeRef, classIri, SUBTYPE_ALIASES } from './vocabulary.js'
+import { CLASS, typeRef, classIri, SUBTYPE_ALIASES, OCTO_NS } from './vocabulary.js'
 import { canonical, mintReifierIri } from './reifier.js'
 import normalizeUrl from 'normalize-url'
 
@@ -636,7 +636,17 @@ export const createIndexer = (deps) => {
     return text
   }
 
-  const recordProperty = async (s, predicate, value) => {
+  // #267: true when S's stored state (readPageState meta) holds exactly one
+  // value for the predicate IRI and `same` accepts it, so the write can be
+  // skipped. Without stored state nothing is skipped.
+  const storedIs = (meta, iri, same) => {
+    const vals = meta?.get(iri)
+    return Boolean(vals && vals.length === 1 && same(vals[0]))
+  }
+  const plainLiteral = (text) => (b) =>
+    b.type === 'literal' && !b['xml:lang'] && (!b.datatype || b.datatype === `${XSD}string`) && b.value === text
+
+  const recordProperty = async (s, predicate, value, meta) => {
     if (!value) {
       return
     }
@@ -644,6 +654,7 @@ export const createIndexer = (deps) => {
     if (!text) {
       return
     }
+    if (storedIs(meta, predicate.replace(/^octo:/, OCTO_NS), plainLiteral(text))) return
     return await query(`
       delete { <${s}> ${predicate} ?o . }
       insert { <${s}> ${predicate} "${escapeLiteral(text)}" . }
@@ -651,11 +662,11 @@ export const createIndexer = (deps) => {
     `)
   }
 
-  const recordTitle = (s, title) => recordProperty(s, 'octo:title', title)
-  const recordDescription = (s, description) => recordProperty(s, 'octo:description', description)
-  const recordImage = (s, image) => recordProperty(s, 'octo:image', image)
+  const recordTitle = (s, title, meta) => recordProperty(s, 'octo:title', title, meta)
+  const recordDescription = (s, description, meta) => recordProperty(s, 'octo:description', description, meta)
+  const recordImage = (s, image, meta) => recordProperty(s, 'octo:image', image, meta)
 
-  const recordPostDate = async (s, value) => {
+  const recordPostDate = async (s, value, meta) => {
     if (!value) {
       return
     }
@@ -663,6 +674,7 @@ export const createIndexer = (deps) => {
     if (isNaN(timestamp)) {
       return
     }
+    if (storedIs(meta, `${OCTO_NS}postDate`, (b) => b.datatype === `${XSD}integer` && Number(b.value) === timestamp)) return
     return await query(`
       delete { <${s}> octo:postDate ?o . }
       insert { <${s}> octo:postDate ${timestamp} . }
@@ -684,7 +696,7 @@ export const createIndexer = (deps) => {
   // documentRecord is not a route into foreign vocabularies.
   // Idempotent per predicate (delete-then-insert). Leaf triples only — never the
   // blank-node relationship machinery (RDF-star insulation).
-  const recordDocumentRecord = async (s, documentRecord, schema = documentRecordSchema) => {
+  const recordDocumentRecord = async (s, documentRecord, schema = documentRecordSchema, meta) => {
     if (!documentRecord || typeof documentRecord !== 'object') return
     if (!Array.isArray(schema) || schema.length === 0) return
     for (const entry of schema) {
@@ -692,7 +704,9 @@ export const createIndexer = (deps) => {
       if (value === undefined || value === null || value === '') continue
       const iri = resolveDocumentRecordIri(entry)
       if (!iri) continue
-      let object
+      // `same` recognises the stored binding of this exact value. Numbers and
+      // dates compare by value: the store may hand back another lexical form.
+      let object, same
       if (entry.range === 'uri') {
         const safe = safeIri(value)
         if (!safe) {
@@ -700,6 +714,7 @@ export const createIndexer = (deps) => {
           continue
         }
         object = `<${safe}>`
+        same = (b) => b.type === 'uri' && b.value === safe
       } else if (entry.range === 'number') {
         const n = Number(value)
         if (typeof value === 'boolean' || String(value).trim() === '' || !Number.isFinite(n) || /e/i.test(String(n))) {
@@ -707,6 +722,7 @@ export const createIndexer = (deps) => {
           continue
         }
         object = `"${n}"^^<${XSD}decimal>`
+        same = (b) => b.datatype === `${XSD}decimal` && Number(b.value) === n
       } else if (entry.range === 'timestamp') {
         const d = new Date(value)
         if (Number.isNaN(d.getTime())) {
@@ -714,9 +730,12 @@ export const createIndexer = (deps) => {
           continue
         }
         object = `"${d.toISOString()}"^^<${XSD}dateTime>`
+        same = (b) => b.datatype === `${XSD}dateTime` && new Date(b.value).getTime() === d.getTime()
       } else {
         object = `"${escapeLiteral(String(value))}"`
+        same = plainLiteral(String(value))
       }
+      if (storedIs(meta, iri, same)) continue
       // `?o` is unconstrained, so the delete matches the old value whatever its
       // datatype. This is the migration story: plain (untyped) literals written
       // before typed-by-range storage are replaced by typed ones on reindex.
@@ -934,6 +953,25 @@ export const createIndexer = (deps) => {
     }
   }
 
+  // A page linking to a webring joins it once the ring links back to the
+  // page's domain.
+  const joinWebring = async (subj, obj) => {
+    const domain = await getDomainForUrl(subj)
+    const hasLinked = await queryBoolean(`
+      ask {
+        <${obj}> octo:octothorpes <${domain}> .
+      }
+    `)
+    if (hasLinked && !(await extantMember(obj, domain))) {
+      await createWebringMember(obj, domain)
+    }
+    console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked)
+  }
+
+  const pendingAliasWarning = (subj, obj, revoked) => revoked
+    ? `Alias from ${subj} to ${obj} revoked pending renewed consent: ${obj} no longer reciprocates or endorses ${storedOrigin(subj)}. Claim recorded, not published.`
+    : `Alias claim from ${subj} to ${obj} recorded but not published: ${obj} has not reciprocated or endorsed ${storedOrigin(subj)}.`
+
   // handleMention writes two things for each page-to-page relationship:
   // 1. mentionTriples: the flat fact <source> octo:octothorpes <target> plus
   //    its first-seen timestamp and page/origin side-effects.
@@ -980,16 +1018,7 @@ export const createIndexer = (deps) => {
     // domain), so it is an origin side-effect and skipped for declared
     // non-http subjects (#241).
     if (isObjWebring && originMode === 'origin') {
-      const domain = await getDomainForUrl(subj)
-      const hasLinked = await queryBoolean(`
-        ask {
-          <${obj}> octo:octothorpes <${domain}> .
-        }
-      `)
-      if (hasLinked) {
-        await createWebringMember(obj, domain)
-      }
-      console.log(`Webring ${obj} has linked to the domain for this page`, hasLinked)
+      await joinWebring(subj, obj)
     }
 
     // Phase 2: batch all time-invariant writes into a single INSERT DATA
@@ -1063,9 +1092,7 @@ export const createIndexer = (deps) => {
         const wasLive = await queryBoolean(`ask { <${fwd.reifier}> rdf:type <${fwd.subtypeIri}> . }`)
         if (wasLive) await deleter.revokeAlias(subj, obj)
         blocks.push(`<${subj}> octo:aliasClaim <${obj}> .`)
-        aliasWarning = wasLive
-          ? `Alias from ${subj} to ${obj} revoked pending renewed consent: ${obj} no longer reciprocates or endorses ${storedOrigin(subj)}. Claim recorded, not published.`
-          : `Alias claim from ${subj} to ${obj} recorded but not published: ${obj} has not reciprocated or endorsed ${storedOrigin(subj)}.`
+        aliasWarning = pendingAliasWarning(subj, obj, wasLive)
         console.log(`alias withheld: ${aliasWarning}`)
       }
     }
@@ -1104,6 +1131,62 @@ export const createIndexer = (deps) => {
     return aliasWarning ? { warning: aliasWarning } : {}
   }
 
+  // #267: decide whether handleMention would store anything new for
+  // (subj, obj, subtype, terms), given S's stored state (readPageState of the
+  // canonical subject). Writes that hang on a gate are re-derived with the
+  // gate's own reads, so skipping never hides a newly passed Backlink gate, a
+  // newly promotable Link, or a change in alias consent (#345). Returns null
+  // when handleMention must run, else { warning } (a still-pending alias
+  // warns the same way handleMention does).
+  const unchangedMention = async (subj, obj, subtype, terms, stored, originMode) => {
+    const st = stored.mentions.get(obj)
+    if (!st || !stored.typed) return null
+    const holds = (t) => st.reifiers.has(t) && terms.every((x) => st.reifiers.get(t).has(x))
+    let warning
+    let skip
+    if (subtype === 'Alias') {
+      const consent = await checkAliasConsent(subj, obj, originMode)
+      skip = st.reifiers.has('Alias')
+        ? consent === 'allowed' && holds('Alias')
+        : consent === 'pending' && stored.aliasClaims.has(obj)
+      if (skip && consent === 'pending') warning = pendingAliasWarning(subj, obj, false)
+    } else if (subtype === 'Backlink') {
+      skip = holds('Backlink') || !(await checkEndorsement(subj, obj, subtype))
+    } else if (subtype === 'Link' && originMode === 'origin' && storedOrigin(subj) !== storedOrigin(obj)) {
+      skip = holds('Link') && (holds('Backlink') || !(await checkEndorsement(subj, obj, subtype)))
+    } else {
+      skip = holds(subtype)
+    }
+    if (!skip) return null
+    if (st.ring && originMode === 'origin') await joinWebring(subj, obj)
+    return warning ? { warning } : {}
+  }
+
+  // The fresh side of the #322 diff, in readPageState's dialect: what the
+  // write path stores for these octothorpes. A Link may have been promoted,
+  // so it also vouches for a Backlink carrying the same terms.
+  const freshPageState = (octothorpes) => {
+    const terms = new Set()
+    const mentions = new Map()
+    for (const o of octothorpes) {
+      if (typeof o === 'string') { terms.add(o); continue }
+      if (!o?.uri) continue
+      if (o.type === 'hashtag') { terms.add(deslash(o.uri)); continue }
+      if (o.type === 'endorse') continue
+      let obj
+      try { obj = canonical(deslash(o.uri)) } catch { continue }
+      const entry = mentions.get(obj) ?? { subtypes: new Set(), terms: new Set(), reifiers: new Map() }
+      const subtype = resolveSubtype(o.type)
+      for (const t of subtype === 'Link' ? ['Link', 'Backlink'] : [subtype]) {
+        entry.subtypes.add(t)
+        if (!entry.reifiers.has(t)) entry.reifiers.set(t, new Set())
+        for (const x of o.terms || []) { entry.reifiers.get(t).add(x); entry.terms.add(x) }
+      }
+      mentions.set(obj, entry)
+    }
+    return { terms, mentions }
+  }
+
   const handleWebring = async (s, friends, alreadyRing) => {
     const domainsOnPage = friends.linked.map(member => deslash(member))
     const membersResult = await webringMembers(s)
@@ -1130,7 +1213,7 @@ export const createIndexer = (deps) => {
     }
   }
 
-  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false, claimed = false } = {}) => {
+  const ingestBlobject = async (harmed, { instance: inst, documentRecordSchema: schemaOverride, access: accessOverride, endorsed = false, claimed = false, reconcile = true } = {}) => {
     if (!harmed) {
       throw new Error('Harmonization failed — harmonizer returned no data.')
     }
@@ -1158,11 +1241,28 @@ export const createIndexer = (deps) => {
       await createPage(s)
     }
 
-    await recordTitle(s, harmed.title)
-    await recordDescription(s, harmed.description)
-    await recordImage(s, harmed.image)
-    await recordPostDate(s, harmed.postDate)
-    await recordDocumentRecord(s, harmed.documentRecord, schemaOverride ?? documentRecordSchema)
+    // #267/#322: S's stored state, read once. It drives skip-unchanged writes
+    // below and the reconcile diff after them. Metadata and term attachments
+    // are written under `s` as given, relationships under canonical(s); read
+    // each spelling. If the read fails, everything is written as before and
+    // reconcile reads for itself.
+    let subj = s
+    try { subj = canonical(s) } catch {}
+    let stored = null
+    let storedCanon = null
+    try {
+      stored = await deleter.readPageState(s, { instance: base })
+      storedCanon = subj === s ? stored : await deleter.readPageState(subj, { instance: base })
+    } catch (e) {
+      console.error('[index] stored-state read failed; writing every statement:', e)
+      stored = storedCanon = null
+    }
+
+    await recordTitle(s, harmed.title, stored?.meta)
+    await recordDescription(s, harmed.description, stored?.meta)
+    await recordImage(s, harmed.image, stored?.meta)
+    await recordPostDate(s, harmed.postDate, stored?.meta)
+    await recordDocumentRecord(s, harmed.documentRecord, schemaOverride ?? documentRecordSchema, stored?.meta)
 
     let friends = { endorsed: [], linked: [] }
     // #345: non-fatal per-statement warnings surfaced in the index response.
@@ -1199,15 +1299,16 @@ export const createIndexer = (deps) => {
       return false
     })
 
+    const originMode = claimed ? 'declared' : subjectOriginMode(subj, schemes)
     for (const octothorpe of admittedOctothorpes) {
       if (typeof octothorpe === 'string') {
-        await handleThorpe(s, octothorpe, { instance: base, endorsed, schemes, claimed })
+        if (!stored?.terms.has(octothorpe)) await handleThorpe(s, octothorpe, { instance: base, endorsed, schemes, claimed })
         continue
       }
       if (!octothorpe.uri) continue
       let octoURI = deslash(octothorpe.uri)
       if (octothorpe.type === 'hashtag') {
-        await handleThorpe(s, octoURI, { instance: base, endorsed, schemes, claimed })
+        if (!stored?.terms.has(octoURI)) await handleThorpe(s, octoURI, { instance: base, endorsed, schemes, claimed })
       } else if (octothorpe.type === 'endorse') {
         friends.endorsed.push(octoURI)
       } else {
@@ -1217,7 +1318,11 @@ export const createIndexer = (deps) => {
           console.warn(`[index] term "${t}" is not writable on this server; statement dropped`)
           return false
         })
-        const result = await handleMention(s, octoURI, resolveSubtype(octothorpe.type), terms, { instance: base, endorsed, schemes, claimed })
+        const subtype = resolveSubtype(octothorpe.type)
+        let obj = null
+        try { obj = canonical(octoURI) } catch {}
+        const result = (storedCanon && obj && await unchangedMention(subj, obj, subtype, terms, storedCanon, originMode))
+          || await handleMention(s, octoURI, subtype, terms, { instance: base, endorsed, schemes, claimed })
         if (result?.warning) warnings.push(result.warning)
       }
     }
@@ -1226,25 +1331,8 @@ export const createIndexer = (deps) => {
     // Built from the pre-blocklist set, so a newly-blocked term already in the
     // graph is not retracted here (that stays epic #271's job). Runs only after
     // every write above succeeded; a failure is logged, never fails the index.
-    try {
-      const freshTerms = new Set()
-      const freshMentions = new Map()
-      for (const o of uniqueOctothorpes) {
-        if (typeof o === 'string') { freshTerms.add(o); continue }
-        if (!o?.uri) continue
-        if (o.type === 'hashtag') { freshTerms.add(deslash(o.uri)); continue }
-        if (o.type === 'endorse') continue
-        let obj
-        try { obj = canonical(deslash(o.uri)) } catch { continue }
-        const entry = freshMentions.get(obj) ?? { subtypes: new Set(), terms: new Set() }
-        const subtype = resolveSubtype(o.type)
-        entry.subtypes.add(subtype)
-        // A cross-origin Link may have been promoted to a Backlink.
-        if (subtype === 'Link') entry.subtypes.add('Backlink')
-        ;(o.terms || []).forEach((t) => entry.terms.add(t))
-        freshMentions.set(obj, entry)
-      }
-      await deleter.reconcilePage(s, { terms: freshTerms, mentions: freshMentions }, { instance: base })
+    if (reconcile) try {
+      await deleter.reconcilePage(s, freshPageState(uniqueOctothorpes), { instance: base, stored: storedCanon ?? undefined })
     } catch (e) {
       console.error('[index] re-index reconciliation failed:', e)
     }
@@ -1259,7 +1347,8 @@ export const createIndexer = (deps) => {
     // endorsement-only admission (no origin triples are written then).
     if (!claimed && !endorsed && /^https?:/.test(s)) {
       try {
-        await mintSiteNum(storedOrigin(s), { query })
+        const origin = storedOrigin(s)
+        if (!(await queryBoolean(`ask { <${origin}> octo:siteNum ?n . }`))) await mintSiteNum(origin, { query })
       } catch (e) {
         console.error('siteNum mint failed:', e)
       }
@@ -1435,6 +1524,8 @@ export const createIndexer = (deps) => {
       // Per-call override of the client-level access block, mirroring how
       // verifyOrigin is overridden today.
       access: accessOverride,
+      reconcile = true,
+      documentRecordSchema: schemaOverride,
     } = config
     const effectiveAccess = accessOverride ? normalizeAccess(accessOverride) : access
     const base = inst || instance
@@ -1652,7 +1743,7 @@ export const createIndexer = (deps) => {
     // Active mode (crawler-initiated) never mints octo:verified origins: it skips
     // registration, so it must not manufacture it either (treated like an
     // endorsement-only admission).
-    const result = await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active })
+    const result = await ingestBlobject(blobject, { instance: base, access: effectiveAccess, endorsed: endorsed || active, reconcile, documentRecordSchema: schemaOverride })
     // A successful index clears unavailable/failure markers (restore).
     if (await queryBoolean(`ASK { { <${parsed.normalized}> octo:unavailable ?x } UNION { <${parsed.normalized}> octo:failCount ?x } }`)) {
       await deleter.restorePage(parsed.normalized)

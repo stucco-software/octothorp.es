@@ -3,7 +3,7 @@ import { createApi } from './api.js'
 import { createHarmonizerRegistry } from './harmonizers.js'
 import { createIndexer, resolveSubtype } from './indexer.js'
 import { createDeleter } from './deleter.js'
-import { harmonizerId } from './utils.js'
+import { harmonizerId, userAgent } from './utils.js'
 import { createPublisherRegistry, resolveEnvelope, assertRequires } from './publishers.js'
 import { QueryError } from './errors.js'
 import { createHandlerRegistry, nullHandler } from './handlerRegistry.js'
@@ -482,7 +482,7 @@ export const createClient = (config) => {
   })
 
   const indexSource = async (uri, options = {}) => {
-    const { origin, content, harmonizer = 'default', policyCheck } = options
+    const { origin, content, harmonizer = 'default', policyCheck, reconcile, documentRecordSchema } = options
 
     let requestingOrigin = origin ?? null
     if (policy.mode === 'active' && !policyCheck) {
@@ -497,17 +497,69 @@ export const createClient = (config) => {
         : undefined,
       policyMode: policy.mode,
       policyCheck,
+      ...(reconcile !== undefined ? { reconcile } : {}),
+      ...(documentRecordSchema ? { documentRecordSchema } : {}),
     }
 
     if (content !== undefined) {
       const blobject = await harmonize(content, harmonizer)
       if (blobject['@id'] === 'source') blobject['@id'] = uri
-      await indexer.ingestBlobject(blobject, { instance: config.instance })
+      await indexer.ingestBlobject(blobject, { instance: config.instance, reconcile, documentRecordSchema })
       return { uri, indexed_at: Date.now() }
     }
 
     await indexer.handler(uri, harmonizer, requestingOrigin, handlerConfig)
     return { uri, indexed_at: Date.now() }
+  }
+
+  // Fetch-only: no policy, rate-limit, or store reads. Mirrors the
+  // orchestra-pit debug route.
+  const fetchAndHarmonize = async (url, harmonizerName) => {
+    const response = await fetch(url, { headers: { 'User-Agent': userAgent({ instance: config.instance }) } })
+    if (!response.ok) throw new Error(`Fetch failed (HTTP ${response.status}).`)
+    const content = await response.text()
+    const contentType = response.headers.get('content-type') || 'text/html'
+    const blobject = await harmonize(content, harmonizerName, { contentType, instance: config.instance, url })
+    if (!blobject) throw new Error('Harmonization failed — harmonizer returned no data.')
+    if (blobject['@id'] === 'source') blobject['@id'] = url
+    return blobject
+  }
+
+  /**
+   * items: url strings, { url, harmonizer? }, or { blobject } (skips fetch+harmonize).
+   * mode 'return-only' (default) never touches the store; 'write' sends URLs
+   * through indexSource (full handler gates) and supplied blobjects through
+   * ingestBlobject, matching indexSource's content path.
+   * Sequential on purpose: be gentle on remote hosts. Never throws per item.
+   */
+  const batchHarmonize = async (items = [], opts = {}) => {
+    const { harmonizer: listHarmonizer = 'default', mode = 'return-only', reconcile, documentRecordSchema, origin, policyCheck } = opts
+    if (mode !== 'write' && mode !== 'return-only') throw new Error(`batchHarmonize: unsupported mode "${mode}"`)
+    const results = []
+    for (const raw of items) {
+      const item = typeof raw === 'string' ? { url: raw } : (raw ?? {})
+      const url = item.url ?? item.blobject?.['@id']
+      try {
+        if (item.blobject) {
+          if (mode === 'write') {
+            await indexer.ingestBlobject(item.blobject, { instance: config.instance, reconcile, documentRecordSchema })
+          }
+          results.push({ url, status: mode === 'write' ? 'indexed' : 'ok', blobject: item.blobject })
+          continue
+        }
+        if (typeof item.url !== 'string') throw new Error('item needs a url or a blobject')
+        const harmonizerName = item.harmonizer ?? listHarmonizer
+        if (mode === 'write') {
+          await indexSource(item.url, { harmonizer: harmonizerName, origin, policyCheck, reconcile, documentRecordSchema })
+          results.push({ url, status: 'indexed' })
+        } else {
+          results.push({ url, status: 'ok', blobject: await fetchAndHarmonize(item.url, harmonizerName) })
+        }
+      } catch (e) {
+        results.push({ url, status: e?.isWarning ? 'warning' : 'error', error: e?.message ?? String(e) })
+      }
+    }
+    return results
   }
 
   const publisherRegistry = createPublisherRegistry({ warn: config.warn ?? console.warn })
@@ -630,6 +682,7 @@ export const createClient = (config) => {
     get,
     getfast: api.fast,
     harmonize,
+    batchHarmonize,
     publish: async (data, publisherOrName, pubDefs = {}) => {
       const pub = typeof publisherOrName === 'string'
         ? publisherRegistry.getPublisher(publisherOrName)
@@ -645,6 +698,31 @@ export const createClient = (config) => {
         ...pickEnvelope(pubDefs),
       })
       return await pub.render(items, envelope, pubDefs)
+    },
+    // Whole-set by default: one render over the array, as client.publish.
+    // perItem renders each blobject alone so one bad record is isolated.
+    batchPublish: async (blobjects = [], publisherOrName, opts = {}) => {
+      const { perItem = false, ...pubDefs } = opts
+      const pub = typeof publisherOrName === 'string'
+        ? publisherRegistry.getPublisher(publisherOrName)
+        : publisherOrName
+      if (!pub) throw new Error(`Unknown publisher: ${publisherOrName}`)
+      assertRequires(pub, pubDefs)
+      const envelope = resolveEnvelope(pub, { feedDate: new Date().toUTCString(), ...pickEnvelope(pubDefs) })
+      if (!perItem) {
+        const output = await pub.render(publish(blobjects, pub.resolver), envelope, pubDefs)
+        return { status: 'ok', output, contentType: pub.contentType, count: blobjects.length }
+      }
+      const results = []
+      for (const b of blobjects) {
+        try {
+          const output = await pub.render(publish([b], pub.resolver), envelope, pubDefs)
+          results.push({ url: b?.['@id'], status: 'ok', output })
+        } catch (e) {
+          results.push({ url: b?.['@id'], status: 'error', error: e?.message ?? String(e) })
+        }
+      }
+      return { status: 'ok', results, contentType: pub.contentType }
     },
     prepare: (data, publisherName) => {
       const pub = typeof publisherName === 'string'

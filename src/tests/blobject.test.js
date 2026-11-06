@@ -165,3 +165,40 @@ describe('api.get everything - dual-typed (promoted) relationship through the fu
     expect(await run(['Bookmark', 'Backlink'])).toBe('Bookmark')
   })
 })
+
+describe('getBlobjectFromResponse - entries keyed on (uri, subtype)', () => {
+  const S = 'https://source.com/page', T = 'https://target.com/page'
+  const row = (reifier, pred, obj) => ({
+    s: { value: S }, o: { value: T }, oType: { value: 'octo:Page' },
+    ...(reifier ? { reifier: { value: reifier }, reifierPred: { value: pred }, reifierObj: { value: obj } } : {}),
+  })
+  const entries = async (rows) => (await getBlobjectFromResponse({ results: { bindings: rows } }))[0].octothorpes
+
+  it('stored Bookmark + Cite on one target gives two entries, terms on their own reifier', async () => {
+    const out = await entries([
+      row('urn:r:b', RDF_TYPE, `${OCTO}Bookmark`),
+      row('urn:r:c', RDF_TYPE, `${OCTO}Cite`),
+      row('urn:r:b', OCTOTHORPES, 'http://localhost:5173/~/gadgets'),
+    ])
+    expect(out).toEqual([
+      { uri: T, type: 'Bookmark', terms: ['gadgets'] },
+      { uri: T, type: 'Cite' },
+    ])
+  })
+
+  it('Backlink + Link gives one Backlink entry', async () => {
+    expect(await entries([row('urn:r:l', RDF_TYPE, `${OCTO}Link`), row('urn:r:l', RDF_TYPE, `${OCTO}Backlink`)]))
+      .toEqual([{ uri: T, type: 'Backlink' }])
+    expect(await entries([row('urn:r:l', RDF_TYPE, `${OCTO}Link`), row('urn:r:k', RDF_TYPE, `${OCTO}Backlink`)]))
+      .toEqual([{ uri: T, type: 'Backlink' }])
+  })
+
+  it('Backlink never sits alongside a specific subtype', async () => {
+    expect(await entries([row('urn:r:k', RDF_TYPE, `${OCTO}Backlink`), row('urn:r:b', RDF_TYPE, `${OCTO}Bookmark`)]))
+      .toEqual([{ uri: T, type: 'Bookmark' }])
+  })
+
+  it('plain link gives one link entry', async () => {
+    expect(await entries([row()])).toEqual([{ uri: T, type: 'link' }])
+  })
+})

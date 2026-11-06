@@ -5,13 +5,47 @@
 // is the bulk test wipe and IS guarded by assertDeletableTarget.
 
 import { canonical, mintReifierIri } from './reifier.js'
-import { classIri, OCTO_NS } from './vocabulary.js'
+import { classIri, OCTO_NS, typeRef, CLASS } from './vocabulary.js'
 import { termIri, termName } from './utils.js'
 
 const P = `${OCTO_NS}octothorpes`
 const CLAIM = `${OCTO_NS}aliasClaim`
 const REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'
+const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
 const strip = (s) => (s || '').replace(/\/$/, '')
+
+/**
+ * #322/#267: what a re-index must retract, as the difference between S's
+ * stored state (readPageState) and the fresh harvest. Pure. Subtypes and
+ * relationship terms compare per reifier; a fresh mention without a
+ * `reifiers` map falls back to its object-wide `terms`.
+ *
+ * @param {ReturnType<typeof readPageState>} stored
+ * @param {{terms: Iterable<string>, mentions: Map<string, {subtypes: Set<string>, terms: Set<string>, reifiers?: Map<string, Set<string>>}>}} fresh
+ * @param {string} base instance the term IRIs are minted under
+ * @returns {{thorpes: string[], mentions: string[], subtypes: [string, string][], relTerms: [string, string][], aliases: string[], aliasClaims: string[]}}
+ *   thorpes: term names; subtypes: [object, class name]; relTerms: [reifier IRI, term IRI]
+ */
+export const diffPageState = (stored, { terms = [], mentions = new Map() } = {}, base) => {
+  const freshTerms = new Set(terms)
+  const keepsAlias = (o) => Boolean(mentions.get(o)?.subtypes?.has('Alias'))
+  const out = { thorpes: [], mentions: [], subtypes: [], relTerms: [], aliases: [], aliasClaims: [] }
+  for (const name of stored.terms) if (!freshTerms.has(name)) out.thorpes.push(name)
+  for (const [o, st] of stored.mentions) {
+    if (st.subtypes.has('Alias') && !keepsAlias(o)) out.aliases.push(o)
+    const fr = mentions.get(o)
+    if (!fr) { out.mentions.push(o); continue }
+    for (const name of st.subtypes) {
+      if (!fr.subtypes.has(name)) { out.subtypes.push([o, name]); continue }
+      const keep = new Set([...(fr.reifiers?.get(name) ?? fr.terms)].map((t) => termIri(base, t)))
+      for (const x of st.termIris.get(name) ?? []) {
+        if (!keep.has(x)) out.relTerms.push([st.iris.get(name), x])
+      }
+    }
+  }
+  for (const o of stored.aliasClaims) if (!keepsAlias(o)) out.aliasClaims.push(o)
+  return out
+}
 
 export const DEFAULT_DELETABLE_TARGETS = {
   instances: ['http://localhost:5173', 'https://next.octothorp.es'],
@@ -134,66 +168,95 @@ export const createDeleter = (deps = {}) => {
   }
 
   /**
-   * #322 re-index reconciliation. Given what a fresh, successful harvest of S
-   * produced, hard-retract S's stored assertions the harvest no longer has:
-   * term attachments (deleteThorpe), whole mentions (deleteMention without
-   * subtype), single subtypes (deleteMention with subtype), and relationship
-   * terms on reifiers that survive, and stale pending octo:aliasClaim triples.
-   * Subject-position only, with ONE exception (#345): a revoked S -> O Alias
-   * also deletes the reverse O -> S Alias reifier.
+   * #322/#267: everything S asserts that ingestBlobject writes, in the dialect
+   * ingestBlobject builds for the fresh harvest, so the two diff directly.
+   * Two SELECTs: S's subject-position triples, then S's relationship
+   * reifiers. Reads `s` exactly as given (callers pass the spelling they
+   * wrote with).
    *
-   * @param {string} s
-   * @param {{terms: Iterable<string>, mentions: Map<string, {subtypes: Set<string>, terms: Set<string>}>}} fresh
-   *   terms: term names; mentions: canonical object -> class names + term names
-   * @returns {Promise<{thorpes: string[], mentions: string[], subtypes: string[], relTerms: number}>}
+   * - terms: names of attached terms whose IRI round-trips through termIri
+   *   (handleThorpe and deleteThorpe address terms by name)
+   * - mentions: object -> { subtypes, terms, reifiers: subtype -> term names,
+   *   iris: subtype -> reifier IRI, termIris: subtype -> stored term IRIs,
+   *   ring: object is a Webring }
+   * - aliasClaims: objects of pending <S> octo:aliasClaim triples
+   * - typed: S carries rdf:type octo:Page
+   * - meta: every other predicate IRI -> its SPARQL JSON bindings
    */
-  const reconcilePage = async (s, { terms = [], mentions = new Map() } = {}, { instance: inst } = {}) => {
-    const subj = canonical(s)
+  const readPageState = async (s, { instance: inst } = {}) => {
     const base = inst || deps.instance
     const termPrefix = termIri(base, '')
-    const freshTermIris = new Set([...terms].map((t) => termIri(base, t)))
-    const out = { thorpes: [], mentions: [], subtypes: [], relTerms: 0 }
+    const page = typeRef(CLASS.Page)
+    const state = { terms: new Set(), mentions: new Map(), aliasClaims: new Set(), typed: false, meta: new Map() }
+    const mention = (o) => {
+      if (!state.mentions.has(o)) {
+        state.mentions.set(o, { subtypes: new Set(), terms: new Set(), reifiers: new Map(), iris: new Map(), termIris: new Map(), ring: false })
+      }
+      return state.mentions.get(o)
+    }
 
-    // #345: aliases S asserted that the fresh harvest no longer carries. Read
-    // before the sweeps below delete S's side of them.
-    const aliasIri = classIri('Alias')
-    const keepsAlias = (o) => Boolean(mentions.get(o)?.subtypes?.has('Alias'))
-    const revokedAliases = (await queryArray(`SELECT DISTINCT ?o WHERE { ?r <${REIFIES}> <<( <${subj}> <${P}> ?o )>> ; a <${aliasIri}> }`))
-      .results.bindings.map((b) => b.o.value).filter((o) => !keepsAlias(o))
-    out.aliases = []
-    out.aliasClaims = []
-
-    const objs = (await queryArray(`SELECT DISTINCT ?o WHERE { <${subj}> <${P}> ?o . FILTER(isIRI(?o)) }`))
-      .results.bindings.map((b) => b.o.value)
-    for (const o of objs) {
-      if (o.startsWith(termPrefix)) {
-        if (!freshTermIris.has(o)) {
-          await deleteThorpe(subj, termName(o), { instance: base })
-          out.thorpes.push(o)
+    const rows = (await queryArray(`SELECT ?p ?o ?ring WHERE { <${s}> ?p ?o . OPTIONAL { ?o rdf:type ${typeRef(CLASS.Webring)} . BIND(true AS ?ring) } }`)).results.bindings
+    for (const { p, o, ring } of rows) {
+      if (!p || !o) continue
+      if (p.value === P && o.type === 'uri') {
+        if (!o.value.startsWith(termPrefix)) {
+          mention(o.value).ring ||= Boolean(ring)
+          continue
         }
-      } else if (!mentions.has(o)) {
-        await deleteMention(subj, o)
-        out.mentions.push(o)
+        const name = termName(o.value)
+        if (termIri(base, name) === o.value) state.terms.add(name)
+      } else if (p.value === CLAIM) {
+        state.aliasClaims.add(o.value)
+      } else if (p.value === RDF_TYPE) {
+        if (`<${o.value}>` === page) state.typed = true
+      } else {
+        if (!state.meta.has(p.value)) state.meta.set(p.value, [])
+        state.meta.get(p.value).push(o)
       }
     }
 
-    const rows = (await queryArray(`SELECT ?o ?r ?t WHERE { ?r <${REIFIES}> <<( <${subj}> <${P}> ?o )>> ; a ?t }`)).results.bindings
-    for (const { o, r, t } of rows) {
-      const fresh = mentions.get(o.value)
-      if (!fresh || !t.value.startsWith(OCTO_NS)) continue
+    const rels = (await queryArray(`SELECT ?o ?r ?t ?x WHERE { ?r <${REIFIES}> <<( <${s}> <${P}> ?o )>> ; a ?t . OPTIONAL { ?r <${P}> ?x } }`)).results.bindings
+    for (const { o, r, t, x } of rels) {
+      if (!o || !r || !t || o.value.startsWith(termPrefix) || !t.value.startsWith(OCTO_NS)) continue
       const name = t.value.slice(OCTO_NS.length)
-      if (!fresh.subtypes.has(name)) {
-        await deleteMention(subj, o.value, name)
-        out.subtypes.push(`${o.value} ${name}`)
-        continue
-      }
-      const keep = [...fresh.terms].map((x) => `<${termIri(base, x)}>`).join(', ')
-      const stale = (await queryArray(`SELECT ?x WHERE { <${r.value}> <${P}> ?x ${keep ? `FILTER(?x NOT IN (${keep}))` : ''} }`)).results.bindings
-      for (const { x } of stale) {
-        await query(`DELETE DATA { <${r.value}> <${P}> <${x.value}> }`)
-        out.relTerms++
-      }
+      const m = mention(o.value)
+      m.subtypes.add(name)
+      m.iris.set(name, r.value)
+      if (!m.reifiers.has(name)) { m.reifiers.set(name, new Set()); m.termIris.set(name, new Set()) }
+      if (!x?.value) continue
+      m.termIris.get(name).add(x.value)
+      const term = termName(x.value)
+      if (termIri(base, term) === x.value) { m.reifiers.get(name).add(term); m.terms.add(term) }
     }
+    return state
+  }
+
+  /**
+   * #322 re-index reconciliation. Given what a fresh, successful harvest of S
+   * produced, hard-retract S's stored assertions the harvest no longer has
+   * (diffPageState): term attachments (deleteThorpe), whole mentions
+   * (deleteMention without subtype), single subtypes (deleteMention with
+   * subtype), relationship terms on reifiers that survive, and stale pending
+   * octo:aliasClaim triples. Subject-position only, with ONE exception
+   * (#345): a revoked S -> O Alias also deletes the reverse O -> S Alias
+   * reifier. An empty diff issues no update at all.
+   *
+   * @param {string} s
+   * @param {{terms: Iterable<string>, mentions: Map<string, {subtypes: Set<string>, terms: Set<string>, reifiers?: Map<string, Set<string>>}>}} fresh
+   *   terms: term names; mentions: canonical object -> class names + term names
+   * @param {{instance?: string, stored?: object}} [opts] stored: a
+   *   readPageState(canonical(s)) result taken earlier; read here when absent
+   * @returns {Promise<{thorpes: string[], mentions: string[], subtypes: string[], relTerms: number, aliases: string[], aliasClaims: string[]}>}
+   */
+  const reconcilePage = async (s, fresh = {}, { instance: inst, stored } = {}) => {
+    const subj = canonical(s)
+    const base = inst || deps.instance
+    const d = diffPageState(stored ?? await readPageState(subj, { instance: base }), fresh, base)
+
+    for (const name of d.thorpes) await deleteThorpe(subj, name, { instance: base })
+    for (const o of d.mentions) await deleteMention(subj, o)
+    for (const [o, name] of d.subtypes) await deleteMention(subj, o, name)
+    for (const [r, x] of d.relTerms) await query(`DELETE DATA { <${r}> <${P}> <${x}> }`)
 
     // #345: aliases are bidirectional and live. When S stops asserting an
     // alias toward O, the reverse O -> S Alias reifier dies with it. This is
@@ -202,20 +265,20 @@ export const createDeleter = (deps = {}) => {
     // withdrawing revokes both. Only the reverse reifier (and its properties)
     // is removed; O's base triple / flat mention toward S stays, and O's next
     // re-index re-runs the consent gate (recording a pending claim).
-    for (const o of revokedAliases) {
-      await revokeAlias(subj, o, { forward: false })
-      out.aliases.push(o)
-    }
+    for (const o of d.aliases) await revokeAlias(subj, o, { forward: false })
 
     // #345: stale pending claims. A plain <S> octo:aliasClaim <O> triple that
     // the fresh harvest no longer backs with an Alias toward O is retracted.
-    const claims = (await queryArray(`SELECT ?o WHERE { <${subj}> <${CLAIM}> ?o }`)).results.bindings.map((b) => b.o.value)
-    for (const o of claims) {
-      if (keepsAlias(o)) continue
-      await query(`DELETE DATA { <${subj}> <${CLAIM}> <${o}> }`)
-      out.aliasClaims.push(o)
+    for (const o of d.aliasClaims) await query(`DELETE DATA { <${subj}> <${CLAIM}> <${o}> }`)
+
+    return {
+      thorpes: d.thorpes.map((name) => termIri(base, name)),
+      mentions: d.mentions,
+      subtypes: d.subtypes.map(([o, name]) => `${o} ${name}`),
+      relTerms: d.relTerms.length,
+      aliases: d.aliases,
+      aliasClaims: d.aliasClaims,
     }
-    return out
   }
 
   const U = `${OCTO_NS}unavailable`
@@ -271,5 +334,5 @@ export const createDeleter = (deps = {}) => {
     return { outcome: 'failure', reason }
   }
 
-  return { reconcilePage, revokeAlias, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
+  return { readPageState, reconcilePage, revokeAlias, handleDeadPage, softDeletePage, restorePage, recordFailure, deleteThorpe, deleteMention, hardDeletePage, hardDeleteOrigin, assertDeletableTarget }
 }
