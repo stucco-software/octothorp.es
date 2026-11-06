@@ -6,7 +6,8 @@ import { describe, it, expect, vi } from 'vitest'
 // and $lib/harmonizers/index.js). This file uses a separate fakeProfile
 // pointing at the real built static/ dirs so the adapter's discovery loops
 // actually run, and asserts the site-discovered csv handler and anchors
-// harmonizer land in the registries createIndexer receives.
+// harmonizer land in the registries the indexing path uses. #359: the adapter
+// builds a createClient, so the registries are read off the returned client.
 const fakeProfile = {
   identity: { instance: 'https://example.test/' },
   api: {
@@ -31,7 +32,11 @@ vi.mock('octothorpes', async (orig) => {
   const actual = await orig()
   return {
     ...actual,
-    createIndexer: (config) => { Object.assign(captured, config); return actual.createIndexer(config) },
+    createClient: (config) => {
+      Object.assign(captured, config)
+      captured.client = actual.createClient(config)
+      return captured.client
+    },
   }
 })
 
@@ -39,11 +44,11 @@ await import('$lib/indexing.js')
 
 describe('#217 indexing adapter discovery seam', () => {
   it('registers the site-discovered csv handler alongside the builtins', () => {
-    expect(captured.handlerRegistry.listHandlers()).toContain('csv')
+    expect(captured.client.handler.listHandlers()).toContain('csv')
   })
 
   it('resolves the site-discovered anchors harmonizer', async () => {
-    const harmonizer = await captured.getHarmonizer('anchors')
+    const harmonizer = await captured.client.harmonizer.getHarmonizer('anchors')
     expect(harmonizer).toBeTruthy()
   })
 })

@@ -5,6 +5,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 // route actually uses — built its own indexer without `endorsers`, so the gate
 // denied every unregistered origin even when the page carried the marker.
 // Both adapters must hand core the SAME endorser array, built once.
+// #359: indexing.js now builds a createClient (which builds the indexer), so
+// both adapters are captured at createClient.
 
 const captureFactory = (name, captured) => async (orig) => {
   const actual = await orig()
@@ -22,11 +24,11 @@ afterEach(() => {
   vi.resetModules()
 })
 
-describe('src/lib/indexing.js passes injected endorsers to createIndexer', () => {
-  it('hands createIndexer the shared endorser array', async () => {
+describe('src/lib/indexing.js passes injected endorsers to core', () => {
+  it('hands createClient the shared endorser array', async () => {
     vi.resetModules()
     const captured = {}
-    vi.doMock('octothorpes', captureFactory('createIndexer', captured))
+    vi.doMock('octothorpes', captureFactory('createClient', captured))
 
     await import('$lib/indexing.js')
     const { endorsers } = await import('$lib/endorsers/index.js')
@@ -37,21 +39,22 @@ describe('src/lib/indexing.js passes injected endorsers to createIndexer', () =>
 
   it('op.js and indexing.js share one endorser array', async () => {
     vi.resetModules()
-    const indexerCfg = {}
-    const clientCfg = {}
+    const configs = []
     vi.doMock('octothorpes', async (orig) => {
       const actual = await orig()
       return {
         ...actual,
-        createIndexer: (c) => { Object.assign(indexerCfg, c); return actual.createIndexer(c) },
-        createClient: (c) => { Object.assign(clientCfg, c); return actual.createClient(c) },
+        createClient: (c) => { configs.push(c); return actual.createClient(c) },
       }
     })
 
     await import('$lib/indexing.js')
+    const indexingCfg = configs.at(-1)
     await import('$lib/op.js')
+    const opCfg = configs.at(-1)
 
-    expect(clientCfg.endorsers).toBeDefined()
-    expect(indexerCfg.endorsers).toBe(clientCfg.endorsers)
+    expect(opCfg).not.toBe(indexingCfg)
+    expect(opCfg.endorsers).toBeDefined()
+    expect(indexingCfg.endorsers).toBe(opCfg.endorsers)
   })
 })

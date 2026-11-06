@@ -14,13 +14,20 @@ vi.mock('../../packages/core/sparqlClient.js', () => ({
   }),
 }))
 
+// Write mode delegates to the indexer's shared batch engine; spy on it
+// pass-through so the real per-item loop (and rate memo) runs.
 const ingestSpy = vi.fn().mockResolvedValue({})
 const handlerSpy = vi.fn().mockResolvedValue({})
+const trustedSpy = vi.fn()
 vi.mock('../../packages/core/indexer.js', async (orig) => {
   const mod = await orig()
   return {
     ...mod,
-    createIndexer: (deps) => ({ ...mod.createIndexer(deps), ingestBlobject: ingestSpy, handler: handlerSpy }),
+    createIndexer: (deps) => {
+      const real = mod.createIndexer(deps)
+      trustedSpy.mockImplementation(real.indexBatchTrusted)
+      return { ...real, ingestBlobject: ingestSpy, handler: handlerSpy, indexBatchTrusted: trustedSpy }
+    },
   }
 })
 
@@ -32,7 +39,9 @@ const pages = {
   'https://b.example/two': page('Two', 'beta'),
 }
 
-const makeClient = () => createClient({ instance: 'https://relay.example/', sparql: { endpoint: 'http://sparql.invalid' } })
+const makeClient = (extra = {}) => createClient({ instance: 'https://relay.example/', sparql: { endpoint: 'http://sparql.invalid' }, ...extra })
+// Active mode skips origin registration, so the real handler can run against the stubbed store.
+const writeClient = () => makeClient({ indexingMode: 'active' })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -66,26 +75,34 @@ describe('batchHarmonize', () => {
     expect(handlerSpy).not.toHaveBeenCalled()
   })
 
-  it('per-item harmonizer wins over the list default', async () => {
-    const op = makeClient()
-    await op.batchHarmonize(
-      [{ url: 'https://a.example/one', harmonizer: 'openGraph' }, 'https://b.example/two'],
-      { harmonizer: 'keywords', mode: 'write' },
-    )
-    expect(handlerSpy.mock.calls[0][1]).toBe('openGraph')
-    expect(handlerSpy.mock.calls[1][1]).toBe('keywords')
+  it('write mode delegates to indexBatchTrusted with items, harmonizer, reconcile', async () => {
+    const op = writeClient()
+    const items = [{ url: 'https://a.example/one', harmonizer: 'openGraph' }, { blobject: handBlobject }]
+    await op.batchHarmonize(items, { harmonizer: 'keywords', mode: 'write', reconcile: false })
+    expect(trustedSpy).toHaveBeenCalledTimes(1)
+    const [passedItems, opts, handlerConfig] = trustedSpy.mock.calls[0]
+    expect(passedItems).toBe(items)
+    expect(opts).toMatchObject({ harmonizer: 'keywords', reconcile: false })
+    expect(handlerConfig).toMatchObject({ instance: 'https://relay.example/', policyMode: 'active', reconcile: false })
+    expect(handlerSpy).not.toHaveBeenCalled()
   })
 
-  it('write mode passes reconcile through to both url and blobject paths', async () => {
-    const op = makeClient()
-    const res = await op.batchHarmonize(
-      ['https://a.example/one', { blobject: handBlobject }],
-      { mode: 'write', reconcile: false },
-    )
-    expect(res.map((r) => r.status)).toEqual(['indexed', 'indexed'])
-    expect(handlerSpy.mock.calls[0][3].reconcile).toBe(false)
-    expect(ingestSpy.mock.calls[0][0]).toBe(handBlobject)
-    expect(ingestSpy.mock.calls[0][1].reconcile).toBe(false)
+  it('write mode indexes urls and blobjects in order, keeping the result contract', async () => {
+    const op = writeClient()
+    const res = await op.batchHarmonize(['https://a.example/one', { blobject: handBlobject }], { mode: 'write' })
+    expect(res).toEqual([
+      { url: 'https://a.example/one', status: 'indexed' },
+      { url: handBlobject['@id'], status: 'indexed', blobject: handBlobject },
+    ])
+    expect(insertSpy).toHaveBeenCalled()
+  })
+
+  it('a same-origin write batch over the rate limit fully indexes (one charge per origin)', async () => {
+    const urls = Array.from({ length: 12 }, (_, i) => `https://rate.example/p${i}`)
+    for (const u of urls) pages[u] = page(`P${u}`, 'rate')
+    const op = writeClient()
+    const res = await op.batchHarmonize(urls, { mode: 'write' })
+    expect(res.map((r) => r.status)).toEqual(urls.map(() => 'indexed'))
   })
 
   it('one failing item does not sink the batch', async () => {
@@ -102,10 +119,10 @@ describe('batchHarmonize', () => {
   })
 
   it('write-mode handler failures are per-item too', async () => {
-    handlerSpy.mockRejectedValueOnce(new Error('Page has not opted in to indexing.'))
-    const op = makeClient()
-    const res = await op.batchHarmonize(['https://a.example/one', 'https://b.example/two'], { mode: 'write' })
+    const op = writeClient()
+    const res = await op.batchHarmonize(['https://down.example/x', 'https://b.example/two'], { mode: 'write' })
     expect(res.map((r) => r.status)).toEqual(['error', 'indexed'])
+    expect(res[0].error).toMatch(/ECONNREFUSED/)
   })
 })
 

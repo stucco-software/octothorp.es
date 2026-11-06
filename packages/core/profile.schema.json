@@ -127,6 +127,12 @@
               "type": "string",
               "enum": ["soft", "hard"],
               "default": "soft"
+            },
+            "maxBatchSize": {
+              "description": "Most items (urls plus blobjects, counted together) one POST /index/batch request may carry. Over the cap the whole batch is refused with 400 before any item runs. Reaches core as createIndexer({ maxBatchSize }).",
+              "type": "integer",
+              "minimum": 1,
+              "default": 100
             }
           }
         },

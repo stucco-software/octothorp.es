@@ -1,7 +1,7 @@
 // #217 wave 4 stage 4: the ONE place the adapter builds its endorsers, shared
-// by src/lib/op.js (createClient) and src/lib/indexing.js (createIndexer — the
-// /index route's indexer, which previously got none and denied every
-// unregistered origin). Built once at module evaluation, so the
+// by src/lib/op.js (createClient) and src/lib/indexing.js (its own createClient
+// since #359 — the /index route's indexer, which previously got none and
+// denied every unregistered origin). Built once at module evaluation, so the
 // construction-time missing-marker warning fires once, not per consumer.
 import { secret_knock } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'

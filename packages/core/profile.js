@@ -184,7 +184,7 @@ export const PROFILE_DEFAULTS = Object.freeze({
     commercial: false,
     labels: [],
     // WHAT TRIGGERS indexing. Orthogonal to access.registration below.
-    indexing: { mode: 'request', cooldown: 300, deletion: 'soft' },
+    indexing: { mode: 'request', cooldown: 300, deletion: 'soft', maxBatchSize: 100 },
     // WHAT GATE an index request must pass. 'registered' is today's behavior
     // (the verifiedOrigin check in indexer.js), so it is the safe default.
     // Two blocklists, two enforcement points. blocks.domains is the ORIGIN

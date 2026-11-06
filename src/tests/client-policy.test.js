@@ -91,6 +91,61 @@ describe('createClient indexingMode', () => {
   })
 })
 
+// #359: the relay's indexing adapter is a createClient now, so the client must
+// carry the relay-only config into its indexer and expose the gated entries.
+describe('createClient relay surface (#359)', () => {
+  const noMarkers = () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      text: async () => '<html><body><p>no markers</p></body></html>',
+      headers: { get: () => 'text/html' },
+    })
+  }
+  const make = (extra = {}) => createClient({
+    instance: 'https://relay.example/',
+    sparql: { endpoint: 'http://localhost:1/unused' },
+    ...extra,
+  })
+  const blob = { '@id': 'obsidian://open?vault=v&file=n', title: 'n', octothorpes: ['cats'] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Nothing banned, nothing registered.
+    queryBooleanSpy.mockResolvedValue(false)
+    queryArraySpy.mockResolvedValue({ results: { bindings: [] } })
+    noMarkers()
+  })
+
+  it('indexRequest refuses an unregistered, unmarked page under the default request mode', async () => {
+    await expect(
+      make().indexRequest('https://unreg-request.example/p', 'default', null, { instance: 'https://relay.example/' })
+    ).rejects.toThrow(/not opted in/)
+  })
+
+  it('indexRequest uses config.indexingMode as its default policy mode', async () => {
+    await expect(
+      make({ indexingMode: 'active' }).indexRequest('https://unreg-active.example/p', 'default', null, { instance: 'https://relay.example/' })
+    ).resolves.toBeDefined()
+  })
+
+  it('indexBatch applies config.maxBatchSize before any item runs', async () => {
+    const err = await make({ maxBatchSize: 1 })
+      .indexBatch({ urls: ['https://cap.example/a', 'https://cap.example/b'] })
+      .catch((e) => e)
+    expect(err.batchTooLarge).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("submissions default to 'never' on submitBlobject and blobjects-only indexBatch", async () => {
+    const op = make()
+    await expect(op.submitBlobject(blob, {})).rejects.toThrow(/does not accept blobject submissions/)
+    await expect(op.indexBatch({ blobjects: [blob] })).rejects.toThrow(/does not accept blobject submissions/)
+  })
+
+  it('config.submissions reaches the submission gate', async () => {
+    await expect(make({ submissions: 'open' }).submitBlobject(blob, {})).rejects.toThrow(/needs a valid anchor/)
+  })
+})
+
 describe('blobject.indexPolicy is untouched by the rename', () => {
   it('still reads the per-page opt-in marker', async () => {
     const { resolveIndexPolicy } = await import('../../packages/core/client.js')

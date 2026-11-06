@@ -201,7 +201,11 @@ export const normalizeIndexingMode = (mode) => {
  *   octothorpes.json. Defaults to DEFAULT_ROUTES (the SvelteKit relay's shape).
  * @param {Object} [config.profile] - A resolved profile (result of `getProfile()`). When supplied,
  *   `resolvedProfile()` projects it against what actually registered (publishers/handlers/harmonizers).
- * @returns {{ indexSource, get, getfast, harmonize, harmonizer, sparql, api, resolvedProfile }}
+ * @param {'never'|string} [config.submissions='never'] - Blobject submission tier for
+ *   `submitBlobject` / `indexBatch` blobjects. Mirrors profile.policies.access.submissions.
+ * @param {number} [config.maxBatchSize=100] - Item cap for `indexBatch` (urls + blobjects).
+ *   Mirrors profile.policies.indexing.maxBatchSize.
+ * @returns {{ indexSource, indexRequest, indexBatch, submitBlobject, get, getfast, harmonize, batchHarmonize, harmonizer, sparql, api, resolvedProfile }}
  */
 /**
  * Validate the injected endorsement sources. Construction-time and strict, unlike
@@ -440,6 +444,14 @@ export const createClient = (config) => {
     // #217 stage 4: the gate consumes these only where
     // access.endorsement.sources names them.
     endorsers,
+    // #359: the indexer's DEFAULT policy mode, read by indexRequest (the
+    // relay's /index path). indexSource and batchHarmonize always pass
+    // policyMode per call, so this changes nothing for them.
+    indexingMode: policy,
+    // #359: relay-only gates, consumed by submitBlobject and indexBatch.
+    // Unset = submissions 'never', cap DEFAULT_MAX_BATCH_SIZE.
+    submissions: config.submissions,
+    maxBatchSize: config.maxBatchSize,
   })
 
   // #217: the `by` axis is a table, not a switch. Merge the profile's declared
@@ -527,34 +539,51 @@ export const createClient = (config) => {
 
   /**
    * items: url strings, { url, harmonizer? }, or { blobject } (skips fetch+harmonize).
-   * mode 'return-only' (default) never touches the store; 'write' sends URLs
-   * through indexSource (full handler gates) and supplied blobjects through
-   * ingestBlobject, matching indexSource's content path.
+   * mode 'return-only' (default) never touches the store; 'write' delegates to
+   * indexer.indexBatchTrusted (the shared #180 batch engine): URLs through the
+   * full handler gates, one rate charge per origin per batch, supplied
+   * blobjects through ingestBlobject, matching indexSource's content path.
    * Sequential on purpose: be gentle on remote hosts. Never throws per item.
    */
   const batchHarmonize = async (items = [], opts = {}) => {
     const { harmonizer: listHarmonizer = 'default', mode = 'return-only', reconcile, documentRecordSchema, origin, policyCheck } = opts
     if (mode !== 'write' && mode !== 'return-only') throw new Error(`batchHarmonize: unsupported mode "${mode}"`)
+    if (mode === 'write') {
+      // One batch engine (#180): delegate to the indexer's shared loop so
+      // rate charging and status mapping cannot drift from /index/batch.
+      const handlerConfig = {
+        instance: config.instance,
+        queryBoolean: sparql.queryBoolean,
+        verifyOrigin: policy.mode === 'active' ? async () => true : undefined,
+        policyMode: policy.mode,
+        policyCheck,
+        ...(reconcile !== undefined ? { reconcile } : {}),
+        ...(documentRecordSchema ? { documentRecordSchema } : {}),
+      }
+      const raw = await indexer.indexBatchTrusted(items, {
+        harmonizer: listHarmonizer, requestingOrigin: origin ?? null, reconcile, documentRecordSchema,
+      }, handlerConfig)
+      // Engine statuses -> batchHarmonize contract: indexed -> 'indexed',
+      // deleted -> 'warning' (page gone; not indexed, not an error),
+      // warning (cooldown / rate) -> 'warning', error -> 'error'.
+      return raw.map((r, i) => {
+        const item = typeof items[i] === 'string' ? { url: items[i] } : (items[i] ?? {})
+        if (r.status === 'indexed') return { url: r.url, status: 'indexed', ...(item.blobject ? { blobject: item.blobject } : {}) }
+        if (r.status === 'deleted') return { url: r.url, status: 'warning', error: `Page was unavailable (${r.mode}).` }
+        return { url: r.url, status: r.status, error: r.error }
+      })
+    }
     const results = []
     for (const raw of items) {
       const item = typeof raw === 'string' ? { url: raw } : (raw ?? {})
       const url = item.url ?? item.blobject?.['@id']
       try {
         if (item.blobject) {
-          if (mode === 'write') {
-            await indexer.ingestBlobject(item.blobject, { instance: config.instance, reconcile, documentRecordSchema })
-          }
-          results.push({ url, status: mode === 'write' ? 'indexed' : 'ok', blobject: item.blobject })
+          results.push({ url, status: 'ok', blobject: item.blobject })
           continue
         }
         if (typeof item.url !== 'string') throw new Error('item needs a url or a blobject')
-        const harmonizerName = item.harmonizer ?? listHarmonizer
-        if (mode === 'write') {
-          await indexSource(item.url, { harmonizer: harmonizerName, origin, policyCheck, reconcile, documentRecordSchema })
-          results.push({ url, status: 'indexed' })
-        } else {
-          results.push({ url, status: 'ok', blobject: await fetchAndHarmonize(item.url, harmonizerName) })
-        }
+        results.push({ url, status: 'ok', blobject: await fetchAndHarmonize(item.url, item.harmonizer ?? listHarmonizer) })
       } catch (e) {
         results.push({ url, status: e?.isWarning ? 'warning' : 'error', error: e?.message ?? String(e) })
       }
@@ -666,6 +695,20 @@ export const createClient = (config) => {
 
   return {
     indexSource,
+    // #359: the HTTP relay's request-path entry points. Unlike indexSource
+    // and batchHarmonize (owner-trusted, programmatic), these enforce the
+    // request gates: same-origin, registration/access, rate limit, cooldown,
+    // and for blobjects the submissions tier with anchor-token auth.
+    // indexRequest(uri, harmonizer, requestingOrigin, handlerConfig) is the
+    // gate-enforcing single index (the indexer's handler()).
+    indexRequest: indexer.handler,
+    // indexBatch({ urls, blobjects, harmonizer, reconcile, anchor, token,
+    // requestingOrigin }, handlerConfig): config.maxBatchSize cap, then urls
+    // through indexRequest's gates and blobjects through submitBlobject.
+    indexBatch: indexer.indexBatch,
+    // submitBlobject(blobject, { anchor, token }): the no-auth submission tier,
+    // gated by config.submissions.
+    submitBlobject: indexer.submitBlobject,
     deleter,
     /**
      * Delete a source page. `mode` defaults to config.deletionMode ('soft' if unset):

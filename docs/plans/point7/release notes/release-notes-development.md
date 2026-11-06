@@ -1790,3 +1790,23 @@ Affected files: `packages/core/indexer.js`, `packages/core/deleter.js`, `src/rou
 `createClient` gains `batchHarmonize(items, opts)` and `batchPublish(blobjects, publisher, opts)`. Items are url strings, `{url, harmonizer?}`, or `{blobject}` (skips fetch+harmonize); per-item harmonizer beats the list default. `mode: 'return-only'` (default) fetches and harmonizes with no store access or policy checks (orchestra-pit pattern); `mode: 'write'` sends URLs through `handler()` with every existing gate, and supplied blobjects through `ingestBlobject` (same gate profile as `indexSource({content})`). Per-item results; one failure never aborts the set. `batchPublish` renders whole-set or `perItem: true` through the existing publisher envelope. No new HTTP routes; `indexSource` and `handler()` now pass through `reconcile` and `documentRecordSchema`.
 
 **Files affected:** `packages/core/client.js`, `packages/core/indexer.js`, `src/tests/batch.test.js`.
+
+## `POST /index/batch` relay endpoint (#180) (2026-11-06)
+
+New route takes `{ urls?, blobjects?, harmonizer?, reconcile?, anchor?, token? }` and returns HTTP 200 with per-item `results` (`indexed` / `skipped` with `reason` / `failed` with `error`), a `summary` count, the effective `reconcile`, and an async-propagation note. URLs go through `handler()` with every gate per item; blobjects go through `submitBlobject` (one `anchor`/`token` pair for the whole request). Cooldown and rate refusals are `skipped`, not 429; a 404/410 deletion result is `skipped` with a `deleted` field. Whole-set errors: malformed body or no items (400), over `policies.indexing.maxBatchSize` (new, default 100, urls + blobjects counted together) (400), blobjects-only request while submissions are off (403). When the request also has urls, each blobject fails on its own. A batch charges each origin's/anchor's rate bucket at most once. `reconcile` (default `true`) applies to blobjects only.
+
+Core: new `indexer.indexBatch` (the relay adapter builds on `createIndexer`, not `createClient`, so `client.batchHarmonize` is not reachable from routes); `submitBlobject` gains a `reconcile` pass-through; rate-limit and submission-cooldown errors carry `skippable: true` (messages unchanged, single `/index` still returns 429).
+
+Origin requirement: a body with a non-empty `urls` array needs an Origin or Referer header (400 `Origin or Referer header required.`), same as single `/index` POST; blobjects-only requests stay exempt (anchor token auth).
+
+Single batch engine: `client.batchHarmonize` write mode now delegates to `indexer.indexBatchTrusted`, which shares `indexBatch`'s per-item loop (`runBatch`), so a same-origin batch is charged once per origin instead of 429ing partway. Engine `deleted` maps to `warning` in the batchHarmonize result; return-only mode is unchanged.
+
+**Files affected:** `src/routes/(endpoints)/index/batch/+server.js` (new), `packages/core/indexer.js`, `packages/core/profile.js`, `packages/core/profile.schema.json`, `src/lib/indexing.js`, `src/tests/indexBatchRoute.test.js` (new), `src/tests/indexingCooldown.test.js`, `packages/core/client.js`, `src/tests/batch.test.js`.
+
+## Relay indexing adapter on `createClient` (#359 phase 1) (2026-11-06)
+
+`src/lib/indexing.js` now builds one `createClient` (same profile/$env injection as before) instead of calling `createIndexer` directly, and re-exports only what routes import: `handler`, `indexBatch`, `submitBlobject`, `parseRequestBody`, `harmonize`. The ~40 unused helper re-exports are gone. It stays separate from `$lib/op.js`'s client so a broken publisher cannot take `/index` down. No HTTP behavior change.
+
+Core: `createClient` gains `indexRequest` (the gate-enforcing `handler()`), `indexBatch`, and `submitBlobject`, plus config `submissions` and `maxBatchSize`; its internal indexer now also receives `indexingMode` as the default policy mode (`indexSource`/`batchHarmonize` already passed it per call, so they are unaffected). `indexer.indexBatchTrusted` is internal to core; only `batchHarmonize` calls it. `createIndexer` stays a public export (demotion is phase 2, still open).
+
+**Files affected:** `packages/core/client.js`, `packages/core/indexer.js` (comment), `src/lib/indexing.js`, `src/lib/endorsers/index.js` (comment), `src/tests/client-policy.test.js`, `src/tests/indexingAdapterDocumentRecord.test.js`, `src/tests/indexingAdapterDiscovery.test.js`, `src/tests/indexingAdapterEndorsers.test.js`.

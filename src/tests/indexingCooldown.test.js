@@ -64,7 +64,7 @@ describe('profile schema — policies.indexing.cooldown', () => {
 
 describe('profile defaults — policies.indexing.cooldown', () => {
   it('defaults to 300 seconds', () => {
-    expect(PROFILE_DEFAULTS.policies.indexing).toEqual({ mode: 'request', cooldown: 300, deletion: 'soft' })
+    expect(PROFILE_DEFAULTS.policies.indexing).toEqual({ mode: 'request', cooldown: 300, deletion: 'soft', maxBatchSize: 100 })
   })
 
   it('resolves to 300 when the authored profile omits it', () => {

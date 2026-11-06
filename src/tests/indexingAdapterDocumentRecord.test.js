@@ -3,10 +3,12 @@ import { describe, it, expect, vi } from 'vitest'
 // #217: mirrors src/tests/profileAdapter.test.js's smoke-test style, but for
 // the write-side wiring. Confirms src/lib/indexing.js (the SvelteKit adapter)
 // injects the profile's declared api.documentRecord schema and
-// api.handlers.default into createIndexer, so the adapter is reading the
-// nested profile shape rather than $lib/config.js's flat .env-derived
-// values. No logic under test here lives in this file — packages/core owns
-// createIndexer/recordDocumentRecord itself.
+// api.handlers.default into core, so the adapter is reading the nested
+// profile shape rather than $lib/config.js's flat .env-derived values. No
+// logic under test here lives in this file — packages/core owns
+// createIndexer/recordDocumentRecord itself. #359: the adapter now builds a
+// createClient (which builds the indexer), so the capture point is
+// createClient's config and the client it returns.
 const fakeProfile = {
   identity: { instance: 'https://example.test/' },
   api: {
@@ -15,9 +17,10 @@ const fakeProfile = {
     harmonizers: { dir: null },
   },
   policies: {
-    indexing: { mode: 'request' },
+    indexing: { mode: 'request', maxBatchSize: 7 },
     access: {
       registration: 'registered',
+      submissions: 'open',
       blocks: { domains: [], terms: [] },
       allows: { domains: [], terms: [] },
     },
@@ -31,7 +34,11 @@ vi.mock('octothorpes', async (orig) => {
   const actual = await orig()
   return {
     ...actual,
-    createIndexer: (config) => { Object.assign(captured, config); return actual.createIndexer(config) },
+    createClient: (config) => {
+      Object.assign(captured, config)
+      captured.client = actual.createClient(config)
+      return captured.client
+    },
   }
 })
 
@@ -43,8 +50,9 @@ describe('#217 indexing adapter reads the profile', () => {
   })
 
   it('uses api.handlers.default for the handler registry default, not .env', () => {
-    const def = captured.handlerRegistry.getDefault?.()
-    expect(def?.mode ?? def ?? captured.handlerRegistry.default).toBe('markdown')
+    const registry = captured.client.handler
+    const def = registry.getDefault?.()
+    expect(def?.mode ?? def ?? registry.default).toBe('markdown')
   })
 
   // documentRecord predicates became octo-only, so the indexer no longer
@@ -61,5 +69,11 @@ describe('#217 indexing adapter reads the profile', () => {
 
   it('passes the access gate separately from the indexing mode', () => {
     expect(captured.access.registration).toBe('registered')
+  })
+
+  // #359: relay-only gates the old createIndexer wiring injected directly.
+  it('passes the submissions tier and batch cap through to the client', () => {
+    expect(captured.submissions).toBe('open')
+    expect(captured.maxBatchSize).toBe(7)
   })
 })

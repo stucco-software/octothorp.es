@@ -39,6 +39,18 @@ const ANCHOR_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a
 const indexingRateLimitMap = new Map()
 const MAX_INDEXING_REQUESTS = 10
 const INDEXING_RATE_LIMIT_WINDOW = 60 * 1000
+// #180: default cap on items (urls + blobjects) per indexBatch call; the relay
+// sets it from policies.indexing.maxBatchSize.
+export const DEFAULT_MAX_BATCH_SIZE = 100
+
+// A refusal that is "not now" rather than "no": rate limit or cooldown. Message
+// unchanged, so the single /index route still maps it to 429; indexBatch reads
+// the flag to report the item as skipped instead of failed.
+const skippable = (message) => {
+  const e = new Error(message)
+  e.skippable = true
+  return e
+}
 
 const subtypeMap = SUBTYPE_ALIASES
 
@@ -278,7 +290,7 @@ export const checkIndexingPolicy = (harmed, instance) => {
  * @returns {Object} Indexer with handler() and all helper functions
  */
 export const createIndexer = (deps) => {
-  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers, indexingMode, submissions: submissionsConfig } = deps
+  const { insert, query, queryBoolean, queryArray, instance, handlerRegistry, getHarmonizer, documentRecordSchema, access: accessConfig, cooldown, endorsers, indexingMode, submissions: submissionsConfig, maxBatchSize: maxBatchSizeConfig } = deps
 
   // #248 Phase 3: the indexer never hand-writes statement-deletion SPARQL; it
   // calls the deleter. Injected when given, else built from the same deps.
@@ -1374,10 +1386,15 @@ export const createIndexer = (deps) => {
   //
   // opts: { anchor, token, instance?, fetchImpl? }
   const submissionCooldowns = new Map()
-  const submitBlobject = async (blobject, opts = {}) => {
+  // `rateCheck` is internal: indexBatch passes a per-batch memoized check so a
+  // batch spends one rate token per anchor, not one per item. Not reachable
+  // through the exported submitBlobject.
+  const runSubmitBlobject = async (blobject, opts = {}, rateCheck = checkIndexingRateLimit) => {
     // Config comes from createIndexer deps ONLY: no per-call submissions/access
     // override, so a route forwarding request values cannot weaken the gates.
-    const { anchor: rawAnchor, token, instance: inst, fetchImpl } = opts
+    // `reconcile` is not a gate: false upserts a partial blobject without
+    // deleting the subject's other stored edges (#180).
+    const { anchor: rawAnchor, token, instance: inst, fetchImpl, reconcile } = opts
     const mode = submissionsConfig ?? 'never'
     const effectiveAccess = access
 
@@ -1413,8 +1430,8 @@ export const createIndexer = (deps) => {
     }
 
     // Rate bucket, per anchor, after auth so strangers cannot burn it.
-    if (!checkIndexingRateLimit(anchorOrigin)) {
-      throw new Error('Rate limit exceeded. Please try again later.')
+    if (!rateCheck(anchorOrigin)) {
+      throw skippable('Rate limit exceeded. Please try again later.')
     }
 
     // Gate 3: subject restriction. Only declared, non-http(s) subjects; a
@@ -1499,16 +1516,19 @@ export const createIndexer = (deps) => {
       }
       const key = `${anchor}|${scopedSubject}`
       if ((submissionCooldowns.get(key) ?? 0) > nowMs) {
-        throw new Error('This subject was recently submitted. Please try again later.')
+        throw skippable('This subject was recently submitted. Please try again later.')
       }
       submissionCooldowns.set(key, nowMs + cooldownSeconds * 1000)
     }
 
     await insert([...scoped].map((iri) => `<${anchorOrigin}> octo:claims <${iri}> .`).join('\n'))
-    await ingestBlobject(submitted, { instance: inst, access: effectiveAccess, claimed: true })
+    await ingestBlobject(submitted, { instance: inst, access: effectiveAccess, claimed: true, ...(reconcile !== undefined ? { reconcile } : {}) })
   }
+  const submitBlobject = (blobject, opts = {}) => runSubmitBlobject(blobject, opts)
 
-  const handler = async (uri, harmonizer, requestingOrigin, config) => {
+  // `rateCheck` is internal, as on runSubmitBlobject: indexBatch's memoized
+  // check spends one rate token per origin per batch.
+  const runHandler = async (uri, harmonizer, requestingOrigin, config, rateCheck = checkIndexingRateLimit) => {
     const {
       instance: inst,
       // serverName identifies this relay (from config.js). No longer consumed by
@@ -1687,8 +1707,8 @@ export const createIndexer = (deps) => {
     if (denial) return await withdrawn(denial)
 
     // 6. Rate limiting
-    if (!checkIndexingRateLimit(origin)) {
-      throw new Error('Rate limit exceeded. Please try again later.')
+    if (!rateCheck(origin)) {
+      throw skippable('Rate limit exceeded. Please try again later.')
     }
 
     // 7. Harmonizer validation
@@ -1750,9 +1770,122 @@ export const createIndexer = (deps) => {
     }
     return result
   }
+  const handler = (uri, harmonizer, requestingOrigin, config) =>
+    runHandler(uri, harmonizer, requestingOrigin, config)
+
+  // #180: relay batch. URLs go through the full handler (every gate per item);
+  // blobjects through the submission tier. Sequential, never throws per item.
+  // Whole-set throws (caller maps to a status): over the cap, and blobjects-only
+  // when submissions are off. Item statuses: 'indexed' | 'deleted' | 'warning'
+  // (isWarning or skippable: cooldown / rate) | 'error'.
+  // Rate limiting counts the batch as one action: each origin/anchor bucket is
+  // charged at most once, and a refusal is remembered for the rest of the batch.
+  // The one batch engine (#180). `entries` is an ordered list of
+  // { kind: 'url', url, harmonizer } | { kind: 'blobject', blobject }; the
+  // caller supplies how a blobject is written (submission tier for the relay
+  // route, trusted ingest for the programmatic client). Every url goes through
+  // runHandler with the per-batch memoized rate check.
+  const runBatch = async (entries, { listHarmonizer = 'default', requestingOrigin = null, config = {}, writeBlobject }) => {
+    const buckets = new Map()
+    const rateCheck = (key) => {
+      let k
+      try { k = canonicalOrigin(key) } catch { k = key }
+      if (!buckets.has(k)) buckets.set(k, checkIndexingRateLimit(k))
+      return buckets.get(k)
+    }
+    const failure = (e) => ({
+      status: e?.isWarning || e?.skippable ? 'warning' : 'error',
+      error: e?.message ?? String(e),
+    })
+
+    const results = []
+    for (const entry of entries) {
+      if (entry.kind === 'blobject') {
+        const url = entry.blobject?.['@id']
+        try {
+          await writeBlobject(entry.blobject, rateCheck)
+          results.push({ url, kind: 'blobject', status: 'indexed' })
+        } catch (e) {
+          results.push({ url, kind: 'blobject', ...failure(e) })
+        }
+        continue
+      }
+      const url = entry.url
+      try {
+        if (typeof url !== 'string' || !url) throw new Error('Batch url item needs a url string.')
+        const res = await runHandler(url, entry.harmonizer ?? listHarmonizer, requestingOrigin, config, rateCheck)
+        if (res?.deleted) {
+          results.push({ url, kind: 'url', status: 'deleted', mode: res.mode, reason: res.reason })
+        } else {
+          const warnings = res?.warnings ?? []
+          results.push({ url, kind: 'url', status: 'indexed', ...(warnings.length ? { warnings } : {}) })
+        }
+      } catch (e) {
+        results.push({ url, kind: 'url', ...failure(e) })
+      }
+    }
+    return results
+  }
+
+  const indexBatch = async ({ urls = [], blobjects = [], harmonizer: listHarmonizer = 'default', reconcile, anchor, token, requestingOrigin = null, fetchImpl } = {}, config = {}) => {
+    const cap = maxBatchSizeConfig ?? DEFAULT_MAX_BATCH_SIZE
+    const total = urls.length + blobjects.length
+    if (total > cap) {
+      const e = new Error(`Batch too large: ${total} items exceeds maxBatchSize ${cap}.`)
+      e.batchTooLarge = true
+      throw e
+    }
+    const submissionsOn = (submissionsConfig ?? 'never') !== 'never'
+    if (blobjects.length && !urls.length && !submissionsOn) {
+      throw new Error('This server does not accept blobject submissions (policies.access.submissions).')
+    }
+    const entries = [
+      ...urls.map((raw) => {
+        const item = typeof raw === 'string' ? { url: raw } : (raw ?? {})
+        return { kind: 'url', url: item.url, harmonizer: item.harmonizer }
+      }),
+      ...blobjects.map((blobject) => ({ kind: 'blobject', blobject })),
+    ]
+    return runBatch(entries, {
+      listHarmonizer,
+      requestingOrigin,
+      config,
+      writeBlobject: (blobject, rateCheck) =>
+        runSubmitBlobject(blobject, { anchor, token, instance: config.instance, fetchImpl, reconcile }, rateCheck),
+    })
+  }
+
+  // Programmatic (owner-trusted) batch for createClient.batchHarmonize write
+  // mode. Core-internal (#359): createClient does not re-expose it, so its only
+  // caller is batchHarmonize; it stays on this object only because the indexer
+  // is the engine seam (demoted to internal in #359 phase 2). The relay
+  // reaches indexBatch through client.indexBatch instead.
+  // Same engine as indexBatch; differences: items keep their given
+  // order, blobjects go straight to ingestBlobject (no anchor auth, matching
+  // indexSource's content path), and no maxBatchSize cap.
+  // items: url string | { url, harmonizer? } | { blobject }.
+  const indexBatchTrusted = async (items = [], { harmonizer: listHarmonizer = 'default', requestingOrigin = null, reconcile, documentRecordSchema } = {}, config = {}) => {
+    const entries = items.map((raw) => {
+      const item = typeof raw === 'string' ? { url: raw } : (raw ?? {})
+      if (item.blobject) return { kind: 'blobject', blobject: item.blobject }
+      return { kind: 'url', url: item.url, harmonizer: item.harmonizer }
+    })
+    return runBatch(entries, {
+      listHarmonizer,
+      requestingOrigin,
+      config,
+      writeBlobject: (blobject) => ingestBlobject(blobject, {
+        instance: config.instance,
+        ...(reconcile !== undefined ? { reconcile } : {}),
+        ...(documentRecordSchema ? { documentRecordSchema } : {}),
+      }),
+    })
+  }
 
   return {
     handler,
+    indexBatch,
+    indexBatchTrusted,
     dispatch,
     ingestBlobject,
     submitBlobject,

@@ -1,72 +1,62 @@
-import { createIndexer, createDefaultHandlerRegistry, createHarmonizerRegistry, harmonizeSource } from 'octothorpes'
-import { insert, query, queryBoolean, queryArray } from '$lib/sparql.js'
+import { createClient, parseRequestBody } from 'octothorpes'
+import { sparql_endpoint, sparql_user, sparql_password } from '$lib/config.js'
 import { getProfile } from '$lib/profile.js'
 import { handlers as siteHandlers } from '$lib/handlers/index.js'
 import { harmonizers as siteHarmonizers } from '$lib/harmonizers/index.js'
 import { endorsers } from '$lib/endorsers/index.js'
 
-// #217: everything operational comes from the profile now. `instance` still
+// #359: the relay's indexing adapter assembles ONE createClient and re-exports
+// the client methods the routes call. No core objects are built here beyond
+// that client, and routes never build their own.
+//
+// #217: everything operational comes from the profile. `instance` still
 // originates in .env when a deploy overrides it, but it arrives here through
-// the loader's precedence rules rather than a second config read.
+// the loader's precedence rules rather than a second config read. sparql
+// credentials stay in .env (secrets).
 const profile = getProfile()
 const { instance } = profile.identity
 const { documentRecord, handlers } = profile.api
 
-// One registry, one harmonizer lookup, shared across the whole indexing path:
-// the indexer uses them on the fetch-path, and the exported `harmonize` binds
-// the same pair for the content-path. `default` is a handler mode
-// (api.handlers.default), not a harmonizer id — resolving design question 1
-// from the gap audit. Registered handlers (builtins + any future custom) are
-// reachable from both paths.
-const handlerRegistry = createDefaultHandlerRegistry({ defaultHandler: handlers.default })
-// #217 wave 5: site handlers discovered from api.handlers.dir layer on top of
-// the builtins, same pattern as the publisher registry. Survivable: a site
-// handler declaring a builtin mode must warn and skip, not crash module
-// evaluation of this adapter (and every route that imports it).
-for (const [mode, siteHandler] of Object.entries(siteHandlers)) {
-  try {
-    handlerRegistry.register(mode, siteHandler)
-  } catch (e) {
-    console.warn(`[handlers] "${mode}" failed to register and was skipped: ${e.message}`)
-  }
-}
-const harmonizerRegistry = createHarmonizerRegistry(instance)
-// #217 wave 5: site harmonizers discovered from api.harmonizers.dir layer on
-// top of the builtins, same survivable pattern as the handler loop above. A
-// site harmonizer with a builtin's name REPLACES the builtin (#296; the
-// registry warns once at boot); any other failure warns and skips rather than
-// crashing module evaluation of this adapter (and every route that imports it).
-for (const [name, siteHarmonizer] of Object.entries(siteHarmonizers)) {
-  try {
-    harmonizerRegistry.register(name, siteHarmonizer)
-  } catch (e) {
-    console.warn(`[harmonizers] "${name}" failed to register and was skipped: ${e.message}`)
-  }
-}
-const { getHarmonizer } = harmonizerRegistry
-
-const indexer = createIndexer({
-  insert,
-  query,
-  queryBoolean,
-  queryArray,
+// Kept separate from $lib/op.js's read-path client on purpose: that one loads
+// the publishers glob, and a broken publisher must not take /index down with
+// /get (see the eager-publishers 500).
+const client = createClient({
   instance,
-  handlerRegistry,
-  getHarmonizer,
+  sparql: {
+    endpoint: sparql_endpoint,
+    user: sparql_user,
+    password: sparql_password,
+  },
+  // One handler registry and one harmonizer registry, shared across the whole
+  // indexing path: the fetch-path (indexRequest/indexBatch) and the
+  // content-path (`harmonize` below). `default` is a handler mode
+  // (api.handlers.default), not a harmonizer id. #217 wave 5: site handlers
+  // and harmonizers discovered from api.handlers.dir / api.harmonizers.dir
+  // layer on top of the builtins; createClient registers them survivably (a
+  // failing entry warns and is skipped; a site harmonizer named like a builtin
+  // replaces it, #296).
+  defaultHandler: handlers.default,
+  handlers: siteHandlers,
+  harmonizers: siteHarmonizers,
+  // Feeds the boot-time coherence check the same declarations $lib/op.js does,
+  // without building a resolved profile the indexing path never serves.
+  linkTypes: profile.api.linkTypes,
   documentRecordSchema: documentRecord,
-  // createIndexer consumes this (#336): 'active' skips origin registration on
-  // the HTTP /index path, as createClient.indexSource does. Other gate stages
-  // (opt-out, bans, blocklist, rate bucket) still apply.
+  // #336: what TRIGGERS indexing. 'active' skips origin registration on the
+  // HTTP /index path. Other gate stages (opt-out, bans, blocklist, rate
+  // bucket) still apply. Identity-mapped from the profile.
   indexingMode: profile.policies.indexing.mode,
   // Re-index cooldown in seconds (#217). Consumed by recentlyIndexed in every mode.
   cooldown: profile.policies.indexing.cooldown,
   // #248: default deletion mode ('soft' | 'hard'), identity-mapped like indexingMode.
   deletionMode: profile.policies.indexing.deletion,
+  // #180: item cap for POST /index/batch (urls + blobjects together).
+  maxBatchSize: profile.policies.indexing.maxBatchSize,
   // #217: the access block feeds two independent enforcement points.
   // `registration` + `blocks.domains`/`whitelist.domains` are the GATE axis —
-  // what an index request must pass. `indexingMode` (Task 17) is the TRIGGER
-  // axis and is orthogonal to all of it. `blocks.terms` is neither: it is a
-  // write-time, statement-level filter that applies in every registration mode.
+  // what an index request must pass. `indexingMode` is the TRIGGER axis and is
+  // orthogonal to all of it. `blocks.terms` is neither: it is a write-time,
+  // statement-level filter that applies in every registration mode.
   access: profile.policies.access,
   // No-auth tier: the gate for blobject submissions (default "never").
   submissions: profile.policies.access.submissions,
@@ -76,55 +66,16 @@ const indexer = createIndexer({
   endorsers,
 })
 
-// Content-path harmonization bound to the same registry/lookup the indexer
-// uses, so callers (e.g. the /index route) extract through one consistent
-// configuration. Callers may still override any option.
+// Content-path harmonization bound to the same registries the fetch-path uses,
+// so callers (e.g. the orchestra-pit paste route) extract through one
+// consistent configuration. Callers may still override any option.
 export const harmonize = (content, harmonizer, options = {}) =>
-  harmonizeSource(content, harmonizer, {
-    handlerRegistry,
-    getHarmonizer,
-    instance,
-    ...options,
-  })
+  client.harmonize(content, harmonizer, { instance, ...options })
 
-export const {
-  handler,
-  submitBlobject,
-  handleThorpe,
-  handleMention,
-  handleWebring,
-  isHarmonizerAllowed,
-  checkIndexingRateLimit,
-  parseRequestBody,
-  isURL,
-  getAllMentioningUrls,
-  getDomainForUrl,
-  recentlyIndexed,
-  extantTerm,
-  extantPage,
-  extantMember,
-  extantThorpe,
-  extantMention,
-  createBacklink,
-  createOctothorpe,
-  createTerm,
-  createPage,
-  createWebring,
-  createWebringMember,
-  deleteWebringMember,
-  createMention,
-  recordIndexing,
-  recordProperty,
-  recordTitle,
-  recordDescription,
-  recordImage,
-  recordPostDate,
-  recordUsage,
-  recordCreation,
-  resolveSubtype,
-  checkIndexingPolicy,
-  originEndorsesOrigin,
-  checkReciprocalMention,
-  checkEndorsement,
-  webringMembers,
-} = indexer
+// Gate-enforcing request-path entry points (see createClient).
+export const handler = client.indexRequest
+export const indexBatch = client.indexBatch
+export const submitBlobject = client.submitBlobject
+
+// Pure body parser; no client state.
+export { parseRequestBody }

@@ -37,6 +37,17 @@
 - #180 — step 6, end of epic.
 - #273 — satisfied (pipeline code-complete); remaining docs/demos don't block.
 
+## #180 endpoint design (settled 2026-11-06)
+
+- `POST /index/batch`, thin SvelteKit wrapper: body `{urls?, blobjects?, harmonizer?, reconcile?}`. No whole-set `documentRecordSchema` (profile/harmonizer concern) or `wikilinkTargets` (not first-class); the 2026-07-09 R1–R8 spec revision on #180 is superseded.
+- `reconcile` keeps its name (no `update` rename); default true; applies to blobjects only — a harmonized URL fetch is complete by definition. `reconcile: false` = upsert, no deletions: the escape hatch for partial blobject submissions. Contract to document: a submitted blobject under default reconcile represents the WHOLE document; partial blobjects retract real edges.
+- Gating: urls through the full handler() gate stack per item; blobjects through submitBlobject (policies.access.submissions). Batch = one request-level hit; per-item cooldowns surface as per-item `skipped`. maxBatchSize cap (100) rejected whole-set before any item runs.
+- Response: HTTP 200 when admitted; per-item `results` + `summary` + async-propagation note; whole-set non-200 only for cap/malformed/submissions-disabled-and-blobjects-only.
+
+## Sitemap recipe (#177, settled 2026-11-06)
+
+No core code. A sitemap harmonizer (XML handler schema mapping `urlset.url.loc`, optionally `sitemapindex.sitemap.loc`) runs a PARSE-ONLY pass (`batchHarmonize` return-only / `harmonizeSource`); the client lifts `octothorpes[].uri` into `urls` and POSTs `/index/batch`. Batch never knows it was a sitemap. The sitemap blobject must never be write-ingested (it would assert hundreds of link mentions from the sitemap URL as subject); the harmonizer docs must say parse-only.
+
 ## Known gap (accepted)
 
 The (uri, subtype) read-path change touches the public API response shape in the multi-subtype case; consumers that dedupe by `uri` will see two rows. Deliberate, per decision 1.
