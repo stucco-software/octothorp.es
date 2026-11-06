@@ -140,14 +140,14 @@ Epic: **274**
 
 ### Status
 
-Not started. Depends on Handlers (273) being done.
+Shipped on development (unpushed); awaiting live testing. Relay now assembles createClient (359 phase 1); 359 phase 2 (demote createIndexer) deferred.
 
 ### Issues
 
-* [ ] 180 - Batch Indexing MVP
-* [ ] 43 - index statements via an Octothorpes blobject file. Closer than it looks; fold into 180.
-* [ ] 177 - harmonize sitemap.xml. Depends on 180.
-* [ ] 267 - re-index reconciliation: diff stored vs harvested, skip unchanged, delete stale (absorbs 26; rides batch epic)
+* [x] 180 - Batch Indexing MVP
+* [x] 43 - index statements via an Octothorpes blobject file
+* [x] 177 - harmonize sitemap.xml
+* [x] 267 - re-index reconciliation: diff stored vs harvested, skip unchanged, delete stale
 
 # Bug Fixes
 
@@ -264,9 +264,11 @@ Things in the milestone that don't have a home yet.
 * [ ] 222 - allow a domain with a subpath to act as a domain
 * [x] 228 - internal SvelteKit urls should use instance
 * [x] 224 - update Bear Blog's check to the New Way
-* [ ] 345 - aliasing must be two-way or endorsed (hardening sprint, pre-270)
+* [x] 345 - aliasing must be two-way or endorsed (hardening sprint, pre-270)
 * [ ] 339 - wildcard endorsement
-* [ ] 336 - active mode doesn't bypass registration on HTTP /index
+* [x] 336 - active mode doesn't bypass registration on HTTP /index
+* [ ] 357 - reciprocity-completed reverse Alias loses relationship terms until claimant re-indexes
+* [ ] 358 - unescaped non-http link targets reach SPARQL verbatim
 
 ### Memex-specific sub-group
 

@@ -1,0 +1,15 @@
+{
+  "//": "Site-level sitemap harmonizer (#177). PARSE-ONLY: use it for return-only passes (batchHarmonize return-only, harmonizeSource, orchestra-pit) to list the URLs in a sitemap. Do NOT write-ingest the result: indexing this blobject would assert every <loc> as a link mention from the sitemap URL. Recipe: 1) parse-only pass through this harmonizer, 2) lift octothorpes[].uri into urls, 3) POST /index/batch. Covers both urlset.url.loc and nested sitemapindex.sitemap.loc. Subject falls back to 'source' (the fetched sitemap URL).",
+  "id": "harmonizer/sitemap",
+  "type": "harmonizer",
+  "title": "Sitemap URL Lister (parse-only)",
+  "mode": "xml",
+  "schema": {
+    "subject": {
+      "s": "source"
+    },
+    "link": {
+      "o": ["urlset.url.loc", "sitemapindex.sitemap.loc"]
+    }
+  }
+}

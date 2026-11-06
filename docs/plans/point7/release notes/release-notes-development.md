@@ -1810,3 +1810,16 @@ Single batch engine: `client.batchHarmonize` write mode now delegates to `indexe
 Core: `createClient` gains `indexRequest` (the gate-enforcing `handler()`), `indexBatch`, and `submitBlobject`, plus config `submissions` and `maxBatchSize`; its internal indexer now also receives `indexingMode` as the default policy mode (`indexSource`/`batchHarmonize` already passed it per call, so they are unaffected). `indexer.indexBatchTrusted` is internal to core; only `batchHarmonize` calls it. `createIndexer` stays a public export (demotion is phase 2, still open).
 
 **Files affected:** `packages/core/client.js`, `packages/core/indexer.js` (comment), `src/lib/indexing.js`, `src/lib/endorsers/index.js` (comment), `src/tests/client-policy.test.js`, `src/tests/indexingAdapterDocumentRecord.test.js`, `src/tests/indexingAdapterDiscovery.test.js`, `src/tests/indexingAdapterEndorsers.test.js`.
+
+## Sitemap harmonizer and batch recipe (#177) (2026-11-06)
+
+New site harmonizer `sitemap` (`mode: xml`, resolvable by id like `anchors`/`csv`). It extracts `urlset.url.loc` and `sitemapindex.sitemap.loc` as `link` octothorpes; `@id` falls back to `source`, so dispatch substitutes the fetched sitemap URL. No core code, no batch awareness, no new routes. The default `xmlns` sitemap namespace needs no handling: fast-xml-parser keeps unprefixed tag names, and prefixed extension tags (`image:`, `xhtml:`) don't collide with the paths.
+
+Recipe:
+1. Parse-only pass of the sitemap through `sitemap` (`batchHarmonize` return-only, `harmonizeSource`, or orchestra-pit).
+2. Lift `octothorpes[].uri` into `urls`.
+3. `POST /index/batch` with those `urls`.
+
+Parse-only: never write-ingest the sitemap blobject. Indexing it asserts every `<loc>` as a link mention from the sitemap URL.
+
+**Files affected:** `static/harmonizers/sitemap.json` (new), `src/tests/sitemapHarmonizer.test.js` (new).
