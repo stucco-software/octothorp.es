@@ -69,3 +69,38 @@ describe('#356 handleMention drops non-absolute targets', () => {
     })
   }
 })
+
+// #361: the bare-term link form carries a TERM in href, not a locator.
+// `element.href` is the IDL property, which resolves against the document base
+// #356 introduced, so `href="demo"` was minted as the page IRI .../demo.
+const termHtml = `<html><head>
+  <link rel="octo:octothorpes" href="demo">
+  <link rel="octo:octothorpes" href="site changes">
+</head><body>
+  <a rel="octo:octothorpes" href="relative.html">locator</a>
+</body></html>`
+
+describe('#361 bare-term hrefs are not resolved as URLs', () => {
+  const buildIndexer = () => createIndexer({
+    insert: vi.fn(), query: vi.fn(), queryBoolean: vi.fn(), queryArray: vi.fn(),
+    instance,
+    handlerRegistry: {
+      getHandler: (m) => (m === 'html' ? htmlHandler : null),
+      getHandlerForContentType: (ct) => (ct?.startsWith('text/html') ? htmlHandler : null),
+    },
+    getHarmonizer: createHarmonizerRegistry(instance).getHarmonizer,
+  })
+
+  it('keeps a bare term verbatim', async () => {
+    const blobject = await buildIndexer().dispatch({ content: termHtml, contentType: 'text/html' }, 'default', page)
+    const terms = (blobject.octothorpes || []).filter((o) => typeof o === 'string')
+    expect(terms).toContain('demo')
+    expect(terms).toContain('site changes')
+    expect(terms.some((t) => /^https?:\/\//.test(t))).toBe(false)
+  })
+
+  it('still resolves locator hrefs on the same page (#356 unregressed)', async () => {
+    const blobject = await buildIndexer().dispatch({ content: termHtml, contentType: 'text/html' }, 'default', page)
+    expect(linkTargets(blobject)).toContain('https://example.com/blog/relative.html')
+  })
+})

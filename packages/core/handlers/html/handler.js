@@ -40,7 +40,7 @@ const extractValues = async (document, rule) => {
   if (typeof rule === "string") {
     return [rule]
   }
-  const { selector, attribute, postProcess, terms } = rule
+  const { selector, attribute, postProcess, terms, raw } = rule
   const elements = [...document.querySelectorAll(selector)]
   // Every rule must name an attribute to extract.
   if (!attribute || typeof attribute !== 'string') {
@@ -48,8 +48,12 @@ const extractValues = async (document, rule) => {
   }
   const values = elements
     .map((element) => {
-      let value = element[attribute]
-      if (value === undefined || value === null) {
+      // #361: `raw: true` reads the literal attribute and never the IDL
+      // property. A rule whose value is a TERM, not a locator, must opt in:
+      // `element.href` resolves against the base #356 sets, so a bare
+      // `href="demo"` would otherwise be minted as the page IRI `.../demo`.
+      let value = raw ? element.getAttribute(attribute) : element[attribute]
+      if (!raw && (value === undefined || value === null)) {
         value = element.getAttribute(attribute)
       }
       if (value === undefined || value === null) {

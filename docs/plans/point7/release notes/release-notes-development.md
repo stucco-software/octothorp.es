@@ -1823,3 +1823,9 @@ Recipe:
 Parse-only: never write-ingest the sitemap blobject. Indexing it asserts every `<loc>` as a link mention from the sitemap URL.
 
 **Files affected:** `static/harmonizers/sitemap.json` (new), `src/tests/sitemapHarmonizer.test.js` (new).
+
+## Bare-term `href` is read raw, not resolved (#361) (2026-11-10)
+
+HTML rules accept `raw: true`, which reads the literal attribute instead of the IDL property. The `hashtag` rule for `link[rel='octo:octothorpes']` sets it: that `href` carries a term, and since #356 set a document base it resolved to the page IRI, so `href="demo"` minted the Term `{page}/demo`. Locator rules are unchanged and still resolve. The harmonizer schema constrains no rule keys, so no schema change. Existing URL-shaped Terms are not cleaned up — #361 carries that.
+
+**Files affected:** `packages/core/handlers/html/handler.js`, `packages/core/harmonizers/default.json`, `src/tests/relativeHrefBase.test.js`, `src/tests/fixtures/builtin-harmonizers.op-test.json`.
