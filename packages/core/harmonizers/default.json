@@ -120,7 +120,6 @@
         {
           "selector": "link[rel='octo:octothorpes']",
           "attribute": "href",
-          "//": "#361: href here is a TERM, not a locator. raw reads the literal attribute so it is not resolved against the page base.",
           "raw": true
         }
       ]
