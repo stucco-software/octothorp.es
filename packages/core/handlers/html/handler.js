@@ -35,12 +35,20 @@ export const parseHTML = async (html, _contentType, { url } = {}) => {
 
 export const parse = parseHTML
 
-const extractValues = async (document, rule) => {
+// #361: `key` is the containing schema key. The `hashtag` object holds TERMS,
+// not locators, so its values are read from the literal attribute and never
+// from the IDL property — `element.href` resolves against the document base
+// added by #356, which minted a bare `href="demo"` as the page IRI `.../demo`.
+// No per-rule flag: the schema key IS the flag (ruling 2026-11-16).
+const isTermKey = (key) => key === 'hashtag'
+
+const extractValues = async (document, rule, key) => {
   if (rule === undefined || rule === null) return []
   if (typeof rule === "string") {
     return [rule]
   }
   const { selector, attribute, postProcess, terms } = rule
+  const literalOnly = isTermKey(key)
   const elements = [...document.querySelectorAll(selector)]
   // Every rule must name an attribute to extract.
   if (!attribute || typeof attribute !== 'string') {
@@ -48,9 +56,12 @@ const extractValues = async (document, rule) => {
   }
   const values = elements
     .map((element) => {
-      let value = element[attribute]
+      // Term keys invert the lookup order: literal attribute first, IDL
+      // property only as a fallback. `href` then stays verbatim, while
+      // `textContent` (no such content attribute) still resolves.
+      let value = literalOnly ? element.getAttribute(attribute) : element[attribute]
       if (value === undefined || value === null) {
-        value = element.getAttribute(attribute)
+        value = literalOnly ? element[attribute] : element.getAttribute(attribute)
       }
       if (value === undefined || value === null) {
         throw new Error(`Harmonizer rule "${selector}" -> "${attribute}": matched element has no such attribute`)
@@ -173,10 +184,10 @@ export default {
     let output = {}
     let typedOutput = {}
 
-    async function getObjectVals(obj) {
+    async function getObjectVals(obj, key) {
       const oValues = []
       for (const rule of obj) {
-        let values = await extractValues(document, rule)
+        let values = await extractValues(document, rule, key)
         if (rule.filterResults) {
           values = filterValues(values, rule.filterResults)
         }
@@ -221,7 +232,7 @@ export default {
       typedOutput[key] = []
       const s = schema[key].s
       const o = schema[key].o
-      const sValues = await extractValues(document, s)
+      const sValues = await extractValues(document, s, key)
 
       if (key === "subject" || key === "documentRecord") {
         if (key === "subject") {
@@ -233,7 +244,7 @@ export default {
         for (const [prop, val] of Object.entries(schema[key])) {
           let values = []
           if (prop != "s") {
-            values = await getObjectVals(val)
+            values = await getObjectVals(val, key)
             if (key == "subject" && SUBJECT_ARRAY_PROPS.has(prop)) {
               // Array-valued subject prop: keep every match, in document order.
               setNestedProperty(output, prop, values.filter(v => typeof v === 'string' ? v.trim() !== '' : v !== null && v !== undefined))
@@ -254,7 +265,7 @@ export default {
           }
         }
       } else {
-        typedOutput[key] = await getObjectVals(schema[key].o)
+        typedOutput[key] = await getObjectVals(schema[key].o, key)
       }
     }
 
