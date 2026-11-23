@@ -17,7 +17,7 @@ Code-complete and merged; epic closed. Docs and demos remain.
 * [x] 216 - Rev 1 profile schema/loader/endpoints; superseded by 217
 * [x] 217 - actually read from profile; merged and validated via the op-test-site harness
 * [x] 236 - link subtypes get first-class paths; superseded by 217 as api.linkTypes
-* [ ] 195 - canonical vocabulary cleanup. context.json regeneration waits on 270.
+* [x] 195 - canonical vocabulary cleanup. Closed 2026-11-23; context.json regeneration still waits on 270.
 * [ ] 166 - on-demand Document Records. Open surface is the stored `octo:harmonizeWith` ref.
 * [x] 291 - generated vocabulary document
 * [x] 292 - `mentioned` becomes its own subtype
@@ -37,16 +37,17 @@ Epic: **316**
 
 ### Status
 
-Core vocabulary module exists (`packages/core/vocabulary.js`). 291 (generated vocabulary document, canonical IRI writes with dual-form reads) and 286 (SKOS subClassOf + prefLabel) are closed. Remaining: 195, 315, and 332 capitalization; `context.json` regeneration still waits on 270.
+Core vocabulary module exists (`packages/core/vocabulary.js`). 291, 286, 195 and 315 are all closed. Remaining: 332 capitalization (ruled 2026-10-28, now a documentation job) and 363 (persist `octo:type`); `context.json` regeneration still waits on 270.
 
 ### Issues — independent of 270, workable now
 
-* [ ] 195 - the registry module plus the spec §4 naming fixes. Blocker for 291 and 286.
+* [x] 195 - the registry module plus the spec §4 naming fixes. Closed 2026-11-23.
 * [x] 291 - generated vocabulary document at `{instance}/vocabulary`. Also owns the stored-type IRI-form decision, moved here from 195/270.
-* [ ] 315 - declared `vocabulary.namespaces` never reach SPARQL; `import: true` unimplemented. Blocks 286 in practice.
+* [x] 315 - declared `vocabulary.namespaces` reach SPARQL; closed 2026-11-04.
 * [x] 286 - SKOS terms, additive. Independent of 270.
 * [x] 249 - harmonizer/publisher envelope normalization, landed via PR 252.
-* [ ] 332 - collapse the three capitalization conventions
+* [ ] 332 - collapse the three capitalization conventions. Ruled 2026-10-28 (lowercase single word for relationship subtypes); only documentation and OP-skill enforcement remain.
+* [ ] 363 - persist `octo:type` as a general subject property. Prerequisite for 226.
 
 ### Waits on 270
 
@@ -106,8 +107,8 @@ Deployed on staging. Lightly tested. Needs documentation and examples.
 
 ### Issues
 
-* [ ] 226 - site-defined ICS publisher
-	* [ ] core already ships a general `ics` publisher — decide whether that closes this
+* [ ] 226 - site-defined ICS publisher. Blocked on 363.
+	* [x] core already ships a general `ics` publisher — decide whether that closes this. Reviewed 2026-11-23: it does not; `octo:type` is never stored, so neither resolver- nor query-level filtering is possible.
 * [ ] 250 - publisher profile-compat check. Deferred.
 * [x] 161 - Publishers MVP. Probably closeable once docs land.
 
