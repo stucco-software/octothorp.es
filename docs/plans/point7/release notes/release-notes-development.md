@@ -1823,3 +1823,9 @@ Recipe:
 Parse-only: never write-ingest the sitemap blobject. Indexing it asserts every `<loc>` as a link mention from the sitemap URL.
 
 **Files affected:** `static/harmonizers/sitemap.json` (new), `src/tests/sitemapHarmonizer.test.js` (new).
+
+## Locator validation and term routing -- #358, #361
+
+Harmonized values are untyped strings, and two functions must handle them totally. `canonical()` (`packages/core/reifier.js`) no longer passes unregistered schemes through verbatim: a URI containing a character illegal in an IRI (`< > " { } | ^ \``, backslash, control characters, whitespace) now throws, so nothing hostile reaches a SPARQL `<IRI>`. Values that pass are returned byte-for-byte as before, so no reifier identity changes. `handleMention` already drops an uncanonicalizable target without aborting the page; it now also returns `{ warning }`, which surfaces in `/index` and batch responses. Webring membership validates its raw member list the same way.
+
+Term routing: the HTML handler treats the `hashtag` schema key as the flag and reads the literal attribute rather than the IDL property, so a bare `<link rel="octo:octothorpes" href="demo">` stays the term `demo` instead of being resolved against the page base into a Term IRI (#356's behavior). No harmonizer-schema surface was added. Locator rules keep resolving relative hrefs. Data cleanup -- retracting the URL-shaped Term nodes already written -- stays open on #361.
