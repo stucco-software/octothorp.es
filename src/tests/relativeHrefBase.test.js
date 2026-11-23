@@ -63,7 +63,9 @@ describe('#356 handleMention drops non-absolute targets', () => {
 
   for (const target of ['/tags/x.html', '', undefined]) {
     it(`skips and logs target ${JSON.stringify(target)}`, async () => {
-      await expect(indexer.handleMention(page, target)).resolves.toBeUndefined()
+      // #358: the drop now returns a warning through the existing channel.
+      const r = await indexer.handleMention(page, target)
+      expect(r.warning).toMatch(/not a usable IRI/)
       expect(insert).not.toHaveBeenCalled()
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('statement dropped'))
     })

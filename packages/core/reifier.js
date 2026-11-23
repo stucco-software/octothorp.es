@@ -88,10 +88,20 @@ const SCHEMES = {
   at: canonicalAt,
 }
 
+// #358: characters an IRI may never contain (RFC 3987 plus the SPARQL/Turtle
+// IRIREF exclusions), used to validate unregistered schemes. http(s) and at://
+// are validated by their own canonicalizers -- WHATWG URL parsing
+// percent-encodes every character in this set as a side effect.
+// Harmonized values are untyped strings: an unvalidated one reaching
+// `<...>` in an UPDATE is a SPARQL injection, not just bad data.
+const IRI_ILLEGAL = /[\u0000- <>"{}|\\^`\u007F]/
+
 /**
  * The one canonicalization function for reifier identity. Pure, frozen,
  * syntactic only, applied identically to subject and object. Dispatches on a
- * per-scheme registry; unregistered schemes pass through untouched.
+ * per-scheme registry; unregistered schemes pass through untouched, but are
+ * first checked for IRI legality (#358) and rejected if they contain a
+ * character no IRI may hold.
  *
  * http/https: lowercase scheme and host (IDN hosts become punycode), strip
  * one leading `www.` label, strip the default port, resolve dot segments,
@@ -104,6 +114,8 @@ const SCHEMES = {
  *
  * at://: lowercased scheme, otherwise verbatim; the authority must be a DID.
  *
+ * Any other declared scheme: returned verbatim if IRI-legal, else thrown on.
+ *
  * FROZEN CONTRACT: changing any rule here changes reifier IRIs and is an
  * identity migration. Store-dependent policy (param gate, alias resolution)
  * and identity assertions belong upstream or at query time, never here.
@@ -111,12 +123,24 @@ const SCHEMES = {
  * @param {string} uri
  * @returns {string}
  * @throws on a non-string, a scheme-less string, an unparseable http(s) URL,
- *   or an at:// URI with a non-DID authority
+ *   an at:// URI with a non-DID authority, or an unregistered-scheme URI
+ *   containing a character illegal in an IRI (#358)
  */
 export const canonical = (uri) => {
   const scheme = schemeOf(uri)
   const fn = SCHEMES[scheme]
-  return fn ? fn(uri) : uri
+  if (fn) return fn(uri)
+  // #358: unregistered schemes used to pass through verbatim, which let a
+  // hostile harmonized value reach SPARQL inside `<...>`. Validate instead of
+  // escaping: rejecting matches this function's existing throw behavior and
+  // keeps it pure and syntactic. A value that passes is returned byte-for-byte
+  // as before, so no reifier identity changes.
+  const bad = uri.match(IRI_ILLEGAL)
+  if (bad) {
+    const code = `U+${bad[0].codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`
+    throw new Error(`Invalid IRI: "${uri}" contains the illegal character ${code}.`)
+  }
+  return uri
 }
 
 const safeDecode = (s) => {
