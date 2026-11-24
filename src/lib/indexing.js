@@ -72,6 +72,11 @@ const client = createClient({
 export const harmonize = (content, harmonizer, options = {}) =>
   client.harmonize(content, harmonizer, { instance, ...options })
 
+// Harmonizer lookup against the same registry the indexing path harmonizes
+// with (builtins + site harmonizers from api.harmonizers.dir), so the
+// /harmonizer/[id] route serves exactly what /index can use.
+export const getHarmonizer = client.harmonizer.getHarmonizer
+
 // Gate-enforcing request-path entry points (see createClient).
 export const handler = client.indexRequest
 export const indexBatch = client.indexBatch

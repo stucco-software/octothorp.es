@@ -1,4 +1,5 @@
 import { normalizeEnvelope } from './envelope.js'
+import { QueryError } from './errors.js'
 // #296: builtins are flat JSON files — the SAME shape as a site harmonizer
 // under api.harmonizers.dir — shipped inside the core package. They validate
 // against harmonizer.schema.json and use the `{{instance}}` token wherever the
@@ -58,13 +59,15 @@ export const createHarmonizerRegistry = (instance, { warn = console.warn } = {})
     sources[name] = 'builtin'
   }
 
+  // Caller errors are typed (QueryError with a status) so a transport can map
+  // them to 4xx; anything else escaping is a genuine 500.
   const getHarmonizer = async (id) => {
     if (!id || typeof id !== 'string') {
-      throw new Error('Invalid harmonizer ID')
+      throw new QueryError('Invalid harmonizer ID', { status: 400 })
     }
     const harmonizer = localHarmonizers[id]
     if (!harmonizer) {
-      throw new Error('Harmonizer not found')
+      throw new QueryError('Harmonizer not found', { status: 404 })
     }
     return harmonizer
   }

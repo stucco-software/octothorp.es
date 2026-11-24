@@ -1,45 +1,19 @@
 // src/routes/harmonizer/[id]/+server.js
 import { json } from '@sveltejs/kit'
+import { isQueryError } from 'octothorpes'
 import { getHarmonizer } from '$lib/getHarmonizer.js'
-// Cache for harmonizer schemas
-const harmonizerCache = new Map();
-
-
 
 export async function GET({ params }) {
     const { id } = params;
 
-    // Validate the ID
-    if (!id || typeof id !== 'string') {
-        return json({ error: 'Invalid harmonizer ID' }, { status: 400 });
+    // The registry throws typed caller errors (400 invalid id, 404 unknown id);
+    // anything else is a genuine failure and stays a 500.
+    try {
+        return json(await getHarmonizer(id));
+    } catch (e) {
+        if (isQueryError(e)) {
+            return json({ error: e.message }, { status: e.status ?? 400 });
+        }
+        throw e;
     }
-
-    // Check the cache first
-    if (harmonizerCache.has(id)) {
-        // return json(harmonizerCache.get(id));
-    }
-
-    // Fetch the harmonizer schema (from predefined harmonizers or an external source)
-    const harmonizer = await getHarmonizer(id);
-
-    // Validate the harmonizer
-    if (!harmonizer) {
-        return json({ error: 'Harmonizer not found' }, { status: 404 });
-    }
-
-    // Cache the harmonizer
-    harmonizerCache.set(id, harmonizer);
-
-
-    return json(harmonizer);
-    // const { html, definitionName } = request.body;
-
 }
-
-
-
-
-
-
-// const result = extractDataFromHTML(html, harmonizerDefinitions, 'default');
-// console.log(JSON.stringify(result, null, 2));

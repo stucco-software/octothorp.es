@@ -1842,3 +1842,9 @@ New `scripts/cleanup-sweep.js`: one dry-run-by-default retraction sweep with fiv
 Core: `freshPageState` is now a module-level export of `indexer.js` (unchanged behavior). `client.js` also exports `IRI_ILLEGAL`, `diffPageState` and `escapeSparqlLiteral`.
 
 **Files affected:** `scripts/cleanup-sweep.js` (new), `scripts/cleanup-sweep/rulesets.js` (new), `scripts/canonicalize-origins.js`, `packages/core/indexer.js`, `packages/core/reifier.js`, `packages/core/client.js`, `src/tests/cleanupSweep.test.js` (new).
+
+## `/harmonizer/[id]` serves site harmonizers; unknown ids 404 -- #177 follow-up (2026-11-23)
+
+`GET /harmonizer/sitemap` (and `csv`, `anchors`, any site harmonizer) returned 500. `src/lib/getHarmonizer.js` built its own builtins-only `createHarmonizerRegistry`, so the site harmonizers discovered from `api.harmonizers.dir` were never registered there. It now re-exports `getHarmonizer` from `src/lib/indexing.js`, which exposes `client.harmonizer.getHarmonizer` from the indexing client. The route and orchestra-pit now resolve against the same registry `/index` harmonizes with. Separately, the registry's not-found throw was a plain `Error` while the route checked `if (!harmonizer)`, so unknown ids also 500'd. `createHarmonizerRegistry().getHarmonizer` now throws `QueryError` (status 404 for an unknown id, 400 for an invalid one; messages unchanged), and the route maps `isQueryError` to that status. Other errors still 500. The route's unused cache was removed.
+
+**Files affected:** `packages/core/harmonizers.js`, `src/lib/indexing.js`, `src/lib/getHarmonizer.js`, `src/routes/harmonizer/[id]/+server.js`, `src/tests/harmonizerRoute.test.js` (new).
