@@ -9,7 +9,7 @@ import {
   toSparqlRegexSource, iriMatchExpr, nodesQuery, tripleCountQuery, reifierCountQuery, retractUpdates,
   selectRulesets, parseCutoff, staleCandidatesQuery, classifyHarvest, diffSize, runPatternRuleset,
 } from '../../scripts/cleanup-sweep/rulesets.js'
-import { repairDoubledScheme, originTarget, planCanonicalizeOrigins } from '../../scripts/canonicalize-origins.js'
+import { repairDoubledScheme, originTarget, planCanonicalizeOrigins, isPathBearing } from '../../scripts/canonicalize-origins.js'
 
 const I = 'http://localhost:5173/'
 
@@ -231,5 +231,53 @@ describe('origins: doubled-scheme repair (#364 ruling)', () => {
       { uri: 'https://https://256rem.xyz', canonical: 'https://256rem.xyz', collides: true },
     ])
     for (const e of nonCanonical) expect(e.canonical).not.toMatch(/^https?:\/\/https?\/?$/)
+  })
+})
+
+describe('origins: path-bearing spellings are skipped (#364 ruling, pending #222)', () => {
+  it.each([
+    ['https://cdpn.io/pen/debug/RwXrWWV', true],
+    ['https://iamtanishqk.wixstudio.com/my-site', true],
+    ['https://iamtanishqk.wixstudio.com/my-site/', true],
+    ['https://host.example/?q=1', true],
+    ['https://host.example/#x', true],
+    ['https://https://host.example/sub', true],
+    ['https://yrriban.net/', false],
+    ['https://yrriban.net', false],
+    ['https://www.host.example', false],
+    ['https://https://256rem.xyz', false],
+    ['at://did:plc:abc', false],
+  ])('isPathBearing(%s) -> %s', (uri, expected) => {
+    expect(isPathBearing(uri)).toBe(expected)
+  })
+
+  it('plans folds and repairs, and reports path-bearing origins as skipped with counts', async () => {
+    const origins = [
+      'https://cdpn.io/pen/debug/RwXrWWV', 'https://cdpn.io',
+      'https://iamtanishqk.wixstudio.com/my-site',
+      'https://yrriban.net/',
+      'https://https://256rem.xyz',
+      'https://www.host.example',
+      'https://ok.example',
+    ]
+    const counts = { 'https://cdpn.io/pen/debug/RwXrWWV': [12, 1] }
+    const sparql = {
+      queryArray: async (q) => {
+        if (q.includes('octo:Origin')) return { results: { bindings: origins.map((d) => ({ d: { value: d } })) } }
+        const uri = q.match(/<([^>]+)>/)[1]
+        const [subj, obj] = counts[uri] ?? [2, 0]
+        return { results: { bindings: [{ n: { value: String(q.includes(`{ <${uri}>`) ? subj : obj) } }] } }
+      },
+    }
+    const { nonCanonical, skipped } = await planCanonicalizeOrigins(sparql, { log: () => {} })
+    expect(nonCanonical.map(({ uri, canonical }) => [uri, canonical])).toEqual([
+      ['https://yrriban.net/', 'https://yrriban.net'],
+      ['https://https://256rem.xyz', 'https://256rem.xyz'],
+      ['https://www.host.example', 'https://host.example'],
+    ])
+    expect(skipped).toEqual([
+      { uri: 'https://cdpn.io/pen/debug/RwXrWWV', reason: 'path-bearing, pending #222', asSubject: 12, asObject: 1 },
+      { uri: 'https://iamtanishqk.wixstudio.com/my-site', reason: 'path-bearing, pending #222', asSubject: 2, asObject: 0 },
+    ])
   })
 })

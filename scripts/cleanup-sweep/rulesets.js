@@ -172,15 +172,21 @@ export const runPatternRuleset = async (rs, { sparql, write, log }) => {
 
 export const runOriginsRuleset = async (_rs, { sparql, write, log }) => {
   const plan = await planCanonicalizeOrigins(sparql, { log })
-  log(`  ${plan.origins.length} origins, ${plan.nonCanonical.length} non-canonical`)
+  log(`  ${plan.origins.length} origins, ${plan.nonCanonical.length} non-canonical, ${plan.skipped.length} skipped`)
+  if (plan.skipped.length) {
+    log('  skipped (path-bearing, pending #222):')
+    for (const e of plan.skipped) log(`    ${e.uri} (${e.asSubject} as subject, ${e.asObject} as object)`)
+  }
+  if (plan.nonCanonical.length) log('  planned:')
   for (const e of plan.nonCanonical) {
     log(`    ${e.uri} -> ${e.canonical} [${e.collides ? 'MERGE' : 'rename'}] (${e.asSubject} as subject, ${e.asObject} as object)`)
   }
-  if (!write || !plan.nonCanonical.length) return { before: plan.nonCanonical.length, after: null, details: {} }
+  const details = { skipped: plan.skipped.length }
+  if (!write || !plan.nonCanonical.length) return { before: plan.nonCanonical.length, after: null, details }
   for (const e of plan.nonCanonical) await applyCanonicalizeOrigin(sparql, e)
   const again = await planCanonicalizeOrigins(sparql, { log })
   log(`  after: ${again.nonCanonical.length} non-canonical`)
-  return { before: plan.nonCanonical.length, after: again.nonCanonical.length, details: {} }
+  return { before: plan.nonCanonical.length, after: again.nonCanonical.length, details }
 }
 
 // --- stale-thorpes -----------------------------------------------------------

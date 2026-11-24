@@ -52,10 +52,35 @@ export const originTarget = (uri) => {
 }
 
 /**
+ * True when an http(s) origin spelling carries anything after the host
+ * beyond a single trailing `/`: a path, query or fragment. These are not
+ * folded onto the bare host (#364 ruling): whether a path-scoped origin is a
+ * registration of its own is #222's question. Doubled schemes are repaired
+ * first. Pure.
+ * @param {string} uri
+ */
+export const isPathBearing = (uri) => {
+  let u
+  try { u = new URL(repairDoubledScheme(uri)) } catch { return false }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+  return (u.pathname !== '/' && u.pathname !== '') || Boolean(u.search) || Boolean(u.hash)
+}
+
+const tripleCounts = async (sparql, uri) => {
+  const asSubject = await sparql.queryArray(`select (count(*) as ?n) { <${uri}> ?p ?o . }`)
+  const asObject = await sparql.queryArray(`select (count(*) as ?n) { ?s ?p <${uri}> . }`)
+  return {
+    asSubject: Number(asSubject.results.bindings[0].n.value),
+    asObject: Number(asObject.results.bindings[0].n.value),
+  }
+}
+
+/**
  * Every octo:Origin whose spelling isn't canonical, with triple counts.
+ * Path-bearing spellings are left out of the plan and returned in `skipped`.
  * @param {{queryArray: Function}} sparql
  * @param {{log?: Function}} [opts]
- * @returns {Promise<{origins: string[], nonCanonical: Array<{uri: string, canonical: string, collides: boolean, asSubject: number, asObject: number}>}>}
+ * @returns {Promise<{origins: string[], nonCanonical: Array<{uri: string, canonical: string, collides: boolean, asSubject: number, asObject: number}>, skipped: Array<{uri: string, reason: string, asSubject: number, asObject: number}>}>}
  */
 export const planCanonicalizeOrigins = async (sparql, { log = console.log } = {}) => {
   const res = await sparql.queryArray(`select distinct ?d {
@@ -64,7 +89,12 @@ export const planCanonicalizeOrigins = async (sparql, { log = console.log } = {}
   const origins = res.results.bindings.map(b => b.d.value)
 
   const nonCanonical = []
+  const skipped = []
   for (const uri of origins) {
+    if (isPathBearing(uri)) {
+      skipped.push({ uri, reason: 'path-bearing, pending #222', ...(await tripleCounts(sparql, uri)) })
+      continue
+    }
     let canonical
     try {
       canonical = originTarget(uri)
@@ -77,17 +107,9 @@ export const planCanonicalizeOrigins = async (sparql, { log = console.log } = {}
     // a merge (two registrations collapse into one); if not it's a rename.
     const collides = origins.includes(canonical)
     // Count what moves, so a dry run reports real numbers rather than intent.
-    const asSubject = await sparql.queryArray(`select (count(*) as ?n) { <${uri}> ?p ?o . }`)
-    const asObject = await sparql.queryArray(`select (count(*) as ?n) { ?s ?p <${uri}> . }`)
-    nonCanonical.push({
-      uri,
-      canonical,
-      collides,
-      asSubject: Number(asSubject.results.bindings[0].n.value),
-      asObject: Number(asObject.results.bindings[0].n.value),
-    })
+    nonCanonical.push({ uri, canonical, collides, ...(await tripleCounts(sparql, uri)) })
   }
-  return { origins, nonCanonical }
+  return { origins, nonCanonical, skipped }
 }
 
 /**
@@ -128,9 +150,13 @@ const main = async () => {
   console.log(`endpoint: ${sparql_endpoint}`)
   console.log(WRITE ? 'mode: WRITE (changes will be applied)' : 'mode: dry run (no changes)')
 
-  const { origins, nonCanonical } = await planCanonicalizeOrigins(sparql, { log: console.warn })
+  const { origins, nonCanonical, skipped } = await planCanonicalizeOrigins(sparql, { log: console.warn })
 
-  console.log(`\n${origins.length} origins, ${nonCanonical.length} non-canonical`)
+  console.log(`\n${origins.length} origins, ${nonCanonical.length} non-canonical, ${skipped.length} skipped`)
+  if (skipped.length) {
+    console.log('\nskipped (path-bearing, pending #222):')
+    for (const e of skipped) console.log(`  ${e.uri} (${e.asSubject} triples as subject, ${e.asObject} as object)`)
+  }
 
   if (!nonCanonical.length) {
     console.log('nothing to do.')
