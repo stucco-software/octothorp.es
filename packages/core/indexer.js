@@ -1007,8 +1007,10 @@ export const createIndexer = (deps) => {
     } catch (e) {
       // Statement-level drop, like the term blocklist: one unusable link
       // target (no scheme, unparseable, at:// handle) must not abort the page.
+      // #358: surface the drop through the existing warning channel, not only
+      // the console, so the indexing client learns which target was refused.
       console.warn(`[index] link target "${o}" cannot be canonicalized; statement dropped: ${e.message}`)
-      return
+      return { warning: `Link target "${o}" is not a usable IRI; statement dropped. ${e.message}` }
     }
     // #241: 'origin' (http/https) or 'declared' (profile-declared non-http
     // scheme — relationship triples only, no origin side-effects). An
@@ -1200,7 +1202,19 @@ export const createIndexer = (deps) => {
   }
 
   const handleWebring = async (s, friends, alreadyRing) => {
-    const domainsOnPage = friends.linked.map(member => deslash(member))
+    // #358: membership is written straight into `<${m}>`, and friends.linked is
+    // raw harmonizer output. The handshake below is a gate, not a validator, so
+    // validate here. canonical()'s RETURN is deliberately unused: normalizing
+    // member spellings would change stored octo:hasMember values and the
+    // substring handshake. This only drops what canonical() refuses.
+    const domainsOnPage = friends.linked
+      .map(member => deslash(member))
+      .filter((member) => {
+        try { canonical(member); return true } catch (e) {
+          console.warn(`[index] webring member "${member}" is not a usable IRI; not added: ${e.message}`)
+          return false
+        }
+      })
     const membersResult = await webringMembers(s)
     const extantMembers = (membersResult?.results?.bindings || [])
       .map(b => deslash(b.o?.value))

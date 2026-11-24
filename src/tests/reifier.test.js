@@ -103,7 +103,9 @@ describe('mintReifierIri: identity rules', () => {
     await expect(mintReifierIri({ subject: 'https://a.example/', object: 'https://b.example/' }))
       .rejects.toThrow()
     await expect(mint('https://a.example/', 'https://b.example/', 'x\ny')).rejects.toThrow(/newline/)
-    await expect(mint('urn:x\ny', 'https://b.example/')).rejects.toThrow(/newline/)
+    // #358: a newline in a URI is now caught earlier, by canonical()'s
+    // IRI-legality check, so the message names the illegal character instead.
+    await expect(mint('urn:x\ny', 'https://b.example/')).rejects.toThrow(/Invalid IRI/)
   })
 })
 
