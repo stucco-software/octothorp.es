@@ -15,6 +15,16 @@ const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
 const strip = (s) => (s || '').replace(/\/$/, '')
 
 /**
+ * #357: the claim record of a pending <S> octo:aliasClaim <O>. When the claim
+ * carries relationship terms it is written in annotation form with this
+ * deterministic reifier, holding them as octo:claimTerm (never
+ * octo:octothorpes, so a pending claim publishes nothing). Reciprocity reads
+ * them back to mint the completed Alias. Term-less claims stay a plain triple.
+ * Callers pass canonical IRIs.
+ */
+export const aliasClaimRecordIri = (s, o) => mintReifierIri({ subject: s, predicate: CLAIM, object: o })
+
+/**
  * #322/#267: what a re-index must retract, as the difference between S's
  * stored state (readPageState) and the fresh harvest. Pure. Subtypes and
  * relationship terms compare per reifier; a fresh mention without a
@@ -269,7 +279,11 @@ export const createDeleter = (deps = {}) => {
 
     // #345: stale pending claims. A plain <S> octo:aliasClaim <O> triple that
     // the fresh harvest no longer backs with an Alias toward O is retracted.
-    for (const o of d.aliasClaims) await query(`DELETE DATA { <${subj}> <${CLAIM}> <${o}> }`)
+    // #357: its claim record (terms) goes with it.
+    for (const o of d.aliasClaims) {
+      await query(`DELETE DATA { <${subj}> <${CLAIM}> <${o}> }`)
+      await query(`DELETE WHERE { <${await aliasClaimRecordIri(subj, o)}> ?rp ?ro }`)
+    }
 
     return {
       thorpes: d.thorpes.map((name) => termIri(base, name)),
