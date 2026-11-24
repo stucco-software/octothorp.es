@@ -67,7 +67,7 @@ Epic: **270**
 
 ### Status
 
-Core migration shipped on development and applied to staging; 192 content labels and the unticketed pieces (identifier-key rename, statement-metadata rewrite, prod data migration, JSON-LD publisher endpoint) remain. Prod run follows `prod-migration-rehearsal.md`. Alias hardening and remoteClient adoption are deliberately deferred to land after this epic.
+Epic closed 2026-11-23. Remaining scope lives in 192 (content labels, Wave 4.5) and 352 (prod run, sequenced inside mini epic 365).
 
 ### Issues
 
@@ -87,7 +87,7 @@ Epic: **271**
 
 ### Status
 
-Status: shipped on development; 267 reconciliation deferred to batch epic
+Epic closed 2026-11-23. 267 reconciliation closed with the batch epic.
 
 ### Issues
 
@@ -141,7 +141,7 @@ Epic: **274**
 
 ### Status
 
-Shipped on development (unpushed); awaiting live testing. Relay now assembles createClient (359 phase 1); 359 phase 2 (demote createIndexer) deferred.
+Epic closed 2026-11-23; pushed to development. Hand-testing still pending. 359 phase 2 (demote createIndexer) deferred.
 
 ### Issues
 
@@ -269,7 +269,10 @@ Things in the milestone that don't have a home yet.
 * [ ] 339 - wildcard endorsement
 * [x] 336 - active mode doesn't bypass registration on HTTP /index
 * [ ] 357 - reciprocity-completed reverse Alias loses relationship terms until claimant re-indexes
-* [ ] 358 - unescaped non-http link targets reach SPARQL verbatim
+* [x] 358 - unescaped non-http link targets reach SPARQL verbatim
+* [x] 361 - bare-term hrefs minted terms as page IRIs; hashtag key now routes to literal reads
+* [ ] 364 - data cleanup retraction sweep script (five rulesets)
+* [ ] 365 - data cleanup mini epic: all cleanup runs on a staging copy of prod data, after functional issues close
 
 ### Memex-specific sub-group
 
