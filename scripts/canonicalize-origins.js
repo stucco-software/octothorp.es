@@ -23,6 +23,34 @@ import 'dotenv/config'
 import { pathToFileURL } from 'node:url'
 import { createSparqlClient, canonicalOrigin } from 'octothorpes'
 
+// A doubled scheme (`https://https://host`, `https://http://host`, ...) parses
+// as host `https`, so canonicalOrigin alone would plan a rename to
+// `https://https`. Repair, not retract (#364 ruling): strip the outer
+// scheme(s) until one remains, then canonicalize as usual.
+const DOUBLED_SCHEME = /^https?:\/\/(?=https?:\/\/)/i
+
+/** Strip every outer duplicated http(s) scheme. Pure. */
+export const repairDoubledScheme = (uri) => {
+  let out = uri
+  while (DOUBLED_SCHEME.test(out)) out = out.replace(DOUBLED_SCHEME, '')
+  return out
+}
+
+/**
+ * The canonical target for an origin spelling. Throws rather than return a
+ * target whose host is a bare scheme name (`https://https`), so the planner
+ * can never emit one.
+ * @param {string} uri
+ * @returns {string}
+ */
+export const originTarget = (uri) => {
+  const target = canonicalOrigin(repairDoubledScheme(uri))
+  if (/^https?:\/\/https?(:\d+)?\/?$/i.test(target)) {
+    throw new Error(`refusing scheme-name host target "${target}" for "${uri}"`)
+  }
+  return target
+}
+
 /**
  * Every octo:Origin whose spelling isn't canonical, with triple counts.
  * @param {{queryArray: Function}} sparql
@@ -39,9 +67,9 @@ export const planCanonicalizeOrigins = async (sparql, { log = console.log } = {}
   for (const uri of origins) {
     let canonical
     try {
-      canonical = canonicalOrigin(uri)
+      canonical = originTarget(uri)
     } catch (e) {
-      log(`  skipping unparseable origin: ${uri}`)
+      log(`  skipping unparseable origin: ${uri} (${e.message})`)
       continue
     }
     if (canonical === uri) continue

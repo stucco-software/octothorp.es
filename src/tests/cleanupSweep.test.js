@@ -9,6 +9,7 @@ import {
   toSparqlRegexSource, iriMatchExpr, nodesQuery, tripleCountQuery, reifierCountQuery, retractUpdates,
   selectRulesets, parseCutoff, staleCandidatesQuery, classifyHarvest, diffSize, runPatternRuleset,
 } from '../../scripts/cleanup-sweep/rulesets.js'
+import { repairDoubledScheme, originTarget, planCanonicalizeOrigins } from '../../scripts/canonicalize-origins.js'
 
 const I = 'http://localhost:5173/'
 
@@ -190,5 +191,45 @@ describe('runPatternRuleset', () => {
     const r = await runPatternRuleset(rs, { sparql, write: true, log: quiet })
     expect(r).toMatchObject({ before: 0, after: null })
     expect(sparql.updates).toHaveLength(0)
+  })
+})
+
+describe('origins: doubled-scheme repair (#364 ruling)', () => {
+  it.each([
+    ['https://https://wwo25.fauxtrots.com', 'https://wwo25.fauxtrots.com'],
+    ['https://https://256rem.xyz', 'https://256rem.xyz'],
+    ['https://http://host.example', 'http://host.example'],
+    ['http://https://host.example/', 'https://host.example/'],
+    ['HTTPS://https://https://host.example', 'https://host.example'],
+    ['https://host.example', 'https://host.example'],
+    ['https://host.example/https://x', 'https://host.example/https://x'],
+  ])('repairDoubledScheme(%s) -> %s', (uri, expected) => {
+    expect(repairDoubledScheme(uri)).toBe(expected)
+  })
+  it.each([
+    ['https://https://wwo25.fauxtrots.com', 'https://wwo25.fauxtrots.com'],
+    ['https://https://256rem.xyz', 'https://256rem.xyz'],
+    ['https://https://www.host.example/', 'https://host.example'],
+    ['https://http://host.example', 'http://host.example'],
+  ])('originTarget(%s) -> %s', (uri, expected) => {
+    expect(originTarget(uri)).toBe(expected)
+  })
+  it('never returns a scheme-name host', () => {
+    expect(() => originTarget('https://https')).toThrow(/scheme-name host/)
+    expect(() => originTarget('https://https://')).toThrow()
+  })
+  it('plans doubled-scheme origins onto their real hosts, merging when the host exists', async () => {
+    const origins = ['https://https://wwo25.fauxtrots.com', 'https://https://256rem.xyz', 'https://256rem.xyz', 'https://ok.example']
+    const sparql = {
+      queryArray: async (q) => q.includes('octo:Origin')
+        ? { results: { bindings: origins.map((d) => ({ d: { value: d } })) } }
+        : { results: { bindings: [{ n: { value: '1' } }] } },
+    }
+    const { nonCanonical } = await planCanonicalizeOrigins(sparql, { log: () => {} })
+    expect(nonCanonical.map(({ uri, canonical, collides }) => ({ uri, canonical, collides }))).toEqual([
+      { uri: 'https://https://wwo25.fauxtrots.com', canonical: 'https://wwo25.fauxtrots.com', collides: false },
+      { uri: 'https://https://256rem.xyz', canonical: 'https://256rem.xyz', collides: true },
+    ])
+    for (const e of nonCanonical) expect(e.canonical).not.toMatch(/^https?:\/\/https?\/?$/)
   })
 })
