@@ -94,7 +94,7 @@ const SCHEMES = {
 // percent-encodes every character in this set as a side effect.
 // Harmonized values are untyped strings: an unvalidated one reaching
 // `<...>` in an UPDATE is a SPARQL injection, not just bad data.
-const IRI_ILLEGAL = /[\u0000- <>"{}|\\^`\u007F]/
+export const IRI_ILLEGAL = /[\u0000- <>"{}|\\^`\u007F]/
 
 /**
  * The one canonicalization function for reifier identity. Pure, frozen,
