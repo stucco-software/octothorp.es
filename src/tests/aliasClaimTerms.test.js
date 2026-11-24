@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 import { createSparqlClient, createIndexer } from 'octothorpes'
+import { typeRef, CLASS } from '../../packages/core/vocabulary.js'
 
 // #357: a pending octo:aliasClaim must keep the relationship terms the
 // claimant attached, so the reverse Alias minted when reciprocity completes
@@ -52,14 +53,16 @@ describe.skipIf(!reachable)('#357 reverse Alias carries the claim terms (live st
     expect(await aliasTerms(A, B)).toEqual([term('mirror'), term('persona')])
     expect(await claim(A, B)).toBe(0)
     expect(await claimRecords(A, B)).toBe(0)
-    // The completed relationship's terms exist as Terms.
-    expect(await count(`<${term('persona')}> a <${OCTO}Term>`)).toBe(1)
+    // The completed relationship's terms exist as Terms, typed the way the
+    // write path spells it (typeRef), with a first-wins usage date.
+    expect(await count(`<${term('persona')}> a ${typeRef(CLASS.Term)}`)).toBe(1)
+    expect(await count(`<${term('persona')}> <${OCTO}used> ?u`)).toBe(1)
   })
 
   it('pending claim terms publish nothing', async () => {
     await ingest(A, [{ type: 'alias', uri: B, terms: ['persona'] }])
     expect(await count(`?s <${P}> <${term('persona')}>`)).toBe(0)
-    expect(await count(`<${term('persona')}> a <${OCTO}Term>`)).toBe(0)
+    expect(await count(`<${term('persona')}> ?p ?o`)).toBe(0)
   })
 
   it('a pending re-index with changed terms replaces the claim terms', async () => {
