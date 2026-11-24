@@ -268,10 +268,10 @@ Things in the milestone that don't have a home yet.
 * [x] 345 - aliasing must be two-way or endorsed (hardening sprint, pre-270)
 * [ ] 339 - wildcard endorsement
 * [x] 336 - active mode doesn't bypass registration on HTTP /index
-* [ ] 357 - reciprocity-completed reverse Alias loses relationship terms until claimant re-indexes
+* [x] 357 - reciprocity-completed reverse Alias loses relationship terms until claimant re-indexes
 * [x] 358 - unescaped non-http link targets reach SPARQL verbatim
 * [x] 361 - bare-term hrefs minted terms as page IRIs; hashtag key now routes to literal reads
-* [ ] 364 - data cleanup retraction sweep script (five rulesets)
+* [x] 364 - data cleanup retraction sweep script (five rulesets); runs pending in 365
 * [ ] 365 - data cleanup mini epic: all cleanup runs on a staging copy of prod data, after functional issues close
 
 ### Memex-specific sub-group
