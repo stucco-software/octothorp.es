@@ -66,6 +66,32 @@ const SUBMISSION_TYPES = new Set([...Object.keys(subtypeMap), 'link', 'Link', 'b
 
 ////////// stateless exports (no deps, safe to export directly) //////////
 
+// The fresh side of the #322 diff, in readPageState's dialect: what the
+// write path stores for these octothorpes. A Link may have been promoted,
+// so it also vouches for a Backlink carrying the same terms. Pure; exported
+// for scripts/cleanup-sweep.js (#364), which diffs without re-indexing.
+export const freshPageState = (octothorpes) => {
+  const terms = new Set()
+  const mentions = new Map()
+  for (const o of octothorpes) {
+    if (typeof o === 'string') { terms.add(o); continue }
+    if (!o?.uri) continue
+    if (o.type === 'hashtag') { terms.add(deslash(o.uri)); continue }
+    if (o.type === 'endorse') continue
+    let obj
+    try { obj = canonical(deslash(o.uri)) } catch { continue }
+    const entry = mentions.get(obj) ?? { subtypes: new Set(), terms: new Set(), reifiers: new Map() }
+    const subtype = resolveSubtype(o.type)
+    for (const t of subtype === 'Link' ? ['Link', 'Backlink'] : [subtype]) {
+      entry.subtypes.add(t)
+      if (!entry.reifiers.has(t)) entry.reifiers.set(t, new Set())
+      for (const x of o.terms || []) { entry.reifiers.get(t).add(x); entry.terms.add(x) }
+    }
+    mentions.set(obj, entry)
+  }
+  return { terms, mentions }
+}
+
 export const isHarmonizerAllowed = (harmonizerUrl, requestingOrigin, { instance }) => {
   if (!harmonizerUrl.startsWith('http')) {
     return true
@@ -1204,31 +1230,6 @@ export const createIndexer = (deps) => {
     if (!skip) return null
     if (st.ring && originMode === 'origin') await joinWebring(subj, obj)
     return warning ? { warning } : {}
-  }
-
-  // The fresh side of the #322 diff, in readPageState's dialect: what the
-  // write path stores for these octothorpes. A Link may have been promoted,
-  // so it also vouches for a Backlink carrying the same terms.
-  const freshPageState = (octothorpes) => {
-    const terms = new Set()
-    const mentions = new Map()
-    for (const o of octothorpes) {
-      if (typeof o === 'string') { terms.add(o); continue }
-      if (!o?.uri) continue
-      if (o.type === 'hashtag') { terms.add(deslash(o.uri)); continue }
-      if (o.type === 'endorse') continue
-      let obj
-      try { obj = canonical(deslash(o.uri)) } catch { continue }
-      const entry = mentions.get(obj) ?? { subtypes: new Set(), terms: new Set(), reifiers: new Map() }
-      const subtype = resolveSubtype(o.type)
-      for (const t of subtype === 'Link' ? ['Link', 'Backlink'] : [subtype]) {
-        entry.subtypes.add(t)
-        if (!entry.reifiers.has(t)) entry.reifiers.set(t, new Set())
-        for (const x of o.terms || []) { entry.reifiers.get(t).add(x); entry.terms.add(x) }
-      }
-      mentions.set(obj, entry)
-    }
-    return { terms, mentions }
   }
 
   const handleWebring = async (s, friends, alreadyRing) => {
