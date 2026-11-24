@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createIndexer } from '../../packages/core/indexer.js'
+import { createDeleter } from '../../packages/core/deleter.js'
 import { mintReifierIri } from '../../packages/core/reifier.js'
 import { buildMultiPass, createQueryBuilders, mergeLinkTypes } from 'octothorpes'
 
@@ -12,6 +13,7 @@ const A = 'https://a.example/me'
 const B = 'https://b.example/me'
 const OCTO = 'https://vocab.octothorp.es#'
 const ALIAS = `${OCTO}Alias`
+const CLAIM = `${OCTO}aliasClaim`
 const rel = (s, o) => `<${s}> <${OCTO}octothorpes> <${o}> ~ <https://vocab.octothorp.es/r1/`
 
 // Minimal fake store: answers the ASKs the gate and handleMention make from a
@@ -39,7 +41,14 @@ const makeStore = (flags = {}) => {
     insert: vi.fn(async (t) => { inserts.push(t) }),
     query: vi.fn(async (t) => { updates.push(t) }),
     queryBoolean,
-    queryArray: vi.fn(async () => ({ results: { bindings: [] } })),
+    queryArray: vi.fn(async (q) => {
+      // #357: stored claim terms, answered for the claim record of flags.claim.
+      if (flags.claimTerms && q.includes('octo:claimTerm')) {
+        const rc = await mintReifierIri({ subject: flags.claim[0], predicate: CLAIM, object: flags.claim[1] })
+        if (q.includes(`<${rc}>`)) return { results: { bindings: flags.claimTerms.map((t) => ({ x: { type: 'uri', value: `${instance}~/${t}` } })) } }
+      }
+      return { results: { bindings: [] } }
+    }),
     instance,
   })
   return { indexer, inserts, updates, text: () => inserts.join('\n') }
@@ -131,6 +140,97 @@ describe('Alias consent gate (#345)', () => {
     const r = await st.indexer.ingestBlobject({ '@id': A, octothorpes: [{ type: 'alias', uri: B }] })
     expect(r.warnings).toHaveLength(1)
     expect(r.warnings[0]).toMatch(/Alias claim/)
+  })
+})
+
+describe('pending alias claim terms (#357)', () => {
+  beforeEach(() => vi.clearAllMocks())
+  const T = (name) => `${instance}~/${name}`
+
+  it('a pending claim with terms stores them on a claim record, unpublished', async () => {
+    const st = makeStore()
+    await st.indexer.handleMention(A, B, 'Alias', ['persona'])
+    const rc = await mintReifierIri({ subject: A, predicate: CLAIM, object: B })
+    const t = st.text()
+    expect(t).toContain(`<${A}> octo:aliasClaim <${B}> ~ <${rc}> {| octo:claimTerm <${T('persona')}> |} .`)
+    // Not a relationship edge to the term, and no Term node minted yet.
+    expect(t).not.toContain(`octo:octothorpes <${T('persona')}>`)
+    expect(t).not.toContain('rdf:type <octo:Term>')
+    expect(t).not.toContain(`<${ALIAS}>`)
+  })
+
+  it('a re-pended claim clears its previous terms first', async () => {
+    const st = makeStore()
+    await st.indexer.handleMention(A, B, 'Alias', ['persona'])
+    const rc = await mintReifierIri({ subject: A, predicate: CLAIM, object: B })
+    expect(st.updates.join("\n")).toContain(`DELETE WHERE { <${rc}> ?rp ?ro }`)
+  })
+
+  it('reciprocity mints the reverse Alias with the claimant terms and clears the record', async () => {
+    const st = makeStore({ claim: [B, A], claimTerms: ['persona', 'mirror'] })
+    await st.indexer.handleMention(A, B, 'Alias')
+    const reverse = await mintReifierIri({ subject: B, predicate: `${OCTO}octothorpes`, object: A, subtype: ALIAS })
+    const t = st.text()
+    const stmt = t.slice(t.indexOf(`~ <${reverse}>`)).split('|}')[0]
+    expect(stmt).toContain(`octo:octothorpes <${T('persona')}>`)
+    expect(stmt).toContain(`octo:octothorpes <${T('mirror')}>`)
+    // The terms become Terms now, and their usage is recorded once.
+    expect(t).toContain(`<${T('persona')}> rdf:type`)
+    const rc = await mintReifierIri({ subject: B, predicate: CLAIM, object: A })
+    const u = st.updates.join('\n')
+    expect(u).toContain(`<${T('persona')}> octo:used`)
+    expect(u).toContain(`DELETE WHERE { <${rc}> ?rp ?ro }`)
+  })
+})
+
+describe('pending claim re-index and retraction (#357)', () => {
+  const T = (name) => `${instance}~/${name}`
+  // A stored pending claim A -> B whose record holds `held` terms.
+  const pendingStore = (held) => {
+    const inserts = []
+    const queryArray = vi.fn(async (q) => {
+      if (q.includes('octo:claimTerm')) return { results: { bindings: held.map((t) => ({ x: { type: 'uri', value: T(t) } })) } }
+      if (q.includes(`SELECT ?p ?o ?ring WHERE { <${A}>`)) {
+        return { results: { bindings: [
+          { p: { value: `${OCTO}octothorpes` }, o: { type: 'uri', value: B } },
+          { p: { value: CLAIM }, o: { type: 'uri', value: B } },
+          { p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' }, o: { type: 'uri', value: 'octo:Page' } }, // stored as typeRef spells it
+        ] } }
+      }
+      return { results: { bindings: [] } }
+    })
+    const indexer = createIndexer({
+      insert: vi.fn(async (t) => { inserts.push(t) }),
+      query: vi.fn(async () => {}),
+      queryBoolean: vi.fn(async () => false),
+      queryArray,
+      instance,
+    })
+    return { indexer, claimWrites: () => inserts.filter((t) => t.includes('octo:aliasClaim')).length }
+  }
+  const ingest = (st, terms) => st.indexer.ingestBlobject({ '@id': A, octothorpes: [{ type: 'alias', uri: B, terms }] })
+
+  it('skips an unchanged pending claim (same terms)', async () => {
+    const st = pendingStore(['persona'])
+    const r = await ingest(st, ['persona'])
+    expect(st.claimWrites()).toBe(0)
+    expect(r.warnings[0]).toMatch(/recorded but not published/)
+  })
+
+  it('rewrites a pending claim whose terms changed', async () => {
+    const st = pendingStore(['persona'])
+    await ingest(st, ['mirror'])
+    expect(st.claimWrites()).toBe(1)
+  })
+
+  it('reconcile retracts a stale claim together with its record', async () => {
+    const updates = []
+    const d = createDeleter({ query: async (q) => { updates.push(q) }, queryArray: async () => ({ results: { bindings: [] } }), instance })
+    const stored = { terms: new Set(), mentions: new Map(), aliasClaims: new Set([B]), typed: true, meta: new Map() }
+    const r = await d.reconcilePage(A, { terms: [], mentions: new Map() }, { instance, stored })
+    const rc = await mintReifierIri({ subject: A, predicate: CLAIM, object: B })
+    expect(r.aliasClaims).toEqual([B])
+    expect(updates).toContain(`DELETE WHERE { <${rc}> ?rp ?ro }`)
   })
 })
 

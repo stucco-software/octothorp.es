@@ -4,8 +4,8 @@
 // All SPARQL functions are injected. Content parsing is
 // delegated to handlers resolved from the injected handlerRegistry.
 
-import { createDeleter } from './deleter.js'
-import { deslash, harmonizerId, termIri, userAgent } from './utils.js'
+import { createDeleter, aliasClaimRecordIri } from './deleter.js'
+import { deslash, harmonizerId, termIri, termName, userAgent } from './utils.js'
 import { normalizeAccess, checkAccessGate, termWritable, subjectSchemeMode } from './access.js'
 import { resolveDocumentRecordIri, annotatedRelationshipStatement, RELATIONSHIP_PREDICATE, unavailableFilter } from './queryBuilders.js'
 import { termLabelTriples } from './termLabels.js'
@@ -1085,15 +1085,25 @@ export const createIndexer = (deps) => {
     // write-policy decision (who consented), independent of how the
     // relationship is stored, so it survives the #270 storage rewrite.
     let aliasReciprocal = false
+    let claimTerms = []
     let aliasWarning = null
     if (mintBacklink && subtype === 'Alias') {
       const consent = await checkAliasConsent(subj, obj, originMode)
       if (consent === 'reciprocal') {
         aliasReciprocal = true
-        // Clear the other side's pending claim; it is now a full alias.
+        // #357: the other side's claim record holds the terms it attached to
+        // its alias; they go on the reverse Alias minted below.
+        const record = await aliasClaimRecordIri(obj, subj)
+        claimTerms = (await queryArray(`SELECT ?x WHERE { <${record}> octo:claimTerm ?x }`)).results.bindings
+          .map((b) => b.x?.value)
+          .filter((x) => x && termIri(base, termName(x)) === x)
+          .map(termName)
+        // Clear the other side's pending claim and its record; it is now a
+        // full alias.
         await query(`
           delete { <${obj}> octo:aliasClaim <${subj}> . }
-          where { <${obj}> octo:aliasClaim <${subj}> . }
+          where { <${obj}> octo:aliasClaim <${subj}> . } ;
+          DELETE WHERE { <${record}> ?rp ?ro }
         `)
       } else if (consent === 'pending') {
         mintBacklink = false
@@ -1105,7 +1115,14 @@ export const createIndexer = (deps) => {
         const fwd = await mintRelationship(subj, obj, 'Alias')
         const wasLive = await queryBoolean(`ask { <${fwd.reifier}> rdf:type <${fwd.subtypeIri}> . }`)
         if (wasLive) await deleter.revokeAlias(subj, obj)
-        blocks.push(`<${subj}> octo:aliasClaim <${obj}> .`)
+        // #357: terms ride on a claim record (annotation form, octo:claimTerm)
+        // so reciprocity can mint the completed alias with them. The previous
+        // record is cleared first; a term-less claim stays a plain triple.
+        const record = await aliasClaimRecordIri(subj, obj)
+        await query(`DELETE WHERE { <${record}> ?rp ?ro }`)
+        blocks.push(terms.length
+          ? `<${subj}> octo:aliasClaim <${obj}> ~ <${record}> {| ${terms.map((t) => `octo:claimTerm <${termIri(base, t)}>`).join(' ; ')} |} .`
+          : `<${subj}> octo:aliasClaim <${obj}> .`)
         aliasWarning = pendingAliasWarning(subj, obj, wasLive)
         console.log(`alias withheld: ${aliasWarning}`)
       }
@@ -1130,9 +1147,14 @@ export const createIndexer = (deps) => {
       if (aliasReciprocal) {
         // Reciprocity completes the alias both ways. The reverse reifier's
         // deterministic IRI is the duplicate guard: re-minting is a no-op.
+        // #357: it carries the terms from the other side's claim record, and
+        // those terms become Terms now (a pending claim never minted them).
         const reverse = await mintRelationship(obj, subj, 'Alias')
-        blocks.push(backlinkTriples(reverse, obj, subj, [], base))
-        firstWins.push(reifierCreatedUpdate(reverse.reifier, now))
+        const fresh = claimTerms.filter((t) => !terms.includes(t))
+        const freshExists = await Promise.all(fresh.map((t) => extantTerm(t, { instance: base })))
+        fresh.forEach((t, i) => { if (!freshExists[i]) blocks.push(termTriples(t, base, now)) })
+        blocks.push(backlinkTriples(reverse, obj, subj, claimTerms, base))
+        firstWins.push(reifierCreatedUpdate(reverse.reifier, now, claimTerms.map((t) => usageTriples(t, base, now).trim())))
       }
     }
 
@@ -1152,7 +1174,15 @@ export const createIndexer = (deps) => {
   // newly promotable Link, or a change in alias consent (#345). Returns null
   // when handleMention must run, else { warning } (a still-pending alias
   // warns the same way handleMention does).
-  const unchangedMention = async (subj, obj, subtype, terms, stored, originMode) => {
+  // #357: does the pending claim record hold exactly these terms?
+  const claimTermsMatch = async (subj, obj, terms, base) => {
+    const record = await aliasClaimRecordIri(subj, obj)
+    const held = new Set((await queryArray(`SELECT ?x WHERE { <${record}> octo:claimTerm ?x }`)).results.bindings.map((b) => b.x?.value))
+    const want = new Set(terms.map((t) => termIri(base, t)))
+    return held.size === want.size && [...want].every((x) => held.has(x))
+  }
+
+  const unchangedMention = async (subj, obj, subtype, terms, stored, originMode, base = instance) => {
     const st = stored.mentions.get(obj)
     if (!st || !stored.typed) return null
     const holds = (t) => st.reifiers.has(t) && terms.every((x) => st.reifiers.get(t).has(x))
@@ -1162,7 +1192,7 @@ export const createIndexer = (deps) => {
       const consent = await checkAliasConsent(subj, obj, originMode)
       skip = st.reifiers.has('Alias')
         ? consent === 'allowed' && holds('Alias')
-        : consent === 'pending' && stored.aliasClaims.has(obj)
+        : consent === 'pending' && stored.aliasClaims.has(obj) && await claimTermsMatch(subj, obj, terms, base)
       if (skip && consent === 'pending') warning = pendingAliasWarning(subj, obj, false)
     } else if (subtype === 'Backlink') {
       skip = holds('Backlink') || !(await checkEndorsement(subj, obj, subtype))
@@ -1347,7 +1377,7 @@ export const createIndexer = (deps) => {
         const subtype = resolveSubtype(octothorpe.type)
         let obj = null
         try { obj = canonical(octoURI) } catch {}
-        const result = (storedCanon && obj && await unchangedMention(subj, obj, subtype, terms, storedCanon, originMode))
+        const result = (storedCanon && obj && await unchangedMention(subj, obj, subtype, terms, storedCanon, originMode, base))
           || await handleMention(s, octoURI, subtype, terms, { instance: base, endorsed, schemes, claimed })
         if (result?.warning) warnings.push(result.warning)
       }
